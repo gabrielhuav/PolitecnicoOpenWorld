@@ -63,6 +63,31 @@ gradle/wrapper/gradle-wrapper.jar
 __pycache__/
 *.py[cod]
 
+# Scrape de voces SF: WAVs/fuentes pesadas (>>100MB). No borrar del disco; no subir a git.
+# Detalle también en PolitecnicoOpenWorld/tools/sf_voice_scrape/.gitignore
+PolitecnicoOpenWorld/tools/sf_voice_scrape/raw/
+PolitecnicoOpenWorld/tools/sf_voice_scrape/raw_yt/
+PolitecnicoOpenWorld/tools/sf_voice_scrape/raw_curated/
+PolitecnicoOpenWorld/tools/sf_voice_scrape/raw_phrases_v2/
+PolitecnicoOpenWorld/tools/sf_voice_scrape/extracted/
+PolitecnicoOpenWorld/tools/sf_voice_scrape/converted/
+PolitecnicoOpenWorld/tools/sf_voice_scrape/out_diarized/
+PolitecnicoOpenWorld/tools/sf_voice_scrape/out_phrases/
+PolitecnicoOpenWorld/tools/sf_voice_scrape/out_phrases_labeled/
+PolitecnicoOpenWorld/tools/sf_voice_scrape/out_short/
+PolitecnicoOpenWorld/tools/sf_voice_scrape/out/
+PolitecnicoOpenWorld/tools/sf_voice_scrape/out_curated/
+PolitecnicoOpenWorld/tools/sf_voice_scrape/REVIEW_MP3_TODOS/
+PolitecnicoOpenWorld/tools/sf_voice_scrape/candidates/
+PolitecnicoOpenWorld/tools/sf_voice_scrape/curated_wav/
+PolitecnicoOpenWorld/tools/sf_voice_scrape/_tmp*/
+PolitecnicoOpenWorld/tools/sf_voice_scrape/**/*.wav
+PolitecnicoOpenWorld/tools/sf_voice_scrape/**/*.webm
+PolitecnicoOpenWorld/tools/sf_voice_scrape/**/*.mp4
+PolitecnicoOpenWorld/tools/sf_voice_scrape/**/*.m4a
+# MP3 de review/scrape (no los BGM del juego)
+PolitecnicoOpenWorld/tools/sf_voice_scrape/**/*.mp3
+
 # MacOS adicional
 ._*
 .Spotlight-V100

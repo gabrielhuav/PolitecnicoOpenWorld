@@ -4,7 +4,31 @@
 > `PolitecnicoOpenWorld/README for IAS/SF_SPECIAL_VOICES_SFX.md`  
 > (pipeline completo, recetas, gotchas, backlog). Este README es solo la chuleta de tools.
 
-Pipeline to replace the single shared **`hadouken.ogg`** with **per-fighter special SFX**
+## Metodología v2 (frase-first) — preferida
+
+```bash
+# 1) Leer metodología + catálogo de frases canónicas
+#    tools/sf_voice_scrape/METODOLOGIA_FRASES.md
+#    tools/sf_voice_scrape/catalog_phrases_v2.json
+
+# 2) Scrapear CANDIDATOS (NO instala en assets)
+python PolitecnicoOpenWorld/tools/scrape_phrases_v2.py
+# Si YT pide login:
+python PolitecnicoOpenWorld/tools/scrape_phrases_v2.py --cookies-browser edge
+
+# 3) Revisar informe
+#    tools/sf_voice_scrape/candidates/FINDINGS_REPORT.md
+#    tools/sf_voice_scrape/candidates/<FIGHTER>/
+
+# 4) Solo tras aprobación del dueño → curate/install
+```
+
+**Canon clave:** Paparazzi 1 = `7Ug2kyQeRHQ` · Paparazzi 5 = `AEmVeK88HIs` ·  
+Señor Tienda = `gzXw_4kfZBo` (~24M) · playlist completa Paparazzi 1–20 en el JSON.
+
+---
+
+Pipeline legacy v1 to replace the single shared **`hadouken.ogg`** with **per-fighter special SFX**
 (`special_<sf_fighter_id_lower>.ogg`).
 
 ## What was scraped (deep X pass 2026-07-18)

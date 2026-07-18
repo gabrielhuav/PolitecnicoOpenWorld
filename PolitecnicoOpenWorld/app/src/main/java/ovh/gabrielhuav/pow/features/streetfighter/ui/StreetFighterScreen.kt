@@ -360,8 +360,9 @@ fun StreetFighterScreen(
                 )
             }
         }
-        // IA vs IA: botón "Salir" al menú de modos (sin controles táctiles de pelea)
-        if (!state.inCharacterSelect && state.aiVsAi && !state.showEndMenu) {
+        // IA vs IA: botón "Salir" al menú de modos (sin controles táctiles de pelea).
+        // Durante el AUTOJUEGO se oculta: ahí manda el botón DETENER de abajo.
+        if (!state.inCharacterSelect && state.aiVsAi && !state.showEndMenu && !state.gauntletRunning) {
             PowButton(
                 text = stringResource(R.string.sf_exit),
                 onClick = viewModel::backToCharacterSelect,
@@ -370,6 +371,36 @@ fun StreetFighterScreen(
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 16.dp)
                     .fillMaxWidth(0.36f),
+            )
+        }
+
+        // 🆕 AUTOJUEGO (gauntlet): progreso + DETENER mientras corre; reporte de assets al terminar.
+        if (state.gauntletRunning && !state.gauntletFinished) {
+            Column(
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = "AUTOJUEGO ${state.gauntletProgress}",
+                    color = Color(0xFFFFD54A),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                PowButton(
+                    text = stringResource(R.string.sf_gauntlet_stop),
+                    onClick = viewModel::stopGauntlet,
+                    color = Color(0xFF8B1538),
+                    modifier = Modifier.fillMaxWidth(0.32f),
+                )
+            }
+        }
+        if (state.gauntletFinished) {
+            GauntletReportOverlay(
+                progress = state.gauntletProgress,
+                report = state.gauntletReport,
+                path = state.gauntletReportPath,
+                onClose = viewModel::dismissGauntletReport,
             )
         }
 
@@ -491,6 +522,18 @@ fun StreetFighterScreen(
                                 pendingDifficulty = null
                             },
                             onMultiplayer = { showOnlineMenu = true },
+                            onGauntletAll = {
+                                sfMenu = false
+                                viewModel.startGauntletRoundRobin()
+                            },
+                            onGauntletArcade = {
+                                sfMenu = false
+                                viewModel.startGauntletArcade()
+                            },
+                            onGauntletShowcase = {
+                                sfMenu = false
+                                viewModel.startShowcase()
+                            },
                             onBack = onExitToMap,
                         )
                         // ARCADE: peleadór → Fácil/Medio/Difícil (día / noche / apocalipsis)
@@ -878,11 +921,84 @@ fun StreetFighterScreen(
 // ------------------------------------------------------------------
 
 @Composable
+private fun GauntletReportOverlay(
+    progress: String,
+    report: List<String>,
+    path: String?,
+    onClose: () -> Unit,
+) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color(0xF0101018)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = stringResource(R.string.sf_gauntlet_report_title),
+                color = Color(0xFFD4AF37),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "$progress · ${report.size}",
+                color = Color.White,
+                fontSize = 12.sp,
+            )
+            if (path != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = path,
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 10.sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            if (report.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.sf_gauntlet_no_issues),
+                    color = Color(0xFF8BC34A),
+                    fontSize = 13.sp,
+                )
+            } else {
+                report.forEach { line ->
+                    Text(
+                        text = "• $line",
+                        color = Color(0xFFFF8A80),
+                        fontSize = 11.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 2.dp, horizontal = 12.dp),
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            PowButton(
+                text = stringResource(R.string.sf_close),
+                onClick = onClose,
+                color = Color(0xFF1C4A6B),
+                modifier = Modifier.fillMaxWidth(0.5f),
+            )
+        }
+    }
+}
+
+@Composable
 private fun SfModeMenuOverlay(
     onArcade: () -> Unit,
     onPractice: () -> Unit,
     onAiVsAi: () -> Unit,
     onMultiplayer: () -> Unit,
+    onGauntletAll: () -> Unit,
+    onGauntletArcade: () -> Unit,
+    onGauntletShowcase: () -> Unit,
     onBack: () -> Unit,
 ) {
     Box(
@@ -938,6 +1054,28 @@ private fun SfModeMenuOverlay(
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            // 🆕 AUTOJUEGO: bots que recorren TODAS las peleas y reportan assets rotos (grabación/QA).
+            PowButton(
+                text = stringResource(R.string.sf_gauntlet_all),
+                onClick = onGauntletAll,
+                color = Color(0xFF6A1B9A),
+                modifier = Modifier.fillMaxWidth(0.68f),
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            PowButton(
+                text = stringResource(R.string.sf_gauntlet_arcade),
+                onClick = onGauntletArcade,
+                color = Color(0xFF6A1B9A),
+                modifier = Modifier.fillMaxWidth(0.68f),
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            PowButton(
+                text = stringResource(R.string.sf_gauntlet_showcase),
+                onClick = onGauntletShowcase,
+                color = Color(0xFF6A1B9A),
+                modifier = Modifier.fillMaxWidth(0.68f),
             )
             Spacer(modifier = Modifier.height(8.dp))
             PowButton(
@@ -1018,6 +1156,16 @@ private fun CharacterSelectOverlay(
                 color = Color.White.copy(alpha = 0.6f),
                 fontSize = 11.sp,
             )
+            // 🆕 Botón de CONFIRMAR el peleador resaltado (antes solo confirmaba el 2.º toque).
+            focusedId?.let { fid ->
+                Spacer(modifier = Modifier.height(8.dp))
+                PowButton(
+                    text = stringResource(R.string.sf_confirm),
+                    onClick = { onSelect(fid) },
+                    color = Color(0xFFB8143A),
+                    modifier = Modifier.fillMaxWidth(0.5f),
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 onArcade?.let {
                     Spacer(modifier = Modifier.height(6.dp))
@@ -2035,6 +2183,22 @@ private fun DrawScope.drawScene(
         drawFontText(ctx, theme, hud, roundBannerText, (SfConstants.SCENE_WIDTH - rw) / 2f, 76f, 2f)
         val fw = fightBannerText.length * 12f * 1.2f
         drawFontText(ctx, theme, hud, fightBannerText, (SfConstants.SCENE_WIDTH - fw) / 2f, 104f, 1.2f)
+    }
+
+    // ---- 🆕 Subtítulo del special (frase del personaje, fuente arcade POW, pequeño) ----
+    val sub = state.specialSubtitleHud
+    if (!sub.isNullOrBlank() &&
+        state.specialSubtitleUntilMs > 0L &&
+        state.gameTimeMs < state.specialSubtitleUntilMs
+    ) {
+        val hud = images.getValue(theme.hudImage)
+        val sizeMul = 0.85f
+        val textW = sub.length * 12f * sizeMul
+        val x = (SfConstants.SCENE_WIDTH - textW) / 2f
+        // Caja inferior tipo SF (sombra + texto HUD)
+        val y = SfConstants.SCENE_HEIGHT - 28f
+        drawFontText(ctx, theme, hud, sub, x + 1f, y + 1f, sizeMul) // sombra
+        drawFontText(ctx, theme, hud, sub, x, y, sizeMul)
     }
 }
 

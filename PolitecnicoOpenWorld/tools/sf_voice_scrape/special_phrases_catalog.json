@@ -1,0 +1,238 @@
+{
+  "version": 1,
+  "notes": "Frase ORIGINAL en español (es). Inglés (en) es traducción para i18n del juego. LÁZARO excluido (no implementar). Canon especial: Prankedy, Pap1, Pap5, Señor Tienda, Rey Grupero, Llorona. Presidenta = Claudia Sheinbaum (mujer).",
+  "exclude_fighters": ["LAZARO"],
+  "phrases": {
+    "PRANKEDY": {
+      "tier": "canon_special",
+      "phrase_es": "¡Ey, mira esto!",
+      "phrase_en": "Hey, check this out!",
+      "phrase_hud": "EY MIRA ESTO",
+      "intent": "Voz Prankedy (principal) en best-of tienda YT FdUblky8bV4 + locales.",
+      "source_priority": [
+        "YT https://www.youtube.com/watch?v=FdUblky8bV4",
+        "raw_yt/TIENDA_bestof_FdUblky8bV4.wav",
+        "nuevoMaterial17JUL/Prankedy*.mp3"
+      ],
+      "youtube_ids": ["FdUblky8bV4"],
+      "gender": "male"
+    },
+    "PAPARAZZI_1": {
+      "tier": "canon_special",
+      "phrase_es": "¡Paparazzi, paparazzi!",
+      "phrase_en": "Paparazzi, paparazzi!",
+      "phrase_hud": "PAPARAZZI PAPARAZZI",
+      "intent": "Energía oficial Paparazzi 1",
+      "source_priority": ["PAPARAZZI 1!! BROMA.mp3", "YT 7Ug2kyQeRHQ"],
+      "needs_official_yt": false,
+      "gender": "male"
+    },
+    "PAPARAZZI_5": {
+      "tier": "canon_special",
+      "phrase_es": "¡Cámara, cámara!",
+      "phrase_en": "Camera, camera!",
+      "phrase_hud": "CAMARA CAMARA",
+      "intent": "Energía oficial Paparazzi 5 (DISTINTO de Pap1). Fuente canónica: YT AEmVeK88HIs.",
+      "source_priority": [
+        "YT https://www.youtube.com/watch?v=AEmVeK88HIs",
+        "raw_yt/PAPARAZZI_5_AEmVeK88HIs.wav",
+        "nuevoMaterial17JUL/*PAPARAZZI*5*"
+      ],
+      "needs_official_yt": false,
+      "youtube_ids": ["AEmVeK88HIs"],
+      "gender": "male"
+    },
+    "SENOR_TIENDA": {
+      "tier": "canon_special",
+      "phrase_es": "¡Fuera de mi tienda!",
+      "phrase_en": "Get out of my store!",
+      "phrase_hud": "FUERA DE MI TIENDA",
+      "intent": "Voz del SEÑOR (2ª principal) en best-of YT FdUblky8bV4. Prioridad sobre Prankedy.",
+      "source_priority": [
+        "YT https://www.youtube.com/watch?v=FdUblky8bV4",
+        "raw_yt/TIENDA_bestof_FdUblky8bV4.wav"
+      ],
+      "youtube_ids": ["FdUblky8bV4"],
+      "needs_official_yt": false,
+      "gender": "male"
+    },
+    "REY_GRUPERO": {
+      "tier": "canon_special",
+      "phrase_es": "¡Que suene la cumbia!",
+      "phrase_en": "Crank up the cumbia!",
+      "phrase_hud": "QUE SUENE LA CUMBIA",
+      "intent": "Grito/fiesta grupero. Fuente: YT VPu6zFKcb7Y.",
+      "source_priority": [
+        "YT https://www.youtube.com/watch?v=VPu6zFKcb7Y",
+        "raw_yt/REY_GRUPERO_VPu6zFKcb7Y.wav",
+        "nuevoMaterial17JUL/REY_GRUPERO*"
+      ],
+      "needs_official_yt": false,
+      "youtube_ids": ["VPu6zFKcb7Y"],
+      "gender": "male"
+    },
+    "LA_LLORONA": {
+      "tier": "canon_special",
+      "phrase_es": "¡Ay, mis hijos!",
+      "phrase_en": "Oh, my children!",
+      "phrase_hud": "AY MIS HIJOS",
+      "intent": "Lamento clásico de la Llorona",
+      "source_priority": ["llorona_ay", "YT ZL0LtvysugY"],
+      "needs_official_yt": false,
+      "gender": "female"
+    },
+    "LA_PRESIDENTA": {
+      "tier": "canon_voice",
+      "phrase_es": "¡Buenos días!",
+      "phrase_en": "Good morning!",
+      "phrase_hud": "BUENOS DIAS",
+      "intent": "Voz de Claudia Sheinbaum (mujer). NUNCA voz masculina.",
+      "source_priority": ["mañanera oficial Claudia"],
+      "needs_official_yt": true,
+      "gender": "female",
+      "gap": "Clips actuales pueden ser hombre; requiere voz femenina verificada"
+    },
+    "LA_TZITZIMIME": {
+      "tier": "generic_sfx",
+      "phrase_es": "¡Devoren el cielo!",
+      "phrase_en": "Devour the sky!",
+      "phrase_hud": "DEVOREN EL CIELO",
+      "intent": "SFX genérico de horror cósmico. NO scrapear voz. Frase inventada (no del vídeo). Fuentes SFX opcionales: YT Q95g6d-5UgA, cv7epf6iY3U.",
+      "speech_from_scrape": false,
+      "phrase_origin": "original_invented",
+      "youtube_ids": ["Q95g6d-5UgA", "cv7epf6iY3U"],
+      "gender": "neutral"
+    },
+    "YOALLI_EHECATL": {
+      "tier": "generic_sfx",
+      "phrase_es": "¡Soplo del anahuac!",
+      "phrase_en": "Breath of Anahuac!",
+      "phrase_hud": "SOPLO DEL ANAHUAC",
+      "intent": "SFX genérico de viento/místico. NO scrapear voz. Frase inventada (no del vídeo). Fuentes SFX opcionales: YT Ye4PRm-kebc, d1M7uqfsofs.",
+      "speech_from_scrape": false,
+      "phrase_origin": "original_invented",
+      "youtube_ids": ["Ye4PRm-kebc", "d1M7uqfsofs"],
+      "gender": "neutral"
+    },
+    "CHARRO_NEGRO": {
+      "tier": "canon_special",
+      "phrase_es": "¡El nahual despierta!",
+      "phrase_en": "The nahual awakens!",
+      "phrase_hud": "EL NAHUAL DESPIERTA",
+      "intent": "SFX/grito nahual (Charro Negro). Fuentes: YT 0bYg6FmCjhE, xlYlM4WgqYU, DK5ZgKoM8Xw (Sonido Nahual).",
+      "source_priority": [
+        "YT https://www.youtube.com/watch?v=0bYg6FmCjhE",
+        "YT https://www.youtube.com/watch?v=xlYlM4WgqYU",
+        "YT https://www.youtube.com/watch?v=DK5ZgKoM8Xw",
+        "raw_yt/CHARRO_NEGRO_*.wav",
+        "nuevoMaterial17JUL/CHARRO_NEGRO*"
+      ],
+      "needs_official_yt": false,
+      "youtube_ids": ["0bYg6FmCjhE", "xlYlM4WgqYU", "DK5ZgKoM8Xw"],
+      "youtube_id": "0bYg6FmCjhE",
+      "gender": "male"
+    },
+    "ESCOMBOY": {
+      "tier": "generic_student",
+      "phrase_es": "¡Vamos ESCOM!",
+      "phrase_en": "Let's go ESCOM!",
+      "phrase_hud": "VAMOS ESCOM",
+      "intent": "Grito estudiante genérico",
+      "gender": "male"
+    },
+    "ESCOMGIRL": {
+      "tier": "generic_student",
+      "phrase_es": "¡No te confíes!",
+      "phrase_en": "Don't get cocky!",
+      "phrase_hud": "NO TE CONFIES",
+      "intent": "Grito estudiante genérico",
+      "gender": "female"
+    },
+    "ROBOT": {
+      "tier": "generic_robot",
+      "phrase_es": "Sistema activado",
+      "phrase_en": "System activated",
+      "phrase_hud": "SISTEMA ACTIVADO",
+      "intent": "SFX robótico / voz sintética",
+      "gender": "neutral"
+    },
+    "PARAMEDICO_CRUZ_ROJA": {
+      "tier": "canon_voice",
+      "phrase_es": "¡Urgencias!",
+      "phrase_en": "Emergency!",
+      "phrase_hud": "URGENCIAS",
+      "intent": "Voz Cruz Roja. Fuente YT l89qiD3aqVQ — usar solo DESPUÉS del minuto 1 (0–60s irrelevante).",
+      "source_priority": [
+        "YT https://www.youtube.com/watch?v=l89qiD3aqVQ",
+        "raw_yt/PARAMEDICO_CRUZ_ROJA_l89qiD3aqVQ.wav"
+      ],
+      "youtube_ids": ["l89qiD3aqVQ"],
+      "skip_before_sec": 60,
+      "gender": "neutral"
+    },
+    "PARAMEDICO": {
+      "tier": "generic_medic",
+      "phrase_es": "¡A salvar vidas!",
+      "phrase_en": "Saving lives!",
+      "phrase_hud": "A SALVAR VIDAS",
+      "intent": "Grito medic genérico",
+      "gender": "neutral"
+    },
+    "POLICIA_CDMX": {
+      "tier": "canon_voice",
+      "phrase_es": "¡Alto, policía!",
+      "phrase_en": "Freeze, police!",
+      "phrase_hud": "ALTO POLICIA",
+      "intent": "Voz policial MUJER (pitch alto) del vídeo ASgdaRKHon8. No granaderos.",
+      "source_priority": [
+        "YT https://www.youtube.com/watch?v=ASgdaRKHon8",
+        "raw_yt/POLICIA_CDMX_ASgdaRKHon8.wav"
+      ],
+      "youtube_ids": ["ASgdaRKHon8"],
+      "gender": "female"
+    },
+    "POLICIA_CDMX_HOMBRE": {
+      "tier": "canon_voice",
+      "phrase_es": "¡Deténgase!",
+      "phrase_en": "Stop right there!",
+      "phrase_hud": "DETENGASE",
+      "intent": "Voz policial HOMBRE (pitch bajo) del mismo vídeo ASgdaRKHon8. No granaderos.",
+      "source_priority": [
+        "YT https://www.youtube.com/watch?v=ASgdaRKHon8",
+        "raw_yt/POLICIA_CDMX_ASgdaRKHon8.wav"
+      ],
+      "youtube_ids": ["ASgdaRKHon8"],
+      "gender": "male"
+    },
+    "POLICIA_GRANADERO_HOMBRE": {
+      "tier": "canon_band_sfx",
+      "phrase_es": "¡A la carga!",
+      "phrase_en": "Charge!",
+      "phrase_hud": "A LA CARGA",
+      "intent": "SFX banda de guerra — 3 de diana (solo granaderos). YT 5fN8KeZ2JLA.",
+      "source_priority": ["YT https://www.youtube.com/watch?v=5fN8KeZ2JLA", "raw_yt/GRANADEROS_3_diana_5fN8KeZ2JLA.wav"],
+      "youtube_ids": ["5fN8KeZ2JLA"],
+      "gender": "male"
+    },
+    "POLICIA_GRANADERO_MUJER": {
+      "tier": "canon_band_sfx",
+      "phrase_es": "¡Formen filas!",
+      "phrase_en": "Fall in line!",
+      "phrase_hud": "FORMEN FILAS",
+      "intent": "SFX banda de guerra — 3 de diana (solo granaderos). YT 5fN8KeZ2JLA.",
+      "source_priority": ["YT https://www.youtube.com/watch?v=5fN8KeZ2JLA", "raw_yt/GRANADEROS_3_diana_5fN8KeZ2JLA.wav"],
+      "youtube_ids": ["5fN8KeZ2JLA"],
+      "gender": "female"
+    },
+    "GRANADERO": {
+      "tier": "canon_band_sfx",
+      "phrase_es": "¡Toque de diana!",
+      "phrase_en": "Diana call!",
+      "phrase_hud": "TOQUE DE DIANA",
+      "intent": "SFX banda de guerra — 3 de diana (solo granaderos). YT 5fN8KeZ2JLA.",
+      "source_priority": ["YT https://www.youtube.com/watch?v=5fN8KeZ2JLA", "raw_yt/GRANADEROS_3_diana_5fN8KeZ2JLA.wav"],
+      "youtube_ids": ["5fN8KeZ2JLA"],
+      "gender": "male"
+    }
+  }
+}

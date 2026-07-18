@@ -651,6 +651,14 @@
     <string name="sf_mode_practice">PRACTICE</string>
     <string name="sf_mode_ai_vs_ai">AI VS AI</string>
     <string name="sf_mode_ai_vs_ai_desc">CPU vs CPU at NIGHTMARE difficulty (for recording)</string>
+    <string name="sf_gauntlet_all">Autoplay: everyone vs everyone</string>
+    <string name="sf_gauntlet_arcade">Autoplay: arcade (rotating)</string>
+    <string name="sf_gauntlet_showcase">Showcase: animations and sounds</string>
+    <string name="sf_confirm">Confirm</string>
+    <string name="sf_gauntlet_stop">Stop</string>
+    <string name="sf_gauntlet_report_title">Autoplay report</string>
+    <string name="sf_gauntlet_no_issues">No issues detected.</string>
+    <string name="sf_close">Close</string>
     <string name="sf_ai_vs_ai_pick_a">Pick fighter 1 (AI)</string>
     <string name="sf_ai_vs_ai_pick_b">Pick fighter 2 (AI)</string>
     <string name="sf_exit">Exit</string>

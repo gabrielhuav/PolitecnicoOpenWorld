@@ -6,6 +6,25 @@
 > CRLF, Read para verificar). Los BUGS del modo (stun-lock, revancha, servidor LAN) viven en
 > `PENDIENTES_SF_2026-07-16.md` y NO dependen de esto.
 
+## Fix 2026-07-18g (Claude) — regresiones de IA/input
+
+- `isAnimationCompleted` (VM) ahora da por terminada la animación al llegar al último frame,
+  no solo con el frame `-1`. Corrige que el JUGADOR quedara atascado en ARCADE (estudiantes
+  ALPHA sin `-1`) y que la CPU se congelara. No afecta animaciones bien formadas.
+- Watchdog ofensivo de la CPU cubre cualquier distancia (antes solo `<150 px`): fuerza
+  acercarse (lejos) o atacar/clinch (en rango) → IA vs IA ya no "camina y se mira".
+- Agresividad fina de AVANZADA/PESADILLA: afinar contra grabación IA vs IA (no a ciegas).
+
+## Fix 2026-07-18h (Claude) — red de seguridad + autojuego (gauntlet)
+
+- `watchStuck`: desatasca estados transitorios cuya animación no termina (asset sin frame -1) →
+  arregla "se pegan y no se mueven"; registra el asset roto. `watchStalemate`: detecta peleas
+  sin daño >12 s y pica a la IA. Log en logcat `SF-DIAG` + `diagnosticsReport()`.
+- Autojuego (gauntlet): `startGauntletRoundRobin` (todos vs todos) y `startGauntletArcade`
+  (escalera en orden rotando peleador). Encadena peleas IA vs IA (tope 60 s c/u), progreso +
+  DETENER, y al final escribe un .txt en getExternalFilesDir + reporte en pantalla. Sirve para
+  cazar assets rotos: cuando salga el reporte, corregir en la siguiente pasada.
+
 ## Objetivo
 
 Modo arcade estilo Street Fighter, 100% POW: quitar copyright, **todos los personajes y

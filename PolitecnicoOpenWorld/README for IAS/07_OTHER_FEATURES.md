@@ -425,7 +425,12 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
       - Núcleo unificado `smartCpuDecision` (AVANZADA/PESADILLA).
       - Si aún falla en dispositivo: `_ARCHIVO/PROMPT_traspaso_IA_CPU_2026-07-18.md`.
 - **🆕 Especiales por personaje (voces scrapeadas + curadas, 2026-07-18f/g) — 21/21 OK:**
-    - Pipeline: X (`scrape_sf_voices.py`) + **YouTube** (`scrape_sf_voices_youtube.py` / yt-dlp)
+    - **2026-07-18 voces v2:** diarización de hablantes (`diarize_special_voices.py`), best-of
+      tienda `FdUblky8bV4` (Señor rank1 / Prankedy rank0), 3 de diana granaderos, policías
+      H/M en `ASgdaRKHon8`, Cruz Roja `l89qiD3aqVQ` (t≥60s), Charro nahual, Rey `VPu6zFKcb7Y`.
+      Salida nueva: `tools/sf_voice_scrape/out_diarized/`. Subtítulos: `SfSpecialPhrases` +
+      `emitSpecialVoice`. **Deepfake lab NO implementado.** Pap5 `AEmVeK88HIs` age-gate.
+    - Pipeline legacy: X (`scrape_sf_voices.py`) + **YouTube** (`scrape_sf_voices_youtube.py` / yt-dlp)
       + **curación pelea** `curate_sf_special_sfx.py --install` → `special_<fighter>.ogg` (21).
     - Curación: gritos/frases de broma (Prankedy, Paparazzi, Señor Tienda), speech Presidenta,
       **horror** (Llorona “Ay mis hijos”, Tzitzimime, Charro, Yoalli), radio policía, medic Cruz Roja.
@@ -454,6 +459,34 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   - Si está en borde del stage → **siempre** camina hacia el rival.
   - AVANZADA/PESADILLA: special ~4–12% (antes mucho más); bonus solo cerca y raro.
   - Presión cuerpo a cuerpo (forward + combos). IA vs IA se ve pelear; vs Presidenta se puede ganar.
+- **🆕 FIX regresiones IA/input (2026-07-18g, Claude):** arregla el downgrade reportado tras 18i.
+  - **Jugador atascado en arcade / CPU congelada:** `isAnimationCompleted` ahora también da por
+    terminada la animación al llegar al ÚLTIMO frame, no solo con el frame `-1`. Varias hojas
+    ALPHA/compartidas (estudiantes del arcade) no traían el `-1` y `withAnimationFrame` hacía wrap
+    a 0 → bucle infinito → estado atascado. No acorta animaciones bien formadas (su `-1` es el último).
+  - **IA vs IA dejaba de pelear:** el watchdog ofensivo ya no se limita a `dist < 150`; a cualquier
+    distancia, si pasa demasiado tiempo sin ofensiva fuerza **acercarse** (lejos) o **atacar/clinch**
+    (en rango). Se acabó el "caminan y se miran".
+  - Sin tocar red/online; MVVM y CRLF conservados. Tuning fino de agresividad: mejor con grabación IA vs IA.
+- **🆕 RED DE SEGURIDAD + DIAGNÓSTICO (2026-07-18h, Claude):** `watchStuck` desatasca cualquier
+  estado transitorio cuya animación no termine (asset sin frame `-1`) sacándolo a IDLE y lo
+  registra; `watchStalemate` detecta peleas sin daño >12 s y pica a la IA. Los problemas se
+  loguean en logcat (tag `SF-DIAG`) y en `diagnosticsReport()`.
+- **🆕 AUTOJUEGO / GAUNTLET (2026-07-18h, Claude):** en el menú de modos, dos bots CPU vs CPU que
+  recorren peleas encadenadas para PROBAR todos los peleadores y detectar assets rotos:
+  **"Todos vs todos"** (round-robin, `startGauntletRoundRobin`) y **"Arcade (rotando)"**
+  (`startGauntletArcade`: la escalera en orden rotando el peleador). Tope de 60 s por pelea
+  (auto-avanza y loguea TIMEOUT), barra de progreso + botón DETENER, y al terminar escribe un
+  `.txt` en `getExternalFilesDir` y muestra el reporte en pantalla (`GauntletReportOverlay`).
+  strings `sf_gauntlet_*`/`sf_close` ES+EN.
+- **🆕 SHOWCASE de assets (2026-07-18h, Claude):** tercer botón `startShowcase`: cada peleador
+  recorre por SCRIPT todas sus animaciones (caminar/saltar/agachar/6 golpes/especial L-M-F/poderes)
+  reproduciendo sonidos, y chequea que exista `special_<id>.ogg`. Para QA visual/auditiva; los
+  assets rotos los caza `watchStuck`. PENDIENTE (para Fable): que cubra TODAS las animaciones
+  (incluidas HURT/KO/turns, no alcanzables por input simple) y verifique TODOS los SFX.
+- **🆕 Botón CONFIRMAR en el selector (2026-07-18h, Claude):** `CharacterSelectOverlay` ahora
+  muestra un botón explícito para confirmar el peleador resaltado (antes solo el 2.º toque).
+  string `sf_confirm` ES+EN.
 - **🆕 MODO ARCADE POW — escalera de 11 peleas (2026-07-17):** botón **ARCADE** en el selector.
   El jugador elige uno de los 3 estudiantes DESBLOQUEADOS (ESCOMBOY/ESCOMGIRL/ROBOT) + dificultad
   base; pelea una escalera FIJA (`SfArcadeLadder.build`): 1-2 los otros 2 estudiantes (azar), 3-5

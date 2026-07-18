@@ -71,10 +71,15 @@
 - **Roster arcade:** 18 dedicados. **NO** arcade: Lázaro / Granadero genérico / Paramédico
   genérico (alpha+shared).
 - **Gama baja:** tick ~30 fps, atlas ≤2048, thumbs, CARGANDO, sesión arcade al pausar.
-- **SFX especiales:** 21/21 `special_*.ogg` — **`SF_SPECIAL_VOICES_SFX.md`**. `hadouken` fallback.
+- **SFX especiales:** 21/21 en assets (pack viejo). **Nueva pasada diarizada** en
+  `tools/sf_voice_scrape/out_diarized/` + catálogo `DATA/special_phrases.json` + subtítulos HUD
+  (`emitSpecialVoice`). Fuentes YT y links: **`SF_SPECIAL_VOICES_SFX.md`** (2026-07-18).
+  **Deepfake lab: NO hecho.** Pap5 oficial age-gate pendiente. Lázaro sin frase special.
 - **Presidenta** ≤1/4 vida → meta real a **Yoalli** (50% HP).
 - **IA 2026-07-18i:** reescritura (clinch break, mundo-space, smartCpuDecision, watchdog).
   Si en dispositivo aún falla: **`_ARCHIVO/PROMPT_traspaso_IA_CPU_2026-07-18.md`**.
+  Handoff Fable: **`_ARCHIVO/PROMPT_traspaso_Fable_2026-07-18_voces.md`**
+  (**prioridad = IA quietos/mismo ataque + Showcase**; voces solo contexto al final).
 
 ### Docs de trabajo / Working docs (no son 00–09)
 
@@ -85,13 +90,13 @@
 | **`SF_STAGES_MAPS_UNLOCK.md`** | **16 mapas × 3 luces, peleadór→hogar (tabla dueño), desbloqueos MP.** |
 | `AUDIT_SF_MULTIPLAYER.md` | Multijugador 1v1: protocolo, server `MultiplayerSF/`, BT/LAN. |
 | `ASSETS_STREETFIGHTER_MIGRACION.md` | Pipeline assets pelea (JSON, pack, migración SF→POW). |
-| **`SF_SPECIAL_VOICES_SFX.md`** | Voces/SFX de especial por peleadór (scrape, curación, backlog). |
+| **`SF_SPECIAL_VOICES_SFX.md`** | Voces/SFX: diarización, YT ya en `raw_yt/`, `out_diarized/`, subtítulos, backlog Pap5/deepfake. |
 | `GUIA_regeneracion_sprites_croma.md` | Regenerar sprites croma pelea+mundo. |
 | `GUIA_generacion_assets_SF.md` | Guía manual de generación de assets. |
 | `NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |
 | `CHECKPOINT_SENIOR_refactor.md` | Receta del patrón manager/Hilt/detekt (referencia). |
 | `CAMPAIGN/` | Guion Modo Historia (misiones 1–3 + side). |
-| `_ARCHIVO/` | Histórico + **`PROMPT_traspaso_IA_CPU_2026-07-18.md`** (Claude 4.8 / IA pelea). |
+| `_ARCHIVO/` | Histórico + prompts: **`PROMPT_traspaso_Fable_2026-07-18_voces.md`** (Fable: **1º IA+Showcase**, 2º contexto voces), `PROMPT_traspaso_IA_CPU_2026-07-18.md`. |
 
 ---
 

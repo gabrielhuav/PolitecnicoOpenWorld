@@ -653,6 +653,14 @@
     <string name="sf_mode_practice">PRÁCTICA</string>
     <string name="sf_mode_ai_vs_ai">IA VS IA</string>
     <string name="sf_mode_ai_vs_ai_desc">CPU vs CPU a dificultad PESADILLA (para grabar)</string>
+    <string name="sf_gauntlet_all">Autojuego: todos vs todos</string>
+    <string name="sf_gauntlet_arcade">Autojuego: arcade (rotando)</string>
+    <string name="sf_gauntlet_showcase">Showcase: animaciones y sonidos</string>
+    <string name="sf_confirm">Confirmar</string>
+    <string name="sf_gauntlet_stop">Detener</string>
+    <string name="sf_gauntlet_report_title">Reporte del autojuego</string>
+    <string name="sf_gauntlet_no_issues">Sin problemas detectados.</string>
+    <string name="sf_close">Cerrar</string>
     <string name="sf_ai_vs_ai_pick_a">Elige al peleador 1 (IA)</string>
     <string name="sf_ai_vs_ai_pick_b">Elige al peleador 2 (IA)</string>
     <string name="sf_exit">Salir</string>

@@ -79,6 +79,14 @@ data class StreetFighterState(
     // táctil del jugador. Solo offline (grabación/espectáculo). startAiVsAi lo pone true.
     val aiVsAi: Boolean = false,
 
+    // 🆕 AUTOJUEGO (gauntlet): un bot recorre muchas peleas IA vs IA seguidas para probar TODOS
+    // los peleadores y detectar assets rotos (atascos/estancamientos). Ver startGauntlet* en el VM.
+    val gauntletRunning: Boolean = false,            // hay un gauntlet en curso
+    val gauntletProgress: String = "",               // "12/306" (peleas hechas/total)
+    val gauntletFinished: Boolean = false,           // terminó → mostrar reporte
+    val gauntletReport: List<String> = emptyList(),  // problemas detectados
+    val gauntletReportPath: String? = null,          // ruta del .txt escrito
+
     // ─── 🆕 MODO ARCADE (escalera de 11 peleas, offline; ver SfArcadeLadder) ───
     // Todos los personajes/mapas empiezan bloqueados y se desbloquean derrotando rivales.
     val arcadeActive: Boolean = false,                 // hay una escalera en curso
@@ -87,6 +95,11 @@ data class StreetFighterState(
     val arcadeRival: SfFighterId? = null,              // rival de la pelea actual (para carteles)
     val arcadeMapFile: String? = null,                 // fondo de la pelea de arcade
     val arcadeOutcome: SfArcadeOutcome = SfArcadeOutcome.NONE, // dirige el overlay de fin
+
+    // ─── 🆕 Subtítulo del special (frase ES/EN del catálogo; fuente arcade HUD) ───
+    // Se muestra un momento al lanzar special/bonus; se limpia cuando specialSubtitleUntilMs <= gameTimeMs.
+    val specialSubtitleHud: String? = null,            // A-Z 0-9 para drawFontText
+    val specialSubtitleUntilMs: Long = 0L,             // gameTimeMs límite (0 = oculto)
 
     // ─── 🆕 MULTIJUGADOR 1v1 (servidor MultiplayerSF/ en Render, relay puro) ───
     val onlineStatus: SfOnlineStatus = SfOnlineStatus.OFF,

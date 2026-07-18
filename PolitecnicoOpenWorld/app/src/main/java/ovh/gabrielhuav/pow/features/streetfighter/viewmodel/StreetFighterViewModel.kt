@@ -85,6 +85,28 @@ class StreetFighterViewModel @Inject constructor(
      */
     private fun specialSfxKey(id: SfFighterId): String = "special_${id.name.lowercase()}"
 
+    /** Frases special (ES/EN + HUD) — Lázaro excluido. Lazy desde assets. */
+    private val specialPhrases by lazy {
+        ovh.gabrielhuav.pow.features.streetfighter.data.SfSpecialPhrases.load(appContext)
+    }
+
+    /** Emite SFX + subtítulo arcade de la frase del special. */
+    private fun emitSpecialVoice(id: SfFighterId, now: Long) {
+        if (id == SfFighterId.LAZARO) {
+            _soundEvents.tryEmit("hadouken")
+            return
+        }
+        _soundEvents.tryEmit(specialSfxKey(id))
+        val phrase = specialPhrases[id] ?: return
+        val until = now + phrase.subtitleMs
+        _state.update { s ->
+            s.copy(
+                specialSubtitleHud = phrase.hudLine(),
+                specialSubtitleUntilMs = until,
+            )
+        }
+    }
+
     // 🆕 Progreso del ARCADE (guardado LOCAL). Define qué peleadores/mapas están desbloqueados.
     private val arcadeRepo = SfArcadeRepository(appContext)
 
@@ -181,6 +203,42 @@ class StreetFighterViewModel @Inject constructor(
     private val cpuLastOffenseMs = LongArray(2) { 0L }
     // Preferencia de “espacio” tras clinch (retrocede un rato en IA vs IA).
     private val cpuWantsSpaceUntilMs = LongArray(2) { 0L }
+
+    // 🆕 DIAGNÓSTICO / anti-atasco (2026-07-18h): detecta animaciones que NO terminan (assets sin
+    // frame -1 / incompletas → peleador congelado, "se pegan y no se mueven") y estancamientos sin
+    // daño; fuerza la salida a IDLE y registra el problema para corregir el asset después.
+    private val stuckSig = arrayOfNulls<Pair<SfFighterState, Int>>(2) // (estado, frame) vigilado por índice
+    private val stuckSinceMs = LongArray(2) { 0L }
+    private val lastHpSeen = intArrayOf(-1, -1)
+    private var lastDamageMs = 0L
+    private var lastStalemateLogMs = -100000L
+    private val assetIssues = LinkedHashSet<String>() // problemas detectados (deduplicados)
+    private val stuckLimitMs = 1800L      // un estado transitorio congelado más de esto = asset roto
+    private val stalemateMs = 12000L      // sin daño de nadie más de esto = estancamiento sospechoso
+    /** Estados TRANSITORIOS que DEBEN completar; si se congelan, la hoja del peleador está mal. */
+    private val mustCompleteStates: Set<SfFighterState> = setOf(
+        SfFighterState.LIGHT_PUNCH, SfFighterState.MEDIUM_PUNCH, SfFighterState.HEAVY_PUNCH,
+        SfFighterState.LIGHT_KICK, SfFighterState.MEDIUM_KICK, SfFighterState.HEAVY_KICK,
+        SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY,
+        SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_HEAD_MEDIUM, SfFighterState.HURT_HEAD_HEAVY,
+        SfFighterState.HURT_BODY_LIGHT, SfFighterState.HURT_BODY_MEDIUM, SfFighterState.HURT_BODY_HEAVY,
+        SfFighterState.JUMP_START, SfFighterState.JUMP_LAND, SfFighterState.CROUCH_DOWN,
+        SfFighterState.CROUCH_UP, SfFighterState.IDLE_TURN, SfFighterState.CROUCH_TURN,
+    ) + SF_BONUS_POWER_STATES
+
+    // 🆕 AUTOJUEGO (gauntlet): cola de parejas a pelear en IA vs IA, encadenadas automáticamente.
+    private var gauntletActive = false
+    private val gauntletQueue = ArrayDeque<Pair<SfFighterId, SfFighterId>>()
+    private var gauntletTotal = 0
+    private var gauntletDone = 0
+    private val gauntletFightCapMs = 60000L // tope por pelea (gameNow reinicia a 0 en cada combate)
+    // 🆕 SHOWCASE: variante del gauntlet que recorre TODAS las animaciones + sonidos de cada
+    // peleador (script de moves), para QA visual/auditiva de los assets (watchStuck loguea los rotos).
+    private var showcaseMode = false
+    private var showcaseStep = 0
+    private var showcaseStepUntilMs = 0L
+    private var showcaseFiredStep = -1
+    private val showcaseStepMs = 1600L // ventana por animación (> cooldown de special/bonus)
 
     // ---- batalla ----
     private var hurtFreezeUntilMs = 0L  // hit-freeze (FighterStruckDelay)
@@ -401,6 +459,8 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     private fun tick(now: Long, dt: Float) {
+        // 🆕 AUTOJUEGO: al terminar el combate (o agotar el tope) encadena la siguiente pelea.
+        if (gauntletActive && maybeAdvanceGauntlet(now)) return
         // 🆕 RONDAS: ¿toca arrancar la ronda nueva? (resetea el estado ANTES de armar el Sim)
         if (roundResetAtMs > 0 && now >= roundResetAtMs) resetRound(now)
         val s = _state.value
@@ -433,7 +493,12 @@ class StreetFighterViewModel @Inject constructor(
                 sim.setFighter(1, updateRoundIntroAnimation(sim.fighter(1), now))
             }
             else -> {
-                if (s.aiVsAi) {
+                if (showcaseMode) {
+                    // SHOWCASE: ambos espejan un script que recorre todas las animaciones + sonidos
+                    val inp = showcaseInput(now, sim.p0.id)
+                    updateFighter(sim, 0, inp, now, dt)
+                    updateFighter(sim, 1, inp, now, dt)
+                } else if (s.aiVsAi) {
                     // IA vs IA: ambos peleadores bajo CPU (PESADILLA); sin input humano
                     updateFighter(sim, 0, buildCpuInput(now, sim, 0), now, dt)
                     updateFighter(sim, 1, buildCpuInput(now, sim, 1), now, dt)
@@ -444,6 +509,7 @@ class StreetFighterViewModel @Inject constructor(
                 }
             }
         }
+        watchStalemate(sim, now) // 🆕 diagnóstico de estancamiento (sin daño) + empujón a la IA
         updateFireballs(sim, now, dt)
         // 🆕 FIREBALL-VS-FIREBALL offline: ambos dueños viven en sim.fireballs
         if (!online) collideFireballPairs(sim, now)
@@ -470,6 +536,7 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     private fun MutableStateFlow<StreetFighterState>.update(sim: Sim, now: Long, showEnd: Boolean) {
+        val subActive = value.specialSubtitleUntilMs > 0L && now < value.specialSubtitleUntilMs
         value = value.copy(
             player = sim.p0,
             cpu = sim.p1,
@@ -489,6 +556,9 @@ class StreetFighterViewModel @Inject constructor(
             showRoundIntro = now < roundIntroUntilMs,
             displayHp0 = dispHp0,
             displayHp1 = dispHp1,
+            // limpiar subtítulo del special al expirar
+            specialSubtitleHud = if (subActive) value.specialSubtitleHud else null,
+            specialSubtitleUntilMs = if (subActive) value.specialSubtitleUntilMs else 0L,
         )
     }
 
@@ -528,7 +598,15 @@ class StreetFighterViewModel @Inject constructor(
 
     private fun isAnimationCompleted(f: SfFighter): Boolean {
         val anim = animOf(f)
-        return anim[f.animationFrame.coerceIn(0, anim.size - 1)].delay == -1
+        val idx = f.animationFrame.coerceIn(0, anim.size - 1)
+        // Completa si el frame actual es TERMINADOR (-1) o si ya llegamos al ÚLTIMO frame.
+        // 🆕 (fix 2026-07-18) Varias hojas ALPHA/compartidas (p. ej. los estudiantes del arcade)
+        // NO traen el frame -1 al final; withAnimationFrame hace wrap a 0 → la animación entra en
+        // bucle y isAnimationCompleted jamás era true → el peleador quedaba ATASCADO (el jugador
+        // "no se podía mover" en arcade; la CPU se congelaba). Tratar el último frame como fin evita
+        // el bucle SIN acortar las animaciones bien formadas (en ellas el -1 ES el último frame, así
+        // que el resultado no cambia para datos correctos).
+        return anim[idx].delay == -1 || idx >= anim.size - 1
     }
 
     // ------------------------------------------------------------------
@@ -569,8 +647,8 @@ class StreetFighterViewModel @Inject constructor(
             }
             SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY -> {
                 nf = nf.copy(velocityX = 0f, velocityY = 0f, attackStruck = false, fireballFired = false)
-                // Especial por personaje (special_<id>.ogg scrapeado); fallback hadouken en la View
-                _soundEvents.tryEmit(specialSfxKey(nf.id))
+                // Especial por personaje + subtítulo de frase (ES/EN catálogo)
+                emitSpecialVoice(nf.id, now)
             }
             SfFighterState.BONUS_POWER_1, SfFighterState.BONUS_POWER_2, SfFighterState.BONUS_POWER_3,
             SfFighterState.BONUS_POWER_4, SfFighterState.BONUS_POWER_5, SfFighterState.BONUS_POWER_6,
@@ -578,7 +656,7 @@ class StreetFighterViewModel @Inject constructor(
             SfFighterState.BONUS_POWER_10, SfFighterState.BONUS_POWER_11,
             -> {
                 nf = nf.copy(velocityX = 0f, velocityY = 0f, attackStruck = false, fireballFired = false)
-                _soundEvents.tryEmit(specialSfxKey(nf.id))
+                emitSpecialVoice(nf.id, now)
             }
             else -> Unit // CROUCH / CROUCH_UP / IDLE_TURN / CROUCH_TURN: sin init
         }
@@ -612,8 +690,62 @@ class StreetFighterViewModel @Inject constructor(
         updateStageConstraints(sim, idx, dt)
         // Doble seguro: tras anim/empuje, NUNCA fuera de pantalla (IA vs IA)
         sim.setFighter(idx, clampFighterToStage(sim.fighter(idx)))
+        watchStuck(sim, idx, now) // 🆕 red de seguridad: desatasca animaciones que no terminan
         updateAttackBoxCollided(sim, idx, now)
     }
+
+    /**
+     * 🆕 Red de seguridad + DIAGNÓSTICO (2026-07-18h). Si un estado transitorio se queda en el
+     * MISMO frame demasiado tiempo, su animación no termina (hoja sin frame -1 / incompleta): lo
+     * saca a IDLE (arregla "se pegan y no se mueven") y registra el asset roto.
+     */
+    private fun watchStuck(sim: Sim, idx: Int, now: Long) {
+        val f = sim.fighter(idx)
+        if (f.state !in mustCompleteStates) { stuckSig[idx] = null; return }
+        val sig = f.state to f.animationFrame
+        if (stuckSig[idx] != sig) {
+            stuckSig[idx] = sig
+            stuckSinceMs[idx] = now
+            return
+        }
+        if (now - stuckSinceMs[idx] > stuckLimitMs) {
+            logAssetIssue("ATASCO ${f.id.name}: ${f.state} congelado en frame ${f.animationFrame} (anim sin terminador -1 o incompleta)")
+            var nf = f.copy(state = SfFighterState.IDLE, velocityX = 0f, velocityY = 0f)
+            nf = withAnimationFrame(nf, 0, now)
+            sim.setFighter(idx, nf)
+            stuckSig[idx] = null
+            stuckSinceMs[idx] = now
+        }
+    }
+
+    /**
+     * 🆕 DIAGNÓSTICO: si pasa mucho tiempo sin que NADIE pierda vida, algo falla (hitboxes/rango/
+     * IA pasiva). Registra el estancamiento y "pica" a ambas CPU para que ataquen ya.
+     */
+    private fun watchStalemate(sim: Sim, now: Long) {
+        if (sim.battleEnded || now < roundIntroUntilMs) return
+        val hp0 = sim.p0.hitPoints
+        val hp1 = sim.p1.hitPoints
+        if (lastHpSeen[0] < 0) { lastHpSeen[0] = hp0; lastHpSeen[1] = hp1; lastDamageMs = now; return }
+        if (hp0 != lastHpSeen[0] || hp1 != lastHpSeen[1]) lastDamageMs = now // hubo daño o ronda nueva
+        lastHpSeen[0] = hp0
+        lastHpSeen[1] = hp1
+        if (now - lastDamageMs > stalemateMs) {
+            if (now - lastStalemateLogMs > stalemateMs) {
+                logAssetIssue("ESTANCAMIENTO ${sim.p0.id.name} vs ${sim.p1.id.name}: sin daño >${stalemateMs / 1000}s (revisar hitboxes/rango/IA)")
+                lastStalemateLogMs = now
+            }
+            cpuLastOffenseMs[0] = 0L; cpuLastOffenseMs[1] = 0L
+            cpuWantsSpaceUntilMs[0] = 0L; cpuWantsSpaceUntilMs[1] = 0L
+        }
+    }
+
+    private fun logAssetIssue(msg: String) {
+        if (assetIssues.add(msg)) android.util.Log.w("SF-DIAG", msg)
+    }
+
+    /** Reporte de problemas detectados en la sesión (assets rotos / atascos / estancamientos). */
+    fun diagnosticsReport(): List<String> = assetIssues.toList()
 
     private fun runStateHandler(sim: Sim, idx: Int, input: SfInput, now: Long, dt: Float) {
         val f = sim.fighter(idx)
@@ -1192,7 +1324,7 @@ class StreetFighterViewModel @Inject constructor(
         nf = withAnimationFrame(nf, 0, now)
         sim.setFighter(defenderIdx, clampFighterToStage(nf))
         sim.setFighter(attackerIdx, sim.fighter(attackerIdx).copy(attackStruck = true))
-        _soundEvents.tryEmit(specialSfxKey(d.id)) // metamorfosis Presidenta → grito de ella
+        emitSpecialVoice(d.id, now) // metamorfosis Presidenta → grito + subtítulo
         return true
     }
 
@@ -1491,15 +1623,19 @@ class StreetFighterViewModel @Inject constructor(
         val foe = sim.fighter(1 - i)
         val dist = abs(me.x - foe.x)
 
-        // Watchdog: sin ofensiva reciente a rango de pelea → forzar golpe o reset de clinch
-        if (difficulty != SfCpuDifficulty.BASICA && dist < 150f) {
+        // Watchdog: si lleva demasiado tiempo SIN ofensiva → forzar acción.
+        // 🆕 (fix 2026-07-18) Antes solo actuaba a < 150 px; en IA vs IA ambos se quedaban
+        // CAMINANDO / mirándose a media distancia sin que saltara nunca. Ahora cubre CUALQUIER
+        // distancia: si están LEJOS obliga a CERRAR distancia (approach), y en rango de golpe
+        // fuerza ataque o clinch break. Así nunca se estancan sin pelear.
+        if (difficulty != SfCpuDifficulty.BASICA) {
             val staleMs = now - cpuLastOffenseMs[i]
             val limit = if (aiVs) 420L else 700L
             if (staleMs > limit && !decision.hasAttackOrSpecial()) {
                 decision = when {
                     dist < CPU_CLINCH_DIST -> cpuClinchBreak(me, foe, now, i)
-                    Random.nextFloat() < 0.75f -> randomCpuAttack()
-                    else -> cpuJumpIn(me, foe)
+                    dist < 150f -> if (Random.nextFloat() < 0.75f) randomCpuAttack() else cpuJumpIn(me, foe)
+                    else -> cpuApproach(me, foe) // pasivo demasiado tiempo y lejos → acercarse YA
                 }
             }
         }
@@ -2071,6 +2207,169 @@ class StreetFighterViewModel @Inject constructor(
             cpuDifficulty = SfCpuDifficulty.PESADILLA,
             aiVsAi = true,
         )
+    }
+
+    // ------------------------------------------------------------------
+    // 🆕 AUTOJUEGO (gauntlet): recorre muchas peleas IA vs IA seguidas para PROBAR a todos los
+    // peleadores y volcar un reporte de assets rotos (atascos/estancamientos detectados por
+    // watchStuck/watchStalemate). Al terminar escribe un .txt y muestra el reporte en pantalla.
+    // ------------------------------------------------------------------
+
+    /** Bot 1: TODOS contra TODOS (round-robin). ~N² peleas — déjalo corriendo/grabando. */
+    fun startGauntletRoundRobin() {
+        showcaseMode = false
+        val roster = SfArcadeLadder.ALL_PARTICIPANTS
+        val q = ArrayDeque<Pair<SfFighterId, SfFighterId>>()
+        for (a in roster) for (b in roster) if (a != b) q.add(a to b)
+        beginGauntlet(q)
+    }
+
+    /**
+     * Bot 3: SHOWCASE de assets — cada peleador recorre TODAS sus animaciones (caminar, saltar,
+     * agacharse, los 6 golpes, especial L/M/F y sus poderes) reproduciendo sus sonidos, para
+     * verlos/oírlos y detectar los rotos. Recorre TODOS los peleadores. (No es pelea real.)
+     */
+    fun startShowcase() {
+        showcaseMode = true
+        val q = ArrayDeque<Pair<SfFighterId, SfFighterId>>()
+        SfArcadeLadder.ALL_PARTICIPANTS.forEach { q.add(it to it) } // espejo: se ve la anim en ambos
+        beginGauntlet(q)
+    }
+
+    /** Bot 2: la ESCALERA del arcade en orden, rotando el peleador para que las parejas cambien. */
+    fun startGauntletArcade() {
+        showcaseMode = false
+        val roster = SfArcadeLadder.ALL_PARTICIPANTS
+        val q = ArrayDeque<Pair<SfFighterId, SfFighterId>>()
+        roster.forEach { player ->
+            SfArcadeLadder.build(player).forEach { step ->
+                if (step.rival != player) q.add(player to step.rival)
+            }
+        }
+        beginGauntlet(q)
+    }
+
+    private fun beginGauntlet(q: ArrayDeque<Pair<SfFighterId, SfFighterId>>) {
+        assetIssues.clear()
+        gauntletQueue.clear()
+        gauntletQueue.addAll(q)
+        gauntletTotal = q.size
+        gauntletDone = 0
+        gauntletActive = true
+        _state.update { it.copy(gauntletFinished = false, gauntletReport = emptyList(), gauntletReportPath = null) }
+        startNextGauntletFight()
+    }
+
+    private fun startNextGauntletFight() {
+        val next = gauntletQueue.removeFirstOrNull()
+        if (next == null) {
+            finishGauntlet()
+            return
+        }
+        gauntletDone++
+        startAiVsAi(next.first, next.second) // resetInternals(): gameNow→0, aiVsAi, PESADILLA
+        gauntletActive = true
+        if (showcaseMode) {
+            showcaseStep = -1 // el primer tick lo sube a 0 (paso "caminar")
+            showcaseStepUntilMs = 0L
+            showcaseFiredStep = -2
+            // Chequeo de sonido: ¿existe special_<id>.ogg? (si no, la View cae a hadouken)
+            runCatching { appContext.assets.open("STREETFIGHTER/SOUNDS/${specialSfxKey(next.first)}.ogg").close() }
+                .onFailure { logAssetIssue("FALTA SONIDO ${specialSfxKey(next.first)}.ogg (${next.first.name})") }
+        }
+        _state.update { it.copy(gauntletRunning = true, gauntletProgress = "$gauntletDone/$gauntletTotal") }
+    }
+
+    /** Se llama al inicio del tick: encadena la siguiente pelea al terminar el combate o al vencer el tope. */
+    private fun maybeAdvanceGauntlet(now: Long): Boolean {
+        val showcaseDone = showcaseMode && showcaseStep > showcaseTotalSteps(_state.value.player.id)
+        val ended = matchOver && now >= endMenuAtMs
+        val timedOut = now >= gauntletFightCapMs
+        if (!showcaseDone && !ended && !timedOut) return false
+        if (timedOut && !ended && !showcaseDone) {
+            val s = _state.value
+            logAssetIssue(
+                "TIMEOUT ${s.player.id.name} vs ${s.cpu.id.name}: la pelea no terminó en " +
+                    "${gauntletFightCapMs / 1000}s (posible atasco/estancamiento)",
+            )
+        }
+        startNextGauntletFight()
+        return true
+    }
+
+    private fun finishGauntlet() {
+        gauntletActive = false
+        showcaseMode = false
+        val issues = assetIssues.toList()
+        val path = writeGauntletReport(issues)
+        _state.update {
+            it.copy(
+                gauntletRunning = false,
+                gauntletFinished = true,
+                gauntletReport = issues,
+                gauntletReportPath = path,
+                inCharacterSelect = true, // al terminar, vuelve al selector (con el reporte encima)
+            )
+        }
+    }
+
+    private fun writeGauntletReport(issues: List<String>): String? = runCatching {
+        val dir = appContext.getExternalFilesDir(null) ?: appContext.filesDir
+        val stamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
+        val file = java.io.File(dir, "sf_diagnostico_$stamp.txt")
+        val header = "POW — Diagnóstico IA vs IA (autojuego)\n" +
+            "Peleas: $gauntletDone/$gauntletTotal\nProblemas: ${issues.size}\n\n"
+        file.writeText(header + if (issues.isEmpty()) "Sin problemas detectados." else issues.joinToString("\n"))
+        file.absolutePath
+    }.getOrNull()
+
+    /** Detiene el gauntlet en curso y muestra el reporte con lo detectado hasta ahora. */
+    fun stopGauntlet() {
+        if (!gauntletActive) return
+        gauntletQueue.clear()
+        finishGauntlet()
+    }
+
+    /** Cierra el overlay del reporte del gauntlet. */
+    fun dismissGauntletReport() {
+        _state.update { it.copy(gauntletFinished = false) }
+    }
+
+    /** Último índice de paso del showcase para [id] (0..12 = moves fijos; 13.. = poderes). */
+    private fun showcaseTotalSteps(id: SfFighterId): Int = 12 + usableBonusPowerCount(id)
+
+    /**
+     * Input SCRIPTED del showcase: avanza un paso cada [showcaseStepMs] y ejecuta la animación
+     * correspondiente (una vez por paso). Los botones son de un tick (fireNow); las direcciones se
+     * sostienen. watchStuck detecta las animaciones que no terminan.
+     */
+    private fun showcaseInput(now: Long, id: SfFighterId): SfInput {
+        if (now >= showcaseStepUntilMs) {
+            showcaseStep++
+            showcaseStepUntilMs = now + showcaseStepMs
+        }
+        val step = showcaseStep
+        val fireNow = step != showcaseFiredStep
+        if (fireNow) showcaseFiredStep = step
+        return when (step) {
+            0 -> SfInput(forward = true)
+            1 -> SfInput(backward = true)
+            2 -> SfInput(down = true)
+            3 -> if (fireNow) SfInput(up = true) else SfInput()
+            4 -> if (fireNow) SfInput(lightPunch = true) else SfInput()
+            5 -> if (fireNow) SfInput(mediumPunch = true) else SfInput()
+            6 -> if (fireNow) SfInput(heavyPunch = true) else SfInput()
+            7 -> if (fireNow) SfInput(lightKick = true) else SfInput()
+            8 -> if (fireNow) SfInput(mediumKick = true) else SfInput()
+            9 -> if (fireNow) SfInput(heavyKick = true) else SfInput()
+            10 -> if (fireNow) SfInput(special = SfAttackStrength.LIGHT) else SfInput()
+            11 -> if (fireNow) SfInput(special = SfAttackStrength.MEDIUM) else SfInput()
+            12 -> if (fireNow) SfInput(special = SfAttackStrength.HEAVY) else SfInput()
+            else -> {
+                val bp = step - 12 // paso 13 → poder 1
+                if (fireNow && bp in 1..usableBonusPowerCount(id)) SfInput(bonusPower = bp) else SfInput()
+            }
+        }
     }
 
     // ------------------------------------------------------------------
