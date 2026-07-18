@@ -1,0 +1,175 @@
+{
+  "ok": 21,
+  "total": 21,
+  "results": [
+    {
+      "fighter": "PRANKEDY",
+      "status": "OK",
+      "bytes": 15119,
+      "rms": 0.118,
+      "peak": 0.669,
+      "dur": 1.09
+    },
+    {
+      "fighter": "SENOR_TIENDA",
+      "status": "OK",
+      "bytes": 13632,
+      "rms": 0.197,
+      "peak": 1.0,
+      "dur": 1.1
+    },
+    {
+      "fighter": "PAPARAZZI_1",
+      "status": "OK",
+      "bytes": 14304,
+      "rms": 0.161,
+      "peak": 0.708,
+      "dur": 1.09
+    },
+    {
+      "fighter": "REY_GRUPERO",
+      "status": "OK",
+      "bytes": 12769,
+      "rms": 0.152,
+      "peak": 1.0,
+      "dur": 1.05
+    },
+    {
+      "fighter": "PAPARAZZI_5",
+      "status": "OK",
+      "bytes": 15544,
+      "rms": 0.188,
+      "peak": 1.0,
+      "dur": 1.1
+    },
+    {
+      "fighter": "LAZARO",
+      "status": "OK",
+      "bytes": 12611,
+      "rms": 0.171,
+      "peak": 0.838,
+      "dur": 1.0
+    },
+    {
+      "fighter": "ESCOMBOY",
+      "status": "OK",
+      "bytes": 13704,
+      "rms": 0.088,
+      "peak": 0.425,
+      "dur": 0.96
+    },
+    {
+      "fighter": "ESCOMGIRL",
+      "status": "OK",
+      "bytes": 12529,
+      "rms": 0.088,
+      "peak": 0.607,
+      "dur": 0.88
+    },
+    {
+      "fighter": "ROBOT",
+      "status": "OK",
+      "bytes": 12672,
+      "rms": 0.097,
+      "peak": 0.909,
+      "dur": 1.02
+    },
+    {
+      "fighter": "YOALLI_EHECATL",
+      "status": "OK",
+      "bytes": 12289,
+      "rms": 0.136,
+      "peak": 0.491,
+      "dur": 1.15
+    },
+    {
+      "fighter": "CHARRO_NEGRO",
+      "status": "OK",
+      "bytes": 13220,
+      "rms": 0.237,
+      "peak": 1.0,
+      "dur": 1.15
+    },
+    {
+      "fighter": "LA_LLORONA",
+      "status": "OK",
+      "bytes": 11801,
+      "rms": 0.143,
+      "peak": 0.669,
+      "dur": 1.15
+    },
+    {
+      "fighter": "LA_TZITZIMIME",
+      "status": "OK",
+      "bytes": 10583,
+      "rms": 0.259,
+      "peak": 1.0,
+      "dur": 1.15
+    },
+    {
+      "fighter": "LA_PRESIDENTA",
+      "status": "OK",
+      "bytes": 14575,
+      "rms": 0.157,
+      "peak": 0.893,
+      "dur": 1.1
+    },
+    {
+      "fighter": "POLICIA_CDMX",
+      "status": "OK",
+      "bytes": 13853,
+      "rms": 0.153,
+      "peak": 1.0,
+      "dur": 0.97
+    },
+    {
+      "fighter": "POLICIA_CDMX_HOMBRE",
+      "status": "OK",
+      "bytes": 12800,
+      "rms": 0.164,
+      "peak": 1.0,
+      "dur": 1.0
+    },
+    {
+      "fighter": "PARAMEDICO_CRUZ_ROJA",
+      "status": "OK",
+      "bytes": 13083,
+      "rms": 0.137,
+      "peak": 0.513,
+      "dur": 0.95
+    },
+    {
+      "fighter": "POLICIA_GRANADERO_HOMBRE",
+      "status": "OK",
+      "bytes": 12001,
+      "rms": 0.217,
+      "peak": 1.0,
+      "dur": 1.0
+    },
+    {
+      "fighter": "POLICIA_GRANADERO_MUJER",
+      "status": "OK",
+      "bytes": 12982,
+      "rms": 0.163,
+      "peak": 0.907,
+      "dur": 0.88
+    },
+    {
+      "fighter": "GRANADERO",
+      "status": "OK",
+      "bytes": 12555,
+      "rms": 0.178,
+      "peak": 0.814,
+      "dur": 1.0
+    },
+    {
+      "fighter": "PARAMEDICO",
+      "status": "OK",
+      "bytes": 13437,
+      "rms": 0.15,
+      "peak": 0.674,
+      "dur": 0.98
+    }
+  ],
+  "bad": []
+}

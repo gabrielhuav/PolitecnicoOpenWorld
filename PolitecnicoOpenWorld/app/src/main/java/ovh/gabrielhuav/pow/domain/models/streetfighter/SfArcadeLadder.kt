@@ -19,14 +19,14 @@ import kotlin.random.Random
  *   14    : YOALLI_EHECATL (jefe)
  *   15    : LA_PRESIDENTA (FINAL; su metamorfosis a Yoalli es un power/anim, no una 2ª fase)
  *
- * Mapas: FIJOS escalón 1 = Queso IPN y escalón FINAL = CU UNAM; intermedios `null` (TBD).
+ * Mapas: cada RIVAL tiene su escenario de día (`SfStageCatalog.homeStage`); la iluminación
+ * (día / noche / apocalipsis) la elige la dificultad del arcade (Fácil/Medio/Difícil).
  */
 object SfArcadeLadder {
 
-    // 🆕 (2026-07-18) Mapas ANIMADOS (atlas ≤2048). Los viejos fondo_IPN_*/fondo_UNAM_*
-    // estáticos ya no se usan en pelea (GPU de gama baja + falta de animación).
-    const val MAP_FIRST = "fondo_queso_ipn_anim.png"              // Queso IPN (escalón 1)
-    const val MAP_FINAL = "fondo_unam_biblioteca_cu_anim.png"     // CU UNAM (final)
+    // Fallbacks legacy (sesión guardada vieja / tests)
+    const val MAP_FIRST = "fondo_queso_ipn_anim.png"
+    const val MAP_FINAL = "fondo_zocalo_anim.png"
 
     /** Los 3 estudiantes desbloqueados de arranque; el jugador elige uno (NO son enemigos). */
     val STARTERS = listOf(SfFighterId.ESCOMBOY, SfFighterId.ESCOMGIRL, SfFighterId.ROBOT)
@@ -58,10 +58,15 @@ object SfArcadeLadder {
     const val TOTAL_FIGHTS = 15
 
     /**
-     * Arma la secuencia de escalones para el `player` elegido. `rng` inyectable para tests.
-     * (`player` solo fija a QUIÉN juegas; no aparece como rival.)
+     * Arma la secuencia de escalones para el `player` elegido.
+     * @param difficulty Fácil/Medio/Difícil → ilumina el mapa hogar del rival (día/noche/apocalipsis).
+     * @param rng inyectable para tests.
      */
-    fun build(@Suppress("UNUSED_PARAMETER") player: SfFighterId, rng: Random = Random.Default): List<Step> {
+    fun build(
+        @Suppress("UNUSED_PARAMETER") player: SfFighterId,
+        difficulty: SfCpuDifficulty = SfCpuDifficulty.NORMAL,
+        rng: Random = Random.Default,
+    ): List<Step> {
         val rivals = mutableListOf<SfFighterId>()
 
         rivals += SfFighterId.PARAMEDICO_CRUZ_ROJA                                    // 1
@@ -84,11 +89,8 @@ object SfArcadeLadder {
             Step(
                 index = n,
                 rival = rival,
-                mapFile = when (n) {
-                    1 -> MAP_FIRST
-                    total -> MAP_FINAL
-                    else -> null
-                },
+                // Mapa = hogar del RIVAL + iluminación por dificultad (Fácil/Medio/Difícil)
+                mapFile = SfStageCatalog.mapForRival(rival, difficulty),
                 isBoss = n >= total - 2, // los 3 últimos: Tzitzímime, Yoalli, Presidenta
                 isFinal = n == total,    // La Presidenta
             )

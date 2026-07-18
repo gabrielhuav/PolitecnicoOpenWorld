@@ -66,7 +66,9 @@
 - **Gama baja:** tick ~30 fps, atlas sample 2, selector sin animar todos los cards, CARGANDO
   al entrar a pelea, **guardado de sesión arcade** al pausar (retomar al reabrir).
 - Fondos: todos `_anim` ≤2048; selector de mapa = thumbs + 1 preview animado.
-- **PRIORIDAD:** reemplazar SFX `hadouken.ogg` (copyright residual). Ken/Ryu fuera del juego.
+- **PRIORIDAD:** reemplazar SFX residuales de golpe/land; **especiales por personaje 21/21**
+  (`special_*.ogg` — doc completo **`SF_SPECIAL_VOICES_SFX.md`**, tools `sf_voice_scrape/` +
+  `curate_sf_special_sfx.py`). `hadouken.ogg` solo fallback. Ken/Ryu fuera del juego.
 - **La Presidenta:** a ≤1/4 vida → metamorfosis real a **Yoalli** (50% HP); no muere en el KO.
 - Arcade: escalera + desbloqueos; ver `DISENO_ARCADE_SF_POW.md`.
 
@@ -78,6 +80,7 @@
 | `DISENO_ARCADE_SF_POW.md` | Diseño + avance del ARCADE POW (escalera, desbloqueos, IA por fases). |
 | `AUDIT_SF_MULTIPLAYER.md` | Multijugador 1v1: protocolo, server `MultiplayerSF/`, BT/LAN. |
 | `ASSETS_STREETFIGHTER_MIGRACION.md` | Pipeline assets pelea (JSON, pack, migración SF→POW). |
+| **`SF_SPECIAL_VOICES_SFX.md`** | **Voces/SFX de especial por peleadór:** scrape X+YT, curación, cableado, backlog de mejora. |
 | `GUIA_regeneracion_sprites_croma.md` | Regenerar sprites croma pelea+mundo. |
 | `GUIA_generacion_assets_SF.md` | Guía manual de generación de assets. |
 | `NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |

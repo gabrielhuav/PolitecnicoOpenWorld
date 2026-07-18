@@ -626,6 +626,14 @@
     <!-- 🆕 ARCADE mode (11-fight ladder) -->
     <string name="sf_arcade_button">ARCADE</string>
     <string name="sf_arcade_pick_you">Choose your fighter (win to unlock more)</string>
+    <!-- Arcade: Easy/Medium/Hard → day / night / apocalypse stages -->
+    <string name="sf_arcade_diff_maps_hint">Stages follow difficulty: day, night, or apocalyptic night</string>
+    <string name="sf_arcade_diff_easy">EASY</string>
+    <string name="sf_arcade_diff_easy_desc">Softer AI · DAY stages (each rival\'s home map)</string>
+    <string name="sf_arcade_diff_medium">MEDIUM</string>
+    <string name="sf_arcade_diff_medium_desc">Classic AI · NIGHT stages</string>
+    <string name="sf_arcade_diff_hard">HARD</string>
+    <string name="sf_arcade_diff_hard_desc">Aggressive AI · APOCALYPTIC NIGHT</string>
     <string name="sf_back">← Back</string>
     <string name="sf_arcade_won">YOU WON!</string>
     <string name="sf_arcade_progress">Fight %1$d of %2$d</string>

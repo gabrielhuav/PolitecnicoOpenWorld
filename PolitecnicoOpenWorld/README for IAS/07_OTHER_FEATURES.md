@@ -410,6 +410,22 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
     (`resumeArcadeSession` / `discardArcadeSession`).
   - **PRIORIDAD copyright:** sustituir **`hadouken.ogg`** (+ golpes legacy) por SFX propios;
     Ken/Ryu ya NO están en el enum (solo restos de comentario/debug assets).
+  - **🆕 Arcade Fácil/Medio/Difícil + mapas por rival (2026-07-18g):**
+  - Flujo: peleadór → **Fácil / Medio / Difícil** (no más dificultad fija invisible).
+  - Mapas = `SfStageCatalog.homeStage(rival)` + iluminación: día / `noche_1` / `noche_2`.
+  - 16 bases × 3 = 48 fondos animados. Catálogo en `SfStageCatalog.kt`.
+  - Fix movimiento: cancelar `IDLE_TURN` con input; push en WALK no congela.
+  - Fix IA / IA vs IA: más agresiva, anti-estancamiento (forzar golpe si solo camina),
+    cooldowns de special más cortos, rates de ataque/special restaurados.
+- **🆕 Especiales por personaje (voces scrapeadas + curadas, 2026-07-18f/g) — 21/21 OK:**
+    - Pipeline: X (`scrape_sf_voices.py`) + **YouTube** (`scrape_sf_voices_youtube.py` / yt-dlp)
+      + **curación pelea** `curate_sf_special_sfx.py --install` → `special_<fighter>.ogg` (21).
+    - Curación: gritos/frases de broma (Prankedy, Paparazzi, Señor Tienda), speech Presidenta,
+      **horror** (Llorona “Ay mis hijos”, Tzitzimime, Charro, Yoalli), radio policía, medic Cruz Roja.
+    - Fuentes: YT @Prankedy, X @Claudiashein/@SSC_CDMX, audio Llorona, `nuevoMaterial17JUL/`.
+    - VM emite `special_<id>`; View fallback `hadouken`.
+    - **📘 Doc de trabajo futuro (completo):** `README for IAS/SF_SPECIAL_VOICES_SFX.md`
+      (pipeline, recetas, gotchas, backlog P0–P3, cómo añadir peleadór). Tools: `tools/sf_voice_scrape/`.
 - **🆕 IA vs IA: no salir de pantalla + menos spam de poderes (2026-07-18d):**
   - Clamp duro de X/Y al escenario (`STAGE_X_MIN/MAX`, piso) tras constraints; NaN → centro.
   - Especiales: cooldown 0.9 s (1.4 s en IA vs IA), **máx 1 proyectil activo por peleador**,

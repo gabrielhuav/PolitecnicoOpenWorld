@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import org.json.JSONArray
 import org.json.JSONObject
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStageCatalog
 
 // Persistencia del MODO ARCADE de HUELUM VS. GOYA (SF POW). LOCAL, con SharedPreferences,
 // igual que CampaignRepository/SettingsRepository (no hay base de datos ni Firestore: el
@@ -15,7 +17,11 @@ import org.json.JSONObject
 // (solo ids + marcador de rondas, un putString) para retomar sin perder progreso.
 // NO se guarda cada frame (evitar lag en gama baja): solo en forcePause / salida.
 //
-// Defaults: 3 estudiantes ESCOM + mapa Queso animado. Ver DISENO_ARCADE_SF_POW.md.
+// 🆕 (2026-07-18h) PERSONAJE ↔ MAPA: al desbloquear un peleadór se desbloquean las 3
+// luces de su escenario hogar (día/noche/apocalipsis) para usarlo en práctica y
+// multiplayer (Render / BT / LAN). Ver SfStageCatalog.homeStage.
+//
+// Defaults: 3 estudiantes ESCOM + mapas ESCOM (día/noche/apocalipsis).
 class SfArcadeRepository(context: Context) {
 
     companion object {
@@ -24,11 +30,12 @@ class SfArcadeRepository(context: Context) {
         private const val KEY_MAPS = "UNLOCKED_MAPS"          // StringSet de nombres de archivo
         private const val KEY_LADDER_STEP = "LADDER_STEP"     // escalón alcanzado (0 = ninguno)
         private const val KEY_SESSION = "ARCADE_SESSION_JSON" // snapshot pelea en curso (o null)
+        private const val KEY_MAPS_MIGRATED = "MAPS_FROM_FIGHTERS_V1" // migración one-shot
 
         /** Peleadores desbloqueados de arranque: los 3 estudiantes (el jugador elige uno). */
         val DEFAULT_FIGHTERS = setOf("ESCOMBOY", "ESCOMGIRL", "ROBOT")
-        /** Mapa desbloqueado de arranque (primera pelea del arcade). */
-        const val DEFAULT_MAP = "fondo_queso_ipn_anim.png"
+        /** Mapa desbloqueado de arranque (hogar de los starters = ESCOM día). */
+        const val DEFAULT_MAP = "fondo_escom_anim.png"
     }
 
     private val prefs: SharedPreferences =
@@ -53,33 +60,94 @@ class SfArcadeRepository(context: Context) {
     // ── Peleadores ────────────────────────────────────────────────────────────
 
     /** Ids (SfFighterId.name) desbloqueados; siempre incluye los defaults de arranque. */
-    fun unlockedFighters(): Set<String> =
-        prefs.getStringSet(KEY_FIGHTERS, null)?.toSet() ?: DEFAULT_FIGHTERS
+    fun unlockedFighters(): Set<String> {
+        val raw = prefs.getStringSet(KEY_FIGHTERS, null)?.toSet() ?: DEFAULT_FIGHTERS
+        return raw + DEFAULT_FIGHTERS
+    }
 
     fun isFighterUnlocked(id: String): Boolean = id in unlockedFighters()
 
-    /** Marca un peleador como desbloqueado (idempotente). Devuelve true si era nuevo. */
+    /**
+     * Marca un peleador como desbloqueado (idempotente).
+     * **También desbloquea su mapa hogar** (día + noche + apocalipsis) para práctica/MP.
+     * Devuelve true si el peleadór era nuevo.
+     */
     fun unlockFighter(id: String): Boolean {
         val current = unlockedFighters()
-        if (id in current) return false
-        prefs.edit().putStringSet(KEY_FIGHTERS, current + id).apply()
-        return true
+        val isNew = id !in current
+        if (isNew) {
+            prefs.edit().putStringSet(KEY_FIGHTERS, current + id).apply()
+        }
+        // Siempre asegurar mapas del peleadór (migración / re-sync)
+        unlockMapsForFighterName(id)
+        return isNew
     }
 
     // ── Mapas ─────────────────────────────────────────────────────────────────
 
-    /** Archivos de mapa desbloqueados; siempre incluye el mapa de arranque. */
-    fun unlockedMaps(): Set<String> =
-        prefs.getStringSet(KEY_MAPS, null)?.toSet() ?: setOf(DEFAULT_MAP)
+    /**
+     * Archivos de mapa desbloqueados (SharedPreferences).
+     * Incluye defaults + mapas de TODOS los peleadors desbloqueados (migración lazy).
+     * Usado en práctica, arcade (selector no), multiplayer host (Render/BT/LAN).
+     */
+    fun unlockedMaps(): Set<String> {
+        ensureMapsSyncedFromFighters()
+        val stored = prefs.getStringSet(KEY_MAPS, null)?.toSet().orEmpty()
+        val starterMaps = SfStageCatalog.filesForStage(SfStageCatalog.ESCOM)
+        return stored + starterMaps + setOf(DEFAULT_MAP)
+    }
 
     fun isMapUnlocked(file: String): Boolean = file in unlockedMaps()
 
-    /** Marca un mapa como desbloqueado (idempotente). Devuelve true si era nuevo. */
+    /**
+     * Desbloquea un archivo de mapa y **toda su familia** (día/noche/apocalipsis del mismo
+     * escenario). Así, al ganar en arcade con un fondo de noche, el día también queda usable.
+     */
     fun unlockMap(file: String): Boolean {
-        val current = unlockedMaps()
-        if (file in current) return false
-        prefs.edit().putStringSet(KEY_MAPS, current + file).apply()
+        val family = SfStageCatalog.stageForFile(file)?.let { SfStageCatalog.filesForStage(it) }
+            ?: setOf(file)
+        val current = prefs.getStringSet(KEY_MAPS, null)?.toSet().orEmpty()
+        if (family.all { it in current }) return false
+        prefs.edit().putStringSet(KEY_MAPS, current + family).apply()
         return true
+    }
+
+    /** Desbloquea las 3 luces del mapa hogar del peleadór (por nombre de enum). */
+    fun unlockMapsForFighterName(idName: String) {
+        val id = runCatching { SfFighterId.valueOf(idName) }.getOrNull() ?: return
+        val maps = SfStageCatalog.unlockableMapsForFighter(id)
+        val current = prefs.getStringSet(KEY_MAPS, null)?.toSet().orEmpty()
+        if (maps.all { it in current }) return
+        prefs.edit().putStringSet(KEY_MAPS, current + maps).apply()
+    }
+
+    /**
+     * One-shot / lazy: todo peleadór ya desbloqueado aporta su mapa al set de mapas
+     * (partidas viejas que solo guardaban el fighter).
+     */
+    private fun ensureMapsSyncedFromFighters() {
+        val fighters = unlockedFighters()
+        var maps = prefs.getStringSet(KEY_MAPS, null)?.toSet().orEmpty()
+        var dirty = false
+        for (name in fighters) {
+            val id = runCatching { SfFighterId.valueOf(name) }.getOrNull() ?: continue
+            val family = SfStageCatalog.unlockableMapsForFighter(id)
+            if (!family.all { it in maps }) {
+                maps = maps + family
+                dirty = true
+            }
+        }
+        val starter = SfStageCatalog.filesForStage(SfStageCatalog.ESCOM)
+        if (!starter.all { it in maps }) {
+            maps = maps + starter
+            dirty = true
+        }
+        if (dirty || !prefs.getBoolean(KEY_MAPS_MIGRATED, false)) {
+            prefs.edit()
+                .putStringSet(KEY_MAPS, maps)
+                .putBoolean(KEY_MAPS_MIGRATED, true)
+                .apply()
+        }
     }
 
     // ── Progreso de la escalera ─────────────────────────────────────────────────

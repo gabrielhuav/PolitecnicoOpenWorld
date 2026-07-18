@@ -1,0 +1,260 @@
+{
+  "_meta": {
+    "description": "YouTube (+ multi-source) catalog for POW SF character special SFX. Complements catalog_x_voices.json. Scraped 2026-07-18.",
+    "tools": "yt-dlp audio extract",
+    "note": "Short transformative SFX clips for game specials. Respect rights for commercial release."
+  },
+  "youtube": [
+    {
+      "fighter": "PRANKEDY",
+      "url": "https://www.youtube.com/watch?v=XFdRAR8CmZ4",
+      "title": "Eating Smelliest Food at Taco Shop (PRANK) — official @Prankedy",
+      "priority": 100,
+      "section": "0:30-1:20"
+    },
+    {
+      "fighter": "PRANKEDY",
+      "url": "https://www.youtube.com/watch?v=S4miJwOryIo",
+      "title": "Connecting To Drive Thru Headset (Prank)",
+      "priority": 95,
+      "section": "1:00-1:45"
+    },
+    {
+      "fighter": "PRANKEDY",
+      "url": "https://www.youtube.com/watch?v=wjdu4NofGTE",
+      "title": "Pongo Negocios en casas de Desconocidos (BROMA)",
+      "priority": 90,
+      "section": "0:40-1:15"
+    },
+    {
+      "fighter": "PRANKEDY",
+      "url": "https://www.youtube.com/watch?v=zreqHXngBAw",
+      "title": "Tanque de gas en un CAMIÓN Broma PRANKEDY (reupload)",
+      "priority": 98,
+      "section": "0:45-1:30"
+    },
+    {
+      "fighter": "PRANKEDY",
+      "url": "https://www.youtube.com/watch?v=hRB7ryS4Spg",
+      "title": "Prankedy tanque de gas broma eliminada",
+      "priority": 92,
+      "section": "0:30-1:10"
+    },
+    {
+      "fighter": "SENOR_TIENDA",
+      "url": "ytsearch3:Prankedy señor de la tienda broma",
+      "title": "ytsearch: Señor de la Tienda (Prankedy universe)",
+      "priority": 95,
+      "section": "0:20-1:00",
+      "search_pick": 0
+    },
+    {
+      "fighter": "REY_GRUPERO",
+      "url": "ytsearch2:rey grupero broma OR reggaeton pelea audio mexico",
+      "title": "ytsearch: rey grupero themed",
+      "priority": 70,
+      "section": "0:15-0:50",
+      "search_pick": 0,
+      "pitch_semitones": -3
+    },
+    {
+      "fighter": "PAPARAZZI_1",
+      "url": "ytsearch2:prankedy paparazzi broma",
+      "title": "ytsearch: paparazzi prankedy",
+      "priority": 90,
+      "section": "0:20-0:55",
+      "search_pick": 0
+    },
+    {
+      "fighter": "PAPARAZZI_5",
+      "url": "ytsearch2:prankedy paparazzi broma",
+      "title": "ytsearch: paparazzi 5 pitch down",
+      "priority": 85,
+      "section": "0:40-1:10",
+      "search_pick": 0,
+      "pitch_semitones": -2
+    },
+    {
+      "fighter": "LA_PRESIDENTA",
+      "url": "https://www.youtube.com/watch?v=eOH3lUINcXM",
+      "title": "Conferencia matutina Claudia Sheinbaum (canal oficial)",
+      "priority": 100,
+      "section": "5:00-5:40"
+    },
+    {
+      "fighter": "LA_PRESIDENTA",
+      "url": "https://www.youtube.com/watch?v=wXHZn-8b28M",
+      "title": "Mañanera 23 jun 2026 Sheinbaum",
+      "priority": 95,
+      "section": "4:30-5:15"
+    },
+    {
+      "fighter": "LA_PRESIDENTA",
+      "url": "https://www.youtube.com/watch?v=AfT7ZBElT2k",
+      "title": "Mañanera 15 jul 2026",
+      "priority": 93,
+      "section": "3:00-3:45"
+    },
+    {
+      "fighter": "YOALLI_EHECATL",
+      "url": "https://www.youtube.com/watch?v=eOH3lUINcXM",
+      "title": "Sheinbaum base → Yoalli pitch",
+      "priority": 90,
+      "section": "8:00-8:40",
+      "pitch_semitones": 5
+    },
+    {
+      "fighter": "LA_LLORONA",
+      "url": "https://www.youtube.com/watch?v=ZL0LtvysugY",
+      "title": "LA LLORONA AUDIO — Ay mis hijos (corto 17s)",
+      "priority": 100
+    },
+    {
+      "fighter": "LA_LLORONA",
+      "url": "ytsearch2:la llorona grito ay mis hijos efecto sonido",
+      "title": "ytsearch: grito llorona SFX",
+      "priority": 95,
+      "search_pick": 0
+    },
+    {
+      "fighter": "LA_LLORONA",
+      "url": "https://www.youtube.com/watch?v=N_F_GnkYX1E",
+      "title": "Historias La Llorona MundoCreepy (excerpt)",
+      "priority": 80,
+      "section": "2:00-2:45"
+    },
+    {
+      "fighter": "CHARRO_NEGRO",
+      "url": "https://www.youtube.com/watch?v=Ru4d6za2BBc",
+      "title": "LA LEYENDA DEL CHARRO NEGRO | Draw My Life",
+      "priority": 100,
+      "section": "0:30-1:15"
+    },
+    {
+      "fighter": "CHARRO_NEGRO",
+      "url": "https://www.youtube.com/watch?v=akF-6ye10A0",
+      "title": "La Leyenda El Charro Negro narración",
+      "priority": 92,
+      "section": "0:20-1:00"
+    },
+    {
+      "fighter": "CHARRO_NEGRO",
+      "url": "https://www.youtube.com/watch?v=aDngZ3VfIj0",
+      "title": "Leyenda Charro Negro Hunters",
+      "priority": 85,
+      "section": "1:00-1:40"
+    },
+    {
+      "fighter": "LA_TZITZIMIME",
+      "url": "https://www.youtube.com/watch?v=ZL0LtvysugY",
+      "title": "Llorona audio pitch down → Tzitzimime",
+      "priority": 88,
+      "pitch_semitones": -6
+    },
+    {
+      "fighter": "POLICIA_CDMX",
+      "url": "https://www.youtube.com/watch?v=Aug_A8r5Gjs",
+      "title": "Policía CDMX informe / SSC",
+      "priority": 95,
+      "section": "0:30-1:15"
+    },
+    {
+      "fighter": "POLICIA_CDMX",
+      "url": "ytsearch2:SSC CDMX boletín policía conferencia",
+      "title": "ytsearch SSC boletín",
+      "priority": 90,
+      "section": "0:20-0:55",
+      "search_pick": 0
+    },
+    {
+      "fighter": "POLICIA_CDMX_HOMBRE",
+      "url": "ytsearch2:SSC CDMX operativo policía cdmx",
+      "title": "ytsearch SSC operativo",
+      "priority": 88,
+      "section": "0:25-1:00",
+      "search_pick": 0
+    },
+    {
+      "fighter": "POLICIA_GRANADERO_HOMBRE",
+      "url": "ytsearch2:granaderos CDMX operativo policía",
+      "title": "ytsearch granaderos",
+      "priority": 85,
+      "section": "0:20-0:50",
+      "search_pick": 0,
+      "pitch_semitones": -2
+    },
+    {
+      "fighter": "POLICIA_GRANADERO_MUJER",
+      "url": "ytsearch2:SSC CDMX policía mujer operativa",
+      "title": "ytsearch policía mujer",
+      "priority": 80,
+      "section": "0:20-0:50",
+      "search_pick": 0,
+      "pitch_semitones": 3
+    },
+    {
+      "fighter": "GRANADERO",
+      "url": "ytsearch2:granaderos CDMX operativo",
+      "title": "ytsearch granadero",
+      "priority": 75,
+      "section": "0:15-0:45",
+      "search_pick": 0,
+      "pitch_semitones": -3
+    },
+    {
+      "fighter": "PARAMEDICO_CRUZ_ROJA",
+      "url": "https://www.youtube.com/watch?v=Map1SoqOK_M",
+      "title": "Cruz Roja Mexicana institucional oficial",
+      "priority": 100,
+      "section": "0:15-0:55"
+    },
+    {
+      "fighter": "PARAMEDICO_CRUZ_ROJA",
+      "url": "https://www.youtube.com/watch?v=rTpVcTvMgxY",
+      "title": "Logros Cruz Roja Mexicana",
+      "priority": 92,
+      "section": "0:20-1:00"
+    },
+    {
+      "fighter": "PARAMEDICO",
+      "url": "https://www.youtube.com/watch?v=HM_uyZooAGE",
+      "title": "Historia Cruz Roja Mexicana",
+      "priority": 90,
+      "section": "0:20-0:55"
+    },
+    {
+      "fighter": "ESCOMBOY",
+      "url": "ytsearch2:estudiante politécnico IPN vlog mexicano",
+      "title": "ytsearch escom student vibe",
+      "priority": 60,
+      "section": "0:15-0:50",
+      "search_pick": 0,
+      "pitch_semitones": 2
+    },
+    {
+      "fighter": "ESCOMGIRL",
+      "url": "ytsearch2:estudianta mexicana vlog universidad",
+      "title": "ytsearch escomgirl vibe",
+      "priority": 60,
+      "section": "0:15-0:50",
+      "search_pick": 0,
+      "pitch_semitones": 4
+    },
+    {
+      "fighter": "ROBOT",
+      "url": "https://www.youtube.com/watch?v=eOH3lUINcXM",
+      "title": "Speech base robotize",
+      "priority": 70,
+      "section": "6:00-6:35",
+      "robotize": true
+    },
+    {
+      "fighter": "LAZARO",
+      "url": "https://www.youtube.com/watch?v=XFdRAR8CmZ4",
+      "title": "Prankedy clip pitch slight",
+      "priority": 55,
+      "section": "2:00-2:40",
+      "pitch_semitones": -1
+    }
+  ]
+}

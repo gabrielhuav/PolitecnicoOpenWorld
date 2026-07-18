@@ -1,0 +1,155 @@
+{
+  "fighters": {
+    "PRANKEDY": {
+      "status": "packed",
+      "file": "special_prankedy.ogg",
+      "sources": 5
+    },
+    "SENOR_TIENDA": {
+      "status": "packed",
+      "file": "special_senor_tienda.ogg",
+      "sources": 2
+    },
+    "PAPARAZZI_1": {
+      "status": "packed",
+      "file": "special_paparazzi_1.ogg",
+      "sources": 2
+    },
+    "REY_GRUPERO": {
+      "status": "packed",
+      "file": "special_rey_grupero.ogg",
+      "sources": 2
+    },
+    "PAPARAZZI_5": {
+      "status": "packed",
+      "file": "special_paparazzi_5.ogg",
+      "sources": 2
+    },
+    "LAZARO": {
+      "status": "packed",
+      "file": "special_lazaro.ogg",
+      "sources": 2
+    },
+    "ESCOMBOY": {
+      "status": "packed",
+      "file": "special_escomboy.ogg",
+      "sources": 2
+    },
+    "ESCOMGIRL": {
+      "status": "packed",
+      "file": "special_escomgirl.ogg",
+      "sources": 2
+    },
+    "ROBOT": {
+      "status": "fallback",
+      "from": "LA_PRESIDENTA",
+      "file": "special_robot.ogg"
+    },
+    "YOALLI_EHECATL": {
+      "status": "packed",
+      "file": "special_yoalli_ehecatl.ogg",
+      "sources": 2
+    },
+    "CHARRO_NEGRO": {
+      "status": "packed",
+      "file": "special_charro_negro.ogg",
+      "sources": 5
+    },
+    "LA_LLORONA": {
+      "status": "packed",
+      "file": "special_la_llorona.ogg",
+      "sources": 5
+    },
+    "LA_TZITZIMIME": {
+      "status": "packed",
+      "file": "special_la_tzitzimime.ogg",
+      "sources": 2
+    },
+    "LA_PRESIDENTA": {
+      "status": "packed",
+      "file": "special_la_presidenta.ogg",
+      "sources": 5
+    },
+    "POLICIA_CDMX": {
+      "status": "packed",
+      "file": "special_policia_cdmx.ogg",
+      "sources": 3
+    },
+    "POLICIA_CDMX_HOMBRE": {
+      "status": "packed",
+      "file": "special_policia_cdmx_hombre.ogg",
+      "sources": 2
+    },
+    "PARAMEDICO_CRUZ_ROJA": {
+      "status": "packed",
+      "file": "special_paramedico_cruz_roja.ogg",
+      "sources": 4
+    },
+    "POLICIA_GRANADERO_HOMBRE": {
+      "status": "packed",
+      "file": "special_policia_granadero_hombre.ogg",
+      "sources": 2
+    },
+    "POLICIA_GRANADERO_MUJER": {
+      "status": "packed",
+      "file": "special_policia_granadero_mujer.ogg",
+      "sources": 1
+    },
+    "GRANADERO": {
+      "status": "packed",
+      "file": "special_granadero.ogg",
+      "sources": 2
+    },
+    "PARAMEDICO": {
+      "status": "packed",
+      "file": "special_paramedico.ogg",
+      "sources": 2
+    }
+  },
+  "produced": {
+    "PRANKEDY": "special_prankedy.ogg",
+    "SENOR_TIENDA": "special_senor_tienda.ogg",
+    "PAPARAZZI_1": "special_paparazzi_1.ogg",
+    "REY_GRUPERO": "special_rey_grupero.ogg",
+    "PAPARAZZI_5": "special_paparazzi_5.ogg",
+    "LAZARO": "special_lazaro.ogg",
+    "ESCOMBOY": "special_escomboy.ogg",
+    "ESCOMGIRL": "special_escomgirl.ogg",
+    "YOALLI_EHECATL": "special_yoalli_ehecatl.ogg",
+    "CHARRO_NEGRO": "special_charro_negro.ogg",
+    "LA_LLORONA": "special_la_llorona.ogg",
+    "LA_TZITZIMIME": "special_la_tzitzimime.ogg",
+    "LA_PRESIDENTA": "special_la_presidenta.ogg",
+    "POLICIA_CDMX": "special_policia_cdmx.ogg",
+    "POLICIA_CDMX_HOMBRE": "special_policia_cdmx_hombre.ogg",
+    "PARAMEDICO_CRUZ_ROJA": "special_paramedico_cruz_roja.ogg",
+    "POLICIA_GRANADERO_HOMBRE": "special_policia_granadero_hombre.ogg",
+    "POLICIA_GRANADERO_MUJER": "special_policia_granadero_mujer.ogg",
+    "GRANADERO": "special_granadero.ogg",
+    "PARAMEDICO": "special_paramedico.ogg",
+    "ROBOT": "special_robot.ogg"
+  },
+  "key_map": {
+    "PRANKEDY": "special_prankedy",
+    "SENOR_TIENDA": "special_senor_tienda",
+    "PAPARAZZI_1": "special_paparazzi_1",
+    "REY_GRUPERO": "special_rey_grupero",
+    "PAPARAZZI_5": "special_paparazzi_5",
+    "LAZARO": "special_lazaro",
+    "ESCOMBOY": "special_escomboy",
+    "ESCOMGIRL": "special_escomgirl",
+    "YOALLI_EHECATL": "special_yoalli_ehecatl",
+    "CHARRO_NEGRO": "special_charro_negro",
+    "LA_LLORONA": "special_la_llorona",
+    "LA_TZITZIMIME": "special_la_tzitzimime",
+    "LA_PRESIDENTA": "special_la_presidenta",
+    "POLICIA_CDMX": "special_policia_cdmx",
+    "POLICIA_CDMX_HOMBRE": "special_policia_cdmx_hombre",
+    "PARAMEDICO_CRUZ_ROJA": "special_paramedico_cruz_roja",
+    "POLICIA_GRANADERO_HOMBRE": "special_policia_granadero_hombre",
+    "POLICIA_GRANADERO_MUJER": "special_policia_granadero_mujer",
+    "GRANADERO": "special_granadero",
+    "PARAMEDICO": "special_paramedico",
+    "ROBOT": "special_robot"
+  }
+}

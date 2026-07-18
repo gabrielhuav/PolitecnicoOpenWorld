@@ -222,7 +222,8 @@ fun StreetFighterScreen(
     // ---- Sonidos del tema (SoundPool efectos + MediaPlayer música) ----
     val soundPool = remember {
         SoundPool.Builder()
-            .setMaxStreams(4)
+            // Más streams: golpes + specials por personaje a la vez (IA vs IA)
+            .setMaxStreams(8)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_GAME)
@@ -231,14 +232,34 @@ fun StreetFighterScreen(
             )
             .build()
     }
-    val soundIds = remember(theme) {
-        theme.soundKeys.associateWith { key ->
-            context.assets.openFd("${theme.soundsDir}$key.ogg").use { soundPool.load(it, 1) }
-        }
+    // Base theme SFX + special_<fighter> por los peleadores del match (y Yoalli si hay metamorfosis).
+    // Faltantes se omiten; el collect cae a "hadouken" si no hay special del id.
+    val soundIds = remember(theme, playerId, cpuId) {
+        val specialKeys = buildList {
+            add("special_${playerId.name.lowercase()}")
+            add("special_${cpuId.name.lowercase()}")
+            if (playerId == SfFighterId.LA_PRESIDENTA || cpuId == SfFighterId.LA_PRESIDENTA) {
+                add("special_${SfFighterId.YOALLI_EHECATL.name.lowercase()}")
+            }
+            // Precargar todos los specials del roster (assets ligeros ~10 KB c/u) para arcade/online
+            // sin re-crear el SoundPool al cambiar de rival.
+            SfFighterId.entries.forEach { id ->
+                add("special_${id.name.lowercase()}")
+            }
+        }.distinct()
+        val keys = (theme.soundKeys + specialKeys).distinct()
+        keys.mapNotNull { key ->
+            runCatching {
+                context.assets.openFd("${theme.soundsDir}$key.ogg").use { fd ->
+                    key to soundPool.load(fd, 1)
+                }
+            }.getOrNull()
+        }.toMap()
     }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(soundIds) {
         viewModel.soundEvents.collect { key ->
-            soundIds[key]?.let { soundPool.play(it, 1f, 1f, 1, 0, 1f) }
+            val poolId = soundIds[key] ?: soundIds["hadouken"]
+            poolId?.let { soundPool.play(it, 1f, 1f, 1, 0, 1f) }
         }
     }
     val musicPlayer = remember { MediaPlayer() }
@@ -445,8 +466,22 @@ fun StreetFighterScreen(
                     when {
                         // 🆕 MENÚ DE MODOS (estilo POW): ARCADE principal, PRÁCTICA, IA VS IA, MULTIJUGADOR
                         sfMenu -> SfModeMenuOverlay(
-                            onArcade = { sfMenu = false; arcadeSetup = true; aiVsAiSetup = false },
-                            onPractice = { sfMenu = false; aiVsAiSetup = false },
+                            onArcade = {
+                                sfMenu = false
+                                arcadeSetup = true
+                                aiVsAiSetup = false
+                                pendingFighter = null
+                                pendingRival = null
+                                pendingDifficulty = null
+                            },
+                            onPractice = {
+                                sfMenu = false
+                                arcadeSetup = false
+                                aiVsAiSetup = false
+                                pendingFighter = null
+                                pendingRival = null
+                                pendingDifficulty = null
+                            },
                             onAiVsAi = {
                                 sfMenu = false
                                 arcadeSetup = false
@@ -458,15 +493,25 @@ fun StreetFighterScreen(
                             onMultiplayer = { showOnlineMenu = true },
                             onBack = onExitToMap,
                         )
-                        // ARCADE: SOLO eliges peleador (dificultad fija, sube sola) → arranca la escalera
-                        arcadeSetup -> CharacterSelectOverlay(
+                        // ARCADE: peleadór → Fácil/Medio/Difícil (día / noche / apocalipsis)
+                        arcadeSetup && fighter == null -> CharacterSelectOverlay(
                             fighters = viewModel.selectableFighters(),
                             lockedFighters = viewModel.lockedFighters(),
                             subtitle = stringResource(R.string.sf_arcade_pick_you),
-                            onSelect = { viewModel.startArcade(it) },
+                            onSelect = { pendingFighter = it },
                             onBack = { arcadeSetup = false; sfMenu = true },
                             backText = stringResource(R.string.sf_other_modes),
                             lowEnd = lowEnd,
+                        )
+                        arcadeSetup && difficulty == null -> ArcadeDifficultyOverlay(
+                            onSelect = { d ->
+                                val p = fighter ?: return@ArcadeDifficultyOverlay
+                                viewModel.startArcade(p, d)
+                                pendingFighter = null
+                                pendingDifficulty = null
+                                arcadeSetup = false
+                            },
+                            onBack = { pendingFighter = null },
                         )
                         // 🆕 IA VS IA: dos peleadores (CPU vs CPU a PESADILLA) → startAiVsAi
                         // Roster = selectableFighters() (completo si Modo Desarrollador activo).
@@ -484,9 +529,16 @@ fun StreetFighterScreen(
                             subtitle = stringResource(R.string.sf_ai_vs_ai_pick_b),
                             onSelect = { b ->
                                 val a = fighter!!
-                                // Fondo al azar entre los disponibles (no hay paso de mapa)
+                                // Fondo al azar entre mapas DESBLOQUEADOS (o todos en Modo Dev)
                                 if (chosenBgFile == null) {
-                                    chosenBgFile = theme.fullBackgrounds.randomOrNull()?.file
+                                    val unlocked = viewModel.unlockedMaps()
+                                    val pool = if (viewModel.devUnlockAll()) {
+                                        theme.fullBackgrounds.map { it.file }
+                                    } else {
+                                        theme.fullBackgrounds.map { it.file }.filter { it in unlocked }
+                                    }
+                                    chosenBgFile = pool.randomOrNull()
+                                        ?: theme.fullBackgrounds.firstOrNull()?.file
                                 }
                                 viewModel.startAiVsAi(a, b)
                                 pendingFighter = null
@@ -521,7 +573,15 @@ fun StreetFighterScreen(
                             theme = theme,
                             unlockedMaps = if (viewModel.devUnlockAll()) null else viewModel.unlockedMaps(),
                             onSelect = { file ->
-                                chosenBgFile = file ?: theme.fullBackgrounds.randomOrNull()?.file
+                                val unlocked = viewModel.unlockedMaps()
+                                val pool = if (viewModel.devUnlockAll()) {
+                                    theme.fullBackgrounds.map { it.file }
+                                } else {
+                                    theme.fullBackgrounds.map { it.file }.filter { it in unlocked }
+                                }
+                                chosenBgFile = file
+                                    ?: pool.randomOrNull()
+                                    ?: theme.fullBackgrounds.firstOrNull()?.file
                                 viewModel.selectCharacter(fighter, rival, difficulty)
                             },
                             onBack = { pendingFighter = null; pendingRival = null; pendingDifficulty = null },
@@ -1097,6 +1157,65 @@ private fun DifficultySelectOverlay(
                 title = stringResource(R.string.sf_diff_nightmare),
                 desc = stringResource(R.string.sf_diff_nightmare_desc),
                 onClick = { onSelect(SfCpuDifficulty.PESADILLA) },
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            TextButton(onClick = onBack) {
+                Text(
+                    text = stringResource(R.string.sf_change_fighter),
+                    color = Color(0xFFD4AF37),
+                    fontSize = 13.sp,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Dificultad del ARCADE: solo 3 niveles.
+ * Fácil → mapas de día · Medio → noche · Difícil → noche apocalíptica (noche_2).
+ */
+@Composable
+private fun ArcadeDifficultyOverlay(
+    onSelect: (SfCpuDifficulty) -> Unit,
+    onBack: () -> Unit,
+) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color(0xE6101018)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()).padding(vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = stringResource(R.string.sf_choose_difficulty),
+                color = Color(0xFFD4AF37),
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 3.sp,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.sf_arcade_diff_maps_hint),
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            DifficultyOption(
+                title = stringResource(R.string.sf_arcade_diff_easy),
+                desc = stringResource(R.string.sf_arcade_diff_easy_desc),
+                onClick = { onSelect(SfCpuDifficulty.BASICA) },
+            )
+            DifficultyOption(
+                title = stringResource(R.string.sf_arcade_diff_medium),
+                desc = stringResource(R.string.sf_arcade_diff_medium_desc),
+                onClick = { onSelect(SfCpuDifficulty.NORMAL) },
+            )
+            DifficultyOption(
+                title = stringResource(R.string.sf_arcade_diff_hard),
+                desc = stringResource(R.string.sf_arcade_diff_hard_desc),
+                onClick = { onSelect(SfCpuDifficulty.AVANZADA) },
             )
             Spacer(modifier = Modifier.height(4.dp))
             TextButton(onClick = onBack) {

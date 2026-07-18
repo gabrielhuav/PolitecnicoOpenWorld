@@ -42,6 +42,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.sfBonusPowerState
 import ovh.gabrielhuav.pow.BuildConfig
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.data.repository.SfArcadeRepository
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStageCatalog
 import ovh.gabrielhuav.pow.features.streetfighter.data.SF_CLASSIC_THEME
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtClient
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfFrameCatalog
@@ -76,6 +77,13 @@ class StreetFighterViewModel @Inject constructor(
     /** Claves de sonido (nombre base del .ogg en STREETFIGHTER/SOUNDS). */
     private val _soundEvents = MutableSharedFlow<String>(extraBufferCapacity = 32)
     val soundEvents: SharedFlow<String> = _soundEvents.asSharedFlow()
+
+    /**
+     * SFX del especial/bonus por peleador: `special_<sf_fighter_id_lower>.ogg`
+     * (pipeline tools/scrape_sf_voices.py + pack_sf_character_sfx.py).
+     * La View hace fallback a `hadouken` si falta el asset.
+     */
+    private fun specialSfxKey(id: SfFighterId): String = "special_${id.name.lowercase()}"
 
     // 🆕 Progreso del ARCADE (guardado LOCAL). Define qué peleadores/mapas están desbloqueados.
     private val arcadeRepo = SfArcadeRepository(appContext)
@@ -126,6 +134,8 @@ class StreetFighterViewModel @Inject constructor(
     // Estado interno de la escalera de arcade en curso (la lista pesada NO va al UiState).
     private var arcadeLadder: List<SfArcadeLadder.Step> = emptyList()
     private var arcadeMapCurrent: String? = null
+    /** Dificultad elegida al iniciar arcade (Fácil/Medio/Difícil → mapas día/noche/apocalipsis). */
+    private var arcadeChosenDifficulty: SfCpuDifficulty = SfCpuDifficulty.NORMAL
     private var arcadePlayer: SfFighterId = SfFighterId.ESCOMBOY
 
     // Frame data por peleador (cache perezoso por identidad; soporta CUALQUIER SfFighterId)
@@ -165,6 +175,8 @@ class StreetFighterViewModel @Inject constructor(
     // (comportamiento idéntico al de siempre); el arcade la sube según avanzas en la escalera.
     // IA vs IA la fija en 1f (máxima, como la final del arcade).
     private var cpuIntensity = 0f
+    // Contador de “solo caminar sin atacar” por índice: si se atascan cerca sin golpear, forzamos ataque.
+    private val cpuStaleApproach = IntArray(2) { 0 }
 
     // ---- batalla ----
     private var hurtFreezeUntilMs = 0L  // hit-freeze (FighterStruckDelay)
@@ -228,8 +240,10 @@ class StreetFighterViewModel @Inject constructor(
         const val ROUND_INTRO_MS = 1800L         // banner "RONDA N / PELEA" con input congelado
         const val ROUND_GRACE_MS = 1200L         // ignora estado/daño del rival en vuelo tras el reset
         // 🆕 Especiales: cooldown + tope de proyectiles (PESADILLA spameaba y no se contrarrestaba)
-        const val SPECIAL_COOLDOWN_MS = 900L
-        const val SPECIAL_COOLDOWN_AIVSAI_MS = 1400L
+        // Cooldowns de special: cortos para que la pelea se sienta viva (sin muro de proyectiles:
+        // el tope por peleadór ya limita a 1 activo).
+        const val SPECIAL_COOLDOWN_MS = 700L
+        const val SPECIAL_COOLDOWN_AIVSAI_MS = 650L
         const val MAX_ACTIVE_FIREBALLS_PER_FIGHTER = 1
         const val MAX_FIREBALLS_TOTAL = 4
         // Límites mundiales del escenario (padding + stage). Mantienen a los peleadores visibles.
@@ -544,7 +558,8 @@ class StreetFighterViewModel @Inject constructor(
             }
             SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY -> {
                 nf = nf.copy(velocityX = 0f, velocityY = 0f, attackStruck = false, fireballFired = false)
-                _soundEvents.tryEmit("hadouken")
+                // Especial por personaje (special_<id>.ogg scrapeado); fallback hadouken en la View
+                _soundEvents.tryEmit(specialSfxKey(nf.id))
             }
             SfFighterState.BONUS_POWER_1, SfFighterState.BONUS_POWER_2, SfFighterState.BONUS_POWER_3,
             SfFighterState.BONUS_POWER_4, SfFighterState.BONUS_POWER_5, SfFighterState.BONUS_POWER_6,
@@ -552,7 +567,7 @@ class StreetFighterViewModel @Inject constructor(
             SfFighterState.BONUS_POWER_10, SfFighterState.BONUS_POWER_11,
             -> {
                 nf = nf.copy(velocityX = 0f, velocityY = 0f, attackStruck = false, fireballFired = false)
-                _soundEvents.tryEmit("hadouken")
+                _soundEvents.tryEmit(specialSfxKey(nf.id))
             }
             else -> Unit // CROUCH / CROUCH_UP / IDLE_TURN / CROUCH_TURN: sin init
         }
@@ -665,8 +680,30 @@ class StreetFighterViewModel @Inject constructor(
                 else maybeTurn(sim, idx, SfFighterState.CROUCH_TURN, now)
             }
             SfFighterState.CROUCH_UP -> if (isAnimationCompleted(f)) changeState(sim, idx, SfFighterState.IDLE, now)
-            SfFighterState.IDLE_TURN -> if (isAnimationCompleted(f)) changeState(sim, idx, SfFighterState.IDLE, now)
-            SfFighterState.CROUCH_TURN -> if (isAnimationCompleted(f)) changeState(sim, idx, SfFighterState.CROUCH, now)
+            SfFighterState.IDLE_TURN -> {
+                // 🆕 Cancelar giro con input: si no, el jugador se siente “trabado” durante el turn.
+                val wantsAction = input.forward || input.backward || input.up || input.down ||
+                    input.lightPunch || input.mediumPunch || input.heavyPunch ||
+                    input.lightKick || input.mediumKick || input.heavyKick ||
+                    input.special != null || input.bonusPower != null
+                when {
+                    wantsAction -> {
+                        // direction ya se aplicó al entrar a IDLE_TURN; salir a IDLE y procesar input
+                        if (changeState(sim, idx, SfFighterState.IDLE, now)) {
+                            handleCommonNeutral(sim, idx, input, now)
+                        }
+                    }
+                    isAnimationCompleted(f) -> changeState(sim, idx, SfFighterState.IDLE, now)
+                }
+            }
+            SfFighterState.CROUCH_TURN -> {
+                val wantsAction = !input.down || input.special != null ||
+                    input.lightPunch || input.mediumPunch || input.heavyPunch
+                when {
+                    wantsAction && !input.down -> changeState(sim, idx, SfFighterState.CROUCH_UP, now)
+                    isAnimationCompleted(f) -> changeState(sim, idx, SfFighterState.CROUCH, now)
+                }
+            }
 
             SfFighterState.LIGHT_PUNCH, SfFighterState.LIGHT_KICK -> {
                 // Los ataques ligeros se pueden re-disparar desde el frame 2 (JS)
@@ -935,9 +972,12 @@ class StreetFighterViewModel @Inject constructor(
             return
         }
 
+        // Incluye caminar: si no, al chocar en WALK se “congelan” empujándose sin resolverse.
         val pushableStates = setOf(
             SfFighterState.IDLE, SfFighterState.CROUCH, SfFighterState.JUMP_UP,
             SfFighterState.JUMP_BACKWARD, SfFighterState.JUMP_FORWARD,
+            SfFighterState.WALK_FORWARD, SfFighterState.WALK_BACKWARD,
+            SfFighterState.IDLE_TURN, SfFighterState.CROUCH_TURN,
         )
         if (f.x <= opp.x) {
             val nx = opp.x + SfBox.fromList(frameDef(opp).push).x - (push.x + push.width)
@@ -1133,7 +1173,7 @@ class StreetFighterViewModel @Inject constructor(
         nf = withAnimationFrame(nf, 0, now)
         sim.setFighter(defenderIdx, clampFighterToStage(nf))
         sim.setFighter(attackerIdx, sim.fighter(attackerIdx).copy(attackStruck = true))
-        _soundEvents.tryEmit("hadouken")
+        _soundEvents.tryEmit(specialSfxKey(d.id)) // metamorfosis Presidenta → grito de ella
         return true
     }
 
@@ -1405,31 +1445,46 @@ class StreetFighterViewModel @Inject constructor(
         val i = selfIndex.coerceIn(0, 1)
         if (now < cpuNextDecisionMs[i]) return cpuHold[i]
 
-        // Cadencia de decisión por dificultad: la avanzada "piensa" ~4× más rápido. 🆕 La
-        // INTENSIDAD del arcade la acelera hasta ~45% más (reacciona antes conforme avanzas).
+        // Cadencia: NORMAL/AVANZADA/PESADILLA reaccionan con ritmo de pelea (no “dormidas”).
+        // Intensidad del arcade acelera hasta ~40% más.
         val difficulty = _state.value.cpuDifficulty
         val baseDelay = when (difficulty) {
-            SfCpuDifficulty.BASICA -> Random.nextLong(800L, 1500L)
-            SfCpuDifficulty.NORMAL -> Random.nextLong(280L, 620L)
-            SfCpuDifficulty.AVANZADA -> Random.nextLong(90L, 180L)
-            SfCpuDifficulty.PESADILLA -> Random.nextLong(50L, 110L) // reacciona casi al instante
+            SfCpuDifficulty.BASICA -> Random.nextLong(700L, 1200L)
+            SfCpuDifficulty.NORMAL -> Random.nextLong(200L, 420L)
+            SfCpuDifficulty.AVANZADA -> Random.nextLong(70L, 140L)
+            SfCpuDifficulty.PESADILLA -> Random.nextLong(40L, 90L)
         }
-        cpuNextDecisionMs[i] = now + (baseDelay * (1f - 0.45f * cpuIntensity)).toLong().coerceAtLeast(40L)
-        cpuHold[i] = when (difficulty) {
+        cpuNextDecisionMs[i] = now + (baseDelay * (1f - 0.40f * cpuIntensity)).toLong().coerceAtLeast(35L)
+        var decision = when (difficulty) {
             SfCpuDifficulty.BASICA -> basicCpuDecision(sim, i)
             SfCpuDifficulty.NORMAL -> normalCpuDecision(sim, i)
             SfCpuDifficulty.AVANZADA -> advancedCpuDecision(sim, i)
             SfCpuDifficulty.PESADILLA -> pesadillaCpuDecision(sim, i)
         }
         val me = sim.fighter(i)
-        // Bonus powers: muy raros (y solo si ya estamos cerca — no “spamear desde lejos”)
+        val foe = sim.fighter(1 - i)
+        val distToFoe = abs(me.x - foe.x)
+        // Anti-estancamiento: si solo camina hacia el rival de cerca sin golpear, forzar ataque.
+        val onlyWalk = decision.forward && !decision.hasAttackOrSpecial()
+        if (onlyWalk && distToFoe < 110f) {
+            cpuStaleApproach[i]++
+            if (cpuStaleApproach[i] >= 3) {
+                decision = randomCpuAttack()
+                cpuStaleApproach[i] = 0
+            }
+        } else if (decision.hasAttackOrSpecial()) {
+            cpuStaleApproach[i] = 0
+        }
+        cpuHold[i] = decision
+        // Bonus powers: un poco más frecuentes en IA vs IA (show), raros vs humano en BÁSICA
         val bonusCount = usableBonusPowerCount(me.id)
-        val distToFoe = abs(me.x - sim.fighter(1 - i).x)
+        val aiVs = _state.value.aiVsAi
         val bonusChance = when {
             difficulty == SfCpuDifficulty.BASICA -> 0f
-            distToFoe > 140f -> 0.01f // lejos casi nunca
-            me.id == SfFighterId.LA_PRESIDENTA -> 0.02f // rival jugable
-            else -> 0.025f
+            distToFoe > 160f -> if (aiVs) 0.03f else 0.015f
+            me.id == SfFighterId.LA_PRESIDENTA && !aiVs -> 0.03f
+            aiVs -> 0.06f
+            else -> 0.04f
         }
         if (bonusCount > 0 &&
             me.state == SfFighterState.IDLE &&
@@ -1449,6 +1504,11 @@ class StreetFighterViewModel @Inject constructor(
         )
         return oneShot
     }
+
+    /** ¿La intención CPU trae golpe o especial (no solo caminar)? */
+    private fun SfInput.hasAttackOrSpecial(): Boolean =
+        lightPunch || mediumPunch || heavyPunch || lightKick || mediumKick || heavyKick ||
+            special != null || bonusPower != null
 
     /**
      * BÁSICA — para APRENDER los controles: reacciona lento (~0.8-1.5 s), camina mucho,
@@ -1475,7 +1535,7 @@ class StreetFighterViewModel @Inject constructor(
         }
     }
 
-    /** NORMAL — se acerca a pelear; pocos poderes (no acampar en esquina). */
+    /** NORMAL — se acerca a pelear y golpea; special ocasional. */
     private fun normalCpuDecision(sim: Sim, selfIndex: Int): SfInput {
         val me = sim.fighter(selfIndex)
         val opp = sim.fighter(1 - selfIndex)
@@ -1484,19 +1544,19 @@ class StreetFighterViewModel @Inject constructor(
         if (isNearStageCorner(me.x) && dist > 60f) return cpuApproach(me, opp)
         return when {
             dist > 190f -> when {
-                roll < 0.08f -> SfInput(special = SfAttackStrength.LIGHT) // raro
-                roll < 0.22f -> SfInput(up = true, forward = true)
+                roll < 0.14f -> SfInput(special = SfAttackStrength.LIGHT)
+                roll < 0.28f -> SfInput(up = true, forward = true)
                 else -> cpuApproach(me, opp)
             }
             dist > 90f -> when {
-                roll < 0.78f -> cpuApproach(me, opp)
-                roll < 0.88f -> SfInput(backward = true)
-                else -> SfInput(down = true)
+                roll < 0.55f -> cpuApproach(me, opp)
+                roll < 0.78f -> randomCpuAttack()
+                roll < 0.90f -> SfInput(up = true, forward = true)
+                else -> SfInput(backward = true)
             }
             else -> when {
-                roll < 0.55f + 0.20f * cpuIntensity -> randomCpuAttack()
-                roll < 0.72f -> cpuApproach(me, opp)
-                roll < 0.85f -> SfInput(backward = true)
+                roll < 0.70f + 0.15f * cpuIntensity -> randomCpuAttack()
+                roll < 0.88f -> cpuApproach(me, opp)
                 else -> SfInput(up = true)
             }
         }
@@ -1556,26 +1616,28 @@ class StreetFighterViewModel @Inject constructor(
         if (foe.state in cpuPunishStates && dist < 120f) {
             return cpuAttack(SfAttackStrength.HEAVY, punch = Random.nextBoolean())
         }
-        // (5) Por distancia: ACERCARSE + melee; special muy raro
+        // (5) Por distancia: presión melee + special ocasional (vuelve a ser amenazante)
         return when {
             dist > 160f -> when {
-                !corner && !ownActive && roll < 0.12f + 0.05f * cpuIntensity ->
+                !corner && !ownActive && roll < 0.22f + 0.10f * cpuIntensity ->
                     SfInput(special = SfAttackStrength.LIGHT)
-                roll < 0.20f -> SfInput(up = true, forward = true)
+                roll < 0.28f -> SfInput(up = true, forward = true)
                 else -> cpuApproach(me, foe)
             }
             dist > 70f -> when {
-                roll < 0.75f -> cpuApproach(me, foe)
-                roll < 0.90f -> SfInput(up = true, forward = true)
-                else -> cpuAttack(SfAttackStrength.MEDIUM, punch = Random.nextBoolean())
+                roll < 0.45f -> cpuApproach(me, foe)
+                roll < 0.72f -> cpuAttack(SfAttackStrength.MEDIUM, punch = Random.nextBoolean())
+                roll < 0.88f -> SfInput(up = true, forward = true)
+                !ownActive && roll < 0.95f -> SfInput(special = SfAttackStrength.MEDIUM)
+                else -> SfInput(backward = true)
             }
-            else -> when { // cuerpo a cuerpo
-                roll < 0.72f + 0.12f * cpuIntensity -> cpuAttack(
+            else -> when { // cuerpo a cuerpo — ataca casi siempre
+                roll < 0.85f + 0.08f * cpuIntensity -> cpuAttack(
                     if (Random.nextFloat() < 0.55f) SfAttackStrength.HEAVY else SfAttackStrength.MEDIUM,
                     punch = Random.nextBoolean(),
                 )
-                roll < 0.88f -> cpuAttack(SfAttackStrength.LIGHT, punch = true)
-                else -> SfInput(forward = true) // pegarse más / pressure
+                roll < 0.94f -> cpuAttack(SfAttackStrength.LIGHT, punch = true)
+                else -> SfInput(forward = true)
             }
         }
     }
@@ -1595,9 +1657,9 @@ class StreetFighterViewModel @Inject constructor(
             it.ownerIndex == selfIndex && it.state == SfFireballState.ACTIVE
         }
         val aiVs = _state.value.aiVsAi
-        // Human vs CPU: aún menos special (jugable). IA vs IA: un poco más de “show” pero melee-first.
-        val specialFar = if (aiVs) 0.10f else 0.08f
-        val specialMid = if (aiVs) 0.05f else 0.04f
+        // IA vs IA: más show (special + melee). Vs humano: agresiva pero jugable.
+        val specialFar = if (aiVs) 0.22f else 0.14f
+        val specialMid = if (aiVs) 0.14f else 0.08f
 
         // (0) Esquina → SIEMPRE salir hacia el rival
         if (corner) return cpuApproach(me, foe)
@@ -1610,49 +1672,54 @@ class StreetFighterViewModel @Inject constructor(
         }
         if (incoming && !me.isAirborne) {
             return when {
-                roll < 0.60f -> SfInput(up = true, forward = true)
-                roll < 0.88f -> SfInput(up = true)
+                roll < 0.55f -> SfInput(up = true, forward = true)
+                roll < 0.80f -> SfInput(up = true)
                 else -> SfInput(backward = true)
             }
         }
         // (2) Anti-aéreo
         if (foe.isAirborne && dist < 165f) return cpuAttack(SfAttackStrength.HEAVY, punch = true)
-        // (3) Amenaza a media distancia: a veces bloquea; de cerca prefiere chocar
-        if (foe.state in cpuThreatStates && dist in 100f..185f && roll < 0.55f) {
+        // (3) Amenaza a media distancia: a veces bloquea; de cerca tradea
+        if (foe.state in cpuThreatStates && dist in 100f..185f && roll < 0.40f) {
             return SfInput(backward = true)
         }
-        if (foe.state in cpuThreatStates && dist < 100f && roll < 0.35f) {
-            return cpuAttack(SfAttackStrength.LIGHT, punch = true) // trade / interrupt
+        if (foe.state in cpuThreatStates && dist < 100f && roll < 0.55f) {
+            return cpuAttack(SfAttackStrength.LIGHT, punch = true)
         }
         // (4) Castigo
         if (foe.state in cpuPunishStates && dist < 140f) {
             return cpuAttack(SfAttackStrength.HEAVY, punch = Random.nextBoolean())
         }
-        // (5) Presión cuerpo a cuerpo — special solo ocasional y lejos del borde
+        // (5) Presión — melee-first, special frecuente a media/larga (tope 1 proyectil ya limita spam)
         return when {
             dist > 150f -> when {
                 !ownActive && roll < specialFar ->
                     SfInput(special = SfAttackStrength.LIGHT)
-                roll < 0.18f -> SfInput(up = true, forward = true)
+                roll < 0.25f -> SfInput(up = true, forward = true)
                 else -> cpuApproach(me, foe)
             }
             dist > 65f -> when {
                 !ownActive && roll < specialMid ->
                     SfInput(special = SfAttackStrength.MEDIUM)
-                roll < 0.15f -> SfInput(up = true, forward = true)
-                else -> cpuApproach(me, foe)
+                roll < 0.35f -> cpuApproach(me, foe)
+                roll < 0.75f -> cpuAttack(
+                    if (Random.nextFloat() < 0.5f) SfAttackStrength.MEDIUM else SfAttackStrength.HEAVY,
+                    punch = Random.nextBoolean(),
+                )
+                roll < 0.90f -> SfInput(up = true, forward = true)
+                else -> SfInput(forward = true)
             }
-            else -> when { // rango de pelea real
-                roll < 0.82f -> cpuAttack(
+            else -> when { // rango de pelea real — casi siempre golpea
+                roll < 0.90f -> cpuAttack(
                     when {
                         Random.nextFloat() < 0.45f -> SfAttackStrength.HEAVY
-                        Random.nextFloat() < 0.70f -> SfAttackStrength.MEDIUM
+                        Random.nextFloat() < 0.75f -> SfAttackStrength.MEDIUM
                         else -> SfAttackStrength.LIGHT
                     },
                     punch = Random.nextBoolean(),
                 )
-                roll < 0.92f -> SfInput(forward = true) // pressure / walk-in
-                else -> SfInput(backward = true) // micro-bait, no huir a esquina
+                roll < 0.96f -> SfInput(forward = true)
+                else -> SfInput(backward = true)
             }
         }
     }
@@ -1781,27 +1848,31 @@ class StreetFighterViewModel @Inject constructor(
         }
         if (rivals.isEmpty() || ses.step !in 1..rivals.size) return false
         arcadePlayer = player
+        val savedDiff = runCatching { SfCpuDifficulty.valueOf(ses.difficulty) }
+            .getOrDefault(SfCpuDifficulty.NORMAL)
+        // Inferir base del arcade (la pelea puede haber subido a jefe)
+        arcadeChosenDifficulty = when (savedDiff) {
+            SfCpuDifficulty.PESADILLA -> SfCpuDifficulty.AVANZADA
+            else -> savedDiff
+        }
         arcadeLadder = rivals.mapIndexed { i, rival ->
             val n = i + 1
             SfArcadeLadder.Step(
                 index = n,
                 rival = rival,
-                mapFile = when (n) {
-                    1 -> SfArcadeLadder.MAP_FIRST
-                    rivals.size -> SfArcadeLadder.MAP_FINAL
-                    else -> null
-                },
+                mapFile = SfStageCatalog.mapForRival(rival, arcadeChosenDifficulty),
                 isBoss = n >= rivals.size - 2,
                 isFinal = n == rivals.size,
             )
         }
-        arcadeMapCurrent = ses.mapFile ?: SfArcadeLadder.MAP_FIRST
+        arcadeMapCurrent = ses.mapFile
+            ?: arcadeLadder.getOrNull(ses.step - 1)?.mapFile
+            ?: SfArcadeLadder.MAP_FIRST
         val stepData = arcadeLadder[ses.step - 1]
-        val diff = runCatching { SfCpuDifficulty.valueOf(ses.difficulty) }
-            .getOrDefault(arcadeDifficulty(stepData))
+        val diff = savedDiff
         resetInternals()
         cpuIntensity = if (arcadeLadder.size > 1) {
-            0.25f + 0.75f * (ses.step - 1).toFloat() / (arcadeLadder.size - 1)
+            0.20f + 0.80f * (ses.step - 1).toFloat() / (arcadeLadder.size - 1)
         } else {
             1f
         }
@@ -1921,12 +1992,23 @@ class StreetFighterViewModel @Inject constructor(
     // Todos los personajes/mapas empiezan bloqueados; se desbloquean derrotando rivales.
     // ------------------------------------------------------------------
 
-    /** Arranca el arcade con el `playerId` elegido (un estudiante) y una dificultad base. */
-    // 🆕 El arcade NO elige dificultad (es fija y sube sola con el avance). Solo eliges peleador.
-    fun startArcade(playerId: SfFighterId) {
+    /**
+     * Arranca el arcade: peleadór + dificultad **Fácil / Medio / Difícil**.
+     * - Fácil (BASICA) → mapas de **día** del rival
+     * - Medio (NORMAL) → mapas de **noche**
+     * - Difícil (AVANZADA/PESADILLA) → **noche apocalíptica**
+     * La IA base es la elegida; en jefes/final sube un escalón (cap PESADILLA).
+     */
+    fun startArcade(playerId: SfFighterId, difficulty: SfCpuDifficulty = SfCpuDifficulty.NORMAL) {
         arcadePlayer = playerId
-        arcadeLadder = SfArcadeLadder.build(playerId)
-        arcadeMapCurrent = SfArcadeLadder.MAP_FIRST
+        // PESADILLA del selector de práctica se trata como Difícil (apocalipsis + IA dura)
+        arcadeChosenDifficulty = when (difficulty) {
+            SfCpuDifficulty.PESADILLA -> SfCpuDifficulty.AVANZADA
+            else -> difficulty
+        }
+        arcadeLadder = SfArcadeLadder.build(playerId, arcadeChosenDifficulty)
+        arcadeMapCurrent = arcadeLadder.firstOrNull()?.mapFile
+            ?: SfStageCatalog.mapForRival(SfFighterId.PARAMEDICO_CRUZ_ROJA, arcadeChosenDifficulty)
         startArcadeStep(1)
     }
 
@@ -1935,12 +2017,16 @@ class StreetFighterViewModel @Inject constructor(
         if (arcadeLadder.isEmpty()) return
         val idx = step.coerceIn(1, arcadeLadder.size)
         val stepData = arcadeLadder[idx - 1]
-        // Mapa "ligado al rival": si el escalón trae mapa, cámbialo; si no, conserva el vigente.
-        arcadeMapCurrent = stepData.mapFile ?: arcadeMapCurrent
+        // Mapa del rival (ya con iluminación según dificultad elegida)
+        arcadeMapCurrent = stepData.mapFile
+            ?: SfStageCatalog.mapForRival(stepData.rival, arcadeChosenDifficulty)
         resetInternals()
-        // 🆕 IA POR FASES: intensidad con PISO 0.25 (la 1ª pelea NO es trivial) subiendo a 1.0 en
-        // la última. Se suma al tier (arcadeDifficulty) → cada pelea más dura que la anterior.
-        cpuIntensity = if (arcadeLadder.size > 1) 0.25f + 0.75f * (idx - 1).toFloat() / (arcadeLadder.size - 1) else 1f
+        // Intensidad sube por fase (piso 0.2) encima de la dificultad elegida
+        cpuIntensity = if (arcadeLadder.size > 1) {
+            0.20f + 0.80f * (idx - 1).toFloat() / (arcadeLadder.size - 1)
+        } else {
+            1f
+        }
         roundIntroUntilMs = ROUND_INTRO_MS // banner "RONDA 1 / PELEA"
         val base = StreetFighterState()
         _state.value = base.copy(
@@ -1948,7 +2034,7 @@ class StreetFighterViewModel @Inject constructor(
             cpu = base.cpu.copy(id = stepData.rival),
             inCharacterSelect = false,
             showRoundIntro = true,
-            cpuDifficulty = arcadeDifficulty(stepData),
+            cpuDifficulty = arcadeDifficultyForStep(stepData),
             arcadeActive = true,
             arcadeStep = idx,
             arcadeTotal = arcadeLadder.size,
@@ -1958,12 +2044,24 @@ class StreetFighterViewModel @Inject constructor(
         )
     }
 
-    /** Dificultad FIJA del arcade por escalón (no elegible): sube con el avance. */
-    private fun arcadeDifficulty(step: SfArcadeLadder.Step): SfCpuDifficulty = when {
-        step.isFinal -> SfCpuDifficulty.PESADILLA     // La Presidenta
-        step.isBoss -> SfCpuDifficulty.AVANZADA       // Tzitzímime / Yoalli
-        step.index >= 8 -> SfCpuDifficulty.AVANZADA   // 2ª mitad ya dura
-        else -> SfCpuDifficulty.NORMAL                // primeras: NORMAL (nunca BÁSICA)
+    /**
+     * Dificultad de la pelea = base elegida (Fácil/Medio/Difícil) + escalones en jefes.
+     * Mapas ya se fijaron con [arcadeChosenDifficulty] al construir la escalera.
+     */
+    private fun arcadeDifficultyForStep(step: SfArcadeLadder.Step): SfCpuDifficulty {
+        val base = arcadeChosenDifficulty
+        val bumped = when {
+            step.isFinal -> bumpDifficulty(base, 2)
+            step.isBoss -> bumpDifficulty(base, 1)
+            step.index >= 10 -> bumpDifficulty(base, 1)
+            else -> base
+        }
+        return bumped
+    }
+
+    private fun bumpDifficulty(d: SfCpuDifficulty, steps: Int): SfCpuDifficulty {
+        val vals = SfCpuDifficulty.entries
+        return vals[(d.ordinal + steps).coerceAtMost(vals.lastIndex)]
     }
 
     /**
@@ -1975,7 +2073,9 @@ class StreetFighterViewModel @Inject constructor(
         val s = _state.value
         val step = arcadeLadder.getOrNull(s.arcadeStep - 1) ?: return
         val outcome = if (winnerIdx == 0) {
+            // Peleadór + su mapa hogar (día/noche/apocalipsis) para práctica y multiplayer
             arcadeRepo.unlockFighter(step.rival.name)
+            // Por si el mapa de la pelea (variante de luz) no era el “hogar” base
             step.mapFile?.let { arcadeRepo.unlockMap(it) }
             arcadeRepo.setLadderStep(s.arcadeStep)
             if (s.arcadeStep >= arcadeLadder.size) SfArcadeOutcome.COMPLETED else SfArcadeOutcome.WON
@@ -2031,6 +2131,8 @@ class StreetFighterViewModel @Inject constructor(
         cpuHold[1] = SfInput()
         specialCooldownUntil[0] = 0L
         specialCooldownUntil[1] = 0L
+        cpuStaleApproach[0] = 0
+        cpuStaleApproach[1] = 0
         cpuIntensity = 0f // VS: sin escalado; arcade/IA-vs-IA la suben después
         pendingAttacks.clear()
         pendingBonusPower = null
@@ -2292,9 +2394,15 @@ class StreetFighterViewModel @Inject constructor(
         _state.value = StreetFighterState(onlineError = errorMsg)
     }
 
-    /** El ANFITRIÓN elige el mapa (null = al azar del tema); el server lo replica. */
+    /** El ANFITRIÓN elige el mapa (null = al azar entre DESBLOQUEADOS); el server lo replica. */
     fun chooseMapOnline(file: String?) {
-        val resolved = file ?: SF_CLASSIC_THEME.fullBackgrounds.randomOrNull()?.file ?: return
+        val unlocked = unlockedMaps()
+        val pool = SF_CLASSIC_THEME.fullBackgrounds.map { it.file }.let { all ->
+            if (devUnlockAll()) all else all.filter { it in unlocked }
+        }
+        val resolved = file ?: pool.randomOrNull() ?: return
+        // No permitir hostear un mapa bloqueado (salvo Modo Dev)
+        if (!devUnlockAll() && resolved !in unlocked && file != null) return
         transport?.selectMap(resolved)
     }
 

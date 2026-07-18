@@ -151,8 +151,10 @@ Los locked salen con candado; el fondo del muelle SF queda de fallback.
   (pulso, brillo dorado que barre, borde/sombra que laten), tag `◆ MODO COMBATE ◆`.
 - **Menú de modos POW** al entrar (`SfModeMenuOverlay`): ARCADE (principal) / PRÁCTICA /
   **IA VS IA** / MULTIJUGADOR. Arcade = SOLO eliges peleador (dificultad FIJA, `startArcade(playerId)` sin base).
-- **Dificultad arcade** (`arcadeDifficulty`, fija): NORMAL peleas 1-7, AVANZADA 8-12, AVANZADA
-  jefes (Tzitzímime/Yoalli), PESADILLA final (La Presidenta). `cpuIntensity` con PISO 0.25 (la
+- **Dificultad arcade (2026-07-18g):** el jugador elige **Fácil / Medio / Difícil** al
+  arrancar. Mapas = **hogar del rival** (`SfStageCatalog`) + iluminación:
+  Fácil→día, Medio→noche_1, Difícil→noche_2 (apocalipsis). La IA base es la elegida;
+  jefes/final suben 1–2 escalones. `cpuIntensity` con PISO 0.20 (la
   pelea 1 no es trivial) → 1.0 en la final.
 - **🆕 IA VS IA (2026-07-18):** CPU vs CPU a PESADILLA + `cpuIntensity = 1f` para grabar en
   video. `state.aiVsAi`; IA por índice (`buildCpuInput(..., selfIndex)`); controles táctiles

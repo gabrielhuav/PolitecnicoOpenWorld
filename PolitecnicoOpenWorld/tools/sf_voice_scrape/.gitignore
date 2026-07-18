@@ -1,0 +1,10 @@
+﻿# Working cache from scrape (large videos/wavs) — do not commit
+raw/
+raw_yt/
+raw_curated/
+extracted/
+curated_wav/
+_tmp_pack/
+_tmp_curate/
+out/
+out_curated/

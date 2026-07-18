@@ -1,0 +1,149 @@
+{
+  "PRANKEDY": {
+    "status": "ok",
+    "style": "shout",
+    "pitch": 0,
+    "note": "Prankedy — grito/reacción de broma viral (YT full, ventana de voz)",
+    "bytes": 15119
+  },
+  "PAPARAZZI_1": {
+    "status": "ok",
+    "style": "shout",
+    "pitch": 0,
+    "note": "Paparazzi 1 — frase/grito de BROMA (MP3 local icónico)",
+    "bytes": 14304
+  },
+  "PAPARAZZI_5": {
+    "status": "ok",
+    "style": "shout",
+    "pitch": -2.5,
+    "note": "Paparazzi 5 — otra frase de la broma, tono más grave",
+    "bytes": 15544
+  },
+  "SENOR_TIENDA": {
+    "status": "ok",
+    "style": "shout",
+    "pitch": -4.0,
+    "note": "Señor Tienda — voz grave (broma Prankedy universo)",
+    "bytes": 13632
+  },
+  "REY_GRUPERO": {
+    "status": "ok",
+    "style": "shout",
+    "pitch": -3.0,
+    "note": "Rey Grupero — grito grave estilo grupero",
+    "bytes": 12769
+  },
+  "LA_PRESIDENTA": {
+    "status": "ok",
+    "style": "speech",
+    "pitch": 0,
+    "note": "Presidenta — frase hablada (X @Claudiashein)",
+    "bytes": 14575
+  },
+  "YOALLI_EHECATL": {
+    "status": "ok",
+    "style": "horror",
+    "pitch": 4.0,
+    "note": "Yoalli — lamento místico tenebroso",
+    "bytes": 12289
+  },
+  "LA_LLORONA": {
+    "status": "ok",
+    "style": "horror",
+    "pitch": -1.0,
+    "note": "La Llorona — lamento 'Ay mis hijos' (audio icónico YT)",
+    "bytes": 11801
+  },
+  "LA_TZITZIMIME": {
+    "status": "ok",
+    "style": "horror",
+    "pitch": -8.0,
+    "note": "Tzitzimime — lamento monstruoso más grave y húmedo",
+    "bytes": 10583
+  },
+  "CHARRO_NEGRO": {
+    "status": "ok",
+    "style": "metal",
+    "pitch": -2.5,
+    "note": "Charro Negro — voz oscura de leyenda (tenebroso)",
+    "bytes": 13220
+  },
+  "POLICIA_CDMX": {
+    "status": "ok",
+    "style": "radio",
+    "pitch": 0,
+    "note": "Policía CDMX — voz institucional tipo radio",
+    "bytes": 13853
+  },
+  "POLICIA_CDMX_HOMBRE": {
+    "status": "ok",
+    "style": "radio",
+    "pitch": -1.0,
+    "note": "Policía hombre — radio grave",
+    "bytes": 12800
+  },
+  "POLICIA_GRANADERO_HOMBRE": {
+    "status": "ok",
+    "style": "radio",
+    "pitch": -3.0,
+    "note": "Granadero H — radio pesado",
+    "bytes": 12001
+  },
+  "POLICIA_GRANADERO_MUJER": {
+    "status": "ok",
+    "style": "radio",
+    "pitch": 3.0,
+    "note": "Granadera — radio agudo",
+    "bytes": 12982
+  },
+  "GRANADERO": {
+    "status": "ok",
+    "style": "radio",
+    "pitch": -2.5,
+    "note": "Granadero — operativo",
+    "bytes": 12555
+  },
+  "PARAMEDICO_CRUZ_ROJA": {
+    "status": "ok",
+    "style": "medic",
+    "pitch": 0,
+    "note": "Cruz Roja — voz/anuncio institucional",
+    "bytes": 13083
+  },
+  "PARAMEDICO": {
+    "status": "ok",
+    "style": "medic",
+    "pitch": 1.0,
+    "note": "Paramédico — urgente",
+    "bytes": 13437
+  },
+  "ESCOMBOY": {
+    "status": "ok",
+    "style": "shout",
+    "pitch": 2.0,
+    "note": "ESCOM boy — grito joven",
+    "bytes": 13704
+  },
+  "ESCOMGIRL": {
+    "status": "ok",
+    "style": "shout",
+    "pitch": 4.0,
+    "note": "ESCOM girl — grito agudo",
+    "bytes": 12529
+  },
+  "ROBOT": {
+    "status": "ok",
+    "style": "robot",
+    "pitch": 0,
+    "note": "Robot estudiantx — voz procesada",
+    "bytes": 12672
+  },
+  "LAZARO": {
+    "status": "ok",
+    "style": "shout",
+    "pitch": -1.0,
+    "note": "Lázaro — grito pelea",
+    "bytes": 12611
+  }
+}

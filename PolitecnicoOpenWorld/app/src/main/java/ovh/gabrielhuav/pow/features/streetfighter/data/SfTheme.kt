@@ -101,6 +101,8 @@ val SF_CLASSIC_THEME = SfTheme(
     // 🆕 kenstage.png ELIMINADO (copyright). hud.png (SF original) REEMPLAZADO por sf_hud_pow.png
     // (fuente + barra + KO + timer POW, generado con GPT). Ver GUIA / build_hud.
     imageFiles = listOf("shadow.png", "sf_decals_pow.png", "sf_hud_pow.png"),
+    // "hadouken" = fallback genérico si falta special_<fighter>.ogg (voces scrapeadas X/local).
+    // Los specials por personaje se cargan dinámicamente en StreetFighterScreen.
     soundKeys = listOf(
         "light-attack", "medium-attack", "heavy-attack",
         "light-punch-hit", "medium-punch-hit", "heavy-punch-hit",

@@ -1,0 +1,427 @@
+{
+  "_meta": {
+    "description": "Deep X/Twitter scrape catalog for POW Street Fighter character special SFX. Built 2026-07-18 from live X search (from:Prankedyy, from:Claudiashein, from:SSC_CDMX, La Llorona, Charro Negro, Cruz Roja). Local Prankedy MP3s under nuevoMaterial17JUL/ take priority for PRANKEDY/PAPARAZZI.",
+    "scraped_at": "2026-07-18",
+    "note": "Video URLs are public CDN links returned by X media. Clip reuse for game SFX may have copyright/personality-rights constraints — keep short transformed SFX, attribute sources, prefer official public posts."
+  },
+  "local_sources": [
+    {
+      "fighter": "PRANKEDY",
+      "path": "../../nuevoMaterial17JUL/Prankedy0Actual.mp3",
+      "kind": "local_mp3",
+      "priority": 100,
+      "notes": "Local Prankedy voice/music material"
+    },
+    {
+      "fighter": "PRANKEDY",
+      "path": "../../nuevoMaterial17JUL/Prankedy1.mp3",
+      "kind": "local_mp3",
+      "priority": 100
+    },
+    {
+      "fighter": "PRANKEDY",
+      "path": "../../nuevoMaterial17JUL/Prankedy2.mp3",
+      "kind": "local_mp3",
+      "priority": 100
+    },
+    {
+      "fighter": "PRANKEDY",
+      "path": "../../nuevoMaterial17JUL/Prankedy3.mp3",
+      "kind": "local_mp3",
+      "priority": 95
+    },
+    {
+      "fighter": "PRANKEDY",
+      "path": "../../nuevoMaterial17JUL/Prankedy4.mp3",
+      "kind": "local_mp3",
+      "priority": 95
+    },
+    {
+      "fighter": "PRANKEDY",
+      "path": "../../nuevoMaterial17JUL/Prankedy5Actual.mp3",
+      "kind": "local_mp3",
+      "priority": 90
+    },
+    {
+      "fighter": "PRANKEDY",
+      "path": "../../nuevoMaterial17JUL/Prankedy6Actual.mp3",
+      "kind": "local_mp3",
+      "priority": 90
+    },
+    {
+      "fighter": "PAPARAZZI_1",
+      "path": "../../nuevoMaterial17JUL/PAPARAZZI 1!! BROMA.mp3",
+      "kind": "local_mp3",
+      "priority": 100,
+      "notes": "Local Paparazzi broma audio"
+    },
+    {
+      "fighter": "PAPARAZZI_5",
+      "path": "../../nuevoMaterial17JUL/PAPARAZZI 1!! BROMA.mp3",
+      "kind": "local_mp3",
+      "priority": 80,
+      "pitch_semitones": -2
+    },
+    {
+      "fighter": "SENOR_TIENDA",
+      "path": "../../nuevoMaterial17JUL/Prankedy2.mp3",
+      "kind": "local_mp3",
+      "priority": 70,
+      "pitch_semitones": -4,
+      "notes": "Señor de la tienda appears in Prankedy pranks — lower pitch transform"
+    },
+    {
+      "fighter": "REY_GRUPERO",
+      "path": "../../nuevoMaterial17JUL/Prankedy3.mp3",
+      "kind": "local_mp3",
+      "priority": 70,
+      "pitch_semitones": -3
+    }
+  ],
+  "x_videos": [
+    {
+      "fighter": "PRANKEDY",
+      "post_id": "2070268556143374562",
+      "author": "@Prankedyy",
+      "url": "https://video.twimg.com/amplify_video/2070268437461405697/vid/avc1/1062x1920/BfnEEYZTJUJditWx.mp4",
+      "duration_ms": 48483,
+      "text": "Una pequeña broma a los FIFAS JAJA",
+      "priority": 90
+    },
+    {
+      "fighter": "PRANKEDY",
+      "post_id": "2057262824556998865",
+      "author": "@Prankedyy",
+      "url": "https://video.twimg.com/amplify_video/2057262658672365568/vid/avc1/2160x3840/K4wCBF4xWw6Cc06g.mp4",
+      "duration_ms": 11316,
+      "text": "Ahí viene",
+      "priority": 95
+    },
+    {
+      "fighter": "PRANKEDY",
+      "post_id": "2051459641167528089",
+      "author": "@Prankedyy",
+      "url": "https://video.twimg.com/amplify_video/2051459507260096512/vid/avc1/720x1280/lBlzVOF18lw5En5E.mp4",
+      "duration_ms": 79317,
+      "text": "Comiendo el pescado más apestoso del mundo en taxis",
+      "priority": 85
+    },
+    {
+      "fighter": "PRANKEDY",
+      "post_id": "2049595259227713698",
+      "author": "@Prankedyy",
+      "url": "https://video.twimg.com/amplify_video/2049595196762103808/vid/avc1/1448x2574/1mV9KJ5hPxSDtzdK.mp4",
+      "duration_ms": 55533,
+      "text": "Broma que hice en un concierto JAJA",
+      "priority": 88
+    },
+    {
+      "fighter": "PRANKEDY",
+      "post_id": "2044209159436906972",
+      "author": "@Prankedyy",
+      "url": "https://video.twimg.com/amplify_video/2044209080097542144/vid/avc1/720x1280/zaIV51CQ-5Xq5M6-.mp4",
+      "duration_ms": 30383,
+      "text": "Cuidado cuando vas al baño",
+      "priority": 80
+    },
+    {
+      "fighter": "PRANKEDY",
+      "post_id": "2073186392243413159",
+      "author": "@Dey_Odimpa",
+      "url": "https://video.twimg.com/amplify_video/2073186298232291329/vid/avc1/720x1280/JXrh7XX1dU4n_1TW.mp4",
+      "duration_ms": 43300,
+      "text": "voz de @prankedy Cabefunko",
+      "priority": 75
+    },
+    {
+      "fighter": "LA_PRESIDENTA",
+      "post_id": "2078274394695123003",
+      "author": "@Claudiashein",
+      "url": "https://video.twimg.com/amplify_video/2078274121432018944/vid/avc1/720x1280/0EQUzx9NUwOt8Bvv.mp4",
+      "duration_ms": 104233,
+      "text": "sargazo / voz propia presidenta",
+      "priority": 95
+    },
+    {
+      "fighter": "LA_PRESIDENTA",
+      "post_id": "2077958285433413754",
+      "author": "@Claudiashein",
+      "url": "https://video.twimg.com/amplify_video/2077958105267068928/vid/avc1/1080x1920/2G1QyXdEdunelpCJ.mp4",
+      "duration_ms": 65600,
+      "text": "Estamos en Tulum — mañanera",
+      "priority": 98
+    },
+    {
+      "fighter": "LA_PRESIDENTA",
+      "post_id": "2075797952270905533",
+      "author": "@Claudiashein",
+      "url": "https://video.twimg.com/amplify_video/2075797390033068033/vid/avc1/1080x1920/WWgG2NfQJWpFBNBG.mp4",
+      "duration_ms": 70703,
+      "text": "reconocimiento Ejército / voz",
+      "priority": 92
+    },
+    {
+      "fighter": "LA_PRESIDENTA",
+      "post_id": "2075239737250746372",
+      "author": "@Claudiashein",
+      "url": "https://video.twimg.com/amplify_video/2075239656174579712/vid/avc1/1500x1874/bTHwSNNDhTwtvP7C.mp4",
+      "duration_ms": 15000,
+      "text": "inflación 3.37 — clip corto voz",
+      "priority": 99
+    },
+    {
+      "fighter": "LA_PRESIDENTA",
+      "post_id": "2074995141631267010",
+      "author": "@Claudiashein",
+      "url": "https://video.twimg.com/amplify_video/2074994960244379648/vid/avc1/720x1280/G38JZBv-C1bwEDPT.mp4",
+      "duration_ms": 104366,
+      "text": "12 buenas noticias economía",
+      "priority": 90
+    },
+    {
+      "fighter": "LA_PRESIDENTA",
+      "post_id": "2044384446455955770",
+      "author": "@Melissa_Bely",
+      "url": "https://video.twimg.com/ext_tw_video/2044384372648996864/pu/vid/avc1/1280x720/TwvS10yGHhs4r_E2.mp4",
+      "duration_ms": 228481,
+      "text": "mañanera risa / voz Sheinbaum clip",
+      "priority": 85
+    },
+    {
+      "fighter": "LA_PRESIDENTA",
+      "post_id": "1958182888890864111",
+      "author": "@avieu",
+      "url": "https://video.twimg.com/amplify_video/1958182749220564992/vid/avc1/1920x1080/ax5-S-R9njrN-nVK.mp4",
+      "duration_ms": 21433,
+      "text": "Sheinbaum habla en mañanera",
+      "priority": 88
+    },
+    {
+      "fighter": "YOALLI_EHECATL",
+      "post_id": "2077958285433413754",
+      "author": "@Claudiashein",
+      "url": "https://video.twimg.com/amplify_video/2077958105267068928/vid/avc1/1080x1920/2G1QyXdEdunelpCJ.mp4",
+      "duration_ms": 65600,
+      "text": "forma nocturna — voz base + pitch alto en pack",
+      "priority": 70,
+      "pitch_semitones": 5
+    },
+    {
+      "fighter": "LA_LLORONA",
+      "post_id": "1932649993690644511",
+      "author": "@psychotronica_",
+      "url": "https://video.twimg.com/amplify_video/1932649934064427008/vid/avc1/950x706/7GwdBbFpimHAhV-L.mp4",
+      "duration_ms": 11833,
+      "text": "La maldición de la Llorona 1963 sound on",
+      "priority": 95
+    },
+    {
+      "fighter": "LA_LLORONA",
+      "post_id": "1950828715367104959",
+      "author": "@drmuerteBDF",
+      "url": "https://video.twimg.com/amplify_video/1950828656206426112/vid/avc1/576x1024/ioyMO_zWNWB3YQU2.mp4",
+      "duration_ms": 10566,
+      "text": "Gritos espeluznantes Llorona",
+      "priority": 98
+    },
+    {
+      "fighter": "LA_LLORONA",
+      "post_id": "2073768866665419123",
+      "author": "@pedroj86",
+      "url": "https://video.twimg.com/amplify_video/2072813117961113600/vid/avc1/1080x1920/QnD4gT4l3kjnwsOV.mp4",
+      "duration_ms": 40266,
+      "text": "Historia Ay mis hijos",
+      "priority": 80
+    },
+    {
+      "fighter": "LA_LLORONA",
+      "post_id": "2076166814787146105",
+      "author": "@altocandombe",
+      "url": "https://video.twimg.com/amplify_video/2076134258414870528/vid/avc1/1280x720/Fnwkq8VZu0RbPGrt.mp4",
+      "duration_ms": 57702,
+      "text": "Ay de mí Llorona canción",
+      "priority": 75
+    },
+    {
+      "fighter": "CHARRO_NEGRO",
+      "post_id": "2070516639473521034",
+      "author": "@HISTORIASDEMIE",
+      "url": "https://video.twimg.com/ext_tw_video/2070516596423200768/pu/vid/avc1/720x1280/czUtqo99xfd1IU9J.mp4?tag=12",
+      "duration_ms": 40333,
+      "text": "Leyenda Charro Negro Estadio Azteca",
+      "priority": 90
+    },
+    {
+      "fighter": "CHARRO_NEGRO",
+      "post_id": "2056770000367616265",
+      "author": "@Jaliscoestuyo",
+      "url": "https://video.twimg.com/ext_tw_video/2056769970491490304/pu/vid/avc1/478x850/20eP1Ir9PqeWNT5X.mp4?tag=12",
+      "duration_ms": 72541,
+      "text": "Cuidado caminos solitarios Charro Negro",
+      "priority": 88
+    },
+    {
+      "fighter": "CHARRO_NEGRO",
+      "post_id": "2070903604727472280",
+      "author": "@ASHOTLIVECHANEL",
+      "url": "https://video.twimg.com/amplify_video/2070901548117622784/vid/avc1/720x1280/jGCPXMJTumCjMUC1.mp4",
+      "duration_ms": 150419,
+      "text": "El Charro Negro jinete fantasma",
+      "priority": 70
+    },
+    {
+      "fighter": "POLICIA_CDMX",
+      "post_id": "2078310517362307140",
+      "author": "@SSC_CDMX",
+      "url": "https://video.twimg.com/amplify_video/2078310352664543232/vid/avc1/1248x704/fdrXDEBTxtZfGaRn.mp4",
+      "duration_ms": 5041,
+      "text": "Boletín SSC detenido — voz institucional corta",
+      "priority": 95
+    },
+    {
+      "fighter": "POLICIA_CDMX",
+      "post_id": "2078317585637031976",
+      "author": "@SSC_CDMX",
+      "url": "https://video.twimg.com/amplify_video/2077769856779239424/vid/avc1/1920x1080/tKbkzQxZT400y2uE.mp4",
+      "duration_ms": 72666,
+      "text": "Vacaciones seguras SSC",
+      "priority": 85
+    },
+    {
+      "fighter": "POLICIA_CDMX_HOMBRE",
+      "post_id": "2078313824177033354",
+      "author": "@SSC_CDMX",
+      "url": "https://video.twimg.com/amplify_video/2076070435003809792/vid/avc1/1920x1080/m1CwnkImOYLC85xN.mp4",
+      "duration_ms": 58224,
+      "text": "Seguridad vial SSC",
+      "priority": 90
+    },
+    {
+      "fighter": "POLICIA_GRANADERO_HOMBRE",
+      "post_id": "2078317585637031976",
+      "author": "@SSC_CDMX",
+      "url": "https://video.twimg.com/amplify_video/2077769856779239424/vid/avc1/1920x1080/tKbkzQxZT400y2uE.mp4",
+      "duration_ms": 72666,
+      "text": "SSC voz — granadero pitch bajo",
+      "priority": 80,
+      "pitch_semitones": -3
+    },
+    {
+      "fighter": "POLICIA_GRANADERO_MUJER",
+      "post_id": "2078310517362307140",
+      "author": "@SSC_CDMX",
+      "url": "https://video.twimg.com/amplify_video/2078310352664543232/vid/avc1/1248x704/fdrXDEBTxtZfGaRn.mp4",
+      "duration_ms": 5041,
+      "text": "SSC voz — granadera pitch alto",
+      "priority": 80,
+      "pitch_semitones": 3
+    },
+    {
+      "fighter": "GRANADERO",
+      "post_id": "2078313824177033354",
+      "author": "@SSC_CDMX",
+      "url": "https://video.twimg.com/amplify_video/2076070435003809792/vid/avc1/1920x1080/m1CwnkImOYLC85xN.mp4",
+      "duration_ms": 58224,
+      "priority": 70,
+      "pitch_semitones": -2
+    },
+    {
+      "fighter": "PARAMEDICO_CRUZ_ROJA",
+      "post_id": "2078263478499045480",
+      "author": "@CruzRoja_MX",
+      "url": "https://video.twimg.com/amplify_video/2078246611646382080/vid/avc1/1280x720/QQ67EnhNmZD1P6FU.mp4?tag=14",
+      "duration_ms": 178094,
+      "text": "Cruz Roja Mundial fútbol",
+      "priority": 90
+    },
+    {
+      "fighter": "PARAMEDICO_CRUZ_ROJA",
+      "post_id": "2077886704472510782",
+      "author": "@AztecaNoticias",
+      "url": "https://video.twimg.com/amplify_video/2077885993210798080/vid/avc1/720x1280/FWPIbeEQgfQpC5xT.mp4",
+      "duration_ms": 87137,
+      "text": "binomios caninos Cruz Roja",
+      "priority": 85
+    },
+    {
+      "fighter": "PARAMEDICO",
+      "post_id": "2077839458087625056",
+      "author": "@CruzRoja_Edomex",
+      "url": "https://video.twimg.com/amplify_video/2077839247562706944/vid/avc1/576x1024/4S60sq5K58s-RPyb.mp4",
+      "duration_ms": 22500,
+      "text": "Hospital Polanco Cruz Roja",
+      "priority": 88
+    },
+    {
+      "fighter": "LA_TZITZIMIME",
+      "post_id": "1950828715367104959",
+      "author": "@drmuerteBDF",
+      "url": "https://video.twimg.com/amplify_video/1950828656206426112/vid/avc1/576x1024/ioyMO_zWNWB3YQU2.mp4",
+      "duration_ms": 10566,
+      "text": "grito horror — base Tzitzimime",
+      "priority": 75,
+      "pitch_semitones": -5
+    },
+    {
+      "fighter": "ESCOMBOY",
+      "post_id": "2070268556143374562",
+      "author": "@Prankedyy",
+      "url": "https://video.twimg.com/amplify_video/2070268437461405697/vid/avc1/1062x1920/BfnEEYZTJUJditWx.mp4",
+      "duration_ms": 48483,
+      "text": "voz calle mexicana joven — pitch student",
+      "priority": 50,
+      "pitch_semitones": 2
+    },
+    {
+      "fighter": "ESCOMGIRL",
+      "post_id": "2049595259227713698",
+      "author": "@Prankedyy",
+      "url": "https://video.twimg.com/amplify_video/2049595196762103808/vid/avc1/1448x2574/1mV9KJ5hPxSDtzdK.mp4",
+      "duration_ms": 55533,
+      "priority": 50,
+      "pitch_semitones": 4
+    },
+    {
+      "fighter": "ROBOT",
+      "post_id": "2075239737250746372",
+      "author": "@Claudiashein",
+      "url": "https://video.twimg.com/amplify_video/2075239656174579712/vid/avc1/1500x1874/bTHwSNNDhTwtvP7C.mp4",
+      "duration_ms": 15000,
+      "text": "voz base + robotize en pack",
+      "priority": 40,
+      "robotize": true
+    },
+    {
+      "fighter": "LAZARO",
+      "post_id": "2044209159436906972",
+      "author": "@Prankedyy",
+      "url": "https://video.twimg.com/amplify_video/2044209080097542144/vid/avc1/720x1280/zaIV51CQ-5Xq5M6-.mp4",
+      "duration_ms": 30383,
+      "priority": 40,
+      "pitch_semitones": -1
+    }
+  ],
+  "fighter_aliases": {
+    "PRANKEDY": ["PRANKEDY"],
+    "SENOR_TIENDA": ["SENOR_TIENDA"],
+    "PAPARAZZI_1": ["PAPARAZZI_1"],
+    "PAPARAZZI_5": ["PAPARAZZI_5"],
+    "REY_GRUPERO": ["REY_GRUPERO"],
+    "LAZARO": ["LAZARO"],
+    "ESCOMBOY": ["ESCOMBOY"],
+    "ESCOMGIRL": ["ESCOMGIRL"],
+    "ROBOT": ["ROBOT"],
+    "YOALLI_EHECATL": ["YOALLI_EHECATL"],
+    "CHARRO_NEGRO": ["CHARRO_NEGRO"],
+    "LA_LLORONA": ["LA_LLORONA"],
+    "LA_TZITZIMIME": ["LA_TZITZIMIME"],
+    "LA_PRESIDENTA": ["LA_PRESIDENTA"],
+    "POLICIA_CDMX": ["POLICIA_CDMX"],
+    "POLICIA_CDMX_HOMBRE": ["POLICIA_CDMX_HOMBRE"],
+    "PARAMEDICO_CRUZ_ROJA": ["PARAMEDICO_CRUZ_ROJA"],
+    "POLICIA_GRANADERO_HOMBRE": ["POLICIA_GRANADERO_HOMBRE"],
+    "POLICIA_GRANADERO_MUJER": ["POLICIA_GRANADERO_MUJER"],
+    "GRANADERO": ["GRANADERO"],
+    "PARAMEDICO": ["PARAMEDICO"]
+  }
+}
