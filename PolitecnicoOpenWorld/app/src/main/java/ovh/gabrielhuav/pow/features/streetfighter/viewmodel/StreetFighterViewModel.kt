@@ -215,7 +215,12 @@ class StreetFighterViewModel @Inject constructor(
             ),
             // 🆕 (2026-07-19) Prankedy: audios de daño (hurt) recortados de PrankedyMixes.mp3
             // + audio de derrota (loss) extraído de Prankedy losses.mkv (recortado último segundo)
+            // + audios de ataque normal (attack) extraídos de Prankedy Attack 1/2.mkv
             SfFighterId.PRANKEDY to SfVoicePack(
+                attack = listOf(
+                    SfVoiceLine("special_prankedy_attack_1"),
+                    SfVoiceLine("special_prankedy_attack_2")
+                ),
                 hurt = listOf(
                     SfVoiceLine("special_prankedy_hurt_1"),
                     SfVoiceLine("special_prankedy_hurt_2")
