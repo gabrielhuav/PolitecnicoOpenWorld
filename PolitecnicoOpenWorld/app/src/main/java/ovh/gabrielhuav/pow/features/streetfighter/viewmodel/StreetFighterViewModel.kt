@@ -122,9 +122,9 @@ class StreetFighterViewModel @Inject constructor(
             intro = listOf(hIntro), attack = listOf(hAttack),
             win = listOf(SfVoiceLine("special_pol_h_win", "¿Se cree más chingón que nosotros o qué joven?")),
         )
-        // WIN de granadero (H y M) = "3 de diana" (bugle). Usa special_granadero (special_gr_win se
+        // WIN de granadero (H y M) = "3 de diana" (bugle). Usa special_granadero_win (special_gr_win se
         // eliminó por pedido del dueño 2026-07-18s).
-        val grWin = SfVoiceLine("special_granadero")
+        val grWin = SfVoiceLine("special_granadero_win")
         val grH = SfVoicePack(intro = listOf(hIntro), attack = listOf(hAttack), win = listOf(grWin))
         // MUJER: policía + granadera comparten ATTACK y HURT; el WIN difiere.
         // (2026-07-19) special_pol_m_attack_1 era en realidad de daño (special_pol_m_hurt);
@@ -134,7 +134,7 @@ class StreetFighterViewModel @Inject constructor(
         val polM = SfVoicePack(
             attack = mAttack,
             hurt = mHurt,
-            win = listOf(SfVoiceLine("special_policia_cdmx", "Si dices policía, me comprometí como mujer a que la ciudadanía sintiera una mejor seguridad")),
+            win = listOf(SfVoiceLine("special_policia_cdmx_win", "Si dices policía, me comprometí como mujer a que la ciudadanía sintiera una mejor seguridad")),
         )
         val grM = SfVoicePack(attack = mAttack, hurt = mHurt, win = listOf(grWin))
         // 🆕 (2026-07-18s) Paparazzi 1: su ataque ESPECIAL (poder) = special_paparazzi_5 (el audio
@@ -167,7 +167,7 @@ class StreetFighterViewModel @Inject constructor(
             SfFighterId.REY_GRUPERO to SfVoicePack(intro = listOf(SfVoiceLine("special_rey_grupero"))),
             SfFighterId.PARAMEDICO_CRUZ_ROJA to SfVoicePack(
                 win = listOf(SfVoiceLine("special_paramedico_cruz_roja", "No olvides que saber primeros auxilios marca la diferencia y salva vidas.")),
-                power = listOf(SfVoiceLine("special_paramedico_cruz_roja_power"))
+                power = listOf(SfVoiceLine("special_power_electricity"))
             ),
             // 🆕 (2026-07-18u) Charro Negro: 2 gritos de ataque + 3 de daño (su special_charro_negro
             // sigue como fallback del poder especial).
@@ -199,6 +199,13 @@ class StreetFighterViewModel @Inject constructor(
             // 🆕 (2026-07-19) La Presidenta: audio de victoria con subtítulo (recortado el primer segundo)
             SfFighterId.LA_PRESIDENTA to SfVoicePack(
                 win = listOf(SfVoiceLine("special_la_presidenta_win", "Sí. Siempre. Nosotros vamos a actuar siempre en el marco de la ley. Siempre."))
+            ),
+            // 🆕 (2026-07-19) Escomboy / Escomgirl: mapeo de su poder especial de electricidad (compartido)
+            SfFighterId.ESCOMBOY to SfVoicePack(
+                power = listOf(SfVoiceLine("special_power_electricity"))
+            ),
+            SfFighterId.ESCOMGIRL to SfVoicePack(
+                power = listOf(SfVoiceLine("special_power_electricity"))
             ),
         )
     }
