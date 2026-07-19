@@ -1,6 +1,11 @@
-# PROMPT (trabajo FINAL) — Encuadre panorámico + salto en TODOS los mapas de HUELUM VS. GOYA
+# PROMPT — Afinar el encuadre panorámico + salto en TODOS los mapas de HUELUM VS. GOYA
 
-> Tarea diferida acordada con el dueño (2026-07-18). Hacerla AL FINAL, mapa por mapa, sin prisa.
+> **⚠️ ESTADO 2026-07-18ñ: el panorámico YA se aplicó a los 16 mapas** en `SF_BG_FRAMING`
+> (FacMed 1.35; los otros 15 a 1.30). Este prompt pasa de "aplicarlo" a **AFINARLO por mapa**
+> en dispositivo: si alguno se recorta de más, se ve cuadrado o con peleadores flotando, ajustar
+> SU `zoom`/`offsetY` (una línea por mapa). El sistema es tuneable sin regenerar assets.
+
+> Tarea acordada con el dueño (2026-07-18). Afinado mapa por mapa, sin prisa.
 > Objetivo: que los 16 escenarios se vean panorámicos y los peleadores SIEMPRE pisen el suelo
 > (no "flotando"), y que al saltar se revele más del mapa hacia arriba — como ya quedó en los 5
 > mapas nuevos (Facultad de Medicina, FES Aragón, Pirámide del Sol, UAM Cuajimalpa, Zócalo).

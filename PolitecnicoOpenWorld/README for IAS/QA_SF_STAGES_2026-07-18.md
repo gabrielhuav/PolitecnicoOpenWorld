@@ -98,17 +98,13 @@ hasta `headroom` al brincar → se ve "más arriba" del mapa. En mapas SIN zoom 
 `headroom=0` → sin efecto. Sólo aplica a los mapas con `SfBgFraming` (los nuevos). Tuneable con
 el divisor `/90f` en `drawScene` si se quiere más/menos recorrido.
 
-## ¿Aplicar el panorámico a TODOS los mapas? (recomendación)
+## Panorámico en TODOS los mapas — ✅ APLICADO (2026-07-18ñ, por pedido del dueño)
 
-El dueño preguntó si conviene. **Recomendación:** hacerlo mapa por mapa, NO en bloque:
-- El `zoom` correcto depende de DÓNDE está el piso en cada atlas (si el piso ya está abajo,
-  zoom de más recorta contenido útil; si está alto, zoom ayuda). Un valor único para los 16
-  puede empeorar algunos.
-- Los 11 confirmados YA se ven bien; meterles zoom cambia su encuadre aprobado (riesgo de
-  regresión visual). Mejor solo donde haga falta.
-- Plan sugerido: revisar cada uno en dispositivo; si alguno se ve cuadrado o con peleadores
-  flotando, agregarle su entrada en `SF_BG_FRAMING` con el zoom afinado. El sistema ya está
-  listo para eso (una línea por mapa).
+Los 16 mapas ya están en `SF_BG_FRAMING` con `zoom` (Facultad Medicina 1.35; los otros 15 a
+1.30), así que TODOS son panorámicos + con parallax de salto. **Queda pendiente el AFINADO por
+mapa en dispositivo:** el zoom ideal depende de dónde cae el piso en cada atlas; si alguno se
+recorta de más o queda con peleadores flotando, ajustar SU zoom/offsetY (una línea por mapa,
+ver `PROMPT_panoramico_todos_los_mapas.md`). El sistema es tuneable sin regenerar assets.
 
 ## Orden de trabajo (acordado con el dueño)
 

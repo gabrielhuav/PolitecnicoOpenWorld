@@ -100,17 +100,185 @@ class StreetFighterViewModel @Inject constructor(
         ovh.gabrielhuav.pow.features.streetfighter.data.SfSpecialPhrases.load(appContext)
     }
 
-    /** Emite SFX + subtítulo arcade de la frase del special. */
+    // ── 🆕 (2026-07-18o/p/q) PACK DE VOCES por EVENTO con FRASE (subtítulo) por peleadór ──
+    // Material del dueño (nuevoMaterial18JUL/Audios). Cada evento (intro/attack/hurt/power/win) es
+    // una lista de LÍNEAS (archivo `special_*` + frase); se elige una al azar. Se reproducen por la
+    // ruta "special_*" (MediaPlayer en la Screen, apto para clips largos). Policías: HOMBRE y
+    // GRANADERO comparten intro/attack (win difiere: granadero = "3 de diana"); igual MUJER/GRANADERA.
+    private data class SfVoiceLine(val file: String, val phrase: String = "")
+    private class SfVoicePack(
+        val intro: List<SfVoiceLine> = emptyList(),
+        val attack: List<SfVoiceLine> = emptyList(),
+        val hurt: List<SfVoiceLine> = emptyList(),
+        val power: List<SfVoiceLine> = emptyList(),
+        val win: List<SfVoiceLine> = emptyList(),
+    )
+
+    private val sfVoicePacks: Map<SfFighterId, SfVoicePack> = run {
+        // HOMBRE: policía + granadero comparten intro y ATTACK; el WIN difiere.
+        val hIntro = SfVoiceLine("special_pol_h_intro", "¡Está prohibido beber en la vía pública!")
+        val hAttack = SfVoiceLine("special_pol_h_attack", "Buenas joven, ¿si sabe porque lo detuvimos?")
+        val polH = SfVoicePack(
+            intro = listOf(hIntro), attack = listOf(hAttack),
+            win = listOf(SfVoiceLine("special_pol_h_win", "¿Se cree más chingón que nosotros o qué joven?")),
+        )
+        // WIN de granadero (H y M) = "3 de diana" (bugle). Usa special_granadero (special_gr_win se
+        // eliminó por pedido del dueño 2026-07-18s).
+        val grWin = SfVoiceLine("special_granadero")
+        val grH = SfVoicePack(intro = listOf(hIntro), attack = listOf(hAttack), win = listOf(grWin))
+        // MUJER: policía + granadera comparten ATTACK (2 frases); el WIN difiere.
+        val mAttack = listOf(
+            SfVoiceLine("special_pol_m_attack_1", "Tu denuncia me hace lo que el viento a Juárez"),
+            SfVoiceLine("special_pol_m_attack_2", "¿Sabes cuántas tengo?"),
+        )
+        val polM = SfVoicePack(
+            attack = mAttack,
+            win = listOf(SfVoiceLine("special_pol_m_win", "Al decidir ser policía me comprometí como mujer")),
+        )
+        val grM = SfVoicePack(attack = mAttack, win = listOf(grWin))
+        // 🆕 (2026-07-18s) Paparazzi 1: su ataque ESPECIAL (poder) = special_paparazzi_5 (el audio
+        // correcto; special_paparazzi_1 era duplicado y se borró). DAÑO = 3 variantes.
+        val papz1 = SfVoicePack(
+            power = listOf(SfVoiceLine("special_paparazzi_5")),
+            hurt = listOf(
+                SfVoiceLine("special_papz1_hurt_1"), SfVoiceLine("special_papz1_hurt_2"),
+                SfVoiceLine("special_papz1_hurt_3"),
+            ),
+        )
+        mapOf(
+            SfFighterId.POLICIA_CDMX_HOMBRE to polH,
+            SfFighterId.POLICIA_GRANADERO_HOMBRE to grH,
+            SfFighterId.GRANADERO to grH,
+            SfFighterId.POLICIA_CDMX to polM,
+            SfFighterId.POLICIA_GRANADERO_MUJER to grM,
+            SfFighterId.PAPARAZZI_1 to papz1,
+            // 🆕 (2026-07-18s) audios del dueño mapeados al evento correcto:
+            // La Tzitzimime = GOLPE NORMAL (attack). Rey Grupero = INTRO.
+            // Paramédico Cruz Roja = WIN. (Su special_<id> también suena en su poder por fallback.)
+            // 🆕 (2026-07-18t) La Llorona: pack COMPLETO con audios dedicados del dueño
+            // (special/power, attack recortado seg 7-11, hurt).
+            SfFighterId.LA_LLORONA to SfVoicePack(
+                attack = listOf(SfVoiceLine("special_llorona_attack")),
+                hurt = listOf(SfVoiceLine("special_llorona_hurt")),
+                power = listOf(SfVoiceLine("special_llorona_power")),
+            ),
+            SfFighterId.LA_TZITZIMIME to SfVoicePack(attack = listOf(SfVoiceLine("special_la_tzitzimime"))),
+            SfFighterId.REY_GRUPERO to SfVoicePack(intro = listOf(SfVoiceLine("special_rey_grupero"))),
+            SfFighterId.PARAMEDICO_CRUZ_ROJA to SfVoicePack(
+                win = listOf(SfVoiceLine("special_paramedico_cruz_roja")),
+            ),
+            // 🆕 (2026-07-18u) Charro Negro: 2 gritos de ataque + 3 de daño (su special_charro_negro
+            // sigue como fallback del poder especial).
+            SfFighterId.CHARRO_NEGRO to SfVoicePack(
+                attack = listOf(SfVoiceLine("special_charro_attack_1"), SfVoiceLine("special_charro_attack_2")),
+                hurt = listOf(
+                    SfVoiceLine("special_charro_hurt_1"), SfVoiceLine("special_charro_hurt_2"),
+                    SfVoiceLine("special_charro_hurt_3"),
+                ),
+            ),
+        )
+    }
+
+    // 🆕 (2026-07-18u) GRITO DE ATAQUE POR DEFECTO (masculino): sonido normal (no especial) que
+    // suena AL AZAR cuando un peleadór HOMBRE golpea y NO tiene voz de ataque propia. El ENEMIGO
+    // (índice 1) lo emite más seguido; el jugador (índice 0) muy rara vez (para no saturar tu voz).
+    // Archivo: special_male_attack_grunt.ogg (del "ZA ZA", seg 8-10). ⚠️ PENDIENTE de subir el .ogg.
+    private val maleGruntClip = "special_male_attack_grunt"
+    private val sfMaleFighters = setOf(
+        SfFighterId.PRANKEDY, SfFighterId.SENOR_TIENDA, SfFighterId.PAPARAZZI_1, SfFighterId.PAPARAZZI_5,
+        SfFighterId.REY_GRUPERO, SfFighterId.ESCOMBOY, SfFighterId.CHARRO_NEGRO, SfFighterId.LAZARO,
+        SfFighterId.POLICIA_CDMX_HOMBRE, SfFighterId.POLICIA_GRANADERO_HOMBRE, SfFighterId.GRANADERO,
+        SfFighterId.PARAMEDICO_CRUZ_ROJA, SfFighterId.PARAMEDICO,
+    )
+
+    // 🆕 (2026-07-18s) Peleadores SIN voz a propósito (special_<id>.ogg borrado por el dueño):
+    // su poder especial suena con el hadouken genérico. La auditoría NO los marca como faltantes.
+    private val sfVoicelessFighters = setOf(
+        SfFighterId.LAZARO, SfFighterId.PARAMEDICO, SfFighterId.PRANKEDY,
+    )
+
+    /** Emite un clip de voz `special_<name>.ogg` si el asset existe. true = se emitió. */
+    private fun emitVoiceClip(name: String): Boolean {
+        if (!sfAssetExists("STREETFIGHTER/SOUNDS/$name.ogg")) return false
+        _soundEvents.tryEmit(name)
+        return true
+    }
+
+    /** Solo A-Z/0-9 para la fuente pixel del HUD (acentos/ñ/puntuación → simplificados). */
+    private fun sfHudSanitize(s: String): String = s.uppercase(java.util.Locale.ROOT)
+        .replace('Á', 'A').replace('É', 'E').replace('Í', 'I').replace('Ó', 'O').replace('Ú', 'U')
+        .replace('Ñ', 'N').replace('Ü', 'U')
+        .replace(Regex("[^A-Z0-9 ]"), " ").replace(Regex("\\s+"), " ").trim()
+
+    /** Fija el subtítulo (frase) por un tiempo proporcional a su longitud. */
+    private fun setVoiceSubtitle(phrase: String, now: Long) {
+        val hud = sfHudSanitize(phrase)
+        if (hud.isBlank()) return
+        val until = now + (1600L + hud.length * 70L).coerceIn(2000L, 6000L)
+        _state.update { it.copy(specialSubtitleHud = hud, specialSubtitleUntilMs = until) }
+    }
+
+    /** Emite una LÍNEA del evento (al azar) + su subtítulo si tiene frase. */
+    private fun emitVoiceLines(lines: List<SfVoiceLine>, now: Long): Boolean {
+        if (lines.isEmpty()) return false
+        val line = lines.random()
+        if (!emitVoiceClip(line.file)) return false
+        if (line.phrase.isNotBlank()) setVoiceSubtitle(line.phrase, now)
+        return true
+    }
+
+    /** Voz de VICTORIA del peleadór (pack WIN; si no tiene, su voz de special). */
+    private fun emitWinVoice(id: SfFighterId, now: Long) {
+        val p = sfVoicePacks[id]
+        if (p != null && emitVoiceLines(p.win, now)) return
+        emitSpecialVoice(id, now)
+    }
+
+    // Anti-spam de voces por índice (no repetir en menos del intervalo).
+    private val lastHurtVoiceMs = LongArray(2) { Long.MIN_VALUE }
+    private val lastAttackVoiceMs = LongArray(2) { Long.MIN_VALUE }
+    private val hurtVoiceCooldownMs = 2600L
+    private val attackVoiceCooldownMs = 4200L
+
+    /** Voz de DAÑO (pack HURT, variante al azar) con cooldown por índice. */
+    private fun emitHurtVoice(id: SfFighterId, idx: Int, now: Long) {
+        val lines = sfVoicePacks[id]?.hurt.orEmpty()
+        if (lines.isEmpty()) return
+        val i = idx.coerceIn(0, 1)
+        if (now - lastHurtVoiceMs[i] < hurtVoiceCooldownMs) return
+        if (emitVoiceLines(lines, now)) lastHurtVoiceMs[i] = now
+    }
+
+    /** Voz de ATAQUE (pack ATTACK, grito + frase al golpear) con cooldown por índice.
+     * Si el peleadór NO tiene voz de ataque propia y es HOMBRE, a veces suena el grito por
+     * defecto (enemigo = más seguido; jugador = raro). */
+    private fun emitAttackVoice(id: SfFighterId, idx: Int, now: Long) {
+        val i = idx.coerceIn(0, 1)
+        if (now - lastAttackVoiceMs[i] < attackVoiceCooldownMs) return
+        val lines = sfVoicePacks[id]?.attack.orEmpty()
+        if (lines.isNotEmpty()) {
+            if (emitVoiceLines(lines, now)) lastAttackVoiceMs[i] = now
+            return
+        }
+        // 🆕 (2026-07-18u) Grito masculino por defecto (solo hombres sin voz de ataque propia).
+        if (id in sfMaleFighters) {
+            val chance = if (i == 0) 0.10f else 0.35f // jugador raro / enemigo más seguido
+            if (Random.nextFloat() < chance && emitVoiceClip(maleGruntClip)) lastAttackVoiceMs[i] = now
+        }
+    }
+
+    /** Voz de PRESENTACIÓN al arrancar la pelea (solo si el pack tiene intro). */
+    private fun emitIntroVoice(id: SfFighterId, now: Long) {
+        emitVoiceLines(sfVoicePacks[id]?.intro.orEmpty(), now)
+    }
+
+    /** Emite SFX + subtítulo del special (pack POWER si lo tiene; si no, su special_<id> + frase JSON). */
     private fun emitSpecialVoice(id: SfFighterId, now: Long) {
+        val p = sfVoicePacks[id]
+        if (p != null && emitVoiceLines(p.power, now)) return
         _soundEvents.tryEmit(specialSfxKey(id))
         val phrase = specialPhrases[id] ?: return
-        val until = now + phrase.subtitleMs
-        _state.update { s ->
-            s.copy(
-                specialSubtitleHud = phrase.hudLine(),
-                specialSubtitleUntilMs = until,
-            )
-        }
+        setVoiceSubtitle(phrase.phraseEs, now)
     }
 
     /** Reproduce otra vez la voz completa del peleador visible en el showcase. */
@@ -361,6 +529,7 @@ class StreetFighterViewModel @Inject constructor(
     private var roundIntroUntilMs = 0L     // banner "RONDA N / PELEA": input y timer congelados
     private var roundGraceUntilMs = 0L     // tras el reset, ignora snapshots/daño viejos del rival
     private var roundEndSent = false       // guard de ROUND_ENDED (como onlineEndSent por ronda)
+    private var introVoiceSent = false      // 🆕 voz de intro del policía: una vez por ronda
 
     // ─── 🆕 MULTIJUGADOR 1v1 (relay puro contra MultiplayerSF/ en Render) ───
     // Cada cliente simula a SU peleador (índice 0 local); el rival (índice 1) llega
@@ -585,6 +754,13 @@ class StreetFighterViewModel @Inject constructor(
         if (roundResetAtMs > 0 && now >= roundResetAtMs) resetRound(now)
         val s = _state.value
         val online = s.onlineStatus == SfOnlineStatus.FIGHTING
+        // 🆕 (2026-07-18o) VOZ DE INTRO del policía al arrancar la pelea (una sola vez por
+        // combate/ronda; solo suena si el peleadór tiene intro — hoy policía HOMBRE).
+        if (!introVoiceSent && !showcaseMode && roundIntroUntilMs > 0L && now < roundIntroUntilMs) {
+            introVoiceSent = true
+            emitIntroVoice(s.player.id, now)
+            emitIntroVoice(s.cpu.id, now)
+        }
         val sim = Sim(
             p0 = s.player, p1 = s.cpu,
             // ONLINE: solo se re-simulan MIS fireballs; los del rival son render-only
@@ -788,6 +964,7 @@ class StreetFighterViewModel @Inject constructor(
             -> {
                 nf = nf.copy(velocityX = 0f, velocityY = 0f, attackStruck = false)
                 _soundEvents.tryEmit("${attackMeta.getValue(newState).strength.name.lowercase()}-attack")
+                emitAttackVoice(nf.id, idx, now) // 🆕 grito al golpear (pack; con cooldown)
             }
             SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY -> {
                 nf = nf.copy(velocityX = 0f, velocityY = 0f, attackStruck = false, fireballFired = false)
@@ -816,7 +993,7 @@ class StreetFighterViewModel @Inject constructor(
         // la celebración de fin de ronda estaba muda; el dueño pidió reutilizar audios
         // correctos antes que dejar animaciones sin sonido.
         if (newState == SfFighterState.VICTORY && f.state != SfFighterState.VICTORY) {
-            emitSpecialVoice(nf.id, now)
+            emitWinVoice(nf.id, now)
         }
         sim.setFighter(idx, nf)
         return true
@@ -1548,6 +1725,7 @@ class StreetFighterViewModel @Inject constructor(
                 }
             }
             changeState(sim, defenderIdx, hurtState, now)
+            emitHurtVoice(defender.id, defenderIdx, now) // 🆕 voz de daño (policía; con cooldown)
         }
         hurtFreezeUntilMs = now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong()
     }
@@ -2906,6 +3084,10 @@ class StreetFighterViewModel @Inject constructor(
         // changeState, así que su sonido se emite aquí reutilizando los .ogg correctos del tema
         // (pedido del dueño: mejor repetir un audio correcto que dejar la animación muda).
         // Solo idx 0: el guion es espejo y emitir dos veces duplicaba el volumen.
+        // 🆕 (2026-07-18o/p) Voz de DAÑO del pack en el showcase (bypass del cooldown, es demo).
+        if (idx == 0 && st in SF_HURT_STATES) {
+            emitVoiceLines(sfVoicePacks[nf.id]?.hurt.orEmpty(), now)
+        }
         if (idx == 0) when (st) {
             SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_BODY_LIGHT ->
                 _soundEvents.tryEmit("light-punch-hit")
@@ -2914,7 +3096,7 @@ class StreetFighterViewModel @Inject constructor(
             SfFighterState.HURT_HEAD_HEAVY, SfFighterState.HURT_BODY_HEAVY ->
                 _soundEvents.tryEmit("heavy-punch-hit")
             SfFighterState.KO -> _soundEvents.tryEmit("heavy-kick-hit") // golpe final (thud)
-            SfFighterState.VICTORY -> emitSpecialVoice(nf.id, now) // su voz al celebrar
+            SfFighterState.VICTORY -> emitWinVoice(nf.id, now) // su voz al celebrar (policía = WIN)
             SfFighterState.BONUS_POWER_11 -> emitSpecialVoice(nf.id, now) // metamorfosis
             else -> Unit // giros: sin SFX (tampoco lo tienen en pelea real)
         }
@@ -2955,7 +3137,18 @@ class StreetFighterViewModel @Inject constructor(
                 )
             }
         }
-        if (!sfAssetExists("STREETFIGHTER/SOUNDS/${specialSfxKey(id)}.ogg")) {
+        // 🆕 (2026-07-18o/p/q) Voz del peleadór: si tiene PACK, verifica cada LÍNEA (archivo .ogg)
+        // de todos sus eventos; si no, su special_<id>.ogg.
+        val pack = sfVoicePacks[id]
+        if (pack != null) {
+            (pack.intro + pack.attack + pack.hurt + pack.power + pack.win).forEach { line ->
+                if (!sfAssetExists("STREETFIGHTER/SOUNDS/${line.file}.ogg")) {
+                    logAssetIssue("FALTA VOZ ${line.file}.ogg (${id.name})")
+                }
+            }
+        } else if (id !in sfVoicelessFighters &&
+            !sfAssetExists("STREETFIGHTER/SOUNDS/${specialSfxKey(id)}.ogg")
+        ) {
             logAssetIssue("FALTA SONIDO ${specialSfxKey(id)}.ogg (${id.name})")
         }
     }
@@ -2976,6 +3169,10 @@ class StreetFighterViewModel @Inject constructor(
             if (!sfAssetExists(SF_CLASSIC_THEME.soundsDir + m)) {
                 logAssetIssue("FALTA MUSICA (progresión): $m")
             }
+        }
+        // 🆕 (2026-07-18u) Grito de ataque masculino por defecto (pendiente: "ZA ZA" seg 8-10).
+        if (!sfAssetExists("STREETFIGHTER/SOUNDS/$maleGruntClip.ogg")) {
+            logAssetIssue("FALTA (opcional) $maleGruntClip.ogg — grito de ataque masculino por defecto")
         }
     }
 
@@ -3139,6 +3336,9 @@ class StreetFighterViewModel @Inject constructor(
         cpuAttackHistory[1].clear()
         cpuDiffOverride[0] = null
         cpuDiffOverride[1] = null
+        introVoiceSent = false
+        lastHurtVoiceMs.fill(Long.MIN_VALUE)
+        lastAttackVoiceMs.fill(Long.MIN_VALUE)
         lastHitTakenMs.fill(Long.MIN_VALUE)
         rapidHitsTaken.fill(0)
         comboEscapeUntilMs.fill(0L)
@@ -3835,6 +4035,7 @@ class StreetFighterViewModel @Inject constructor(
         koFrame = 0
         hurtFreezeUntilMs = 0L
         endMenuAtMs = 0L
+        introVoiceSent = false // 🆕 la intro del policía vuelve a sonar en la ronda nueva
         cpuNextDecisionMs[0] = 0L
         cpuNextDecisionMs[1] = 0L
         cpuHold[0] = SfInput()
@@ -3844,6 +4045,8 @@ class StreetFighterViewModel @Inject constructor(
         lastHitTakenMs.fill(Long.MIN_VALUE)
         rapidHitsTaken.fill(0)
         comboEscapeUntilMs.fill(0L)
+        lastHurtVoiceMs.fill(Long.MIN_VALUE)
+        lastAttackVoiceMs.fill(Long.MIN_VALUE)
         pendingAttacks.clear()
         pendingBonusPower = null
         controlHistory.clear()

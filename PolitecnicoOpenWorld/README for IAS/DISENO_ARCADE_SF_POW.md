@@ -26,6 +26,66 @@
   DETENER, y al final escribe un .txt en getExternalFilesDir + reporte en pantalla. Sirve para
   cazar assets rotos: cuando salga el reporte, corregir en la siguiente pasada.
 
+## Cambios 2026-07-18r/s (Fable) — re-mapeo de voces + tamaño AAB (ver AUDIO_INVENTARIO_SF.md)
+
+- **Voces re-disparan** (`playSfSpecial`): si el mismo clip ya suena, se corta y re-lanza (antes se
+  ignoraba → "no se repetía" al re-atacar).
+- **Re-mapeo de audios del dueño (18s):** Llorona/Tzitzimime → golpe normal (attack); Rey Grupero →
+  intro; Paramédico Cruz Roja → win; Paparazzi 1 power = `special_paparazzi_5`, daño ×3; granadero
+  win = `special_granadero` (diana). BORRADOS: `special_gr_win/lazaro/paramedico/prankedy/
+  paparazzi_1/papz1_attack_1/2`. `sfVoicelessFighters` = {Lázaro, Paramédico, Prankedy} (especial
+  suena hadouken; auditoría no los marca). **POLICÍAS: el dueño duda del contenido vs nombre →
+  pendiente escuchar y confirmar.** Mapeo COMPLETO y guía de empaquetado: `AUDIO_INVENTARIO_SF.md`.
+- **Tamaño AAB (bloqueaba la subida):** el peso era IMAGES (atlas de fondo), no el audio. Los 48
+  `fondo_*_anim.webp` se pasaron de webp LOSSLESS a LOSSY q90 → **221→82 MB** (total SF 235→97 MB).
+  Audio: borrados `amb_*.ogg` (4.5 MB) y `prankedy-persecucion.mp3` (musicFile→`prankedy_lobby.mp3`).
+
+## Cambios 2026-07-18q (Fable) — FRASES por evento + subtítulos multilínea + diana granadero
+
+Sistema de voz reescrito a **líneas con FRASE** (`SfVoiceLine(file, phrase)`; cada evento es una
+lista, se elige al azar y muestra subtítulo). Mapeo FINAL (corrección del dueño):
+- **HOMBRE (policía + granadero comparten intro/attack; WIN difiere):**
+  - intro `special_pol_h_intro` = "¡Está prohibido beber en la vía pública!"
+  - attack `special_pol_h_attack` = "Buenas joven, ¿si sabe porque lo detuvimos?" (antes era su "power")
+  - win normal `special_pol_h_win` = "¿Se cree más chingón que nosotros o qué joven?"
+  - **win granadero** `special_gr_win` = **"3 de diana"** (bugle, sin subtítulo; de `special_granadero.ogg`
+    recortado 10 s — antes estaba mal en su ataque).
+- **MUJER (policía + granadera comparten attack; WIN difiere):**
+  - attack (2 frases al azar) `special_pol_m_attack_1/2` = "Tu denuncia me hace lo que el viento a
+    Juárez" / "¿Sabes cuántas tengo?" (venían de "golpeada", ahora son su ATAQUE)
+  - win normal `special_pol_m_win` = "Al decidir ser policía me comprometí como mujer" (era "Ataque MUJER")
+  - **win granadera** `special_gr_win` = "3 de diana" (misma diana).
+  - (La mujer YA NO tiene hurt: la golpeada pasó a ataque y el "ataque" a victoria.)
+- **Subtítulos:** ahora **multilínea (máx 3)** con word-wrap ~24 chars y **fuente más chica**
+  (`sizeMul` 0.85→0.6, apilados desde abajo) → las frases largas ya no se salen de pantalla.
+  Todas las frases se sanitizan a A-Z/0-9 (fuente pixel del HUD) con `sfHudSanitize`.
+- Paparazzi 1 sin cambios (attack×2, hurt×2, sin frases). Auditoría del showcase verifica cada
+  archivo `.ogg` de cada línea del pack.
+
+## Cambios 2026-07-18o/p (Fable) — PACK DE VOCES por evento (policía + Paparazzi 1)
+
+Sistema GENÉRICO de voz por peleadór (`SfVoicePack` + `sfVoicePacks: Map<SfFighterId, SfVoicePack>`),
+material del dueño (`nuevoMaterial18JUL/Audios/`). Eventos: **intro, attack, hurt, power, win**
+(cada uno con N variantes). Se reproducen por la ruta `special_*` (MediaPlayer en la Screen, apto
+para clips largos). Naming: 1 variante = `special_<key>_<ev>.ogg`; N = `special_<key>_<ev>_<n>.ogg`.
+
+- **Policías (comparten pack POR GÉNERO, normal + granadero):** `pol_h` (HOMBRE:
+  `POLICIA_CDMX_HOMBRE`/`POLICIA_GRANADERO_HOMBRE`/`GRANADERO`) = intro+power+win; `pol_m` (MUJER:
+  `POLICIA_CDMX`/`POLICIA_GRANADERO_MUJER`) = win + hurt×2, **SIN power** (ajuste dueño 2026-07-18p):
+  hurt_1 = primeros 3 s de "golpeada mujer"; hurt_2 = primer 1 s de "Ataque mujer" (ese audio NO va
+  en el special, es reacción de daño → su special usa el fallback genérico). "win hombre" recortada
+  la 1ª mitad muda. **Las voces COMPLEMENTAN los SFX genéricos de golpe (suenan los 2), no los
+  reemplazan** (el `<strength>-<type>-hit` se emite igual en `applyAttackHit`).
+- **Paparazzi 1** (`PAPARAZZI_1`, key `papz1`): attack×2 (grito al golpear) + hurt×2 (recibir/STUN).
+  ("Golpear" 15 s dividido en 2; "recibir golpe/STUN" = hurt_1; "STUN últimos 3 s" = hurt_2.)
+- **Hooks:** POWER = `emitSpecialVoice`; WIN = `emitWinVoice` (VICTORY real+showcase); HURT =
+  `emitHurtVoice` en `applyAttackHit` (cooldown 2.6 s/índice; showcase demo sin cooldown); ATTACK =
+  `emitAttackVoice` en `changeState` al entrar a golpe (cooldown 4.2 s/índice); INTRO =
+  `emitIntroVoice` 1×/ronda (guard `introVoiceSent`, hook en `tick`). Resets en
+  `resetInternals`/`resetRound` (introVoiceSent, lastHurt/AttackVoiceMs).
+- Interpretación (el dueño puede corregir): "Ataque"/"Golpear" = grito ofensivo; donde el pack no
+  tenga un evento, no suena. La auditoría del showcase verifica TODOS los eventos/variantes del pack.
+
 ## Cambios 2026-07-18n (Fable) — IA vs IA con desnivel + verificación dificultad estilo 3rd Strike
 
 - **IA vs IA "se esquivan y nadie gana" → DESNIVEL ALEATORIO:** `startAiVsAi` ahora baja la

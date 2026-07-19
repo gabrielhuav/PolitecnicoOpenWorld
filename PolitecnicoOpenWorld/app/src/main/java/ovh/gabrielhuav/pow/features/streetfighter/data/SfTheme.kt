@@ -117,8 +117,9 @@ val SF_CLASSIC_THEME = SfTheme(
         "light-kick-hit", "medium-kick-hit", "heavy-kick-hit",
         "land", "hadouken",
     ),
-    // Música de Prankedy (Persecución, la de sus videos) en vez del tema del clon SF
-    musicFile = "prankedy-persecucion.mp3",
+    // Música de Prankedy. `musicFile` es solo FALLBACK (si lobbyMusic/battleMusic vacías);
+    // apunta al lobby para no duplicar un mp3 (prankedy-persecucion.mp3 se eliminó por tamaño AAB).
+    musicFile = "prankedy_lobby.mp3",
     musicVolume = 0.3f,
     // 🆕 (2026-07-18) Tema de Prankedy por PROGRESIÓN. Lobby = pista del selector; batalla en
     // orden de dificultad (fácil→difícil). Fuente: nuevoMaterial18JUL (Prankedy5Actual=lobby,

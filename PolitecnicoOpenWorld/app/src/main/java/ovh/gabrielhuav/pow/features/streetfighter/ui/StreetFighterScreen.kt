@@ -130,9 +130,10 @@ private fun playSfSpecial(
     assetPath: String,
     activePlayers: MutableMap<String, MediaPlayer>,
 ): Boolean {
-    activePlayers[assetPath]?.let { current ->
-        if (current.isPlaying) return true
-        activePlayers.remove(assetPath)
+    // 🆕 (2026-07-18r) RE-DISPARO: si el MISMO clip ya suena, lo cortamos y lo volvemos a
+    // lanzar desde el inicio (antes se ignoraba mientras sonaba → "no se repetía" al re-atacar).
+    activePlayers.remove(assetPath)?.let { current ->
+        runCatching { if (current.isPlaying) current.stop() }
         runCatching { current.release() }
     }
     val player = MediaPlayer()
@@ -1308,23 +1309,20 @@ private fun SfModeMenuOverlay(
  */
 @Composable
 private fun SelectArrowHeader(showAlly: Boolean, showPick: Boolean) {
+    val blue = Color(0xFF2196F3)
+    val red = Color(0xFFE53935)
     Box(
         modifier = Modifier.height(22.dp),
         contentAlignment = Alignment.Center,
     ) {
         when {
-            showPick -> Text(
-                text = "P2 ▼",
-                color = Color(0xFFE53935), // rojo
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Black,
-            )
-            showAlly -> Text(
-                text = "P1 ▼",
-                color = Color(0xFF2196F3), // azul
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Black,
-            )
+            // 🆕 (2026-07-18ñ) MISMO personaje para P1 y P2: se muestran AMBAS flechas.
+            showAlly && showPick -> Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("P1 ▼", color = blue, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                Text("P2 ▼", color = red, fontSize = 13.sp, fontWeight = FontWeight.Black)
+            }
+            showPick -> Text("P2 ▼", color = red, fontSize = 13.sp, fontWeight = FontWeight.Black)
+            showAlly -> Text("P1 ▼", color = blue, fontSize = 13.sp, fontWeight = FontWeight.Black)
         }
     }
 }
@@ -1348,6 +1346,11 @@ private fun CharacterSelectOverlay(
 ) {
     // 🆕 Solo el focused anima (y solo si NO es gama baja). 2.º toque confirma.
     var focusedId by remember(fighters) { mutableStateOf(fighters.firstOrNull()) }
+    // 🆕 (2026-07-18ñ) Parpadeo azul⇄rojo del recuadro cuando P1 y P2 son el MISMO personaje.
+    var flashRed by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        while (true) { delay(450); flashRed = !flashRed }
+    }
     Box(
         modifier = Modifier.fillMaxSize().background(Color(0xE6101018)),
         contentAlignment = Alignment.Center,
@@ -1371,8 +1374,10 @@ private fun CharacterSelectOverlay(
                 fighters.forEach { id ->
                     val isAlly = id == allyId
                     val isPick = showPickArrow && id == focusedId
-                    // Rojo P2 (resaltado) manda sobre azul P1 si coinciden (rival = tu mismo id).
+                    val both = isAlly && isPick // el resaltado (P2) es el MISMO que el P1 elegido
+                    // Mismo personaje → recuadro PARPADEA azul⇄rojo; si no, rojo P2 o azul P1.
                     val hl = when {
+                        both -> if (flashRed) Color(0xFFE53935) else Color(0xFF2196F3)
                         isPick -> Color(0xFFE53935)
                         isAlly -> Color(0xFF2196F3)
                         else -> null
@@ -2461,13 +2466,31 @@ private fun DrawScope.drawScene(
         state.gameTimeMs < state.specialSubtitleUntilMs
     ) {
         val hud = images.getValue(theme.hudImage)
-        val sizeMul = 0.85f
-        val textW = sub.length * 12f * sizeMul
-        val x = (SfConstants.SCENE_WIDTH - textW) / 2f
-        // Caja inferior tipo SF (sombra + texto HUD)
-        val y = SfConstants.SCENE_HEIGHT - 28f
-        drawFontText(ctx, theme, hud, sub, x + 1f, y + 1f, sizeMul) // sombra
-        drawFontText(ctx, theme, hud, sub, x, y, sizeMul)
+        // 🆕 (2026-07-18q) Subtítulo MULTILÍNEA (máx 3) + fuente MENOR, anclado abajo, para que
+        // las frases largas (policías) no se salgan de pantalla. Word-wrap a ~24 chars/línea.
+        val sizeMul = 0.6f
+        val maxChars = 24
+        val words = sub.split(' ').filter { it.isNotBlank() }
+        val lines = ArrayList<String>(3)
+        val cur = StringBuilder()
+        for (w in words) {
+            when {
+                cur.isEmpty() -> cur.append(w)
+                cur.length + 1 + w.length <= maxChars -> cur.append(' ').append(w)
+                else -> { lines.add(cur.toString()); cur.setLength(0); cur.append(w) }
+            }
+            if (lines.size >= 3) break
+        }
+        if (cur.isNotEmpty() && lines.size < 3) lines.add(cur.toString())
+        val lineH = 12f * sizeMul + 3f
+        val bottomBaseline = SfConstants.SCENE_HEIGHT - 10f
+        lines.reversed().forEachIndexed { i, ln ->
+            val w = ln.length * 12f * sizeMul
+            val x = (SfConstants.SCENE_WIDTH - w) / 2f
+            val y = bottomBaseline - i * lineH - 12f * sizeMul
+            drawFontText(ctx, theme, hud, ln, x + 1f, y + 1f, sizeMul) // sombra
+            drawFontText(ctx, theme, hud, ln, x, y, sizeMul)
+        }
     }
 }
 
@@ -2509,14 +2532,26 @@ private data class SfBgFraming(val zoom: Float = 1f, val offsetY: Float = 0f)
  * comparten la base `fondo_<slug>_...`). Sin entrada = sin ajuste (zoom 1, sin offset).
  */
 private val SF_BG_FRAMING: List<Pair<String, SfBgFraming>> = listOf(
-    // 🆕 (2026-07-18) Mapas NUEVOS (material regenerado): se aplica la técnica panorámica
-    // (zoom anclado al piso) SOLO a estos; los 11 ya aprobados NO se tocan. Valores tuneables
-    // en dispositivo (subir/bajar zoom u offsetY si el piso no queda exacto).
+    // 🆕 (2026-07-18ñ) Técnica panorámica (zoom anclado al piso + parallax de salto) en los 16
+    // mapas (día/noche_1/noche_2 por substring). Peleadores SIEMPRE sobre el suelo y al saltar se
+    // ve más arriba. Valores tuneables por mapa en dispositivo (subir/bajar zoom u offsetY).
     "facultad_medicina" to SfBgFraming(zoom = 1.35f),
     "fes_aragon" to SfBgFraming(zoom = 1.30f),
     "piramidesol" to SfBgFraming(zoom = 1.30f),
     "uam_cuajimalpa" to SfBgFraming(zoom = 1.30f),
     "zocalo" to SfBgFraming(zoom = 1.30f),
+    // Los 11 que estaban SIN zoom (antes "aprobados"): ahora también panorámicos por pedido del dueño.
+    "escom" to SfBgFraming(zoom = 1.30f),
+    "queso_ipn" to SfBgFraming(zoom = 1.30f),
+    "esime_azc" to SfBgFraming(zoom = 1.30f),
+    "cecyt_9" to SfBgFraming(zoom = 1.30f),
+    "cecyt_2" to SfBgFraming(zoom = 1.30f),
+    "unam_biblioteca_cu" to SfBgFraming(zoom = 1.30f),
+    "fes_acatlan" to SfBgFraming(zoom = 1.30f),
+    "uam_azcapo" to SfBgFraming(zoom = 1.30f),
+    "islamunecas" to SfBgFraming(zoom = 1.30f),
+    "mictlan" to SfBgFraming(zoom = 1.30f),
+    "campos_agave_jalisco" to SfBgFraming(zoom = 1.30f),
 )
 
 private fun framingForBg(file: String?): SfBgFraming =

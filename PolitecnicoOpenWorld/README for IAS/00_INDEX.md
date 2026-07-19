@@ -120,6 +120,7 @@
 | `DISENO_ARCADE_SF_POW.md` | Diseño + avance del ARCADE POW (escalera, desbloqueos, IA por fases). |
 | **`SF_STAGES_MAPS_UNLOCK.md`** | **16 mapas × 3 luces, peleadór→hogar (tabla dueño), desbloqueos MP.** |
 | **`QA_SF_STAGES_2026-07-18.md`** | **QA de fondos (dueño): encuadre `SfBgFraming` (5 mapas nuevos ✅ + salto), pendientes: sombra Isla Muñecas, video día FES Acatlán, subtítulos que se salen.** |
+| **`AUDIO_INVENTARIO_SF.md`** | **Qué audio tiene cada peleadór, globales vs por-peleadór, qué borrar, y el fix de tamaño AAB (atlas lossless→lossy 221→82 MB). Script `tools/sf_audio_review.sh`.** |
 | **`PROMPT_panoramico_todos_los_mapas.md`** | **Trabajo FINAL diferido: aplicar el encuadre panorámico + salto a los 16 mapas, uno por uno. Prompt autónomo con todo lo necesario.** |
 | `AUDIT_SF_MULTIPLAYER.md` | Multijugador 1v1: protocolo, server `MultiplayerSF/`, BT/LAN. |
 | `ASSETS_STREETFIGHTER_MIGRACION.md` | Pipeline assets pelea (JSON, pack, migración SF→POW). |
@@ -129,7 +130,7 @@
 | `NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |
 | `CHECKPOINT_SENIOR_refactor.md` | Receta del patrón manager/Hilt/detekt (referencia). |
 | `CAMPAIGN/` | Guion Modo Historia (misiones 1–3 + side). |
-| `_ARCHIVO/` | Histórico + prompts: **`PROMPT_traspaso_GPT56_2026-07-18_git_audio.md`** (SIGUIENTE SESIÓN: **1º git/PR a producción**, 2º audio Llorona/Presidenta), `PROMPT_traspaso_Fable_2026-07-18_voces.md`, `PROMPT_traspaso_IA_CPU_2026-07-18.md`. |
+| `_ARCHIVO/` | Histórico + prompts: **`PROMPT_traspaso_Gemini_2026-07-18_audio.md`** (SIGUIENTE SESIÓN: sistema de voces + pendiente "ZA ZA" grito masculino + policías), `PROMPT_traspaso_GPT56_2026-07-18_git_audio.md`, `PROMPT_traspaso_Fable_2026-07-18_voces.md`. |
 
 ---
 
