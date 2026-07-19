@@ -172,7 +172,12 @@ class StreetFighterViewModel @Inject constructor(
                 hurt = listOf(SfVoiceLine("special_llorona_hurt")),
                 power = listOf(SfVoiceLine("special_llorona_power")),
             ),
-            SfFighterId.LA_TZITZIMIME to SfVoicePack(attack = listOf(SfVoiceLine("special_la_tzitzimime_attack"))),
+            SfFighterId.LA_TZITZIMIME to SfVoicePack(
+                attack = listOf(SfVoiceLine("special_la_tzitzimime_attack")),
+                hurt = listOf(SfVoiceLine("special_la_tzitzimime_hurt")),
+                power = listOf(SfVoiceLine("special_la_tzitzimime_power")),
+                win = listOf(SfVoiceLine("special_la_tzitzimime_win"))
+            ),
             SfFighterId.REY_GRUPERO to SfVoicePack(intro = listOf(SfVoiceLine("special_rey_grupero"))),
             SfFighterId.PARAMEDICO_CRUZ_ROJA to SfVoicePack(
                 win = listOf(SfVoiceLine("special_paramedico_cruz_roja_win", "No olvides que saber primeros auxilios marca la diferencia y salva vidas.")),
@@ -181,11 +186,16 @@ class StreetFighterViewModel @Inject constructor(
             // 🆕 (2026-07-18u) Charro Negro: 2 gritos de ataque + 3 de daño (su special_charro_negro
             // sigue como fallback del poder especial).
             SfFighterId.CHARRO_NEGRO to SfVoicePack(
-                attack = listOf(SfVoiceLine("special_charro_attack_1"), SfVoiceLine("special_charro_attack_2")),
-                hurt = listOf(
-                    SfVoiceLine("special_charro_hurt_1"), SfVoiceLine("special_charro_hurt_2"),
-                    SfVoiceLine("special_charro_hurt_3"),
+                attack = listOf(
+                    SfVoiceLine("special_charro_attack_1"),
+                    SfVoiceLine("special_charro_attack_2"),
+                    SfVoiceLine("special_charro_attack_3")
                 ),
+                hurt = listOf(
+                    SfVoiceLine("special_charro_hurt_1"),
+                    SfVoiceLine("special_charro_hurt_2"),
+                    SfVoiceLine("special_charro_hurt_3")
+                )
             ),
             // 🆕 (2026-07-19) Señor de la Tienda: 2 gritos de ataque + 2 de daño (hurt_2 es "puerquito") + 1 de victoria
             SfFighterId.SENOR_TIENDA to SfVoicePack(
@@ -212,11 +222,28 @@ class StreetFighterViewModel @Inject constructor(
                 win = listOf(SfVoiceLine("special_la_presidenta_win", "Sí. Siempre. Nosotros vamos a actuar siempre en el marco de la ley. Siempre."))
             ),
             // 🆕 (2026-07-19) Escomboy / Escomgirl: mapeo de su poder especial de electricidad (compartido)
+            // 🆕 (2026-07-19) Escomboy / Escomgirl: mapeo de sus audios de voz e impactos
             SfFighterId.ESCOMBOY to SfVoicePack(
+                attack = listOf(SfVoiceLine("special_escomboy_attack")),
                 power = listOf(SfVoiceLine("special_power_electricity"))
             ),
             SfFighterId.ESCOMGIRL to SfVoicePack(
-                power = listOf(SfVoiceLine("special_power_electricity"))
+                attack = listOf(SfVoiceLine("special_escomgirl_attack")),
+                hurt = listOf(SfVoiceLine("special_escomgirl_hurt")),
+                power = listOf(SfVoiceLine("special_power_electricity")),
+                loss = listOf(SfVoiceLine("special_escomgirl_loss"))
+            ),
+            // 🆕 (2026-07-19) Yoalli Ehecatl: pack completo de ataques, daños y poder especial
+            SfFighterId.YOALLI_EHECATL to SfVoicePack(
+                attack = listOf(
+                    SfVoiceLine("special_yoalli_ehecatl_attack_1"),
+                    SfVoiceLine("special_yoalli_ehecatl_attack_2")
+                ),
+                hurt = listOf(
+                    SfVoiceLine("special_yoalli_ehecatl_hurt_1"),
+                    SfVoiceLine("special_yoalli_ehecatl_hurt_2")
+                ),
+                power = listOf(SfVoiceLine("special_yoalli_ehecatl"))
             ),
             // 🆕 (2026-07-19) Prankedy: audios de daño (hurt), derrota (loss), ataques (attack), victoria (win), super (power) y lowHp
             SfFighterId.PRANKEDY to SfVoicePack(
