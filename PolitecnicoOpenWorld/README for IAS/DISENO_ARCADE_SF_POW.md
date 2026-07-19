@@ -40,6 +40,15 @@
   DETENER, y al final escribe un .txt en getExternalFilesDir + reporte en pantalla. Sirve para
   cazar assets rotos: cuando salga el reporte, corregir en la siguiente pasada.
 
+## Fix 2026-07-19b (Fable) — el HURT "no sonaba"
+
+La interrupción anti-traslape (`getFighterPrefix` en `playSfSpecial`) agrupa attack+hurt del mismo
+peleadór bajo un prefijo; al recuperarse y contraatacar, su `attack` cortaba su propio `hurt` casi
+al instante. Fix: un HURT en curso NO se corta por un ATAQUE del mismo peleadór (solo otro HURT lo
+reinicia). Cooldown de hurt 2.6→1.2 s. **Coverage:** solo 6 peleadores tienen hurt (Charro,
+Paparazzi1, Llorona, Señor Tienda, Policía Mujer + Granadera); el resto solo suena el SFX de
+impacto global. Detalle en `AUDIO_INVENTARIO_SF.md`.
+
 ## Cambios 2026-07-18r/s (Fable) — re-mapeo de voces + tamaño AAB (ver AUDIO_INVENTARIO_SF.md)
 
 - **Voces re-disparan** (`playSfSpecial`): si el mismo clip ya suena, se corta y re-lanza (antes se

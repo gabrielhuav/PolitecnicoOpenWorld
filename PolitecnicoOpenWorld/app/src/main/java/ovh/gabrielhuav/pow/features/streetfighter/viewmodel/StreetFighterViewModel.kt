@@ -270,7 +270,8 @@ class StreetFighterViewModel @Inject constructor(
     // Anti-spam de voces por índice (no repetir en menos del intervalo).
     private val lastHurtVoiceMs = LongArray(2) { Long.MIN_VALUE }
     private val lastAttackVoiceMs = LongArray(2) { Long.MIN_VALUE }
-    private val hurtVoiceCooldownMs = 2600L
+    // 🆕 (2026-07-19b) hurt más responsivo (era 2.6 s → casi nunca sonaba en combos).
+    private val hurtVoiceCooldownMs = 1200L
     private val attackVoiceCooldownMs = 4200L
 
     /** Voz de DAÑO (pack HURT, variante al azar) con cooldown por índice. */

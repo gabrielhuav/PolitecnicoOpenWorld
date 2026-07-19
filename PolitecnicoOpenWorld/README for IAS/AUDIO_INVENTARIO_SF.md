@@ -74,6 +74,22 @@ mapeo. Re-derivado del fuente y CONFIRMADO que coincide con lo pedido:
   **SIN usar** por ese swap. Los `special_policia_*.ogg` (272 KB los granaderos) solo son
   fallback del poder especial → recortables si urge tamaño.
 
+## 🐞 FIX del HURT que "no sonaba" (2026-07-19b)
+
+Causa: la interrupción anti-traslape (`getFighterPrefix` en `playSfSpecial`) agrupa **attack y
+hurt del mismo peleadór bajo el mismo prefijo**. Al golpear a un peleadór sonaba su hurt (~3 s),
+pero al recuperarse (~0.4 s) y **contraatacar**, su propio `attack` cortaba su hurt → parecía que
+no sonaba. Fix: **un HURT en curso NO se corta por un ATAQUE del mismo peleadór** (solo otro HURT
+lo reinicia = te pegan otra vez). Además el cooldown de hurt bajó 2.6 s → 1.2 s (más responsivo).
+
+**⚠️ COVERAGE: solo estos peleadores tienen HURT (voz al recibir golpe).** El resto solo suena el
+SFX de impacto global (`*-hit`), NO una voz — porque no hay audio de hurt para ellos:
+- **CON hurt:** Charro Negro (×3), Paparazzi 1 (×3), La Llorona (×1), Señor de la Tienda (×2),
+  Policía CDMX Mujer + Granadera (comparten `special_pol_m_hurt`).
+- **SIN hurt (silencio de voz al ser golpeados):** Prankedy, Rey Grupero, ESCOMBOY/GIRL, Robot,
+  Yoalli, Tzitzimime, Presidenta, Policía Hombre + Granadero Hombre, Paramédico CR, Paparazzi 5,
+  Lázaro, Paramédico, Granadero. Para darles hurt: subir audio + `hurt = listOf(...)` en su pack.
+
 ## 🆕 Grito de ataque MASCULINO por defecto (2026-07-18u)
 
 Sonido de ataque NORMAL (no especial) que suena AL AZAR cuando un peleadór **HOMBRE** golpea y

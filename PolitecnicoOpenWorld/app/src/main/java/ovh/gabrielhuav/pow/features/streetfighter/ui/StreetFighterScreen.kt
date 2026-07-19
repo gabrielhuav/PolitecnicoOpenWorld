@@ -149,10 +149,16 @@ private fun playSfSpecial(
     assetPath: String,
     activePlayers: MutableMap<String, MediaPlayer>,
 ): Boolean {
-    // 🆕 Interrumpir cualquier audio del mismo personaje que ya se esté reproduciendo
-    val newPrefix = getFighterPrefix(assetPath.substringAfterLast('/'))
+    // 🆕 Interrumpir cualquier audio del mismo personaje que ya se esté reproduciendo.
+    // 🆕 (2026-07-19b) FIX: un HURT en curso NO se corta por un ATAQUE del mismo peleadór (antes
+    // el contraataque tras recuperarse cortaba su propio quejido → "el hurt no suena"). Solo otro
+    // HURT lo reinicia (= te pegaron otra vez).
+    val newName = assetPath.substringAfterLast('/')
+    val newPrefix = getFighterPrefix(newName)
+    val newIsHurt = newName.contains("_hurt")
     val keysToStop = activePlayers.keys.filter { key ->
-        getFighterPrefix(key.substringAfterLast('/')) == newPrefix
+        val kf = key.substringAfterLast('/')
+        getFighterPrefix(kf) == newPrefix && (newIsHurt || !kf.contains("_hurt"))
     }
     keysToStop.forEach { key ->
         activePlayers.remove(key)?.let { current ->
