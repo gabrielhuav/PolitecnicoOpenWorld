@@ -1369,16 +1369,22 @@ private fun CharacterSelectOverlay(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 fighters.forEach { id ->
+                    val isAlly = id == allyId
+                    val isPick = showPickArrow && id == focusedId
+                    // Rojo P2 (resaltado) manda sobre azul P1 si coinciden (rival = tu mismo id).
+                    val hl = when {
+                        isPick -> Color(0xFFE53935)
+                        isAlly -> Color(0xFF2196F3)
+                        else -> null
+                    }
                     // 🆕 Cada card con un espacio ARRIBA para las flechas P1 (azul) / P2 (roja).
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        SelectArrowHeader(
-                            showAlly = id == allyId,
-                            showPick = showPickArrow && id == focusedId,
-                        )
+                        SelectArrowHeader(showAlly = isAlly, showPick = isPick)
                         CharacterCard(
                             id = id,
                             selected = id == focusedId,
                             animate = !lowEnd && id == focusedId,
+                            highlightColor = hl,
                             onSelect = {
                                 if (lowEnd || id == focusedId) onSelect(id)
                                 else focusedId = id
@@ -2069,16 +2075,26 @@ private fun CharacterCard(
     /** true = animar idle+walk; false = un solo frame estático (default en gama baja). */
     animate: Boolean = false,
     selected: Boolean = false,
+    // 🆕 (2026-07-18) Recuadro translúcido + borde del color de la flecha (azul P1 / rojo P2)
+    // para que se note quién es tu peleador y quién el rival. null = card normal.
+    highlightColor: Color? = null,
 ) {
     val preview = rememberFighterPreview(id, animate = animate && !locked)
     // 🆕 BLOQUEADO: silueta pixelada negra (siempre estática).
     val shown = if (locked && preview != null) remember(preview) { pixelateBitmap(preview, 12) } else preview
     val shape = RoundedCornerShape(10.dp)
+    // El recuadro del color de la flecha manda sobre el fondo/borde normales.
+    val cardBg = highlightColor?.copy(alpha = 0.28f) ?: Color(0xFF23233A)
+    val cardBorder = when {
+        highlightColor != null -> highlightColor
+        selected && !locked -> Color(0xFFD4AF37)
+        else -> null
+    }
     Column(
         modifier = Modifier
             .clip(shape)
-            .background(Color(0xFF23233A))
-            .then(if (selected && !locked) Modifier.border(2.dp, Color(0xFFD4AF37), shape) else Modifier)
+            .background(cardBg)
+            .then(if (cardBorder != null) Modifier.border(3.dp, cardBorder, shape) else Modifier)
             .clickable(enabled = !locked) { onSelect(id) }
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -2330,12 +2346,19 @@ private fun DrawScope.drawScene(
     val stage = images[theme.stageImage] // 🆕 nullable: kenstage.png se quitó (copyright)
     val t = state.gameTimeMs
 
+    // 🆕 (2026-07-18) PARALLAX VERTICAL DE SALTO: en los mapas con zoom (headroom de cielo
+    // recortado arriba) el fondo BAJA al brincar → se ve "más arriba" del mapa. Fracción según
+    // la altura del peleador MÁS ALTO (apex de salto ≈ 90 px de mundo). En mapas sin zoom no hay
+    // headroom → sin efecto (los 11 confirmados quedan igual).
+    val highestY = minOf(state.player.y, state.cpu.y)
+    val jumpFrac = ((SfConstants.STAGE_FLOOR - highestY) / 90f).coerceIn(0f, 1f)
+
     if (bg is SfStageBackground.Animated) {
         // ---- FONDO POW ANIMADO (atlas de frames) con parallax de cámara ----
-        drawAnimatedBackground(ctx, bg, t, framing)
+        drawAnimatedBackground(ctx, bg, t, framing, jumpFrac)
     } else if (bg is SfStageBackground.Static) {
         // ---- FONDO POW a pantalla completa (foto fija) con parallax de cámara ----
-        drawFullBackground(ctx, bg.image, framing)
+        drawFullBackground(ctx, bg.image, framing, jumpFrac)
     } else if (stage != null) {
         // ---- Fondo del escenario clásico (parallax por capas) ----
         val bob = theme.boatBob[((t / 366) % theme.boatBob.size).toInt()]
@@ -2610,6 +2633,7 @@ private fun DrawScope.drawAnimatedBackground(
     anim: SfStageBackground.Animated,
     timeMs: Long,
     framing: SfBgFraming = SfBgFraming(),
+    jumpFrac: Float = 0f,
 ) {
     val frameMs = (1000f / anim.fps).coerceAtLeast(1f)
     val idx = ((timeMs / frameMs).toLong() % anim.frameCount).toInt().coerceIn(0, anim.frameCount - 1)
@@ -2623,7 +2647,10 @@ private fun DrawScope.drawAnimatedBackground(
     val progress = ((ctx.camX - SfConstants.STAGE_PADDING) / camSpan).coerceIn(0f, 1f)
     val offsetX = (scaledW - SfConstants.SCENE_WIDTH).coerceAtLeast(0f) * progress
     // Base de la imagen al fondo de la escena (recorta cielo arriba); offsetY afina.
-    val dstY = ctx.oy + (SfConstants.SCENE_HEIGHT - scaledH + framing.offsetY) * ctx.scale
+    // 🆕 Salto: baja la imagen hasta 'headroom' (cielo recortado) → revela lo de arriba.
+    val headroom = (scaledH - SfConstants.SCENE_HEIGHT).coerceAtLeast(0f) * ctx.scale
+    val dstY = ctx.oy + (SfConstants.SCENE_HEIGHT - scaledH + framing.offsetY) * ctx.scale +
+        jumpFrac * headroom
     drawImage(
         image = anim.atlas,
         srcOffset = IntOffset(col * anim.frameW, row * anim.frameH),
@@ -2638,6 +2665,7 @@ private fun DrawScope.drawFullBackground(
     ctx: SceneCtx,
     bg: ImageBitmap,
     framing: SfBgFraming = SfBgFraming(),
+    jumpFrac: Float = 0f,
 ) {
     val s = (SfConstants.SCENE_HEIGHT / bg.height.toFloat()) * framing.zoom
     val scaledW = bg.width * s
@@ -2645,7 +2673,9 @@ private fun DrawScope.drawFullBackground(
     val camSpan = SfConstants.STAGE_WIDTH - SfConstants.SCENE_WIDTH
     val progress = ((ctx.camX - SfConstants.STAGE_PADDING) / camSpan).coerceIn(0f, 1f)
     val offsetX = (scaledW - SfConstants.SCENE_WIDTH).coerceAtLeast(0f) * progress
-    val dstY = ctx.oy + (SfConstants.SCENE_HEIGHT - scaledH + framing.offsetY) * ctx.scale
+    val headroom = (scaledH - SfConstants.SCENE_HEIGHT).coerceAtLeast(0f) * ctx.scale
+    val dstY = ctx.oy + (SfConstants.SCENE_HEIGHT - scaledH + framing.offsetY) * ctx.scale +
+        jumpFrac * headroom
     drawImage(
         image = bg,
         srcOffset = IntOffset(0, 0),

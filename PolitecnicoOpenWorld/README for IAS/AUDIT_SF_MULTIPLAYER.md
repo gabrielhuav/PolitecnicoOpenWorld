@@ -1,5 +1,30 @@
 # AUDIT · Multijugador 1v1 del modo pelea "HUELUM VS. GOYA" (2026-07-11)
 
+> **✅ AUDIT 2026-07-18m — lo NUEVO funciona igual en los 3 transportes (Render/BT/LAN):**
+> Verificado por lectura de código que las features de 2026-07-18 son AGNÓSTICAS al transporte
+> (el VM habla solo con `SfNetTransport`; BT/LAN pasan por `SfStreamPeer`, online por WebSocket,
+> mismos `SfNetMsg`).
+> - **Mapas nuevos + framing panorámico + parallax de salto:** el mapa lo elige el HOST y viaja
+>   por `selectMap → MAP_SELECTED` (idéntico en Render y en `SfStreamPeer.selectMap`, que además
+>   corre el countdown local). `effectiveBgFile` usa `onlineMapFile`; `framingForBg()` y el
+>   `jumpFrac` son 100% render del cliente (mismos assets en el APK) → se ven igual en MP.
+> - **Música por progresión:** `musicFileForState` en MP cae a la rama de batalla con
+>   `cpuDifficulty` (online = NORMAL por default de `startOnlineBattle`) → siempre suena una
+>   pista de batalla estable; lobby en `SELECTING`. Sin recargas raras a mitad de combate
+>   (las claves del `remember` no cambian en MP).
+> - **Desbloqueo por dificultad:** SOLO arcade (`arcadeActive`); MP no lo toca. Sin impacto.
+> - **Flechas/recuadro P1-P2:** la selección online es a CIEGAS por protocolo (el rival solo se
+>   conoce en `CHARACTERS_SELECTED`, tras elegir ambos). Por eso el overlay de `SELECTING` NO
+>   pasa `allyId/showPickArrow` → sin flechas en MP (correcto, no hay regresión). Las flechas
+>   aplican a los modos LOCALES (Práctica, IA vs IA). **Pendiente futuro** (si se quiere el
+>   indicador de rival en MP): relay del pick en vivo (cambio de server) o un banner de matchup
+>   en `WAITING_MAP/COUNTDOWN` (ahí `oppOnlineChar` ya se conoce).
+> - **Autojuego/Showcase dev-only:** viven en el menú OFFLINE; MP entra por otro botón. Sin impacto.
+>
+> Transportes sanos (sin cambios en esta pasada): `SfMatchClient` (WS/Render), `SfBtClient`
+> (RFCOMM), `SfLanClient` (TCP) — los dos últimos comparten framing en `SfStreamPeer`.
+
+
 > **✅ DEPLOY DEL SERVIDOR SF — HECHO (2026-07-18):** `MultiplayerSF/` YA está vivo en Render en
 > `https://politecnicoopenworld-2.onrender.com` (Docker, plan Free, root dir `MultiplayerSF`).
 > `/status` → `{"status":"ok","rooms":0}`. Coincide con `SF_SERVER_URL` de gradle (debug+release).

@@ -279,6 +279,10 @@ class StreetFighterViewModel @Inject constructor(
     private val cpuForceEngageUntilMs = LongArray(2) { 0L }
     // Variedad ofensiva: memoria de los últimos tres golpes (fuerza×tipo, 0..5) por CPU.
     private val cpuAttackHistory = Array(2) { ArrayDeque<Int>() }
+    // 🆕 (2026-07-18n) Dificultad POR ÍNDICE solo para IA vs IA: si ambos son iguales (dos
+    // PESADILLA) se esquivan sin fin y NADIE gana. Se le baja la dificultad a UNO al azar para
+    // desnivelar la pelea y que alguien gane. null = usar la dificultad global (VS/arcade normal).
+    private val cpuDiffOverride = arrayOfNulls<SfCpuDifficulty>(2)
     // Antibucle de combo: tras tres impactos rápidos, el defensor recibe una ventana de escape.
     private val lastHitTakenMs = LongArray(2) { Long.MIN_VALUE }
     private val rapidHitsTaken = IntArray(2)
@@ -1868,8 +1872,11 @@ class StreetFighterViewModel @Inject constructor(
         repairCpuFacing(sim, i, now)
         if (now < cpuNextDecisionMs[i]) return cpuHold[i]
 
-        val difficulty = _state.value.cpuDifficulty
         val aiVs = _state.value.aiVsAi
+        // 🆕 (2026-07-18n) En IA vs IA cada índice puede tener su PROPIA dificultad (desnivel
+        // aleatorio de startAiVsAi) para que la pelea se resuelva; fuera de IA vs IA = la global.
+        val difficulty = if (aiVs) cpuDiffOverride[i] ?: _state.value.cpuDifficulty
+        else _state.value.cpuDifficulty
         // Desync en IA vs IA: P1 piensa un poco desfasado → no se copian el espejo eterno
         val desync = if (aiVs) (i * 17L) else 0L
         val baseDelay = when (difficulty) {
@@ -2550,6 +2557,14 @@ class StreetFighterViewModel @Inject constructor(
         resetInternals()
         // Intensidad al máximo (igual que la final del arcade); resetInternals la deja en 0
         cpuIntensity = intensity.coerceIn(0f, 1f)
+        // 🆕 (2026-07-18n) DESNIVEL ALEATORIO: dos peleadores iguales se esquivan sin fin y nadie
+        // gana. Se le baja la dificultad a UNO al azar (1–2 escalones) → el otro conecta y gana.
+        // Se re-aleatoriza en cada pelea (revancha/gauntlet) para que el ganador varíe.
+        val weak = Random.nextInt(2)
+        val steps = 1 + Random.nextInt(2) // 1 o 2 escalones por debajo
+        val weakDiff = SfCpuDifficulty.entries[(difficulty.ordinal - steps).coerceAtLeast(0)]
+        cpuDiffOverride[weak] = weakDiff
+        cpuDiffOverride[1 - weak] = difficulty
         roundIntroUntilMs = ROUND_INTRO_MS // banner "RONDA 1 / PELEA" (gameNow arranca en 0)
         val base = StreetFighterState()
         _state.value = base.copy(
@@ -3122,6 +3137,8 @@ class StreetFighterViewModel @Inject constructor(
         cpuForceEngageUntilMs[1] = 0L
         cpuAttackHistory[0].clear()
         cpuAttackHistory[1].clear()
+        cpuDiffOverride[0] = null
+        cpuDiffOverride[1] = null
         lastHitTakenMs.fill(Long.MIN_VALUE)
         rapidHitsTaken.fill(0)
         comboEscapeUntilMs.fill(0L)

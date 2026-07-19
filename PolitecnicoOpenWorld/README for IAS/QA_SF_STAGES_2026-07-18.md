@@ -90,6 +90,26 @@ actual cambia la pista SEGÚN EL NIVEL (una por rango de dificultad, no 3 secuen
 Si quiere rotación de varias pistas DENTRO de un mismo combate, es un refinamiento aparte
 (playlist secuencial con listener de fin de pista).
 
+## 🆕 Parallax vertical de SALTO (2026-07-18m, Fable)
+
+`drawAnimatedBackground`/`drawFullBackground` reciben `jumpFrac` (0..1, según la altura del
+peleadór más alto; apex ≈ 90 px). En mapas CON zoom (headroom de cielo recortado) el fondo BAJA
+hasta `headroom` al brincar → se ve "más arriba" del mapa. En mapas SIN zoom (los 11 confirmados)
+`headroom=0` → sin efecto. Sólo aplica a los mapas con `SfBgFraming` (los nuevos). Tuneable con
+el divisor `/90f` en `drawScene` si se quiere más/menos recorrido.
+
+## ¿Aplicar el panorámico a TODOS los mapas? (recomendación)
+
+El dueño preguntó si conviene. **Recomendación:** hacerlo mapa por mapa, NO en bloque:
+- El `zoom` correcto depende de DÓNDE está el piso en cada atlas (si el piso ya está abajo,
+  zoom de más recorta contenido útil; si está alto, zoom ayuda). Un valor único para los 16
+  puede empeorar algunos.
+- Los 11 confirmados YA se ven bien; meterles zoom cambia su encuadre aprobado (riesgo de
+  regresión visual). Mejor solo donde haga falta.
+- Plan sugerido: revisar cada uno en dispositivo; si alguno se ve cuadrado o con peleadores
+  flotando, agregarle su entrada en `SF_BG_FRAMING` con el zoom afinado. El sistema ya está
+  listo para eso (una línea por mapa).
+
 ## Orden de trabajo (acordado con el dueño)
 
 1. ✅ Facultad de Medicina (código de framing) + regeneración de los 5 mapas nuevos + música.

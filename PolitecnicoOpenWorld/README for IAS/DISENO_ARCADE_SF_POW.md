@@ -26,6 +26,21 @@
   DETENER, y al final escribe un .txt en getExternalFilesDir + reporte en pantalla. Sirve para
   cazar assets rotos: cuando salga el reporte, corregir en la siguiente pasada.
 
+## Cambios 2026-07-18n (Fable) — IA vs IA con desnivel + verificación dificultad estilo 3rd Strike
+
+- **IA vs IA "se esquivan y nadie gana" → DESNIVEL ALEATORIO:** `startAiVsAi` ahora baja la
+  dificultad a UNO de los dos al azar (1–2 escalones bajo PESADILLA, piso NORMAL) vía nuevo
+  `cpuDiffOverride[2]`; `buildCpuInput` usa esa dificultad POR ÍNDICE solo en IA vs IA. Así el
+  más fuerte conecta y GANA; se re-aleatoriza en cada pelea/revancha/gauntlet (el ganador varía).
+  Se limpia en `resetInternals`; fuera de IA vs IA no cambia nada (usa la dificultad global).
+- **✅ Verificación dificultad estilo "SF III: 3rd Strike" (ya implementada):** el arcade YA tiene
+  dificultad variable OCULTA + calibrada a la elegida:
+  - `SfArcadeLadder.intensityForStep(index,total)` = rampa 0.20→1.0 según avanzas (rank oculto).
+  - `SfArcadeLadder.difficultyForStep(base,step)` = sube el TIER (+1 en jefes/≥10, +2 en la final)
+    sobre la dificultad ELEGIDA como base (Fácil/Medio/Difícil).
+  - `cpuIntensity` calibra cadencia de decisión y agresividad/bloqueo en `buildCpuInput`/
+    `smartCpuDecision`. Resultado: se endurece al avanzar Y respeta la base elegida — igual que 3rd Strike.
+
 ## Cambios 2026-07-18m (Fable) — desbloqueo por dificultad, dev-tools, flechas P1/P2, dificultad sin escenario
 
 - **Desbloqueo por dificultad ELEGIDA** (`handleArcadeMatchEnd`, key = `arcadeChosenDifficulty`):
