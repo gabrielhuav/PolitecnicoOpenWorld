@@ -1,6 +1,9 @@
 name: Android CI/CD
 
 on:
+  # 🆕 Disparo MANUAL desde la pestaña Actions ("Run workflow"). Útil cuando el merge no pudo
+  # lanzar el flujo (p. ej. el workflow de main estaba inválido) o para relanzar una subida.
+  workflow_dispatch:
   # Al MERGEAR un PR a main: APK debug + GitHub Release + AAB firmado → Play (prueba cerrada).
   pull_request:
     branches:
@@ -17,7 +20,7 @@ concurrency:
 jobs:
   # ── 1) MERGE de PR → APK debug + GitHub Release ───────────────────────────
   release:
-    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -67,7 +70,7 @@ jobs:
 
   # ── 2) PR MERGEADO a main → AAB firmado → Play Store PRUEBA CERRADA (track "alpha") ──
   playstore-closed-testing:
-    if: github.event.pull_request.merged == true
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
