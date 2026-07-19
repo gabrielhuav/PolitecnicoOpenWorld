@@ -113,6 +113,7 @@ class StreetFighterViewModel @Inject constructor(
         val power: List<SfVoiceLine> = emptyList(),
         val win: List<SfVoiceLine> = emptyList(),
         val loss: List<SfVoiceLine> = emptyList(),
+        val lowHp: List<SfVoiceLine> = emptyList(),
     )
 
     private val sfVoicePacks: Map<SfFighterId, SfVoicePack> = run {
@@ -157,6 +158,10 @@ class StreetFighterViewModel @Inject constructor(
             SfFighterId.POLICIA_CDMX to polM,
             SfFighterId.POLICIA_GRANADERO_MUJER to grM,
             SfFighterId.PAPARAZZI_1 to papz1,
+            SfFighterId.PAPARAZZI_5 to SfVoicePack(
+                attack = listOf(SfVoiceLine("special_paparazzi_5_attack")),
+                hurt = listOf(SfVoiceLine("special_paparazzi_5_hurt"))
+            ),
             // 🆕 (2026-07-18s) audios del dueño mapeados al evento correcto:
             // La Tzitzimime = GOLPE NORMAL (attack). Rey Grupero = INTRO.
             // Paramédico Cruz Roja = WIN. (Su special_<id> también suena en su poder por fallback.)
@@ -213,19 +218,22 @@ class StreetFighterViewModel @Inject constructor(
             SfFighterId.ESCOMGIRL to SfVoicePack(
                 power = listOf(SfVoiceLine("special_power_electricity"))
             ),
-            // 🆕 (2026-07-19) Prankedy: audios de daño (hurt) recortados de PrankedyMixes.mp3
-            // + audio de derrota (loss) extraído de Prankedy losses.mkv (recortado último segundo)
-            // + audios de ataque normal (attack) extraídos de Prankedy Attack 1/2.mkv
+            // 🆕 (2026-07-19) Prankedy: audios de daño (hurt), derrota (loss), ataques (attack), victoria (win), super (power) y lowHp
             SfFighterId.PRANKEDY to SfVoicePack(
                 attack = listOf(
                     SfVoiceLine("special_prankedy_attack_1"),
-                    SfVoiceLine("special_prankedy_attack_2")
+                    SfVoiceLine("special_prankedy_attack_2"),
+                    SfVoiceLine("special_prankedy_attack_3"),
+                    SfVoiceLine("special_prankedy_attack_4")
                 ),
                 hurt = listOf(
                     SfVoiceLine("special_prankedy_hurt_1"),
                     SfVoiceLine("special_prankedy_hurt_2")
                 ),
-                loss = listOf(SfVoiceLine("special_prankedy_loss"))
+                power = listOf(SfVoiceLine("special_prankedy_power")),
+                win = listOf(SfVoiceLine("special_prankedy_win")),
+                loss = listOf(SfVoiceLine("special_prankedy_loss")),
+                lowHp = listOf(SfVoiceLine("special_prankedy_lowhp"))
             ),
         )
     }
@@ -294,15 +302,28 @@ class StreetFighterViewModel @Inject constructor(
     // Anti-spam de voces por índice (no repetir en menos del intervalo).
     private val lastHurtVoiceMs = LongArray(2) { 0L }
     private val lastAttackVoiceMs = LongArray(2) { 0L }
+    private val lowHpVoiceTriggered = BooleanArray(2) { false }
     // 🆕 (2026-07-19c) Sin cooldown en hurt para permitir interrupción inmediata en combos
     private val hurtVoiceCooldownMs = 0L
     private val attackVoiceCooldownMs = 4200L
 
-    /** Voz de DAÑO (pack HURT, variante al azar) con cooldown por índice. */
-    private fun emitHurtVoice(id: SfFighterId, idx: Int, now: Long) {
-        val lines = sfVoicePacks[id]?.hurt.orEmpty()
-        if (lines.isEmpty()) return
+    /** Voz de DAÑO (pack HURT, variante al azar) con cooldown por índice.
+     * Si la vida baja del 25% (<= 50 de 200) y tiene audio de lowHp de una sola vez, lo prioriza. */
+    private fun emitHurtVoice(id: SfFighterId, idx: Int, hitPoints: Int, now: Long) {
         val i = idx.coerceIn(0, 1)
+        val pack = sfVoicePacks[id] ?: return
+
+        // 25% de 200 HP = 50 HP. Prioriza lowHp si no se ha disparado aún.
+        if (hitPoints <= 50 && pack.lowHp.isNotEmpty() && !lowHpVoiceTriggered[i]) {
+            if (emitVoiceLines(pack.lowHp, now)) {
+                lowHpVoiceTriggered[i] = true
+                lastHurtVoiceMs[i] = now
+                return
+            }
+        }
+
+        val lines = pack.hurt
+        if (lines.isEmpty()) return
         if (now - lastHurtVoiceMs[i] < hurtVoiceCooldownMs) return
         if (emitVoiceLines(lines, now)) lastHurtVoiceMs[i] = now
     }
@@ -1811,7 +1832,7 @@ class StreetFighterViewModel @Inject constructor(
                 }
             }
             changeState(sim, defenderIdx, hurtState, now)
-            emitHurtVoice(defender.id, defenderIdx, now) // 🆕 voz de daño (policía; con cooldown)
+            emitHurtVoice(defender.id, defenderIdx, defender.hitPoints, now) // 🆕 voz de daño (con cooldown / lowHp)
         }
         hurtFreezeUntilMs = now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong()
     }
@@ -3429,6 +3450,7 @@ class StreetFighterViewModel @Inject constructor(
         lastHurtVoiceMs.fill(0L)
         lastAttackVoiceMs.fill(0L)
         lastHitTakenMs.fill(0L)
+        lowHpVoiceTriggered.fill(false)
         rapidHitsTaken.fill(0)
         comboEscapeUntilMs.fill(0L)
         cpuIntensity = 0f // VS: sin escalado; arcade/IA-vs-IA la suben después
@@ -4136,6 +4158,7 @@ class StreetFighterViewModel @Inject constructor(
         comboEscapeUntilMs.fill(0L)
         lastHurtVoiceMs.fill(0L)
         lastAttackVoiceMs.fill(0L)
+        lowHpVoiceTriggered.fill(false)
         pendingAttacks.clear()
         pendingBonusPower = null
         controlHistory.clear()
