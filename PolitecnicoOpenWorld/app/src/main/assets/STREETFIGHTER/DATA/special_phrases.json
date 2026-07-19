@@ -55,22 +55,6 @@
       "subtitle_ms": 4700,
       "tier": "authentic_voice"
     },
-    "ESCOMBOY": {
-      "phrase_es": "Así que pues estamos aquí para hacer un videoblog, porque eso es lo que son estos videos. Así es.",
-      "phrase_en": "So we're here to make a video blog, because that's what these videos are. That's right.",
-      "phrase_hud": "ASI QUE PUES ESTAMOS AQUI PARA HACER UN VIDEOBLOG PORQUE ESO ES LO QUE SON ESTOS VIDEOS ASI ES",
-      "audio": "special_escomboy.ogg",
-      "subtitle_ms": 4500,
-      "tier": "authentic_voice"
-    },
-    "ESCOMGIRL": {
-      "phrase_es": "Dejen, les muestro lo real.",
-      "phrase_en": "Let me show you the real thing.",
-      "phrase_hud": "DEJEN LES MUESTRO LO REAL",
-      "audio": "special_escomgirl.ogg",
-      "subtitle_ms": 2770,
-      "tier": "authentic_voice"
-    },
     "ROBOT": {
       "phrase_es": "Sistema activado. Objetivo localizado.",
       "phrase_en": "System activated. Target located.",
@@ -78,14 +62,6 @@
       "audio": "special_robot.ogg",
       "subtitle_ms": 5000,
       "tier": "synthetic_fictional"
-    },
-    "LA_PRESIDENTA": {
-      "phrase_es": "Sí. Siempre. Nosotros vamos a actuar siempre en el marco de la ley. Siempre.",
-      "phrase_en": "Yes. Always. We will always act within the law. Always.",
-      "phrase_hud": "SI SIEMPRE NOSOTROS VAMOS A ACTUAR SIEMPRE EN EL MARCO DE LA LEY SIEMPRE",
-      "audio": "special_la_presidenta.ogg",
-      "subtitle_ms": 8700,
-      "tier": "authentic_voice"
     },
     "POLICIA_CDMX": {
       "phrase_es": "Si dices policía, me comprometí como mujer a que la ciudadanía sintiera una mejor seguridad, que me tuvieran confianza y que ellos obtuvieran de mí una mejor tranquilidad.",

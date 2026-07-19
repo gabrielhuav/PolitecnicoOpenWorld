@@ -11,7 +11,12 @@
 
 - **Sombra Isla de las Muñecas:** Implementada la plataforma de madera flotante y la sombra más prolongada (1.8x) para evitar que los peleadores parezcan flotar sobre el agua en el mapa Isla de las Muñecas.
 - **QA Voces Policías:** Verificado que el mapeo y los archivos de audio coinciden con el diseño.
-- **Voz Masculina por Defecto ("ZA ZA"):** Verificado que "ZA ZA.mp3" no se encuentra en el repositorio, por lo que su procesamiento queda pendiente de la subida del archivo fuente por parte del dueño.
+- **Voz Masculina por Defecto ("ZA ZA"):** Se recortaron los segundos 8-10 del fuente `ZA ZA.mp3` y se guardó como `special_male_attack_grunt.ogg` en `SOUNDS/`.
+- **Señor de la Tienda (pack completo):** Se agregaron audios de ataque normal x2, daño x2 (incluyendo "puerquito" con subtítulos) y victoria.
+- **Escomboy y Escomgirl:** Se eliminaron sus audios de voz especiales y se reemplazaron por un efecto de electricidad acelerado a 1.5x.
+- **Robot (Escomrobot):** Se añadió su audio de victoria `special_robot_win.ogg`.
+- **La Presidenta:** Se eliminó su especial de voz y se convirtió en su audio de victoria `special_la_presidenta_win.ogg` recortando el primer segundo de silencio.
+- **La Tzitzimime:** Se eliminó su especial de voz y se convirtió en su golpe normal `special_la_tzitzimime_attack.ogg` recortando el último 10% de su duración (dejando 2.25s).
 
 ## Fix 2026-07-18g (Claude) — regresiones de IA/input
 

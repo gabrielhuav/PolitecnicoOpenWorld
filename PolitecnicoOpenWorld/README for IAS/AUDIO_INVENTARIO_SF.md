@@ -46,12 +46,15 @@ Fuente de verdad: `sfVoicePacks` (packs por evento con frase) + fallback `specia
 | **Granadero** (`GRANADERO`) | = Granadero Hombre · win = `special_granadero` | `special_granadero` |
 | **Paparazzi 1** (`PAPARAZZI_1`) | power (su ataque ESPECIAL) = `special_paparazzi_5` · hurt ×3 = `special_papz1_hurt_1/2/3` | (usa el power) |
 | **La Llorona** (`LA_LLORONA`) | power = `special_llorona_power` · attack = `special_llorona_attack` (seg 7-11 del fuente) · hurt = `special_llorona_hurt` | (usa el power) |
-| **La Tzitzimime** (`LA_TZITZIMIME`) | attack (golpe normal) = `special_la_tzitzimime` | `special_la_tzitzimime` |
+| **La Tzitzimime** (`LA_TZITZIMIME`) | attack (golpe normal) = `special_la_tzitzimime_attack` (90% de duración del original) | (no tiene; fallback hadouken) |
 | **Rey Grupero** (`REY_GRUPERO`) | intro = `special_rey_grupero` | `special_rey_grupero` |
 | **Paramédico Cruz Roja** (`PARAMEDICO_CRUZ_ROJA`) | win = `special_paramedico_cruz_roja` | `special_paramedico_cruz_roja` |
 | **Charro Negro** (`CHARRO_NEGRO`) | attack ×2 = `special_charro_attack_1/2` · hurt ×3 = `special_charro_hurt_1/2/3` | `special_charro_negro` |
 | **Señor de la Tienda** (`SENOR_TIENDA`) | attack ×2 = `special_senor_tienda_attack_1/2` · hurt ×2 = `special_senor_tienda_hurt_1` / `_2` (puerquito) · win = `special_senor_tienda_win` | `special_senor_tienda` |
-| Presidenta, Yoalli, ESCOM×3, Paparazzi 5 | (sin pack) | `special_<id>` (su special) |
+| **Robot** (`ROBOT`) | win = `special_robot_win` (del fuente `victory ROBOT.mp3`) | `special_robot` (su special) |
+| **La Presidenta** (`LA_PRESIDENTA`) | win = `special_la_presidenta_win` (recortado el primer segundo) | (no tiene; fallback hadouken) |
+| **Escomboy / Escomgirl** (`ESCOMBOY`/`ESCOMGIRL`) | (sin pack de voces) | `special_escomboy/girl` (efecto electricidad a 1.5x de velocidad) |
+| Yoalli, ESCOMSTUDENT, Paparazzi 5 | (sin pack) | `special_<id>` (su special) |
 | **Lázaro, Paramédico, Prankedy** | SIN VOZ (borrados) → su especial suena hadouken | — (en `sfVoicelessFighters`) |
 
 **Naming:** 1 variante = `special_<key>_<evento>.ogg`; N variantes = `special_<key>_<evento>_<n>.ogg`.
@@ -84,7 +87,11 @@ tu propia voz). Archivo: **`special_male_attack_grunt.ogg`**.
 
 - **Señor de la Tienda (pack COMPLETO):** attack ×2 (`special_senor_tienda_attack_1/2`), hurt ×2 (`special_senor_tienda_hurt_1` y `_2` ("puerquito" de `Puerquito.mp3`)), y win (`special_senor_tienda_win`).
 - **Grito masculino por defecto:** recortado seg 8-10 de `ZA ZA.mp3` y guardado como `special_male_attack_grunt.ogg` en `SOUNDS/`.
-- `tools/_audio_review/` regenerado con todas las nuevas voces en mp3.
+- **Escomboy y Escomgirl:** sus especiales de voz se eliminan y se reemplazan por un efecto de sonido de electricidad (`Electricity Blast...mp3`) acelerado a 1.5x de velocidad.
+- **Robot:** se agrega su audio de victoria `special_robot_win.ogg` (`victory ROBOT.mp3`).
+- **La Presidenta:** se elimina su especial de voz y se convierte en su audio de victoria `special_la_presidenta_win.ogg` recortando el primer segundo de silencio.
+- **La Tzitzimime:** se recorta el último 10% del audio original de su especial (duración 2.25s) y se convierte exclusivamente en su sonido de golpe normal (`special_la_tzitzimime_attack.ogg`).
+- `tools/_audio_review/` regenerado completamente con las conversiones a mp3 de todos los cambios.
 
 ## Cambios de audio 2026-07-18u
 

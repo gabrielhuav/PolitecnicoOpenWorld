@@ -162,7 +162,7 @@ class StreetFighterViewModel @Inject constructor(
                 hurt = listOf(SfVoiceLine("special_llorona_hurt")),
                 power = listOf(SfVoiceLine("special_llorona_power")),
             ),
-            SfFighterId.LA_TZITZIMIME to SfVoicePack(attack = listOf(SfVoiceLine("special_la_tzitzimime"))),
+            SfFighterId.LA_TZITZIMIME to SfVoicePack(attack = listOf(SfVoiceLine("special_la_tzitzimime_attack"))),
             SfFighterId.REY_GRUPERO to SfVoicePack(intro = listOf(SfVoiceLine("special_rey_grupero"))),
             SfFighterId.PARAMEDICO_CRUZ_ROJA to SfVoicePack(
                 win = listOf(SfVoiceLine("special_paramedico_cruz_roja")),
@@ -189,6 +189,14 @@ class StreetFighterViewModel @Inject constructor(
                 win = listOf(
                     SfVoiceLine("special_senor_tienda_win")
                 )
+            ),
+            // 🆕 (2026-07-19) Robot: audio de victoria
+            SfFighterId.ROBOT to SfVoicePack(
+                win = listOf(SfVoiceLine("special_robot_win"))
+            ),
+            // 🆕 (2026-07-19) La Presidenta: audio de victoria con subtítulo (recortado el primer segundo)
+            SfFighterId.LA_PRESIDENTA to SfVoicePack(
+                win = listOf(SfVoiceLine("special_la_presidenta_win", "Sí. Siempre. Nosotros vamos a actuar siempre en el marco de la ley. Siempre."))
             ),
         )
     }
