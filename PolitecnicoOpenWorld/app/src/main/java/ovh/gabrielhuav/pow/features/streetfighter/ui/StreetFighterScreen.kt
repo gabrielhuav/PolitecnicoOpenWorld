@@ -55,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -2389,8 +2390,8 @@ private fun DrawScope.drawScene(
     }
 
     // ---- Sombras ----
-    drawShadow(ctx, theme, images.getValue(theme.shadowImage), state.player)
-    drawShadow(ctx, theme, images.getValue(theme.shadowImage), state.cpu)
+    drawShadow(ctx, theme, images.getValue(theme.shadowImage), state.player, bgFile)
+    drawShadow(ctx, theme, images.getValue(theme.shadowImage), state.cpu, bgFile)
 
     // ---- Peleadores (sheet según el personaje del snapshot) ----
     drawFighter(ctx, images, playerData, state.player, t, showHitboxes, playerContentH)
@@ -2926,7 +2927,7 @@ private fun DrawScope.drawWorldBox(ctx: SceneCtx, box: SfBox, color: Color) {
     )
 }
 
-private fun DrawScope.drawShadow(ctx: SceneCtx, theme: SfTheme, shadowImg: ImageBitmap, f: SfFighter) {
+private fun DrawScope.drawShadow(ctx: SceneCtx, theme: SfTheme, shadowImg: ImageBitmap, f: SfFighter, bgFile: String?) {
     // Shadow.js: se encoge en el aire; specials/KO tienen escalas propias
     var scaleX = 1.2f
     var scaleY = 1.2f
@@ -2941,6 +2942,39 @@ private fun DrawScope.drawShadow(ctx: SceneCtx, theme: SfTheme, shadowImg: Image
         SfFighterState.KO -> { scaleX = 2.4f; scaleY = 1f }
         else -> Unit
     }
+
+    // 🆕 Sombra sobre el agua / plataforma para Isla de las Muñecas
+    val isIslaMunecas = bgFile != null && bgFile.contains("islamunecas")
+    if (isIslaMunecas) {
+        val platW = 100f
+        val platH = 8f
+        val platX = ctx.ox + (f.x - ctx.camX - platW / 2f) * ctx.scale
+        val platY = ctx.oy + (SfConstants.STAGE_FLOOR - ctx.camY - 2f) * ctx.scale
+        drawRoundRect(
+            color = Color(0xCC3E2723), // Madera oscura semi-transparente
+            topLeft = Offset(platX, platY),
+            size = Size(platW * ctx.scale, platH * ctx.scale),
+            cornerRadius = CornerRadius(3f * ctx.scale, 3f * ctx.scale)
+        )
+        drawRoundRect(
+            color = Color(0xFF1D0F0B), // Borde madera oscuro
+            topLeft = Offset(platX, platY),
+            size = Size(platW * ctx.scale, platH * ctx.scale),
+            cornerRadius = CornerRadius(3f * ctx.scale, 3f * ctx.scale),
+            style = Stroke(width = 1f * ctx.scale)
+        )
+        // Línea intermedia para simular tablones
+        drawLine(
+            color = Color(0x441D0F0B),
+            start = Offset(platX + 4f * ctx.scale, platY + 4f * ctx.scale),
+            end = Offset(platX + (platW - 4f) * ctx.scale, platY + 4f * ctx.scale),
+            strokeWidth = 1f * ctx.scale
+        )
+        
+        // Sombra más prolongada
+        scaleX *= 1.8f
+    }
+
     val src = theme.shadowFrame.src
     val originX = theme.shadowFrame.origin[0]
     val originY = theme.shadowFrame.origin[1]

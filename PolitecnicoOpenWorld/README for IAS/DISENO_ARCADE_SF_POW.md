@@ -7,6 +7,12 @@
 > CRLF, Read para verificar). Los BUGS del modo (stun-lock, revancha, servidor LAN) viven en
 > `PENDIENTES_SF_2026-07-16.md` y NO dependen de esto.
 
+## Cambios 2026-07-19 (Antigravity) — Sombra Isla de las Muñecas y QA de Voces
+
+- **Sombra Isla de las Muñecas:** Implementada la plataforma de madera flotante y la sombra más prolongada (1.8x) para evitar que los peleadores parezcan flotar sobre el agua en el mapa Isla de las Muñecas.
+- **QA Voces Policías:** Verificado que el mapeo y los archivos de audio coinciden con el diseño.
+- **Voz Masculina por Defecto ("ZA ZA"):** Verificado que "ZA ZA.mp3" no se encuentra en el repositorio, por lo que su procesamiento queda pendiente de la subida del archivo fuente por parte del dueño.
+
 ## Fix 2026-07-18g (Claude) — regresiones de IA/input
 
 - `isAnimationCompleted` (VM) ahora da por terminada la animación al llegar al último frame,

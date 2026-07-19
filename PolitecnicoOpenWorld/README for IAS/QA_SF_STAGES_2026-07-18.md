@@ -37,10 +37,7 @@ FES Acatlán · UAM Azcapotzalco · Isla de las Muñecas · Mictlán · Campos d
   y los peleadores "en el cielo". Añadido `"facultad_medicina" to SfBgFraming(zoom = 1.35f)`
   en `SF_BG_FRAMING` (cubre día/noche_1/noche_2 por substring). **Verificar en dispositivo** y,
   si el piso no queda exacto, afinar `zoom` y/o `offsetY` (no regenerar el asset todavía).
-- **Isla de las Muñecas (3 variantes):** los peleadores están sobre el agua → darles una
-  **sombra más prolongada**, como si pisaran una plataforma de madera. SOLO este mapa.
-  Es la sombra del peleadór (`drawShadow`), no el fondo → necesita un override de sombra por
-  escenario (aún NO implementado; el `SfBgFraming` es solo del fondo). PENDIENTE.
+- **Isla de las Muñecas (3 variantes) — ✅ CORREGIDO 2026-07-19 (código):** los peleadores están sobre el agua → se les da una **sombra más prolongada (1.8x)** y se dibuja una **plataforma de madera** (plank) flotante bajo sus pies en `drawShadow`. Resuelto por código sin alterar el fondo.
 - **FES Acatlán — variante de DÍA:** ya está bien, pero se podría **regenerar un video de día
   que NO se mueva** (las imágenes/frames del atlas son muy distintas entre sí y "saltan").
   Es trabajo de asset (regenerar el atlas de día con frames coherentes o 1 frame estático).
