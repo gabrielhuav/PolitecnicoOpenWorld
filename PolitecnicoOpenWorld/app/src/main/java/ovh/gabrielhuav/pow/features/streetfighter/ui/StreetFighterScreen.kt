@@ -146,7 +146,8 @@ private fun getFighterPrefix(key: String): String {
 private fun isSpecialPowerAudio(key: String): Boolean {
     val clean = key.removeSuffix(".ogg").removeSuffix(".mp3").lowercase()
     if (clean.contains("power") || clean.contains("electricity")) return true
-    val suffixes = listOf("hurt", "attack", "win", "intro")
+    // 🆕 (2026-07-19) Se excluye 'win' para proteger las voces de victoria y evitar que se corten por gritos o daños comunes
+    val suffixes = listOf("hurt", "attack", "intro")
     for (s in suffixes) {
         if (clean.endsWith(s) || clean.contains("_$s")) return false
     }
