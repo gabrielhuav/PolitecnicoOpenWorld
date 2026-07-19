@@ -39,16 +39,16 @@ Fuente de verdad: `sfVoicePacks` (packs por evento con frase) + fallback `specia
 
 | Peleadór (id) | Evento → archivo `.ogg` | Poder especial (fallback) |
 |---|---|---|
-| **Policía CDMX** (mujer, `POLICIA_CDMX`) | attack = `special_pol_m_attack` · hurt = `special_pol_m_hurt` (2.3s) · win = `special_policia_cdmx` | (no tiene; fallback hadouken) |
-| **Policía CDMX Hombre** (`POLICIA_CDMX_HOMBRE`) | intro = `special_pol_h_intro` · attack = `special_pol_h_attack` · win = `special_pol_h_win` | `special_policia_cdmx_hombre` |
-| **Granadero Hombre** (`POLICIA_GRANADERO_HOMBRE`) | intro/attack = policía hombre · win = **diana** `special_granadero` | `special_policia_granadero_hombre` |
-| **Granadera** (`POLICIA_GRANADERO_MUJER`) | attack/hurt = policía mujer · win = **diana** `special_granadero` | `special_policia_granadero_mujer` |
-| **Granadero** (`GRANADERO`) | = Granadero Hombre · win = `special_granadero` | `special_granadero` |
+| **Policía CDMX** (mujer, `POLICIA_CDMX`) | attack ×2 = `special_pol_m_attack_1/2` (segmentos 0-1s y 1-3s) · hurt = `special_pol_m_hurt` · win = `special_policia_cdmx_win` | (no tiene; fallback hadouken) |
+| **Policía CDMX Hombre** (`POLICIA_CDMX_HOMBRE`) | intro = `special_pol_h_intro` · attack = `special_pol_h_attack` (30% chance) / fallback = `special_male_attack_grunt` · win = `special_pol_h_win` | `special_policia_cdmx_hombre` |
+| **Granadero Hombre** (`POLICIA_GRANADERO_HOMBRE`) | intro/attack = policía hombre · win = **diana** `special_granadero_win` | (no tiene; fallback hadouken) |
+| **Granadera** (`POLICIA_GRANADERO_MUJER`) | attack/hurt = policía mujer · win = **diana** `special_granadero_win` | (no tiene; fallback hadouken) |
+| **Granadero** (`GRANADERO`) | = Granadero Hombre · win = `special_granadero_win` | (no tiene; fallback hadouken) |
 | **Paparazzi 1** (`PAPARAZZI_1`) | power (su ataque ESPECIAL) = `special_paparazzi_5` · hurt ×3 = `special_papz1_hurt_1/2/3` | (usa el power) |
 | **La Llorona** (`LA_LLORONA`) | power = `special_llorona_power` · attack = `special_llorona_attack` (seg 7-11 del fuente) · hurt = `special_llorona_hurt` | (usa el power) |
 | **La Tzitzimime** (`LA_TZITZIMIME`) | attack (golpe normal) = `special_la_tzitzimime_attack` (90% de duración del original) | (no tiene; fallback hadouken) |
 | **Rey Grupero** (`REY_GRUPERO`) | intro = `special_rey_grupero` | `special_rey_grupero` |
-| **Paramédico Cruz Roja** (`PARAMEDICO_CRUZ_ROJA`) | win = `special_paramedico_cruz_roja` · power = `special_paramedico_cruz_roja_power` (electricidad a 1.5x) | (no tiene; fallback hadouken) |
+| **Paramédico Cruz Roja** (`PARAMEDICO_CRUZ_ROJA`) | win = `special_paramedico_cruz_roja_win` · power = `special_power_electricity` (electricidad a 1.5x) | (no tiene; fallback hadouken) |
 | **Charro Negro** (`CHARRO_NEGRO`) | attack ×2 = `special_charro_attack_1/2` · hurt ×3 = `special_charro_hurt_1/2/3` | `special_charro_negro` |
 | **Señor de la Tienda** (`SENOR_TIENDA`) | attack ×2 = `special_senor_tienda_attack_1/2` · hurt ×2 = `special_senor_tienda_hurt_1` / `_2` (puerquito) · win = `special_senor_tienda_win` | `special_senor_tienda` |
 | **Robot** (`ROBOT`) | win = `special_robot_win` (del fuente `victory ROBOT.mp3`) | `special_robot` (su special) |

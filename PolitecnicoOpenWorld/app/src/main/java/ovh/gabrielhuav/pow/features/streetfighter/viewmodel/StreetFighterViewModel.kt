@@ -127,9 +127,11 @@ class StreetFighterViewModel @Inject constructor(
         val grWin = SfVoiceLine("special_granadero_win")
         val grH = SfVoicePack(intro = listOf(hIntro), attack = listOf(hAttack), win = listOf(grWin))
         // MUJER: policía + granadera comparten ATTACK y HURT; el WIN difiere.
-        // (2026-07-19) special_pol_m_attack_1 era en realidad de daño (special_pol_m_hurt);
-        // special_pol_m_attack_2 es el ataque único (special_pol_m_attack).
-        val mAttack = listOf(SfVoiceLine("special_pol_m_attack", "¿Sabes cuántas tengo?"))
+        // (2026-07-19) special_pol_m_attack se divide en attack_1 (primer segundo) y attack_2 (segundo 1 al 3).
+        val mAttack = listOf(
+            SfVoiceLine("special_pol_m_attack_1"),
+            SfVoiceLine("special_pol_m_attack_2")
+        )
         val mHurt = listOf(SfVoiceLine("special_pol_m_hurt"))
         val polM = SfVoicePack(
             attack = mAttack,
@@ -166,7 +168,7 @@ class StreetFighterViewModel @Inject constructor(
             SfFighterId.LA_TZITZIMIME to SfVoicePack(attack = listOf(SfVoiceLine("special_la_tzitzimime_attack"))),
             SfFighterId.REY_GRUPERO to SfVoicePack(intro = listOf(SfVoiceLine("special_rey_grupero"))),
             SfFighterId.PARAMEDICO_CRUZ_ROJA to SfVoicePack(
-                win = listOf(SfVoiceLine("special_paramedico_cruz_roja", "No olvides que saber primeros auxilios marca la diferencia y salva vidas.")),
+                win = listOf(SfVoiceLine("special_paramedico_cruz_roja_win", "No olvides que saber primeros auxilios marca la diferencia y salva vidas.")),
                 power = listOf(SfVoiceLine("special_power_electricity"))
             ),
             // 🆕 (2026-07-18u) Charro Negro: 2 gritos de ataque + 3 de daño (su special_charro_negro
@@ -285,6 +287,23 @@ class StreetFighterViewModel @Inject constructor(
      * defecto (enemigo = más seguido; jugador = raro). */
     private fun emitAttackVoice(id: SfFighterId, idx: Int, now: Long) {
         val i = idx.coerceIn(0, 1)
+        val isPoliceMale = (id == SfFighterId.POLICIA_CDMX_HOMBRE || id == SfFighterId.POLICIA_GRANADERO_HOMBRE || id == SfFighterId.GRANADERO)
+        if (isPoliceMale) {
+            // "special_pol_h_attack" solo debe sonar ciertas veces (30% de chance) y no se repite seguido
+            val rolledPhrase = Random.nextFloat() < 0.30f
+            val elapsed = now - lastAttackVoiceMs[i]
+            if (rolledPhrase && elapsed >= attackVoiceCooldownMs) {
+                val lines = sfVoicePacks[id]?.attack.orEmpty()
+                if (emitVoiceLines(lines, now)) {
+                    lastAttackVoiceMs[i] = now
+                    return
+                }
+            }
+            // Fallback por defecto: grito genérico que sí puede sonar repetido (no bloquea/actualiza lastAttackVoiceMs)
+            emitVoiceClip(maleGruntClip)
+            return
+        }
+
         if (now - lastAttackVoiceMs[i] < attackVoiceCooldownMs) return
         val lines = sfVoicePacks[id]?.attack.orEmpty()
         if (lines.isNotEmpty()) {
