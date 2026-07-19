@@ -80,7 +80,7 @@ Causa: la interrupción anti-traslape (`getFighterPrefix` en `playSfSpecial`) ag
 hurt del mismo peleadór bajo el mismo prefijo**. Al golpear a un peleadór sonaba su hurt (~3 s),
 pero al recuperarse (~0.4 s) y **contraatacar**, su propio `attack` cortaba su hurt → parecía que
 no sonaba. Fix: **un HURT en curso NO se corta por un ATAQUE del mismo peleadór** (solo otro HURT
-lo reinicia = te pegan otra vez). Además, se inicializaron los arreglos de tiempos a 0L (evitando un desbordamiento numérico de Long.MIN_VALUE que silenciaba los quejidos) y se eliminó el cooldown de hurt (cooldown = 0s) para que suene de inmediato en cualquier combo.
+lo reinicia = te pegan otra vez). Además, se inicializaron los arreglos de tiempos a 0L (evitando un desbordamiento numérico de Long.MIN_VALUE que silenciaba los quejidos), se eliminó el cooldown de hurt (cooldown = 0s) para que suene de inmediato en cualquier combo, y se garantizó que los ataques especiales (pistas de poder) nunca se corten por otras acciones para que se reproduzcan completos.
 
 **⚠️ COVERAGE: solo estos peleadores tienen HURT (voz al recibir golpe).** El resto solo suena el
 SFX de impacto global (`*-hit`), NO una voz — porque no hay audio de hurt para ellos:

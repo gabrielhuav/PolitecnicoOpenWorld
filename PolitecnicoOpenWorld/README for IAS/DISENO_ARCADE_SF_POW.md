@@ -45,7 +45,7 @@
 La interrupción anti-traslape (`getFighterPrefix` en `playSfSpecial`) agrupa attack+hurt del mismo
 peleadór bajo un prefijo; al recuperarse y contraatacar, su `attack` cortaba su propio `hurt` casi
 al instante. Fix: un HURT en curso NO se corta por un ATAQUE del mismo peleadór (solo otro HURT lo
-reinicia). Se inicializaron los arreglos de tiempos a 0L para evitar un desbordamiento numérico (overflow) de Long.MIN_VALUE que silenciaba los quejidos, y se eliminó el cooldown de hurt (cooldown = 0s) para interrupción inmediata en combos. **Coverage:** solo 6 peleadores tienen hurt (Charro,
+reinicia). Se inicializaron los arreglos de tiempos a 0L para evitar un desbordamiento numérico (overflow) de Long.MIN_VALUE que silenciaba los quejidos, se eliminó el cooldown de hurt (cooldown = 0s) para interrupción inmediata en combos, y se garantizó el play completo (sin interrupciones) de los ataques especiales. **Coverage:** solo 6 peleadores tienen hurt (Charro,
 Paparazzi1, Llorona, Señor Tienda, Policía Mujer + Granadera); el resto solo suena el SFX de
 impacto global. Detalle en `AUDIO_INVENTARIO_SF.md`.
 

@@ -143,6 +143,16 @@ private fun getFighterPrefix(key: String): String {
     return clean
 }
 
+private fun isSpecialPowerAudio(key: String): Boolean {
+    val clean = key.removeSuffix(".ogg").removeSuffix(".mp3").lowercase()
+    if (clean.contains("power") || clean.contains("electricity")) return true
+    val suffixes = listOf("hurt", "attack", "win", "intro")
+    for (s in suffixes) {
+        if (clean.endsWith(s) || clean.contains("_$s")) return false
+    }
+    return true
+}
+
 /** Reproduce una voz o pieza larga completa; SoundPool puede truncar archivos extensos. */
 private fun playSfSpecial(
     context: Context,
@@ -153,11 +163,13 @@ private fun playSfSpecial(
     // 🆕 (2026-07-19b) FIX: un HURT en curso NO se corta por un ATAQUE del mismo peleadór (antes
     // el contraataque tras recuperarse cortaba su propio quejido → "el hurt no suena"). Solo otro
     // HURT lo reinicia (= te pegaron otra vez).
+    // 🆕 (2026-07-19c) Un ataque especial en curso (isSpecialPowerAudio) NUNCA se detiene por otras acciones.
     val newName = assetPath.substringAfterLast('/')
     val newPrefix = getFighterPrefix(newName)
     val newIsHurt = newName.contains("_hurt")
     val keysToStop = activePlayers.keys.filter { key ->
         val kf = key.substringAfterLast('/')
+        !isSpecialPowerAudio(kf) &&
         getFighterPrefix(kf) == newPrefix && (newIsHurt || !kf.contains("_hurt"))
     }
     keysToStop.forEach { key ->
