@@ -217,8 +217,10 @@ class StreetFighterViewModel @Inject constructor(
                 hurt = listOf(SfVoiceLine("special_robot_hurt")),
                 win = listOf(SfVoiceLine("special_robot_win"))
             ),
-            // 🆕 (2026-07-19) La Presidenta: audio de victoria con subtítulo (recortado el primer segundo)
             SfFighterId.LA_PRESIDENTA to SfVoicePack(
+                attack = listOf(SfVoiceLine("special_la_presidenta_attack")),
+                hurt = listOf(SfVoiceLine("special_la_presidenta_hurt")),
+                power = listOf(SfVoiceLine("special_la_presidenta_power")),
                 win = listOf(SfVoiceLine("special_la_presidenta_win", "Sí. Siempre. Nosotros vamos a actuar siempre en el marco de la ley. Siempre."))
             ),
             // 🆕 (2026-07-19) Escomboy / Escomgirl: mapeo de su poder especial de electricidad (compartido)
