@@ -39,10 +39,10 @@ Fuente de verdad: `sfVoicePacks` (packs por evento con frase) + fallback `specia
 
 | Peleadór (id) | Evento → archivo `.ogg` | Poder especial (fallback) |
 |---|---|---|
-| **Policía CDMX** (mujer, `POLICIA_CDMX`) | attack ×2 = `special_pol_m_attack_1/2` · win = `special_pol_m_win` | `special_policia_cdmx` |
+| **Policía CDMX** (mujer, `POLICIA_CDMX`) | attack = `special_pol_m_attack` · hurt = `special_pol_m_hurt` (2.3s) · win = `special_policia_cdmx` | (no tiene; fallback hadouken) |
 | **Policía CDMX Hombre** (`POLICIA_CDMX_HOMBRE`) | intro = `special_pol_h_intro` · attack = `special_pol_h_attack` · win = `special_pol_h_win` | `special_policia_cdmx_hombre` |
 | **Granadero Hombre** (`POLICIA_GRANADERO_HOMBRE`) | intro/attack = policía hombre · win = **diana** `special_granadero` | `special_policia_granadero_hombre` |
-| **Granadera** (`POLICIA_GRANADERO_MUJER`) | attack = policía mujer · win = **diana** `special_granadero` | `special_policia_granadero_mujer` |
+| **Granadera** (`POLICIA_GRANADERO_MUJER`) | attack/hurt = policía mujer · win = **diana** `special_granadero` | `special_policia_granadero_mujer` |
 | **Granadero** (`GRANADERO`) | = Granadero Hombre · win = `special_granadero` | `special_granadero` |
 | **Paparazzi 1** (`PAPARAZZI_1`) | power (su ataque ESPECIAL) = `special_paparazzi_5` · hurt ×3 = `special_papz1_hurt_1/2/3` | (usa el power) |
 | **La Llorona** (`LA_LLORONA`) | power = `special_llorona_power` · attack = `special_llorona_attack` (seg 7-11 del fuente) · hurt = `special_llorona_hurt` | (usa el power) |
@@ -92,7 +92,7 @@ tu propia voz). Archivo: **`special_male_attack_grunt.ogg`**.
 - **La Presidenta:** se elimina su especial de voz y se convierte en su audio de victoria `special_la_presidenta_win.ogg` recortando el primer segundo de silencio.
 - **La Tzitzimime:** se recorta el último 10% del audio original de su especial (duración 2.25s) y se convierte exclusivamente en su sonido de golpe normal (`special_la_tzitzimime_attack.ogg`).
 - **Paramédico Cruz Roja:** su especial de voz ahora se convierte en su audio de victoria con subtítulo y su especial de poder es el efecto de electricidad acelerado a 1.5x (`special_paramedico_cruz_roja_power.ogg`).
-- **Policía CDMX Mujer:** se recortó la pista de ataque `special_pol_m_attack_1.ogg` para durar únicamente los primeros 2.3 segundos.
+- **Policía CDMX Mujer:** se re-asignaron sus eventos de voz de manera que el audio recortado a 2.3 segundos sea su voz de recibir daño (`special_pol_m_hurt.ogg`), el ataque sea la frase única (`special_pol_m_attack.ogg`), y su victoria sea la pista oficial `special_policia_cdmx.ogg` con su correspondiente subtítulo.
 - **Interrupción de Sonidos al Ser Golpeado:** se modificó el reproductor de audios y el SoundPool en `StreetFighterScreen.kt` para que no se traslapen/repitan sonidos de golpes ni las voces de daño del mismo personaje. Si ya se están reproduciendo, se interrumpen y reinician desde el principio inmediatamente.
 - `tools/_audio_review/` regenerado completamente con las conversiones a mp3 de todos los cambios.
 

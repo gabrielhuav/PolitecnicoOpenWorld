@@ -126,16 +126,17 @@ class StreetFighterViewModel @Inject constructor(
         // eliminó por pedido del dueño 2026-07-18s).
         val grWin = SfVoiceLine("special_granadero")
         val grH = SfVoicePack(intro = listOf(hIntro), attack = listOf(hAttack), win = listOf(grWin))
-        // MUJER: policía + granadera comparten ATTACK (2 frases); el WIN difiere.
-        val mAttack = listOf(
-            SfVoiceLine("special_pol_m_attack_1", "Tu denuncia me hace lo que el viento a Juárez"),
-            SfVoiceLine("special_pol_m_attack_2", "¿Sabes cuántas tengo?"),
-        )
+        // MUJER: policía + granadera comparten ATTACK y HURT; el WIN difiere.
+        // (2026-07-19) special_pol_m_attack_1 era en realidad de daño (special_pol_m_hurt);
+        // special_pol_m_attack_2 es el ataque único (special_pol_m_attack).
+        val mAttack = listOf(SfVoiceLine("special_pol_m_attack", "¿Sabes cuántas tengo?"))
+        val mHurt = listOf(SfVoiceLine("special_pol_m_hurt"))
         val polM = SfVoicePack(
             attack = mAttack,
-            win = listOf(SfVoiceLine("special_pol_m_win", "Al decidir ser policía me comprometí como mujer")),
+            hurt = mHurt,
+            win = listOf(SfVoiceLine("special_policia_cdmx", "Si dices policía, me comprometí como mujer a que la ciudadanía sintiera una mejor seguridad")),
         )
-        val grM = SfVoicePack(attack = mAttack, win = listOf(grWin))
+        val grM = SfVoicePack(attack = mAttack, hurt = mHurt, win = listOf(grWin))
         // 🆕 (2026-07-18s) Paparazzi 1: su ataque ESPECIAL (poder) = special_paparazzi_5 (el audio
         // correcto; special_paparazzi_1 era duplicado y se borró). DAÑO = 3 variantes.
         val papz1 = SfVoicePack(

@@ -18,7 +18,7 @@
 - **La Presidenta:** Se eliminó su especial de voz y se convirtió en su audio de victoria `special_la_presidenta_win.ogg` recortando el primer segundo de silencio.
 - **La Tzitzimime:** Se eliminó su especial de voz y se convirtió en su golpe normal `special_la_tzitzimime_attack.ogg` recortando el último 10% de su duración (dejando 2.25s).
 - **Paramédico Cruz Roja:** Se configuró su especial de voz como su audio de victoria (`special_paramedico_cruz_roja.ogg` con subtítulo) y se añadió el efecto de electricidad a 1.5x como su especial de poder (`special_paramedico_cruz_roja_power.ogg`).
-- **Policía CDMX Mujer:** Se recortó la pista de ataque `special_pol_m_attack_1.ogg` a sus primeros 2.3 segundos.
+- **Policía CDMX Mujer:** Se re-asignó el audio recortado de 2.3 segundos como su sonido al recibir daño (`special_pol_m_hurt.ogg`), se dejó la frase única como su ataque normal (`special_pol_m_attack.ogg`), y se configuró la pista oficial `special_policia_cdmx.ogg` como su audio de victoria.
 - **Interrupción de Sonidos (Anti-Overlapping):** Se modificó el reproductor de audios y SoundPool en `StreetFighterScreen.kt` para que no se traslapen los sonidos de golpes ni las voces del mismo peleador al recibir golpes sucesivos, interrumpiendo la reproducción anterior y reiniciándola desde el principio.
 
 ## Fix 2026-07-18g (Claude) — regresiones de IA/input

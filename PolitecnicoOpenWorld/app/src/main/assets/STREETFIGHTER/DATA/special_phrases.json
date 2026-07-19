@@ -63,14 +63,6 @@
       "subtitle_ms": 5000,
       "tier": "synthetic_fictional"
     },
-    "POLICIA_CDMX": {
-      "phrase_es": "Si dices policía, me comprometí como mujer a que la ciudadanía sintiera una mejor seguridad, que me tuvieran confianza y que ellos obtuvieran de mí una mejor tranquilidad.",
-      "phrase_en": "As a policewoman, I committed to helping citizens feel safer, trust me and find greater peace of mind through me.",
-      "phrase_hud": "SI DICES POLICIA ME COMPROMETI COMO MUJER A QUE LA CIUDADANIA SINTIERA UNA MEJOR SEGURIDAD QUE ME TUVIERAN CONFIANZA Y QUE ELLOS OBTUVIERAN DE MI UNA MEJOR TRANQUILIDAD",
-      "audio": "special_policia_cdmx.ogg",
-      "subtitle_ms": 14200,
-      "tier": "authentic_voice"
-    },
     "POLICIA_CDMX_HOMBRE": {
       "phrase_es": "Trabajamos permanentemente en estrategias de seguridad vial, con el fin de salvaguardar y concientizar a los ciudadanos para evitar accidentes automovilísticos.",
       "phrase_en": "We constantly work on road-safety strategies to protect citizens and prevent traffic accidents.",
