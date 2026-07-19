@@ -780,7 +780,6 @@ fun StreetFighterScreen(
                                 sfMenu = false
                                 viewModel.startShowcase()
                             },
-                            onAudioShowcase = viewModel::startAudioShowcase,
                             onAudioShowcaseStop = viewModel::stopAudioShowcase,
                             onBack = onExitToMap,
                         )
@@ -1263,7 +1262,6 @@ private fun SfModeMenuOverlay(
     onGauntletAll: () -> Unit,
     onGauntletArcade: () -> Unit,
     onGauntletShowcase: () -> Unit,
-    onAudioShowcase: () -> Unit,
     onAudioShowcaseStop: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -1292,11 +1290,11 @@ private fun SfModeMenuOverlay(
                 enabled = true
             )
             Spacer(modifier = Modifier.height(18.dp))
-            // Otras modalidades
+            // Otras modalidades (ahora respetando el color guinda del menú principal)
             PowButton(
                 text = stringResource(R.string.sf_mode_practice),
                 onClick = onPractice,
-                color = Color(0xFF1C4A6B),
+                color = Color(0xFF8B1538),
                 modifier = Modifier.fillMaxWidth(0.68f),
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -1304,7 +1302,7 @@ private fun SfModeMenuOverlay(
             PowButton(
                 text = stringResource(R.string.sf_mode_ai_vs_ai),
                 onClick = onAiVsAi,
-                color = Color(0xFF4A148C),
+                color = Color(0xFF8B1538),
                 modifier = Modifier.fillMaxWidth(0.68f),
             )
             Spacer(modifier = Modifier.height(4.dp))
@@ -1328,21 +1326,21 @@ private fun SfModeMenuOverlay(
                 PowButton(
                     text = stringResource(R.string.sf_gauntlet_all),
                     onClick = onGauntletAll,
-                    color = Color(0xFF333333),
+                    color = Color(0xFF8B1538),
                     modifier = Modifier.fillMaxWidth(0.68f),
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 PowButton(
                     text = stringResource(R.string.sf_gauntlet_arcade),
                     onClick = onGauntletArcade,
-                    color = Color(0xFF333333),
+                    color = Color(0xFF8B1538),
                     modifier = Modifier.fillMaxWidth(0.68f),
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 PowButton(
                     text = stringResource(R.string.sf_gauntlet_showcase),
                     onClick = onGauntletShowcase,
-                    color = Color(0xFF333333),
+                    color = Color(0xFF8B1538),
                     modifier = Modifier.fillMaxWidth(0.68f),
                 )
                 if (audioShowcaseRunning) {
@@ -1350,7 +1348,7 @@ private fun SfModeMenuOverlay(
                     PowButton(
                         text = stringResource(R.string.sf_audio_showcase_stop),
                         onClick = onAudioShowcaseStop,
-                        color = Color(0xFF7B1FA2),
+                        color = Color(0xFF8B1538),
                         modifier = Modifier.fillMaxWidth(0.68f),
                     )
                     Spacer(modifier = Modifier.height(4.dp))
@@ -1379,7 +1377,7 @@ private fun SfModeMenuOverlay(
             PowButton(
                 text = stringResource(R.string.sf_mode_multiplayer),
                 onClick = onMultiplayer,
-                color = Color(0xFF1C4A6B),
+                color = Color(0xFF8B1538),
                 modifier = Modifier.fillMaxWidth(0.68f),
             )
             Spacer(modifier = Modifier.height(16.dp))
