@@ -121,6 +121,7 @@ class StreetFighterViewModel @Inject constructor(
         val polH = SfVoicePack(
             intro = listOf(hIntro), attack = listOf(hAttack),
             win = listOf(SfVoiceLine("special_pol_h_win", "¿Se cree más chingón que nosotros o qué joven?")),
+            power = listOf(SfVoiceLine("special_policia_cdmx_hombre_power"))
         )
         // WIN de granadero (H y M) = "3 de diana" (bugle). Usa special_granadero_win (special_gr_win se
         // eliminó por pedido del dueño 2026-07-18s).
@@ -136,7 +137,7 @@ class StreetFighterViewModel @Inject constructor(
         val polM = SfVoicePack(
             attack = mAttack,
             hurt = mHurt,
-            win = listOf(SfVoiceLine("special_policia_cdmx_win", "Si dices policía, me comprometí como mujer a que la ciudadanía sintiera una mejor seguridad")),
+            win = listOf(SfVoiceLine("special_policia_cdmx_mujer_win", "Si dices policía, me comprometí como mujer a que la ciudadanía sintiera una mejor seguridad")),
         )
         val grM = SfVoicePack(attack = mAttack, hurt = mHurt, win = listOf(grWin))
         // 🆕 (2026-07-18s) Paparazzi 1: su ataque ESPECIAL (poder) = special_paparazzi_5 (el audio
