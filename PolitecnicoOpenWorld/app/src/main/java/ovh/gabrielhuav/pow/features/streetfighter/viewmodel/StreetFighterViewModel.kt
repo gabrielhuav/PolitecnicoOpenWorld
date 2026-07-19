@@ -178,7 +178,12 @@ class StreetFighterViewModel @Inject constructor(
                 power = listOf(SfVoiceLine("special_la_tzitzimime_power")),
                 win = listOf(SfVoiceLine("special_la_tzitzimime_win"))
             ),
-            SfFighterId.REY_GRUPERO to SfVoicePack(intro = listOf(SfVoiceLine("special_rey_grupero"))),
+            SfFighterId.REY_GRUPERO to SfVoicePack(
+                intro = listOf(SfVoiceLine("special_rey_grupero")),
+                attack = listOf(SfVoiceLine("special_rey_grupero_attack")),
+                hurt = listOf(SfVoiceLine("special_rey_grupero_hurt")),
+                power = listOf(SfVoiceLine("special_rey_grupero_power"))
+            ),
             SfFighterId.PARAMEDICO_CRUZ_ROJA to SfVoicePack(
                 win = listOf(SfVoiceLine("special_paramedico_cruz_roja_win", "No olvides que saber primeros auxilios marca la diferencia y salva vidas.")),
                 power = listOf(SfVoiceLine("special_power_electricity"))
