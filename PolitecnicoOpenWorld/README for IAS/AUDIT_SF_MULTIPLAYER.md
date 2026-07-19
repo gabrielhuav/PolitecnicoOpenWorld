@@ -1,13 +1,51 @@
 # AUDIT · Multijugador 1v1 del modo pelea "HUELUM VS. GOYA" (2026-07-11)
 
+> **✅ AUDIT 2026-07-18m — lo NUEVO funciona igual en los 3 transportes (Render/BT/LAN):**
+> Verificado por lectura de código que las features de 2026-07-18 son AGNÓSTICAS al transporte
+> (el VM habla solo con `SfNetTransport`; BT/LAN pasan por `SfStreamPeer`, online por WebSocket,
+> mismos `SfNetMsg`).
+> - **Mapas nuevos + framing panorámico + parallax de salto:** el mapa lo elige el HOST y viaja
+>   por `selectMap → MAP_SELECTED` (idéntico en Render y en `SfStreamPeer.selectMap`, que además
+>   corre el countdown local). `effectiveBgFile` usa `onlineMapFile`; `framingForBg()` y el
+>   `jumpFrac` son 100% render del cliente (mismos assets en el APK) → se ven igual en MP.
+> - **Música por progresión:** `musicFileForState` en MP cae a la rama de batalla con
+>   `cpuDifficulty` (online = NORMAL por default de `startOnlineBattle`) → siempre suena una
+>   pista de batalla estable; lobby en `SELECTING`. Sin recargas raras a mitad de combate
+>   (las claves del `remember` no cambian en MP).
+> - **Desbloqueo por dificultad:** SOLO arcade (`arcadeActive`); MP no lo toca. Sin impacto.
+> - **Flechas/recuadro P1-P2:** la selección online es a CIEGAS por protocolo (el rival solo se
+>   conoce en `CHARACTERS_SELECTED`, tras elegir ambos). Por eso el overlay de `SELECTING` NO
+>   pasa `allyId/showPickArrow` → sin flechas en MP (correcto, no hay regresión). Las flechas
+>   aplican a los modos LOCALES (Práctica, IA vs IA). **Pendiente futuro** (si se quiere el
+>   indicador de rival en MP): relay del pick en vivo (cambio de server) o un banner de matchup
+>   en `WAITING_MAP/COUNTDOWN` (ahí `oppOnlineChar` ya se conoce).
+> - **Autojuego/Showcase dev-only:** viven en el menú OFFLINE; MP entra por otro botón. Sin impacto.
+>
+> Transportes sanos (sin cambios en esta pasada): `SfMatchClient` (WS/Render), `SfBtClient`
+> (RFCOMM), `SfLanClient` (TCP) — los dos últimos comparten framing en `SfStreamPeer`.
+
+
+> **✅ DEPLOY DEL SERVIDOR SF — HECHO (2026-07-18):** `MultiplayerSF/` YA está vivo en Render en
+> `https://politecnicoopenworld-2.onrender.com` (Docker, plan Free, root dir `MultiplayerSF`).
+> `/status` → `{"status":"ok","rooms":0}`. Coincide con `SF_SERVER_URL` de gradle (debug+release).
+> **Los 3 servidores de Render** (`Multiplayer` = open world, `MultiplayerInteriores`, `MultiplayerSF`)
+> comparten un `auth.js` IDÉNTICO y las MISMAS env vars. Config del SF:
+> - `FIREBASE_SERVICE_ACCOUNT` = el JSON del service account como string (MISMO valor que los otros 2).
+>   Log de arranque confirma: `[auth] firebase-admin inicializado. AUTH_REQUIRED=false`.
+> - ⚠️ **`AUTH_REQUIRED` NO se define (modo suave) a propósito** aunque los otros servers lo tengan
+>   en `true`: el cliente SF (`SfMatchClient`) NO envía token de Firebase → con `AUTH_REQUIRED=true`
+>   `verifyClient` rechazaría TODAS las conexiones y se caería el online de pelea. Con service account
+>   presente igual inicializa firebase-admin (podría verificar tokens si el cliente los enviara algún
+>   día) pero sin rechazar a nadie. **No poner AUTH_REQUIRED=true hasta que el cliente SF mande token.**
+> - `PORT` lo inyecta Render (server usa `process.env.PORT`; en el log salió 10000). Health check: `/status`.
+>
 > **✅ ESTADO ACTUAL (2026-07-16) — esto MANDA sobre los banners de abajo:** TODO lo de las
 > sesiones 1–3c (server, cliente WS, sala pública, lobby con aprobación, Bluetooth con
 > handshake/reintentos/encendido de BT, gate Ryu/Ken) está **implementado, COMPILADO y
 > probado por el dueño** (BT mejorado el 2026-07-16). Los banners de abajo son REGISTRO, no
-> tareas. **Pendientes REALES:** (1) deploy de `MultiplayerSF/` en Render y prueba online en
-> 2 dispositivos — la `SF_SERVER_URL` YA está en gradle (`wss://politecnicoopenworld-2.onrender.com`,
-> debug+release) pero el SERVICIO aún no se crea (dueño 2026-07-16: "solo puse la URL"; se hará
-> al cerrar el PR — el 1er deploy ya saldrá con el bugfix del spread de la SESIÓN 4); (2) del §4
+> tareas. **Pendientes REALES:** ~~(1) deploy de `MultiplayerSF/` en Render~~ **✅ HECHO 2026-07-18
+> (ver banner arriba)**; falta la prueba online en 2 dispositivos con el servicio ya vivo. La
+> `SF_SERVER_URL` YA está en gradle (`wss://politecnicoopenworld-2.onrender.com`, debug+release); (2) del §4
 > quedan reconexión a sala, espectadores y anti-cheat (conscientes, no bloquean) — interpolación,
 > sincronía del timer, fireball-vs-fireball y roll-up del HUD ✅ SESIÓN 4; (3) **🆕 reportados
 > por el dueño el 2026-07-16 (diseño de fix en `PENDIENTES_SF_2026-07-16.md`):** STUN-LOCK
@@ -204,10 +242,12 @@ SESIÓN 4 — ver banner. El matchmaking existe desde la SESIÓN 2: sala públic
 
 1. **Local:** `cd MultiplayerSF && node --check server.js && docker compose up -d` (puerto
    8082→8080 o el que defina el compose). 2 emuladores con `SF_SERVER_URL = ws://10.0.2.2:8082`.
-2. **Render (free):** New → Web Service → repo, root `MultiplayerSF/`, runtime Docker, plan
-   **Free**. Sin env vars obligatorias (`AUTH_REQUIRED` sin definir = modo suave). Copiar la
-   URL (p. ej. `pow-sf.onrender.com`) → `SF_SERVER_URL = "wss://pow-sf.onrender.com"` en
-   `app/build.gradle.kts` (debug y release) → Rebuild.
+2. **Render (free) — ✅ YA DESPLEGADO (2026-07-18):** New → Web Service → repo, root
+   `MultiplayerSF/`, runtime Docker, plan **Free**, nombre `politecnicoopenworld-2` (para que
+   coincida con `SF_SERVER_URL` de gradle). Env var: `FIREBASE_SERVICE_ACCOUNT` = MISMO JSON que
+   los otros 2 servers; **NO** poner `AUTH_REQUIRED` (el cliente SF no manda token → modo suave
+   obligatorio, ver banner arriba). `PORT` lo inyecta Render. URL viva:
+   `wss://politecnicoopenworld-2.onrender.com` (ya cableada en `app/build.gradle.kts` debug+release).
 3. **2 dispositivos:** A: modo pelea → 🌐 MULTIJUGADOR → CREAR SALA (espera ~1 min si el
    server dormía) → comparte el código. B: UNIRSE + código. Ambos eligen peleador; A elige
    mapa; 3-2-1; pelear. Verificar: golpes/bloqueo/proyectiles en ambos lados, KO → ganador

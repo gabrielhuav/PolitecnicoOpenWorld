@@ -23,14 +23,14 @@ jobs:
       contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: "21"
           distribution: "temurin"
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
         with:
           # "wrapper" = la version de gradle-wrapper.properties (sincronizada con el repo;
           # el pin fijo quedaba atras en cada upgrade de AGP/Gradle — fallo 2026-07-15).
@@ -42,7 +42,7 @@ jobs:
         working-directory: ./PolitecnicoOpenWorld
         run: gradle :app:assembleDebug
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
@@ -50,7 +50,11 @@ jobs:
           tag_name: debug-latest
           name: "Latest Debug APK"
           body: |
-            APK Debug generado automáticamente desde main.
+            POW 1.0.0.12 — Huelum vs. Goya
+
+            - Lanzamiento del modo Huelum vs. Goya.
+            - Mejoras de jugabilidad y estabilidad en la campaña principal de POW.
+            - Voces y efectos especiales renovados para Street Fighter POW.
 
             PR: #${{ github.event.pull_request.number }}
             Autor: @${{ env.PR_AUTHOR }}
@@ -67,14 +71,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: "21"
           distribution: "temurin"
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
         with:
           # "wrapper" = la version de gradle-wrapper.properties (sincronizada con el repo;
           # el pin fijo quedaba atras en cada upgrade de AGP/Gradle — fallo 2026-07-15).
@@ -102,17 +106,46 @@ jobs:
           RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          # 🆕 versionCode AUTOINCREMENTAL: Play rechaza subir dos veces el mismo código.
+          # Antes quedaba fijo en 12 (el default del build.gradle.kts) y el upload fallaba con
+          # "Version code 12 has already been used". run_number siempre crece; +1000 lo deja
+          # muy por encima de los códigos ya publicados (12).
+          APP_VERSION_CODE: ${{ 1000 + github.run_number }}
         run: gradle :app:bundleRelease
+      - name: Validar tamaño máximo de Play Store
+        shell: bash
+        run: |
+          AAB="PolitecnicoOpenWorld/app/build/outputs/bundle/release/app-release.aab"
+          SIZE_BYTES=$(stat -c%s "$AAB")
+          MAX_BYTES=500000000
+          echo "AAB: $((SIZE_BYTES / 1000000)) MB; máximo preventivo: 500 MB."
+          if [ "$SIZE_BYTES" -gt "$MAX_BYTES" ]; then
+            echo "::error::El AAB supera 500 MB y Play Store puede rechazar el módulo base."
+            exit 1
+          fi
+      - name: Guardar AAB firmado como artefacto
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-release-1.0.0.12
+          path: PolitecnicoOpenWorld/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 14
       - name: Subir a Play Store (prueba cerrada)
-        uses: r0adkll/upload-google-play@v1
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'manual-play-upload') }}
+        uses: r0adkll/upload-google-play@v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: ovh.gabrielhuav.pow
           releaseFiles: PolitecnicoOpenWorld/app/build/outputs/bundle/release/app-release.aab
           # "alpha" = pista de PRUEBA CERRADA clásica. Si creaste una pista cerrada con nombre
           # propio en Play Console, pon aquí ese nombre exacto.
-          track: alpha
+          tracks: alpha
           status: completed
+          releaseName: "POW 1.0.0.12 — Huelum vs. Goya"
+          whatsNewDirectory: distribution/whatsnew
+      - name: Confirmar entrega manual solicitada
+        if: ${{ contains(github.event.pull_request.labels.*.name, 'manual-play-upload') }}
+        run: echo "Subida automática omitida; usa el artefacto firmado app-release-1.0.0.12."
       - name: Borrar keystore del runner
         if: always()
         run: rm -f "$GITHUB_WORKSPACE/PolitecnicoOpenWorld/app/release-keystore.jks"

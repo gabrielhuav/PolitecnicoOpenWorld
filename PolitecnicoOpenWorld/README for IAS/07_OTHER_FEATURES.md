@@ -391,7 +391,7 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   archivo **`ui/SfStageSelectOverlay.kt`** (fuera del monstruo `StreetFighterScreen.kt`).
   Flujo: **tocar = focus/preview** → borde dorado → **"Elegir este mapa"** confirma
   (`onSelect`). Cada tarjeta muestra la **thumb estática**; **solo el focused** con
-  `_anim.png` carga UN atlas submuestreado (`inSampleSize=4`) y pinta **un sub-rect de
+  `_anim.webp` carga UN atlas submuestreado (`inSampleSize=4`) y pinta **un sub-rect de
   frame** a la vez (`StageAnimFrameView` + `fps` del JSON) — **nunca** el filmstrip/
   spreadsheet completo ni 48 atlases a la vez. Estáticos focused = solo thumb + borde.
   "Al azar" = focus especial → `onSelect(null)`. Strings `sf_stage_tap_preview` /
@@ -517,7 +517,8 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   - **Ritmo:** avance automático — si la animación del paso ya terminó (ambos en IDLE, paso ya
     disparado, ≥400 ms) no espera los 2 s fijos. Botón **"Saltar animación"** en pantalla
     (`skipShowcaseStep`, string `sf_showcase_skip` ES+EN; solo visible en showcase vía
-    `state.showcaseRunning`).
+    `state.showcaseRunning`). En el hotfix de entrega ya no corta solo la pose: marca terminado
+    el bloque del peleador y su timer para avanzar en el tick siguiente.
   - **Fix salto perdido:** los pasos de UN toque esperan al IDLE para disparar (el input del
     SALTO caía durante CROUCH→CROUCH_UP y `JUMP_START` no es válido desde ahí → se perdía).
     `showcaseInput` ahora recibe el `SfFighter` (no solo el id).
@@ -558,6 +559,32 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
     solo golpes LIGHT); contra el jugador conserva su comportamiento lento y aprendible.
     `SfArcadeCampaignAuditTest` revisa además 600 órdenes/configuraciones y todos
     los assets de rival/mapa/voz. La auditoría estática detecta animaciones relleno estrictas.
+- **✅ HOTFIX ENTREGA 1.0.0.12 — peso, skip y CI (2026-07-18, Sol):** el primer AAB se firmó
+  pero Play rechazó `base` por exceder 500 MB. Los 48 atlas `fondo_*_anim` migraron a WebP
+  lossless `-exact` y cada RGBA fue comparado contra su PNG; 29 fondos fijos heredados sin
+  referencias runtime se conservan en `_ORPHAN_ASSETS/STREETFIGHTER/legacy_static_backgrounds`.
+  AAB comprobado: **434.47 MiB**; `base` comprimido: **433.84 MiB (454.91 MB)**; margen: **45.09 MB** bajo el límite decimal de Play.
+  El botón SALTAR ahora termina peleador+timer. Workflows: Actions Node 24 actuales,
+  `tracks: alpha`, notas `distribution/whatsnew`, chequeo preventivo 500 MB y AAB firmado
+  descargable; label `manual-play-upload` omite únicamente el envío automático.
+- **✅ HOTFIX FONDOS/SHOWCASE/LALLORONA (2026-07-18, Sol):**
+  - **Fondos:** causa raíz = el pipeline tomaba 15 cuadros contiguos a 12 fps, solo 1.25 s del
+    centro de videos de ~10 s; técnicamente eran distintos, pero visualmente parecían fijos.
+    Ahora distribuye 15 cuadros fuente sobre 5 s y reproduce a 6 fps en ping-pong. Auditoría:
+    48/48 WebP decodificables, 15 únicos/28 pasos; 16 día, 16 noche y 16 noche tenebrosa.
+    `logoPOW.png` se compone en cada cuadro antes del atlas. Los PNG fijos/intermedios viven en
+    `additional_assets/STREETFIGHTER/`, fuera de `PolitecnicoOpenWorld/` y del AAB.
+  - **Showcase visual:** `Siguiente animación` expira solo el paso actual y conserva personaje;
+    `Siguiente personaje` termina su bloque; `Velocidad` cicla 1×/2×/4× sobre tiempo virtual;
+    `Repetir audio` vuelve a emitir la voz del peleador actual.
+  - **Showcase de audio:** botón independiente recorre los 21 `special_*.ogg`, muestra progreso,
+    peleador y frase española, y espera la duración real del OGG mediante
+    `MediaMetadataRetriever`; detener libera los `MediaPlayer` activos.
+  - **La Llorona:** la hoja 09 entregaba 14 HURT HEAD pegados como siete componentes; dos
+    `hit-face-*` contenían dos personajes. `maybe_split` usa ahora el paso horizontal esperado,
+    separa 14/14 y el pack elige cuatro poses completas. El validador rechaza un cuerpo HURT
+    anormalmente ancho. Resultado: 123 frames/30 animaciones y contrato croma OK.
+  - **Peso final:** AAB 438.52 MiB; `base` comprimido 459.16 MB; 40.84 MB de margen Play.
 - **🆕 Botón CONFIRMAR en el selector (2026-07-18h, Claude):** `CharacterSelectOverlay` ahora
   muestra un botón explícito para confirmar el peleador resaltado (antes solo el 2.º toque).
   string `sf_confirm` ES+EN.
@@ -905,3 +932,12 @@ enum class ShineCTOInteractable(val label: String) { ... }
 
 ## Tema / Theme (`ui/theme/`)
 `Color.kt`, `Theme.kt`, `Type.kt` — Material 3. Sin lógica de negocio.
+
+### HUELUM VS. GOYA — Fix IA 18l (2026-07-18)
+
+El motor CPU es compartido por práctica, Arcade, IA vs IA y Autoplay. Se corrigió el bloqueo
+permanente de `JUMP_*` al tocar exactamente `STAGE_FLOOR`, el giro al intercambiar lados y la
+búsqueda de zonas BODY/LEGS en colisiones. La dificultad ajusta reacción/defensa/agresión; perfiles
+ligeros por peleador sesgan presión o poderes sin duplicar la IA. Hay memoria de tres ataques,
+cooldowns separados para especiales/poderes, defensa reactiva y escape anti-hit-stun. El auditor
+considera fallo cualquier estancamiento o ronda por tiempo y reporta los totales KO/timeout.

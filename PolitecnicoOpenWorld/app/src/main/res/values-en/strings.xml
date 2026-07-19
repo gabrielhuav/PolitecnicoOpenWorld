@@ -16,6 +16,8 @@
     <string name="menu_collectibles">COLLECTIBLES</string>
     <string name="menu_street_fighter">HUELUM VS. GOYA</string>
     <string name="menu_featured_tag">◆ COMBAT MODE ◆</string>
+    <string name="badge_alpha">ALPHA</string>
+    <string name="badge_beta">BETA</string>
     <string name="menu_mp_dialog_title">Connect to Server</string>
     <string name="menu_mp_username_label">Username</string>
     <string name="menu_mp_connect">Connect</string>
@@ -627,13 +629,13 @@
     <string name="sf_arcade_button">ARCADE</string>
     <string name="sf_arcade_pick_you">Choose your fighter (win to unlock more)</string>
     <!-- Arcade: Easy/Medium/Hard → day / night / apocalypse stages -->
-    <string name="sf_arcade_diff_maps_hint">Stages follow difficulty: day, night, or apocalyptic night</string>
+    <string name="sf_arcade_diff_maps_hint">Win on MEDIUM to unlock the fighter; on EASY only their map</string>
     <string name="sf_arcade_diff_easy">EASY</string>
-    <string name="sf_arcade_diff_easy_desc">Softer AI · DAY stages (each rival\'s home map)</string>
+    <string name="sf_arcade_diff_easy_desc">Softer AI · unlocks the rival\'s map</string>
     <string name="sf_arcade_diff_medium">MEDIUM</string>
-    <string name="sf_arcade_diff_medium_desc">Classic AI · NIGHT stages</string>
+    <string name="sf_arcade_diff_medium_desc">Classic AI · unlocks the fighter</string>
     <string name="sf_arcade_diff_hard">HARD</string>
-    <string name="sf_arcade_diff_hard_desc">Aggressive AI · APOCALYPTIC NIGHT</string>
+    <string name="sf_arcade_diff_hard_desc">Aggressive AI · rewards coming soon</string>
     <string name="sf_back">← Back</string>
     <string name="sf_arcade_won">YOU WON!</string>
     <string name="sf_arcade_progress">Fight %1$d of %2$d</string>
@@ -655,8 +657,17 @@
     <string name="sf_gauntlet_arcade">Audit all 9 campaigns (fast)</string>
     <string name="sf_gauntlet_showcase">Showcase: animations and sounds</string>
     <string name="sf_confirm">Confirm</string>
+    <string name="sf_dev_tools_header">TOOLS (Developer Mode)</string>
     <string name="sf_gauntlet_stop">Stop</string>
     <string name="sf_showcase_skip">Skip animation</string>
+    <string name="sf_showcase_prev_animation">Previous animation</string>
+    <string name="sf_showcase_next_animation">Next animation</string>
+    <string name="sf_showcase_next_fighter">Next fighter</string>
+    <string name="sf_showcase_speed">Speed %1$s</string>
+    <string name="sf_showcase_replay_audio">Replay audio</string>
+    <string name="sf_audio_showcase_all">Showcase: all audio</string>
+    <string name="sf_audio_showcase_stop">Stop audio</string>
+    <string name="sf_audio_showcase_progress">Audio %1$d/%2$d · %3$s</string>
     <string name="sf_gauntlet_report_title">Autoplay report</string>
     <string name="sf_gauntlet_no_issues">No issues detected.</string>
     <string name="sf_close">Close</string>

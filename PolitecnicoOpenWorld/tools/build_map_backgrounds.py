@@ -3,7 +3,7 @@
 """
 build_map_backgrounds.py
 ------------------------
-Convierte videos de fondo de combate (MP4) en atlases de frames (filmstrip PNG)
+Convierte videos de fondo de combate (MP4) en atlases de frames (filmstrip WebP)
 + JSON de metadatos + audio ambiental OGG, y reescala miniaturas estáticas a
 fondos RGB del tamaño de combate.
 
@@ -59,6 +59,7 @@ APP_ASSETS = (
 )
 DEFAULT_IMAGES_OUT = APP_ASSETS / "IMAGES"
 DEFAULT_SOUNDS_OUT = APP_ASSETS / "SOUNDS"
+DEFAULT_STATIC_OUT = REPO_ROOT / "additional_assets" / "STREETFIGHTER" / "generated_static_backgrounds"
 
 # ---------------------------------------------------------------------------
 # Parámetros de pipeline (CAPADO PARA GAMA BAJA)
@@ -72,7 +73,12 @@ MAX_ATLAS_SIDE = 2048
 # 480×270 × grid 4×7 = 1920×1890 ≤ 2048 (cabe con ~28 frames ping-pong).
 TARGET_FRAME_WIDTH = 480
 TARGET_FRAME_HEIGHT = 270  # 16:9 exacto
-SAMPLE_FPS = 12.0
+# Los videos fuente duran ~10 s. Antes se tomaban 15 cuadros contiguos a 12 fps:
+# solo 1.25 s del centro, donde muchos clips apenas se mueven y parecían congelados.
+# Ahora se muestrean 5 s repartidos y el atlas se reproduce a 6 fps: movimiento visible
+# sin aumentar el número de cuadros ni el peso del paquete.
+SOURCE_SAMPLE_SPAN_SECONDS = 5.0
+PLAYBACK_FPS = 6.0
 # ~24-30 frames finales con ping-pong (2n-2): n=15 → 28 frames
 TARGET_FINAL_FRAMES = 28
 STATIC_SIZE = (1900, 850)  # ≤2048 por lado; convención de fondos estáticos
@@ -290,9 +296,9 @@ def save_thumb(im: Image.Image, out_path: Path, width: int = THUMB_WIDTH) -> Pat
     return out_path
 
 
-def thumb_path_for(main_png: Path) -> Path:
-    """fondo_foo_anim.png -> fondo_foo_anim_thumb.png"""
-    return main_png.with_name(main_png.stem + "_thumb.png")
+def thumb_path_for(main_asset: Path) -> Path:
+    """fondo_foo_anim.webp -> fondo_foo_anim_thumb.png."""
+    return main_asset.with_name(main_asset.stem + "_thumb.png")
 
 
 def load_logo(logo_path: Path) -> Optional[Image.Image]:
@@ -479,7 +485,7 @@ def process_video(
     stats: BuildStats,
 ) -> None:
     slug = to_slug(video.stem)
-    atlas_path = images_out / f"fondo_{slug}_anim.png"
+    atlas_path = images_out / f"fondo_{slug}_anim.webp"
     json_path = images_out / f"fondo_{slug}_anim.json"
     audio_path = sounds_out / f"amb_{slug}.ogg"
 
@@ -504,22 +510,21 @@ def process_video(
     target_final = max(24, min(30, TARGET_FINAL_FRAMES))
     unique_count = max(2, int(round((target_final + 2) / 2)))
 
-    segment_dur = unique_count / SAMPLE_FPS
-    if duration > segment_dur + 0.1:
-        start_sec = max(0.0, (duration - segment_dur) / 2.0)
-    else:
-        start_sec = 0.0
-        unique_count = max(2, min(unique_count, int(duration * SAMPLE_FPS) or 2))
+    segment_dur = min(duration, SOURCE_SAMPLE_SPAN_SECONDS)
+    source_sample_fps = unique_count / max(segment_dur, 0.1)
+    start_sec = max(0.0, (duration - segment_dur) / 2.0)
 
     log(
-        f"  duración={duration:.2f}s | únicos={unique_count} @ {SAMPLE_FPS}fps "
-        f"| start={start_sec:.2f}s | logo={'sí' if logo else 'no'}"
+        f"  duración={duration:.2f}s | únicos={unique_count} repartidos en "
+        f"{segment_dur:.2f}s ({source_sample_fps:.2f}fps fuente) | "
+        f"playback={PLAYBACK_FPS:.1f}fps | start={start_sec:.2f}s | "
+        f"logo={'sí' if logo else 'no'}"
     )
 
     with tempfile.TemporaryDirectory(prefix="map_bg_") as tmp:
         work = Path(tmp)
         frames = extract_sampled_frames(
-            video, work, SAMPLE_FPS, unique_count, start_sec
+            video, work, source_sample_fps, unique_count, start_sec
         )
         # 1) PING-PONG embebido  2) LOGO en cada frame del loop  3) atlas ≤2048
         loop_frames = ping_pong(frames)
@@ -539,7 +544,14 @@ def process_video(
             )
 
         images_out.mkdir(parents=True, exist_ok=True)
-        atlas.save(atlas_path, format="PNG", optimize=True)
+        atlas.save(
+            atlas_path,
+            format="WEBP",
+            lossless=True,
+            quality=100,
+            method=6,
+            exact=True,
+        )
 
         meta = {
             "frameWidth": fw,
@@ -547,12 +559,14 @@ def process_video(
             "cols": cols,
             "rows": rows,
             "frameCount": len(branded),
-            "fps": SAMPLE_FPS,
+            "fps": PLAYBACK_FPS,
             "loop": True,
             "pingPong": True,
             "slug": slug,
             "source": video.name,
             "maxAtlasSide": MAX_ATLAS_SIDE,
+            "logoApplied": logo is not None,
+            "sourceSampleSpanSeconds": segment_dur,
         }
         json_path.write_text(
             json.dumps(meta, indent=2, ensure_ascii=False) + "\n",
@@ -619,6 +633,7 @@ def ken_burns_frames(im: Image.Image, unique_count: int) -> List[Image.Image]:
 def process_static(
     image: Path,
     images_out: Path,
+    static_out: Path,
     logo: Optional[Image.Image],
     dry_run: bool,
     stats: BuildStats,
@@ -629,9 +644,9 @@ def process_static(
     El juego usa el `_anim` para pelea; el `_1` queda de respaldo.
     """
     slug = to_slug(image.stem)
-    out_path = images_out / f"fondo_{slug}_1.png"
+    out_path = static_out / f"fondo_{slug}_1.png"
     thumb_static = thumb_path_for(out_path)
-    atlas_path = images_out / f"fondo_{slug}_anim.png"
+    atlas_path = images_out / f"fondo_{slug}_anim.webp"
     json_path = images_out / f"fondo_{slug}_anim.json"
     thumb_anim = thumb_path_for(atlas_path)
 
@@ -656,7 +671,7 @@ def process_static(
         # --- estático de respaldo ---
         still = resize_static(im)
         still = paste_logo(still, logo)
-        images_out.mkdir(parents=True, exist_ok=True)
+        static_out.mkdir(parents=True, exist_ok=True)
         still.save(out_path, format="PNG", optimize=True)
         save_thumb(still, thumb_static)
 
@@ -670,7 +685,15 @@ def process_static(
         atlas = pack_atlas(loop_frames, cols, rows)
         if atlas.size[0] > MAX_ATLAS_SIDE or atlas.size[1] > MAX_ATLAS_SIDE:
             raise RuntimeError(f"atlas estático {atlas.size} > {MAX_ATLAS_SIDE}")
-        atlas.save(atlas_path, format="PNG", optimize=True)
+        images_out.mkdir(parents=True, exist_ok=True)
+        atlas.save(
+            atlas_path,
+            format="WEBP",
+            lossless=True,
+            quality=100,
+            method=6,
+            exact=True,
+        )
         atlas_wh = f"{atlas.size[0]}x{atlas.size[1]}"
         meta = {
             "frameWidth": fw,
@@ -678,13 +701,14 @@ def process_static(
             "cols": cols,
             "rows": rows,
             "frameCount": frame_count,
-            "fps": SAMPLE_FPS,
+            "fps": PLAYBACK_FPS,
             "loop": True,
             "pingPong": True,
             "slug": slug,
             "source": image.name,
             "maxAtlasSide": MAX_ATLAS_SIDE,
             "kenBurns": True,
+            "logoApplied": logo is not None,
         }
         json_path.write_text(
             json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
@@ -862,14 +886,14 @@ def parse_theme_backgrounds() -> List[str]:
         log(f"AVISO: no se encontró SfTheme.kt en {theme_path}")
         return []
     text = theme_path.read_text(encoding="utf-8")
-    # SfStageBg("fondo_....png", "Nombre")
-    return re.findall(r'SfStageBg\(\s*"([^"]+\.png)"', text)
+    # SfStageBg("fondo_....webp", "Nombre")
+    return re.findall(r'SfStageBg\(\s*"([^"]+\.(?:png|webp))"', text)
 
 
 def diagnose_theme_backgrounds(images_out: Path) -> List[str]:
     """
     Por cada escenario de SfTheme.fullBackgrounds:
-      - .png existe
+      - el atlas .webp (o el legado .png) existe
       - si es atlas (_anim): ≤2048 por lado + JSON consistente
         (cols*frameW == ancho, rows*frameH == alto, cols*rows >= frameCount)
       - miniatura _thumb.png existe (aviso si falta)
@@ -882,16 +906,16 @@ def diagnose_theme_backgrounds(images_out: Path) -> List[str]:
     fails: List[str] = []
     ok_n = 0
     for fname in files:
-        png = images_out / fname
+        asset = images_out / fname
         issues: List[str] = []
-        if not png.is_file():
-            issues.append("PNG AUSENTE")
-            fails.append(f"{fname}: PNG AUSENTE")
-            log(f"  FAIL  {fname}: PNG AUSENTE")
+        if not asset.is_file():
+            issues.append("ASSET AUSENTE")
+            fails.append(f"{fname}: ASSET AUSENTE")
+            log(f"  FAIL  {fname}: ASSET AUSENTE")
             continue
 
         try:
-            with Image.open(png) as im:
+            with Image.open(asset) as im:
                 w, h = im.size
         except Exception as e:
             issues.append(f"no se pudo abrir ({e})")
@@ -899,14 +923,14 @@ def diagnose_theme_backgrounds(images_out: Path) -> List[str]:
             log(f"  FAIL  {fname}: {issues[-1]}")
             continue
 
-        is_anim = fname.endswith("_anim.png") or "_anim." in fname
-        thumb = thumb_path_for(png)
+        is_anim = "_anim." in fname
+        thumb = thumb_path_for(asset)
         thumb_note = f"thumb={'sí' if thumb.is_file() else 'NO'}"
 
         if is_anim:
             if w > MAX_ATLAS_SIDE or h > MAX_ATLAS_SIDE:
                 issues.append(f"atlas {w}x{h} > {MAX_ATLAS_SIDE}")
-            json_path = png.with_suffix(".json")
+            json_path = asset.with_suffix(".json")
             if not json_path.is_file():
                 issues.append("JSON AUSENTE")
             else:
@@ -934,10 +958,10 @@ def diagnose_theme_backgrounds(images_out: Path) -> List[str]:
 
         if issues:
             fails.append(f"{fname}: {'; '.join(issues)}")
-            log(f"  FAIL  {fname} ({w}x{h}, {kb(png):.0f}KB) — {'; '.join(issues)}")
+            log(f"  FAIL  {fname} ({w}x{h}, {kb(asset):.0f}KB) — {'; '.join(issues)}")
         else:
             ok_n += 1
-            log(f"  OK    {fname} ({w}x{h}, {kb(png):.0f}KB, {thumb_note})")
+            log(f"  OK    {fname} ({w}x{h}, {kb(asset):.0f}KB, {thumb_note})")
 
     log("-" * 100)
     log(f"Diagnóstico: {ok_n} OK | {len(fails)} FAIL de {len(files)}")
@@ -949,6 +973,12 @@ def diagnose_theme_backgrounds(images_out: Path) -> List[str]:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    # PowerShell/Windows puede heredar cp1252 y fallar al imprimir “≤”, “→” o emojis.
+    # El pipeline no debe abortar antes de procesar assets por el encoding de la consola.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(
         description="Genera atlases animados y fondos estáticos para mapas SF."
     )
@@ -971,6 +1001,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         help=f"Salida SOUNDS (default: {DEFAULT_SOUNDS_OUT})",
     )
     parser.add_argument(
+        "--static-out",
+        type=Path,
+        default=DEFAULT_STATIC_OUT,
+        help=f"Salida auxiliar fuera del proyecto Android (default: {DEFAULT_STATIC_OUT})",
+    )
+    parser.add_argument(
         "--logo",
         type=Path,
         default=DEFAULT_LOGO,
@@ -986,12 +1022,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     input_dir: Path = args.input.resolve()
     images_out: Path = args.images_out.resolve()
     sounds_out: Path = args.sounds_out.resolve()
+    static_out: Path = args.static_out.resolve()
     logo_path: Path = args.logo.resolve()
 
     log("build_map_backgrounds.py")
     log(f"  input      = {input_dir}")
     log(f"  images_out = {images_out}")
     log(f"  sounds_out = {sounds_out}")
+    log(f"  static_out = {static_out}")
     log(f"  logo       = {logo_path}")
     log(f"  dry_run    = {args.dry_run}")
     log(f"  max_atlas  = {MAX_ATLAS_SIDE}px | frame {TARGET_FRAME_WIDTH}x{TARGET_FRAME_HEIGHT}")
@@ -1032,7 +1070,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     for im in images:
         try:
-            process_static(im, images_out, logo_img, args.dry_run, stats)
+            process_static(im, images_out, static_out, logo_img, args.dry_run, stats)
         except Exception as e:
             log(f"  ERROR en {im.name}: {e}")
             errors.append(f"{im.name}: {e}")

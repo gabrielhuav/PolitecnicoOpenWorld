@@ -1,5 +1,27 @@
 # SFX de especiales por personaje (voces) — HUELUM VS. GOYA
 
+> ## ⚠️ TRABAJO FUTURO (requiere INTERVENCIÓN HUMANA) — Subtítulos de frases DESACTIVADOS
+>
+> **Qué pasó (2026-07-19):** se reemplazaron los audios de voz, así que las frases del catálogo
+> (`assets/STREETFIGHTER/DATA/special_phrases.json`) **ya NO corresponden a lo que se escucha**.
+> Para no mostrar texto equivocado, los **subtítulos de frases quedaron APAGADOS**.
+>
+> **Cómo está apagado:** `StreetFighterViewModel.voiceSubtitlesEnabled = false` (el `setVoiceSubtitle`
+> devuelve sin hacer nada). **Todo lo demás sigue intacto**: el catálogo `SfSpecialPhrases`, los
+> campos de estado `specialSubtitleHud`/`specialSubtitleUntilMs` y el dibujo en `StreetFighterScreen`.
+> Los AUDIOS no se tocaron: se siguen reproduciendo normal.
+>
+> **Para reactivarlos (tarea humana):**
+> 1. Escuchar cada `special_<id>.ogg` nuevo y **volver a transcribir/curar** la frase real de cada
+>    peleador (21 en total) en `tools/sf_voice_scrape/special_phrases_catalog.json`.
+> 2. Actualizar `phrase_es`, `phrase_en` (traducción) y `phrase_hud` (solo A-Z/0-9 para la fuente
+>    arcade del HUD) + `subtitleMs` si cambió la duración.
+> 3. Regenerar el pack: `python3 tools/build_special_phrases_pack.py` → `special_phrases.json`.
+> 4. Poner `voiceSubtitlesEnabled = true` y probar en dispositivo que el texto calce con la voz.
+>
+> *(Nota: el modo "showcase" de audio sigue mostrando `audioShowcasePhrase`; si también quedó
+> desincronizado, curarlo en el mismo paso.)*
+
 > **ESTADO CANÓNICO — v3 producción, 2026-07-18 (Sol).** Lo que sigue debajo de esta caja
 > documenta las pasadas v1/v2 y es histórico cuando contradiga esta sección. El paquete final
 > está instalado, auditado y listo: **21/21 `special_*.ogg`, audio únicamente en español**.

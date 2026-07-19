@@ -31,14 +31,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: "21"
           distribution: "temurin"
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
         with:
           # "wrapper" = usa la version declarada en gradle-wrapper.properties del repo.
           # (Fallo 2026-07-15: el pin "9.4.1" quedo atras cuando el proyecto subio a
@@ -58,7 +58,7 @@ jobs:
         run: gradle :app:assembleDebug :app:testDebugUnitTest --stacktrace
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: unit-test-report
           path: PolitecnicoOpenWorld/app/build/reports/tests/testDebugUnitTest
@@ -80,9 +80,9 @@ jobs:
       DETEKT_VERSION: "1.23.8"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: "21"
           distribution: "temurin"
@@ -108,7 +108,7 @@ jobs:
             --report sarif:detekt-results.sarif
       - name: Upload detekt SARIF
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: detekt-sarif
           path: detekt-results.sarif

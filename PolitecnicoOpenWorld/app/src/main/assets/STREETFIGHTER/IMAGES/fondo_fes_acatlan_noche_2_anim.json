@@ -4,10 +4,12 @@
   "cols": 4,
   "rows": 7,
   "frameCount": 28,
-  "fps": 12.0,
+  "fps": 6.0,
   "loop": true,
   "pingPong": true,
   "slug": "fes_acatlan_noche_2",
   "source": "Fes Acatlan Noche 2.mp4",
-  "maxAtlasSide": 2048
+  "maxAtlasSide": 2048,
+  "logoApplied": true,
+  "sourceSampleSpanSeconds": 5.0
 }

@@ -88,8 +88,17 @@ data class StreetFighterState(
     val gauntletReportPath: String? = null,          // ruta del .txt escrito
     // 🆕 (2026-07-18k) El gauntlet en curso es el SHOWCASE (la View muestra el botón SALTAR)
     val showcaseRunning: Boolean = false,
+    // Controles QA del showcase visual: 1x/2x/4x acelera reloj, animaciones y pasos.
+    val showcaseSpeed: Float = 1f,
     // 🆕 (2026-07-18k) Mapa de la pelea del autojuego (hogar del peleadór en turno)
     val gauntletMapFile: String? = null,
+
+    // Showcase auditivo independiente: reproduce las 21 voces completas, una por una.
+    val audioShowcaseRunning: Boolean = false,
+    val audioShowcaseIndex: Int = 0,
+    val audioShowcaseTotal: Int = 0,
+    val audioShowcaseFighter: SfFighterId? = null,
+    val audioShowcasePhrase: String = "",
 
     // ─── 🆕 MODO ARCADE (escalera de 11 peleas, offline; ver SfArcadeLadder) ───
     // Todos los personajes/mapas empiezan bloqueados y se desbloquean derrotando rivales.

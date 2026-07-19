@@ -1,6 +1,7 @@
 package ovh.gabrielhuav.pow.features.streetfighter.viewmodel
 
 import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -41,6 +42,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfProjectileEvent
 import ovh.gabrielhuav.pow.domain.models.streetfighter.bonusPowerIndex
 import ovh.gabrielhuav.pow.domain.models.streetfighter.sfBonusPowerState
 import ovh.gabrielhuav.pow.BuildConfig
+import ovh.gabrielhuav.pow.data.auth.AuthManager
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.data.repository.SfArcadeRepository
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStageCatalog
@@ -57,6 +59,12 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.random.Random
+
+internal const val SF_STOP_SPECIALS_EVENT = "__sf_stop_specials__"
+
+private const val AUDIO_SHOWCASE_GAP_MS = 500L
+private const val AUDIO_SHOWCASE_FALLBACK_MS = 5000L
+private val SHOWCASE_SPEEDS = listOf(1f, 2f, 4f)
 
 // ViewModel del modo STREET FIGHTER: port fiel de Fighter.js/BattleScene.js/Fireball.js.
 // - requestAnimationFrame → coroutine a ~60 fps con dt medido y RELOJ DE JUEGO VIRTUAL
@@ -79,6 +87,8 @@ class StreetFighterViewModel @Inject constructor(
     private val _soundEvents = MutableSharedFlow<String>(extraBufferCapacity = 32)
     val soundEvents: SharedFlow<String> = _soundEvents.asSharedFlow()
 
+    private var audioShowcaseJob: Job? = null
+
     /**
      * SFX del especial/bonus por peleador: `special_<sf_fighter_id_lower>.ogg`
      * (pipeline tools/scrape_sf_voices.py + pack_sf_character_sfx.py).
@@ -91,17 +101,395 @@ class StreetFighterViewModel @Inject constructor(
         ovh.gabrielhuav.pow.features.streetfighter.data.SfSpecialPhrases.load(appContext)
     }
 
-    /** Emite SFX + subtítulo arcade de la frase del special. */
+    // ── 🆕 (2026-07-18o/p/q) PACK DE VOCES por EVENTO con FRASE (subtítulo) por peleadór ──
+    // Material del dueño (nuevoMaterial18JUL/Audios). Cada evento (intro/attack/hurt/power/win) es
+    // una lista de LÍNEAS (archivo `special_*` + frase); se elige una al azar. Se reproducen por la
+    // ruta "special_*" (MediaPlayer en la Screen, apto para clips largos). Policías: HOMBRE y
+    // GRANADERO comparten intro/attack (win difiere: granadero = "3 de diana"); igual MUJER/GRANADERA.
+    private data class SfVoiceLine(val file: String, val phrase: String = "")
+    private class SfVoicePack(
+        val intro: List<SfVoiceLine> = emptyList(),
+        val attack: List<SfVoiceLine> = emptyList(),
+        val hurt: List<SfVoiceLine> = emptyList(),
+        val power: List<SfVoiceLine> = emptyList(),
+        val win: List<SfVoiceLine> = emptyList(),
+        val loss: List<SfVoiceLine> = emptyList(),
+        val lowHp: List<SfVoiceLine> = emptyList(),
+    )
+
+    private val sfVoicePacks: Map<SfFighterId, SfVoicePack> = run {
+        // HOMBRE: policía + granadero comparten intro y ATTACK; el WIN difiere.
+        val hIntro = SfVoiceLine("special_pol_h_intro", "¡Está prohibido beber en la vía pública!")
+        val hAttack = SfVoiceLine("special_pol_h_attack", "Buenas joven, ¿si sabe porque lo detuvimos?")
+        val polH = SfVoicePack(
+            intro = listOf(hIntro), attack = listOf(hAttack),
+            win = listOf(SfVoiceLine("special_pol_h_win", "¿Se cree más chingón que nosotros o qué joven?")),
+            power = listOf(SfVoiceLine("special_policia_cdmx_hombre_power"))
+        )
+        // WIN de granadero (H y M) = "3 de diana" (bugle). Usa special_granadero_win (special_gr_win se
+        // eliminó por pedido del dueño 2026-07-18s).
+        val grWin = SfVoiceLine("special_granadero_win")
+        val grH = SfVoicePack(intro = listOf(hIntro), attack = listOf(hAttack), win = listOf(grWin))
+        // MUJER: policía + granadera comparten ATTACK y HURT; el WIN difiere.
+        // (2026-07-19) special_pol_m_attack se divide en attack_1 (primer segundo) y attack_2 (segundo 1 al 3).
+        val mAttack = listOf(
+            SfVoiceLine("special_pol_m_attack_1"),
+            SfVoiceLine("special_pol_m_attack_2")
+        )
+        val mHurt = listOf(SfVoiceLine("special_pol_m_hurt"))
+        val polM = SfVoicePack(
+            attack = mAttack,
+            hurt = mHurt,
+            win = listOf(SfVoiceLine("special_policia_cdmx_mujer_win", "Si dices policía, me comprometí como mujer a que la ciudadanía sintiera una mejor seguridad")),
+        )
+        val grM = SfVoicePack(attack = mAttack, hurt = mHurt, win = listOf(grWin))
+        // 🆕 (2026-07-18s) Paparazzi 1: su ataque ESPECIAL (poder) = special_paparazzi_5 (el audio
+        // correcto; special_paparazzi_1 era duplicado y se borró). DAÑO = 3 variantes.
+        val papz1 = SfVoicePack(
+            power = listOf(SfVoiceLine("special_paparazzi_5")),
+            hurt = listOf(
+                SfVoiceLine("special_papz1_hurt_1"), SfVoiceLine("special_papz1_hurt_2"),
+                SfVoiceLine("special_papz1_hurt_3"),
+            ),
+        )
+        mapOf(
+            SfFighterId.POLICIA_CDMX_HOMBRE to polH,
+            SfFighterId.POLICIA_GRANADERO_HOMBRE to grH,
+            SfFighterId.GRANADERO to grH,
+            SfFighterId.POLICIA_CDMX to polM,
+            SfFighterId.POLICIA_GRANADERO_MUJER to grM,
+            SfFighterId.PAPARAZZI_1 to papz1,
+            SfFighterId.PAPARAZZI_5 to SfVoicePack(
+                attack = listOf(SfVoiceLine("special_paparazzi_5_attack")),
+                hurt = listOf(SfVoiceLine("special_paparazzi_5_hurt"))
+            ),
+            // 🆕 (2026-07-18s) audios del dueño mapeados al evento correcto:
+            // La Tzitzimime = GOLPE NORMAL (attack). Rey Grupero = INTRO.
+            // Paramédico Cruz Roja = WIN. (Su special_<id> también suena en su poder por fallback.)
+            // 🆕 (2026-07-18t) La Llorona: pack COMPLETO con audios dedicados del dueño
+            // (special/power, attack recortado seg 7-11, hurt).
+            SfFighterId.LA_LLORONA to SfVoicePack(
+                attack = listOf(SfVoiceLine("special_llorona_attack")),
+                hurt = listOf(SfVoiceLine("special_llorona_hurt")),
+                power = listOf(SfVoiceLine("special_llorona_power")),
+            ),
+            SfFighterId.LA_TZITZIMIME to SfVoicePack(
+                attack = listOf(SfVoiceLine("special_la_tzitzimime_attack")),
+                hurt = listOf(SfVoiceLine("special_la_tzitzimime_hurt")),
+                power = listOf(SfVoiceLine("special_la_tzitzimime_power")),
+                win = listOf(SfVoiceLine("special_la_tzitzimime_win"))
+            ),
+            SfFighterId.REY_GRUPERO to SfVoicePack(
+                intro = listOf(SfVoiceLine("special_rey_grupero")),
+                attack = listOf(SfVoiceLine("special_rey_grupero_attack")),
+                hurt = listOf(SfVoiceLine("special_rey_grupero_hurt")),
+                power = listOf(SfVoiceLine("special_rey_grupero_power"))
+            ),
+            SfFighterId.PARAMEDICO_CRUZ_ROJA to SfVoicePack(
+                win = listOf(SfVoiceLine("special_paramedico_cruz_roja_win", "No olvides que saber primeros auxilios marca la diferencia y salva vidas.")),
+                power = listOf(SfVoiceLine("special_power_electricity"))
+            ),
+            // 🆕 (2026-07-18u) Charro Negro: 2 gritos de ataque + 3 de daño (su special_charro_negro
+            // sigue como fallback del poder especial).
+            SfFighterId.CHARRO_NEGRO to SfVoicePack(
+                attack = listOf(
+                    SfVoiceLine("special_charro_attack_1"),
+                    SfVoiceLine("special_charro_attack_2"),
+                    SfVoiceLine("special_charro_attack_3")
+                ),
+                hurt = listOf(
+                    SfVoiceLine("special_charro_hurt_1"),
+                    SfVoiceLine("special_charro_hurt_2"),
+                    SfVoiceLine("special_charro_hurt_3")
+                )
+            ),
+            // 🆕 (2026-07-19) Señor de la Tienda: 2 gritos de ataque + 2 de daño (hurt_2 es "puerquito") + 1 de victoria
+            SfFighterId.SENOR_TIENDA to SfVoicePack(
+                attack = listOf(
+                    SfVoiceLine("special_senor_tienda_attack_1"),
+                    SfVoiceLine("special_senor_tienda_attack_2")
+                ),
+                hurt = listOf(
+                    SfVoiceLine("special_senor_tienda_hurt_1"),
+                    SfVoiceLine("special_senor_tienda_hurt_2", "¡Ya me agarraste de tu puerquito!")
+                ),
+                win = listOf(
+                    SfVoiceLine("special_senor_tienda_win")
+                )
+            ),
+            // 🆕 (2026-07-19) Robot: audio de ataque, daño (hurt) y victoria
+            SfFighterId.ROBOT to SfVoicePack(
+                attack = listOf(SfVoiceLine("special_robot_attack")),
+                hurt = listOf(SfVoiceLine("special_robot_hurt")),
+                win = listOf(SfVoiceLine("special_robot_win"))
+            ),
+            SfFighterId.LA_PRESIDENTA to SfVoicePack(
+                attack = listOf(SfVoiceLine("special_la_presidenta_attack")),
+                hurt = listOf(SfVoiceLine("special_la_presidenta_hurt")),
+                power = listOf(SfVoiceLine("special_la_presidenta_power")),
+                win = listOf(SfVoiceLine("special_la_presidenta_win", "Sí. Siempre. Nosotros vamos a actuar siempre en el marco de la ley. Siempre."))
+            ),
+            // 🆕 (2026-07-19) Escomboy / Escomgirl: mapeo de su poder especial de electricidad (compartido)
+            // 🆕 (2026-07-19) Escomboy / Escomgirl: mapeo de sus audios de voz e impactos
+            SfFighterId.ESCOMBOY to SfVoicePack(
+                attack = listOf(SfVoiceLine("special_escomboy_attack")),
+                power = listOf(SfVoiceLine("special_power_electricity"))
+            ),
+            SfFighterId.ESCOMGIRL to SfVoicePack(
+                attack = listOf(SfVoiceLine("special_escomgirl_attack")),
+                hurt = listOf(SfVoiceLine("special_escomgirl_hurt")),
+                power = listOf(SfVoiceLine("special_power_electricity")),
+                loss = listOf(SfVoiceLine("special_escomgirl_loss"))
+            ),
+            // 🆕 (2026-07-19) Yoalli Ehecatl: pack completo de ataques, daños y poder especial
+            SfFighterId.YOALLI_EHECATL to SfVoicePack(
+                attack = listOf(
+                    SfVoiceLine("special_yoalli_ehecatl_attack_1"),
+                    SfVoiceLine("special_yoalli_ehecatl_attack_2")
+                ),
+                hurt = listOf(
+                    SfVoiceLine("special_yoalli_ehecatl_hurt_1"),
+                    SfVoiceLine("special_yoalli_ehecatl_hurt_2")
+                ),
+                power = listOf(SfVoiceLine("special_yoalli_ehecatl"))
+            ),
+            // 🆕 (2026-07-19) Prankedy: audios de daño (hurt), derrota (loss), ataques (attack), victoria (win), super (power) y lowHp
+            SfFighterId.PRANKEDY to SfVoicePack(
+                attack = listOf(
+                    SfVoiceLine("special_prankedy_attack_1"),
+                    SfVoiceLine("special_prankedy_attack_2"),
+                    SfVoiceLine("special_prankedy_attack_3"),
+                    SfVoiceLine("special_prankedy_attack_4")
+                ),
+                hurt = listOf(
+                    SfVoiceLine("special_prankedy_hurt_1"),
+                    SfVoiceLine("special_prankedy_hurt_2")
+                ),
+                power = listOf(SfVoiceLine("special_prankedy_power")),
+                win = listOf(SfVoiceLine("special_prankedy_win")),
+                loss = listOf(SfVoiceLine("special_prankedy_loss")),
+                lowHp = listOf(SfVoiceLine("special_prankedy_lowhp"))
+            ),
+        )
+    }
+
+    // 🆕 (2026-07-18u) GRITO DE ATAQUE POR DEFECTO (masculino): sonido normal (no especial) que
+    // suena AL AZAR cuando un peleadór HOMBRE golpea y NO tiene voz de ataque propia. El ENEMIGO
+    // (índice 1) lo emite más seguido; el jugador (índice 0) muy rara vez (para no saturar tu voz).
+    // Archivo: special_male_attack_grunt.ogg (del "ZA ZA", seg 8-10).
+    private val maleGruntClip = "special_male_attack_grunt"
+    private val sfMaleFighters = setOf(
+        SfFighterId.PRANKEDY, SfFighterId.SENOR_TIENDA, SfFighterId.PAPARAZZI_1, SfFighterId.PAPARAZZI_5,
+        SfFighterId.REY_GRUPERO, SfFighterId.ESCOMBOY, SfFighterId.CHARRO_NEGRO, SfFighterId.LAZARO,
+        SfFighterId.POLICIA_CDMX_HOMBRE, SfFighterId.POLICIA_GRANADERO_HOMBRE, SfFighterId.GRANADERO,
+        SfFighterId.PARAMEDICO_CRUZ_ROJA, SfFighterId.PARAMEDICO,
+    )
+
+    // 🆕 (2026-07-18s) Peleadores SIN voz a propósito (special_<id>.ogg borrado por el dueño):
+    // su poder especial suena con el hadouken genérico. La auditoría NO los marca como faltantes.
+    private val sfVoicelessFighters = setOf(
+        SfFighterId.LAZARO, SfFighterId.PARAMEDICO, SfFighterId.PRANKEDY,
+    )
+
+    /** Emite un clip de voz `special_<name>.ogg` si el asset existe. true = se emitió. */
+    private fun emitVoiceClip(name: String): Boolean {
+        if (!sfAssetExists("STREETFIGHTER/SOUNDS/$name.ogg")) return false
+        _soundEvents.tryEmit(name)
+        return true
+    }
+
+    /** Solo A-Z/0-9 para la fuente pixel del HUD (acentos/ñ/puntuación → simplificados). */
+    private fun sfHudSanitize(s: String): String = s.uppercase(java.util.Locale.ROOT)
+        .replace('Á', 'A').replace('É', 'E').replace('Í', 'I').replace('Ó', 'O').replace('Ú', 'U')
+        .replace('Ñ', 'N').replace('Ü', 'U')
+        .replace(Regex("[^A-Z0-9 ]"), " ").replace(Regex("\\s+"), " ").trim()
+
+    /** Fija el subtítulo (frase) por un tiempo proporcional a su longitud. */
+    // 🆕 (2026-07-19) SUBTÍTULOS DE FRASES **DESACTIVADOS**: los audios de voz se reemplazaron y
+    // las frases del catálogo ya no corresponden a lo que se escucha. El pipeline queda INTACTO
+    // (catálogo + estado + dibujo en la Screen); basta poner este flag en true cuando se
+    // re-sincronice el texto con los audios nuevos. Ver README for IAS §TRABAJO FUTURO
+    // (requiere intervención HUMANA: volver a transcribir/curar la frase de cada peleador).
+    private val voiceSubtitlesEnabled = false
+
+    private fun setVoiceSubtitle(phrase: String, now: Long) {
+        if (!voiceSubtitlesEnabled) return
+        val hud = sfHudSanitize(phrase)
+        if (hud.isBlank()) return
+        val until = now + (1600L + hud.length * 70L).coerceIn(2000L, 6000L)
+        _state.update { it.copy(specialSubtitleHud = hud, specialSubtitleUntilMs = until) }
+    }
+
+    /** Emite una LÍNEA del evento (al azar) + su subtítulo si tiene frase. */
+    private fun emitVoiceLines(lines: List<SfVoiceLine>, now: Long): Boolean {
+        if (lines.isEmpty()) return false
+        val line = lines.random()
+        if (!emitVoiceClip(line.file)) return false
+        if (line.phrase.isNotBlank()) setVoiceSubtitle(line.phrase, now)
+        return true
+    }
+
+    /** Voz de VICTORIA del peleadór (pack WIN; si no tiene, su voz de special). */
+    private fun emitWinVoice(id: SfFighterId, now: Long) {
+        val p = sfVoicePacks[id]
+        if (p != null && emitVoiceLines(p.win, now)) return
+        emitSpecialVoice(id, now)
+    }
+
+    /** 🆕 Voz de DERROTA del peleadór (pack LOSS; si no tiene, silencio — no hay fallback). */
+    private fun emitLossVoice(id: SfFighterId, now: Long) {
+        val p = sfVoicePacks[id] ?: return
+        emitVoiceLines(p.loss, now)
+    }
+
+    // Anti-spam de voces por índice (no repetir en menos del intervalo).
+    private val lastHurtVoiceMs = LongArray(2) { 0L }
+    private val lastAttackVoiceMs = LongArray(2) { 0L }
+    private val lowHpVoiceTriggered = BooleanArray(2) { false }
+    // 🆕 (2026-07-19c) Sin cooldown en hurt para permitir interrupción inmediata en combos
+    private val hurtVoiceCooldownMs = 0L
+    private val attackVoiceCooldownMs = 4200L
+
+    /** Voz de DAÑO (pack HURT, variante al azar) con cooldown por índice.
+     * Si la vida baja del 25% (<= 50 de 200) y tiene audio de lowHp de una sola vez, lo prioriza. */
+    private fun emitHurtVoice(id: SfFighterId, idx: Int, hitPoints: Int, now: Long) {
+        val i = idx.coerceIn(0, 1)
+        val pack = sfVoicePacks[id] ?: return
+
+        // 25% de 200 HP = 50 HP. Prioriza lowHp si no se ha disparado aún.
+        if (hitPoints <= 50 && pack.lowHp.isNotEmpty() && !lowHpVoiceTriggered[i]) {
+            if (emitVoiceLines(pack.lowHp, now)) {
+                lowHpVoiceTriggered[i] = true
+                lastHurtVoiceMs[i] = now
+                return
+            }
+        }
+
+        val lines = pack.hurt
+        if (lines.isEmpty()) return
+        if (now - lastHurtVoiceMs[i] < hurtVoiceCooldownMs) return
+        if (emitVoiceLines(lines, now)) lastHurtVoiceMs[i] = now
+    }
+
+    /** Voz de ATAQUE (pack ATTACK, grito + frase al golpear) con cooldown por índice.
+     * Si el peleadór NO tiene voz de ataque propia y es HOMBRE, a veces suena el grito por
+     * defecto (enemigo = más seguido; jugador = raro). */
+    private fun emitAttackVoice(id: SfFighterId, idx: Int, now: Long) {
+        val i = idx.coerceIn(0, 1)
+        val isPoliceMale = (id == SfFighterId.POLICIA_CDMX_HOMBRE || id == SfFighterId.POLICIA_GRANADERO_HOMBRE || id == SfFighterId.GRANADERO)
+        if (isPoliceMale) {
+            // "special_pol_h_attack" solo debe sonar ciertas veces (30% de chance) y no se repite seguido
+            val rolledPhrase = Random.nextFloat() < 0.30f
+            val elapsed = now - lastAttackVoiceMs[i]
+            if (rolledPhrase && elapsed >= attackVoiceCooldownMs) {
+                val lines = sfVoicePacks[id]?.attack.orEmpty()
+                if (emitVoiceLines(lines, now)) {
+                    lastAttackVoiceMs[i] = now
+                    return
+                }
+            }
+            // Fallback por defecto: grito genérico que sí puede sonar repetido (no bloquea/actualiza lastAttackVoiceMs)
+            emitVoiceClip(maleGruntClip)
+            return
+        }
+
+        // Si tiene sus propios especiales/clips de ataque (como Charro Negro, Llorona, Señor de la Tienda, etc.),
+        // SIEMPRE los usa (se sobreponen a los genéricos) y no se bloquean por el cooldown largo de frase.
+        val lines = sfVoicePacks[id]?.attack.orEmpty()
+        if (lines.isNotEmpty()) {
+            if (emitVoiceLines(lines, now)) {
+                lastAttackVoiceMs[i] = now
+            }
+            return
+        }
+
+        if (now - lastAttackVoiceMs[i] < attackVoiceCooldownMs) return
+        // 🆕 (2026-07-18u) Grito masculino por defecto (solo hombres sin voz de ataque propia).
+        if (id in sfMaleFighters) {
+            val chance = if (i == 0) 0.10f else 0.35f // jugador raro / enemigo más seguido
+            if (Random.nextFloat() < chance && emitVoiceClip(maleGruntClip)) {
+                lastAttackVoiceMs[i] = now
+            }
+        }
+    }
+
+    /** Voz de PRESENTACIÓN al arrancar la pelea (solo si el pack tiene intro). */
+    private fun emitIntroVoice(id: SfFighterId, now: Long) {
+        emitVoiceLines(sfVoicePacks[id]?.intro.orEmpty(), now)
+    }
+
+    /** Emite SFX + subtítulo del special (pack POWER si lo tiene; si no, su special_<id> + frase JSON). */
     private fun emitSpecialVoice(id: SfFighterId, now: Long) {
+        val p = sfVoicePacks[id]
+        if (p != null && emitVoiceLines(p.power, now)) return
         _soundEvents.tryEmit(specialSfxKey(id))
         val phrase = specialPhrases[id] ?: return
-        val until = now + phrase.subtitleMs
-        _state.update { s ->
-            s.copy(
-                specialSubtitleHud = phrase.hudLine(),
-                specialSubtitleUntilMs = until,
-            )
+        setVoiceSubtitle(phrase.phraseEs, now)
+    }
+
+    /** Reproduce otra vez la voz completa del peleador visible en el showcase. */
+    fun replayCurrentShowcaseAudio() {
+        if (!gauntletActive || !showcaseMode) return
+        emitSpecialVoice(_state.value.player.id, gameNow)
+    }
+
+    /** Recorre las 21 voces completas respetando la duración real de cada OGG. */
+    fun startAudioShowcase() {
+        if (audioShowcaseJob?.isActive == true) return
+        val fighters = SfArcadeLadder.ALL_PARTICIPANTS.filter { it in specialPhrases }
+        _soundEvents.tryEmit(SF_STOP_SPECIALS_EVENT)
+        audioShowcaseJob = viewModelScope.launch {
+            try {
+                fighters.forEachIndexed { index, id ->
+                    val phrase = specialPhrases.getValue(id)
+                    _state.update {
+                        it.copy(
+                            audioShowcaseRunning = true,
+                            audioShowcaseIndex = index + 1,
+                            audioShowcaseTotal = fighters.size,
+                            audioShowcaseFighter = id,
+                            audioShowcasePhrase = phrase.phraseEs,
+                        )
+                    }
+                    _soundEvents.emit(specialSfxKey(id))
+                    delay(specialAudioDurationMs(id) + AUDIO_SHOWCASE_GAP_MS)
+                }
+            } finally {
+                _state.update {
+                    it.copy(
+                        audioShowcaseRunning = false,
+                        audioShowcaseIndex = 0,
+                        audioShowcaseTotal = 0,
+                        audioShowcaseFighter = null,
+                        audioShowcasePhrase = "",
+                    )
+                }
+            }
         }
+    }
+
+    /** Detiene el recorrido auditivo y también el MediaPlayer que esté hablando. */
+    fun stopAudioShowcase() {
+        audioShowcaseJob?.cancel()
+        audioShowcaseJob = null
+        _soundEvents.tryEmit(SF_STOP_SPECIALS_EVENT)
+    }
+
+    private fun specialAudioDurationMs(id: SfFighterId): Long {
+        val fallbackMs = specialPhrases[id]?.subtitleMs ?: AUDIO_SHOWCASE_FALLBACK_MS
+        return runCatching {
+            val retriever = MediaMetadataRetriever()
+            try {
+                appContext.assets.openFd("STREETFIGHTER/SOUNDS/${specialSfxKey(id)}.ogg").use { fd ->
+                    retriever.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
+                }
+                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                    ?.toLongOrNull()
+                    ?: fallbackMs
+            } finally {
+                retriever.release()
+            }
+        }.getOrDefault(fallbackMs)
     }
 
     // 🆕 Progreso del ARCADE (guardado LOCAL). Define qué peleadores/mapas están desbloqueados.
@@ -121,8 +509,22 @@ class StreetFighterViewModel @Inject constructor(
     /** 🆕 Modo Desarrollador (Ajustes): si está ON, TODO desbloqueado (personajes y mapas). */
     fun devUnlockAll(): Boolean = SettingsRepository(appContext).getDeveloperMode()
 
+    /** 🆕 (2026-07-19) Si el personaje fue realmente desbloqueado por progresión (inicial o ganado). */
+    fun isFighterActuallyUnlocked(id: SfFighterId): Boolean =
+        // 🆕 (2026-07-19) Con sesión Google en Firebase + Modo Desarrollador se REVELA el arte a
+        // color (sin silueta pixelada). Solo en ese caso; para el resto sigue oculto.
+        revealLockedArt() || arcadeRepo.unlockedFighters().contains(id.name)
+
     /** 🆕 Ajustes → "Mostrar hitboxes": dibuja las cajas push/hurt/hit sobre los peleadores. */
     fun showHitboxes(): Boolean = SettingsRepository(appContext).getShowHitboxes()
+
+    /**
+     * 🆕 REVELAR el arte de los bloqueados (a color, sin pixelar) — SOLO si el jugador está
+     * logueado en Firebase con Google **y** tiene el Modo Desarrollador activo. Para el resto
+     * siguen saliendo como silueta negra pixelada (no se sabe quién es hasta desbloquear).
+     */
+    fun revealLockedArt(): Boolean =
+        SettingsRepository(appContext).getDeveloperMode() && AuthManager(appContext).isSignedIn()
 
     /** Ids desbloqueados (arcade) como SfFighterId (ignora nombres inválidos). */
     private fun unlockedIds(): Set<SfFighterId> =
@@ -201,9 +603,18 @@ class StreetFighterViewModel @Inject constructor(
     private val cpuLastOffenseMs = LongArray(2) { 0L }
     // Preferencia de “espacio” tras clinch (retrocede un rato en IA vs IA).
     private val cpuWantsSpaceUntilMs = LongArray(2) { 0L }
-    // 🆕 (2026-07-18j) Variedad ofensiva: firma del último golpe (fuerza×tipo, 0..5) por índice
-    // para NO repetir el mismo ataque dos veces seguidas; -1 = sin historial.
-    private val cpuLastAttackSig = IntArray(2) { -1 }
+    // Recuperación tras estancamiento: durante una ventana corta ambos cierran distancia.
+    private val cpuForceEngageUntilMs = LongArray(2) { 0L }
+    // Variedad ofensiva: memoria de los últimos tres golpes (fuerza×tipo, 0..5) por CPU.
+    private val cpuAttackHistory = Array(2) { ArrayDeque<Int>() }
+    // 🆕 (2026-07-18n) Dificultad POR ÍNDICE solo para IA vs IA: si ambos son iguales (dos
+    // PESADILLA) se esquivan sin fin y NADIE gana. Se le baja la dificultad a UNO al azar para
+    // desnivelar la pelea y que alguien gane. null = usar la dificultad global (VS/arcade normal).
+    private val cpuDiffOverride = arrayOfNulls<SfCpuDifficulty>(2)
+    // Antibucle de combo: tras tres impactos rápidos, el defensor recibe una ventana de escape.
+    private val lastHitTakenMs = LongArray(2) { 0L }
+    private val rapidHitsTaken = IntArray(2)
+    private val comboEscapeUntilMs = LongArray(2)
 
     // 🆕 DIAGNÓSTICO / anti-atasco (2026-07-18h): detecta animaciones que NO terminan (assets sin
     // frame -1 / incompletas → peleador congelado, "se pegan y no se mueven") y estancamientos sin
@@ -223,7 +634,9 @@ class StreetFighterViewModel @Inject constructor(
         SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY,
         SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_HEAD_MEDIUM, SfFighterState.HURT_HEAD_HEAVY,
         SfFighterState.HURT_BODY_LIGHT, SfFighterState.HURT_BODY_MEDIUM, SfFighterState.HURT_BODY_HEAVY,
-        SfFighterState.JUMP_START, SfFighterState.JUMP_LAND, SfFighterState.CROUCH_DOWN,
+        SfFighterState.JUMP_START, SfFighterState.JUMP_UP,
+        SfFighterState.JUMP_FORWARD, SfFighterState.JUMP_BACKWARD, SfFighterState.JUMP_LAND,
+        SfFighterState.CROUCH_DOWN,
         SfFighterState.CROUCH_UP, SfFighterState.IDLE_TURN, SfFighterState.CROUCH_TURN,
     ) + SF_BONUS_POWER_STATES
 
@@ -240,6 +653,8 @@ class StreetFighterViewModel @Inject constructor(
     private val gauntletQueue = ArrayDeque<GauntletFight>()
     private var gauntletTotal = 0
     private var gauntletDone = 0
+    private var gauntletKoRounds = 0
+    private var gauntletTimeoutRounds = 0
     private val gauntletFightCapMs = 325000L // tres rounds de 99 s + intros/transiciones
     // Tope de la pelea EN CURSO: en campaña depende de la dificultad; en showcase se calcula
     // por pasos para no cortar HURT/KO/VICTORY ni las metamorfosis con un TIMEOUT falso.
@@ -247,9 +662,11 @@ class StreetFighterViewModel @Inject constructor(
     // 🆕 SHOWCASE: variante del gauntlet que recorre TODAS las animaciones + sonidos de cada
     // peleador (script de moves), para QA visual/auditiva de los assets (watchStuck loguea los rotos).
     private var showcaseMode = false
+    private var gauntletCampaignMode = false
     private var showcaseStep = 0
     private var showcaseStepUntilMs = 0L
     private var showcaseFiredStep = -1
+    private var showcaseSpeed = 1f
     // Ventana por animación: > stuckLimitMs (1800) para que watchStuck alcance a REGISTRAR y
     // rescatar una anim atascada antes de que el guion fuerce el siguiente estado (y > cooldown
     // de special/bonus). 🆕 2026-07-18j: era 1600 y enmascaraba atascos en los pasos forzados.
@@ -273,6 +690,7 @@ class StreetFighterViewModel @Inject constructor(
     private var roundIntroUntilMs = 0L     // banner "RONDA N / PELEA": input y timer congelados
     private var roundGraceUntilMs = 0L     // tras el reset, ignora snapshots/daño viejos del rival
     private var roundEndSent = false       // guard de ROUND_ENDED (como onlineEndSent por ronda)
+    private var introVoiceSent = false      // 🆕 voz de intro del policía: una vez por ronda
 
     // ─── 🆕 MULTIJUGADOR 1v1 (relay puro contra MultiplayerSF/ en Render) ───
     // Cada cliente simula a SU peleador (índice 0 local); el rival (índice 1) llega
@@ -321,8 +739,13 @@ class StreetFighterViewModel @Inject constructor(
         // 🆕 Especiales: cooldown + tope de proyectiles (PESADILLA spameaba y no se contrarrestaba)
         // Cooldowns de special: cortos para que la pelea se sienta viva (sin muro de proyectiles:
         // el tope por peleadór ya limita a 1 activo).
-        const val SPECIAL_COOLDOWN_MS = 700L
-        const val SPECIAL_COOLDOWN_AIVSAI_MS = 650L
+        const val SPECIAL_COOLDOWN_MS = 1200L
+        const val SPECIAL_COOLDOWN_AIVSAI_MS = 1500L
+        const val BONUS_COOLDOWN_MS = 2600L
+        const val BONUS_COOLDOWN_AIVSAI_MS = 3200L
+        const val RAPID_HIT_WINDOW_MS = 1200L
+        const val COMBO_ESCAPE_MS = 950L
+        const val RAPID_HITS_BEFORE_ESCAPE = 3
         const val MAX_ACTIVE_FIREBALLS_PER_FIGHTER = 1
         const val MAX_FIREBALLS_TOTAL = 4
         // Rangos IA (px): clinch → separar; melee → golpear; mid → footsies
@@ -458,8 +881,10 @@ class StreetFighterViewModel @Inject constructor(
                 val auditSteps = if (gauntletActive && !showcaseMode) gauntletAuditSteps else 1
                 for (step in 0 until auditSteps) {
                     if (step > 0 && !gauntletActive) break
-                    gameNow += dtMs
-                    tick(gameNow, dtMs / 1000f)
+                    val speed = if (gauntletActive) showcaseSpeed else 1f
+                    val scaledDtMs = (dtMs * speed).toLong().coerceAtLeast(1L)
+                    gameNow += scaledDtMs
+                    tick(gameNow, scaledDtMs / 1000f)
                     if (step + 1 < auditSteps) yield()
                 }
             }
@@ -490,6 +915,13 @@ class StreetFighterViewModel @Inject constructor(
         if (roundResetAtMs > 0 && now >= roundResetAtMs) resetRound(now)
         val s = _state.value
         val online = s.onlineStatus == SfOnlineStatus.FIGHTING
+        // 🆕 (2026-07-18o) VOZ DE INTRO del policía al arrancar la pelea (una sola vez por
+        // combate/ronda; solo suena si el peleadór tiene intro — hoy policía HOMBRE).
+        if (!introVoiceSent && !showcaseMode && roundIntroUntilMs > 0L && now < roundIntroUntilMs) {
+            introVoiceSent = true
+            emitIntroVoice(s.player.id, now)
+            emitIntroVoice(s.cpu.id, now)
+        }
         val sim = Sim(
             p0 = s.player, p1 = s.cpu,
             // ONLINE: solo se re-simulan MIS fireballs; los del rival son render-only
@@ -525,7 +957,7 @@ class StreetFighterViewModel @Inject constructor(
                     // reposo) se adelanta la ventana (~400 ms tras arrancar el paso) en vez de
                     // esperar los 2 s fijos. KO/VICTORY (nunca vuelven a IDLE) y los pasos
                     // sostenidos de caminar/agachar (0..2) usan su ventana completa. El botón
-                    // SALTAR de la View (skipShowcaseStep) fuerza el fin en cualquier momento.
+                    // SALTAR de la View fuerza el fin en cualquier momento.
                     // (solo si el paso YA DISPARÓ: si aún espera el IDLE para soltar su input,
                     // adelantar aquí se lo saltaría)
                     val stepStart = showcaseStepUntilMs - showcaseStepMs
@@ -693,6 +1125,7 @@ class StreetFighterViewModel @Inject constructor(
             -> {
                 nf = nf.copy(velocityX = 0f, velocityY = 0f, attackStruck = false)
                 _soundEvents.tryEmit("${attackMeta.getValue(newState).strength.name.lowercase()}-attack")
+                emitAttackVoice(nf.id, idx, now) // 🆕 grito al golpear (pack; con cooldown)
             }
             SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY -> {
                 nf = nf.copy(velocityX = 0f, velocityY = 0f, attackStruck = false, fireballFired = false)
@@ -721,7 +1154,11 @@ class StreetFighterViewModel @Inject constructor(
         // la celebración de fin de ronda estaba muda; el dueño pidió reutilizar audios
         // correctos antes que dejar animaciones sin sonido.
         if (newState == SfFighterState.VICTORY && f.state != SfFighterState.VICTORY) {
-            emitSpecialVoice(nf.id, now)
+            emitWinVoice(nf.id, now)
+        }
+        // 🆕 (2026-07-19) Voz de DERROTA: cuando un peleadór entra en KO, emite su quejido de loss.
+        if (newState == SfFighterState.KO && f.state != SfFighterState.KO) {
+            emitLossVoice(nf.id, now)
         }
         sim.setFighter(idx, nf)
         return true
@@ -803,15 +1240,25 @@ class StreetFighterViewModel @Inject constructor(
                 SfCpuDifficulty.AVANZADA, SfCpuDifficulty.PESADILLA -> 25000L
             }
             if (noDamageMs > reportAfterMs && now - lastStalemateLogMs > reportAfterMs) {
-                android.util.Log.w(
-                    "SF-DIAG",
+                val issue =
                     "ESTANCAMIENTO ${sim.p0.id.name} vs ${sim.p1.id.name}: " +
-                        "sin daño >${reportAfterMs / 1000}s; watchdog aplicado y pelea en curso",
-                )
+                        "sin daño >${reportAfterMs / 1000}s; " +
+                        "P1 x=${sim.p0.x.toInt()} ${sim.p0.direction}/${sim.p0.state} hp=$hp0; " +
+                        "P2 x=${sim.p1.x.toInt()} ${sim.p1.direction}/${sim.p1.state} hp=$hp1"
+                android.util.Log.w("SF-DIAG", issue)
+                if (gauntletActive) logAssetIssue(issue)
                 lastStalemateLogMs = now
             }
-            cpuLastOffenseMs[0] = 0L; cpuLastOffenseMs[1] = 0L
-            cpuWantsSpaceUntilMs[0] = 0L; cpuWantsSpaceUntilMs[1] = 0L
+            cpuNextDecisionMs[0] = 0L
+            cpuNextDecisionMs[1] = 0L
+            cpuHold[0] = SfInput()
+            cpuHold[1] = SfInput()
+            cpuLastOffenseMs[0] = 0L
+            cpuLastOffenseMs[1] = 0L
+            cpuWantsSpaceUntilMs[0] = 0L
+            cpuWantsSpaceUntilMs[1] = 0L
+            cpuForceEngageUntilMs[0] = now + 3000L
+            cpuForceEngageUntilMs[1] = now + 3000L
         }
     }
 
@@ -862,7 +1309,9 @@ class StreetFighterViewModel @Inject constructor(
                 // handleJump: gravedad + aterrizaje
                 val nf = f.copy(velocityY = f.velocityY + SfConstants.GRAVITY * dt)
                 sim.setFighter(idx, nf)
-                if (nf.y > SfConstants.STAGE_FLOOR) {
+                // El clamp del tick anterior deja `y` EXACTAMENTE en el piso. Con `>` nunca
+                // aterrizaba: conservaba JUMP_* para siempre aunque ya estuviera abajo.
+                if (nf.y >= SfConstants.STAGE_FLOOR && nf.velocityY >= 0f) {
                     sim.setFighter(idx, nf.copy(y = SfConstants.STAGE_FLOOR))
                     changeState(sim, idx, SfFighterState.JUMP_LAND, now)
                     // 🆕 CROSS-UP: al aterrizar, ENCARA de inmediato al rival (sin animación de giro).
@@ -1102,9 +1551,9 @@ class StreetFighterViewModel @Inject constructor(
         val ok = changeState(sim, idx, state, now)
         if (ok) {
             specialCooldownUntil[idx.coerceIn(0, 1)] = now + if (_state.value.aiVsAi) {
-                SPECIAL_COOLDOWN_AIVSAI_MS
+                BONUS_COOLDOWN_AIVSAI_MS
             } else {
-                SPECIAL_COOLDOWN_MS
+                BONUS_COOLDOWN_MS
             }
         }
         return ok
@@ -1187,6 +1636,29 @@ class StreetFighterViewModel @Inject constructor(
         if (facing != f.direction) {
             sim.setFighter(idx, f.copy(direction = facing))
             changeState(sim, idx, turnState, now)
+        }
+    }
+
+    /**
+     * Corrige el encaramiento de la CPU antes de interpretar `forward/backward`. Un cross-up o
+     * un empuje puede intercambiar los lados mientras sigue caminando; con la cara vieja, la
+     * siguiente orden de acercarse se convierte en alejarse y la pelea termina estancada.
+     */
+    private fun repairCpuFacing(sim: Sim, idx: Int, now: Long) {
+        val fighter = sim.fighter(idx)
+        val opponent = sim.fighter(1 - idx)
+        val expected = if (fighter.x <= opponent.x) SfDirection.RIGHT else SfDirection.LEFT
+        if (fighter.direction == expected || fighter.isAirborne ||
+            fighter.state == SfFighterState.KO || fighter.state == SfFighterState.VICTORY ||
+            fighter.metamorphosing
+        ) return
+
+        sim.setFighter(idx, fighter.copy(direction = expected))
+        if (fighter.state == SfFighterState.WALK_FORWARD ||
+            fighter.state == SfFighterState.WALK_BACKWARD ||
+            fighter.state == SfFighterState.IDLE_TURN
+        ) {
+            changeState(sim, idx, SfFighterState.IDLE, now)
         }
     }
 
@@ -1278,8 +1750,9 @@ class StreetFighterViewModel @Inject constructor(
         val hurtRows = frameDef(defender).hurt ?: return
         for ((i, area) in SfHurtArea.entries.withIndex()) {
             val hurtBox = SfBox.fromList(hurtRows.getOrNull(i)).toWorld(defender.x, defender.y, defender.direction)
-            // Quirk fiel del JS: si un área NO traslapa, se sale del chequeo completo
-            if (!actualHit.overlaps(hurtBox)) return
+            // Un golpe puede tocar cuerpo o piernas sin tocar cabeza. Salir aquí descartaba
+            // las zonas posteriores y volvía inofensivos muchos ataques válidos.
+            if (!actualHit.overlaps(hurtBox)) continue
 
             var hitX = (actualHit.x + actualHit.width / 2f + hurtBox.x + hurtBox.width / 2f) / 2f
             var hitY = (actualHit.y + hurtBox.y + actualHit.height / 2f + hurtBox.width / 2f) / 2f
@@ -1338,6 +1811,13 @@ class StreetFighterViewModel @Inject constructor(
             return
         }
 
+        // Ventana de salida tras una cadena rápida: el siguiente impacto no vuelve a encerrar
+        // al defensor en HURT. El atacante consume su golpe para que no reintente cada frame.
+        if (now < comboEscapeUntilMs[defenderIdx]) {
+            sim.setFighter(attackerIdx, attacker.copy(attackStruck = true))
+            return
+        }
+
         // BLOQUEO (estilo SF): caminar HACIA ATRÁS = cubrirse. El golpe entra "chip":
         // daño /4 (mínimo 1), medio retroceso, sin pose de HURT, sin splash ni puntos.
         val blocked = defender.state == SfFighterState.WALK_BACKWARD
@@ -1355,6 +1835,18 @@ class StreetFighterViewModel @Inject constructor(
             hitPoints = (defender.hitPoints - damage).coerceAtLeast(0),
             direction = attacker.direction.opposite(), // BattleScene: el golpeado queda de frente
         )
+        if (!blocked) {
+            val chained = now - lastHitTakenMs[defenderIdx] <= RAPID_HIT_WINDOW_MS
+            rapidHitsTaken[defenderIdx] = if (chained) rapidHitsTaken[defenderIdx] + 1 else 1
+            lastHitTakenMs[defenderIdx] = now
+            if (rapidHitsTaken[defenderIdx] >= RAPID_HITS_BEFORE_ESCAPE && defender.hitPoints > 0) {
+                comboEscapeUntilMs[defenderIdx] = now + COMBO_ESCAPE_MS
+                rapidHitsTaken[defenderIdx] = 0
+                defender = defender.copy(
+                    slideVelocity = maxOf(defender.slideVelocity, strength.slideVelocity * 1.35f),
+                )
+            }
+        }
         if (!blocked) {
             if (attackerIdx == 0) sim.score0 += strength.score else sim.score1 += strength.score
         }
@@ -1382,6 +1874,7 @@ class StreetFighterViewModel @Inject constructor(
             changeState(sim, defenderIdx, SfFighterState.KO, now)
             sim.setFighter(attackerIdx, sim.fighter(attackerIdx).copy(victory = true))
             // 🆕 KO = fin de RONDA (mejor de 3); endRound decide si el combate terminó
+            if (gauntletActive && !showcaseMode) gauntletKoRounds++
             endRound(sim, attackerIdx, now)
         } else {
             val hurtState = when (area) {
@@ -1397,6 +1890,7 @@ class StreetFighterViewModel @Inject constructor(
                 }
             }
             changeState(sim, defenderIdx, hurtState, now)
+            emitHurtVoice(defender.id, defenderIdx, defender.hitPoints, now) // 🆕 voz de daño (con cooldown / lowHp)
         }
         hurtFreezeUntilMs = now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong()
     }
@@ -1586,6 +2080,13 @@ class StreetFighterViewModel @Inject constructor(
             }
             sim.setFighter(winnerIdx, sim.fighter(winnerIdx).copy(victory = true))
             changeState(sim, 1 - winnerIdx, SfFighterState.KO, now)
+            if (gauntletActive && !showcaseMode) {
+                gauntletTimeoutRounds++
+                logAssetIssue(
+                    "VICTORIA POR TIEMPO ${sim.p0.id.name} vs ${sim.p1.id.name}: " +
+                        "la ronda ${_state.value.roundNumber} no terminó por KO",
+                )
+            }
             endRound(sim, winnerIdx, now) // timeout: ambos lo calculan; los guards evitan doble envío
         }
     }
@@ -1711,10 +2212,14 @@ class StreetFighterViewModel @Inject constructor(
     private fun buildCpuInput(now: Long, sim: Sim, selfIndex: Int): SfInput {
         if (sim.battleEnded) return SfInput()
         val i = selfIndex.coerceIn(0, 1)
+        repairCpuFacing(sim, i, now)
         if (now < cpuNextDecisionMs[i]) return cpuHold[i]
 
-        val difficulty = _state.value.cpuDifficulty
         val aiVs = _state.value.aiVsAi
+        // 🆕 (2026-07-18n) En IA vs IA cada índice puede tener su PROPIA dificultad (desnivel
+        // aleatorio de startAiVsAi) para que la pelea se resuelva; fuera de IA vs IA = la global.
+        val difficulty = if (aiVs) cpuDiffOverride[i] ?: _state.value.cpuDifficulty
+        else _state.value.cpuDifficulty
         // Desync en IA vs IA: P1 piensa un poco desfasado → no se copian el espejo eterno
         val desync = if (aiVs) (i * 17L) else 0L
         val baseDelay = when (difficulty) {
@@ -1736,6 +2241,14 @@ class StreetFighterViewModel @Inject constructor(
         val me = sim.fighter(i)
         val foe = sim.fighter(1 - i)
         val dist = abs(me.x - foe.x)
+
+        if (now < cpuForceEngageUntilMs[i] && !me.isAirborne) {
+            decision = if (dist > CPU_MELEE_DIST * 0.75f) {
+                cpuApproach(me, foe)
+            } else {
+                variedCpuAttack(i)
+            }
+        }
 
         // 🆕 (2026-07-18j) Ofensiva REAL: el reloj del watchdog se alimenta del ESTADO del
         // peleadór (está atacando de verdad), no solo de la intención. Antes un ataque decidido
@@ -1787,7 +2300,6 @@ class StreetFighterViewModel @Inject constructor(
             }
         } else if (decision.hasAttackOrSpecial()) {
             cpuStaleApproach[i] = 0
-            cpuLastOffenseMs[i] = now
         }
 
         cpuHold[i] = decision
@@ -1807,7 +2319,6 @@ class StreetFighterViewModel @Inject constructor(
         if (bonusStateReady && bonusPositionReady && bonusCooldownReady &&
             Random.nextFloat() < bonusChance) {
             cpuHold[i] = SfInput(bonusPower = Random.nextInt(1, bonusCount + 1))
-            cpuLastOffenseMs[i] = now
         }
 
         val oneShot = cpuHold[i]
@@ -1869,9 +2380,13 @@ class StreetFighterViewModel @Inject constructor(
 
     /** Muy pegados: NO seguir caminando adentro — retroceder, golpear o brincar fuera. */
     private fun cpuClinchBreak(me: SfFighter, foe: SfFighter, now: Long, selfIndex: Int): SfInput {
-        cpuWantsSpaceUntilMs[selfIndex] = now + Random.nextLong(280L, 520L)
         val roll = Random.nextFloat()
         val aiVs = _state.value.aiVsAi
+        cpuWantsSpaceUntilMs[selfIndex] = now + if (aiVs) {
+            Random.nextLong(160L, 300L)
+        } else {
+            Random.nextLong(280L, 520L)
+        }
         if (aiVs) {
             // 🆕 (2026-07-18j) ROLES ASIMÉTRICOS: antes ambos índices rodaban la MISMA tabla y
             // solían decidir lo mismo (los dos retro o los dos golpe ligero) → se quedaban
@@ -1882,8 +2397,8 @@ class StreetFighterViewModel @Inject constructor(
             return when {
                 attackerTurn && roll < 0.70f -> variedCpuAttack(selfIndex)
                 attackerTurn -> cpuJumpIn(me, foe) // cross-up por encima
-                roll < 0.55f -> cpuRetreatFlags(me, foe)
-                roll < 0.85f -> cpuJumpBack(me, foe)
+                roll < 0.42f -> cpuRetreatFlags(me, foe)
+                roll < 0.68f -> cpuJumpBack(me, foe)
                 else -> variedCpuAttack(selfIndex)
             }
         }
@@ -1906,6 +2421,29 @@ class StreetFighterViewModel @Inject constructor(
 
     private fun ownFireballActive(sim: Sim, selfIndex: Int): Boolean =
         sim.fireballs.any { it.ownerIndex == selfIndex && it.state == SfFireballState.ACTIVE }
+
+    /** Ajuste ligero por personaje sobre el mismo motor: zoners priorizan poderes; rushers presión. */
+    private data class CpuStyle(val specialBias: Float, val pressureBias: Float)
+
+    private fun cpuStyle(id: SfFighterId): CpuStyle = when (id) {
+        SfFighterId.ROBOT,
+        SfFighterId.CHARRO_NEGRO,
+        SfFighterId.LA_LLORONA,
+        SfFighterId.LA_TZITZIMIME,
+        SfFighterId.YOALLI_EHECATL,
+        SfFighterId.LA_PRESIDENTA,
+        -> CpuStyle(specialBias = 1.25f, pressureBias = 0.90f)
+
+        SfFighterId.ESCOMBOY,
+        SfFighterId.ESCOMGIRL,
+        SfFighterId.POLICIA_CDMX_HOMBRE,
+        SfFighterId.POLICIA_CDMX,
+        SfFighterId.POLICIA_GRANADERO_HOMBRE,
+        SfFighterId.POLICIA_GRANADERO_MUJER,
+        -> CpuStyle(specialBias = 0.80f, pressureBias = 1.12f)
+
+        else -> CpuStyle(specialBias = 1f, pressureBias = 1f)
+    }
 
     // ------------------------------------------------------------------
     // Decisiones por dificultad
@@ -1940,6 +2478,7 @@ class StreetFighterViewModel @Inject constructor(
         val dist = abs(me.x - foe.x)
         val roll = Random.nextFloat()
         val corner = isNearStageCorner(me.x)
+        val specialBias = cpuStyle(me.id).specialBias
 
         if (now < cpuWantsSpaceUntilMs[selfIndex] && dist < CPU_MELEE_DIST) {
             return if (roll < 0.7f) cpuRetreatFlags(me, foe) else variedCpuAttack(selfIndex)
@@ -1949,6 +2488,13 @@ class StreetFighterViewModel @Inject constructor(
 
         if (hasIncomingFireball(sim, me, selfIndex, 240f) && !me.isAirborne) {
             return if (roll < 0.7f) cpuJumpIn(me, foe) else cpuRetreatFlags(me, foe)
+        }
+        if (foe.state in cpuThreatStates && dist < 140f) {
+            return when {
+                roll < 0.42f -> cpuRetreatFlags(me, foe)
+                dist < 95f && roll < 0.72f -> cpuAttack(SfAttackStrength.LIGHT, punch = true)
+                else -> cpuJumpBack(me, foe)
+            }
         }
         if (foe.isAirborne && dist < 130f) {
             return cpuAttack(SfAttackStrength.HEAVY, punch = true)
@@ -1965,8 +2511,10 @@ class StreetFighterViewModel @Inject constructor(
                 else -> cpuApproach(me, foe)
             }
             dist > CPU_MELEE_DIST -> when {
-                roll < 0.40f -> cpuApproach(me, foe)
-                roll < 0.72f -> variedCpuAttack(selfIndex)
+                roll < 0.58f -> cpuApproach(me, foe)
+                !ownFireballActive(sim, selfIndex) &&
+                    now >= specialCooldownUntil[selfIndex] &&
+                    roll < 0.58f + 0.10f * specialBias -> SfInput(special = SfAttackStrength.LIGHT)
                 roll < 0.88f -> cpuJumpIn(me, foe)
                 else -> cpuRetreatFlags(me, foe)
             }
@@ -1991,19 +2539,23 @@ class StreetFighterViewModel @Inject constructor(
         val corner = isNearStageCorner(me.x)
         val aiVs = _state.value.aiVsAi
         val ownFb = ownFireballActive(sim, selfIndex)
+        val style = cpuStyle(me.id)
 
-        val specialFar = when {
+        val specialFarBase = when {
             nightmare && aiVs -> 0.24f
             nightmare -> 0.18f
             else -> 0.14f + 0.08f * cpuIntensity
         }
-        val specialMid = when {
+        val specialMidBase = when {
             nightmare && aiVs -> 0.16f
             nightmare -> 0.11f
             else -> 0.08f + 0.05f * cpuIntensity
         }
+        val specialFar = (specialFarBase * style.specialBias).coerceAtMost(0.34f)
+        val specialMid = (specialMidBase * style.specialBias).coerceAtMost(0.24f)
         val blockChance = if (nightmare) 0.55f else 0.72f + 0.1f * cpuIntensity
-        val attackMelee = if (nightmare) 0.78f else 0.70f
+        val attackMelee = ((if (nightmare) 0.78f else 0.70f) * style.pressureBias)
+            .coerceIn(0.62f, 0.88f)
 
         // Espacio pedido tras clinch
         if (now < cpuWantsSpaceUntilMs[selfIndex] && dist < CPU_MID_DIST) {
@@ -2038,7 +2590,8 @@ class StreetFighterViewModel @Inject constructor(
         if (foe.state in cpuThreatStates) {
             when {
                 dist in 95f..190f && roll < blockChance -> return cpuRetreatFlags(me, foe) // block walk-back
-                dist < 95f && roll < 0.60f -> return cpuAttack(SfAttackStrength.LIGHT, punch = true)
+                dist < 95f && roll < 0.28f -> return cpuRetreatFlags(me, foe)
+                dist < 95f && roll < 0.68f -> return cpuAttack(SfAttackStrength.LIGHT, punch = true)
             }
         }
 
@@ -2056,18 +2609,21 @@ class StreetFighterViewModel @Inject constructor(
             dist > CPU_MID_DIST -> when {
                 !corner && !ownFb && now >= specialCooldownUntil[selfIndex] && roll < specialFar ->
                     SfInput(special = SfAttackStrength.entries.random())
-                roll < 0.28f -> cpuJumpIn(me, foe)
-                roll < 0.38f -> cpuRetreatFlags(me, foe) // baitear
+                aiVs && roll < specialFar + 0.22f -> cpuJumpIn(me, foe)
+                !aiVs && roll < 0.28f -> cpuJumpIn(me, foe)
+                !aiVs && roll < 0.38f -> cpuRetreatFlags(me, foe) // baitear
                 else -> cpuApproach(me, foe)
             }
             dist > CPU_MELEE_DIST -> when {
                 !ownFb && now >= specialCooldownUntil[selfIndex] && roll < specialMid ->
                     SfInput(special = SfAttackStrength.MEDIUM)
-                roll < 0.32f -> cpuApproach(me, foe)
-                roll < 0.62f -> variedCpuAttack(selfIndex)
-                roll < 0.80f -> cpuJumpIn(me, foe)
-                roll < 0.92f -> cpuRetreatFlags(me, foe) // spacing
-                else -> cpuAttack(SfAttackStrength.LIGHT, punch = true)
+                aiVs && roll < 0.76f -> cpuApproach(me, foe)
+                aiVs && roll < 0.90f -> cpuJumpIn(me, foe)
+                aiVs -> cpuApproach(me, foe)
+                roll < 0.55f -> cpuApproach(me, foe)
+                roll < 0.72f -> cpuJumpIn(me, foe)
+                roll < 0.86f -> cpuRetreatFlags(me, foe)
+                else -> cpuApproach(me, foe)
             }
             else -> when { // melee range (no clinch)
                 roll < attackMelee + 0.1f * cpuIntensity -> variedCpuAttack(selfIndex)
@@ -2099,8 +2655,10 @@ class StreetFighterViewModel @Inject constructor(
      */
     private fun variedCpuAttack(selfIndex: Int): SfInput {
         val i = selfIndex.coerceIn(0, 1)
-        val sig = (0 until 6).filter { it != cpuLastAttackSig[i] }.random()
-        cpuLastAttackSig[i] = sig
+        val history = cpuAttackHistory[i]
+        val sig = (0 until 6).filterNot(history::contains).ifEmpty { (0 until 6).toList() }.random()
+        history.addLast(sig)
+        while (history.size > 3) history.removeFirst()
         return cpuAttack(SfAttackStrength.entries[sig / 2], punch = sig % 2 == 0)
     }
 
@@ -2342,6 +2900,20 @@ class StreetFighterViewModel @Inject constructor(
         resetInternals()
         // Intensidad al máximo (igual que la final del arcade); resetInternals la deja en 0
         cpuIntensity = intensity.coerceIn(0f, 1f)
+        // 🆕 (2026-07-18n) DESNIVEL ALEATORIO: dos peleadores iguales se esquivan sin fin y nadie
+        // gana. Se le baja la dificultad a UNO al azar (1–2 escalones) → el otro conecta y gana.
+        // Se re-aleatoriza en cada pelea (revancha/gauntlet) para que el ganador varíe.
+        if (gauntletCampaignMode) {
+            // Auditoría de campañas: P0 (Jugador) gana SIEMPRE para avanzar la escalera.
+            cpuDiffOverride[0] = SfCpuDifficulty.PESADILLA
+            cpuDiffOverride[1] = SfCpuDifficulty.BASICA
+        } else {
+            val weak = Random.nextInt(2)
+            val steps = 1 + Random.nextInt(2)
+            val weakDiff = SfCpuDifficulty.entries[(difficulty.ordinal - steps).coerceAtLeast(0)]
+            cpuDiffOverride[weak] = weakDiff
+            cpuDiffOverride[1 - weak] = difficulty
+        }
         roundIntroUntilMs = ROUND_INTRO_MS // banner "RONDA 1 / PELEA" (gameNow arranca en 0)
         val base = StreetFighterState()
         _state.value = base.copy(
@@ -2363,9 +2935,22 @@ class StreetFighterViewModel @Inject constructor(
     /** Bot 1: TODOS contra TODOS (round-robin). ~N² peleas — déjalo corriendo/grabando. */
     fun startGauntletRoundRobin() {
         showcaseMode = false
+        gauntletCampaignMode = false
         val roster = SfArcadeLadder.ALL_PARTICIPANTS
         val q = ArrayDeque<GauntletFight>()
-        for (a in roster) for (b in roster) if (a != b) q.add(GauntletFight(a, b))
+        val lightings = SfStageCatalog.Lighting.entries
+        var mapIndex = 0
+        for (a in roster) {
+            for (b in roster) {
+                if (a != b) {
+                    val stage = SfStageCatalog.ALL_STAGES[mapIndex % SfStageCatalog.ALL_STAGES.size]
+                    val lighting = lightings[(mapIndex / SfStageCatalog.ALL_STAGES.size) % lightings.size]
+                    val mapFile = stage.file(lighting)
+                    mapIndex++
+                    q.add(GauntletFight(a, b, mapFile = mapFile))
+                }
+            }
+        }
         beginGauntlet(q)
     }
 
@@ -2379,6 +2964,8 @@ class StreetFighterViewModel @Inject constructor(
      */
     fun startShowcase() {
         showcaseMode = true
+        gauntletCampaignMode = false
+        showcaseSpeed = 1f
         val q = ArrayDeque<GauntletFight>()
         SfArcadeLadder.ALL_PARTICIPANTS.forEach {
             q.add(GauntletFight(it, it)) // Espejo: se ve la animación en ambos.
@@ -2389,6 +2976,7 @@ class StreetFighterViewModel @Inject constructor(
     /** Bot 2: las 9 campañas completas (3 protagonistas × 3 dificultades), 135 peleas reales. */
     fun startGauntletArcade() {
         showcaseMode = false
+        gauntletCampaignMode = true
         val difficulties = listOf(
             SfCpuDifficulty.BASICA,
             SfCpuDifficulty.NORMAL,
@@ -2420,6 +3008,8 @@ class StreetFighterViewModel @Inject constructor(
         gauntletQueue.addAll(q)
         gauntletTotal = q.size
         gauntletDone = 0
+        gauntletKoRounds = 0
+        gauntletTimeoutRounds = 0
         gauntletActive = true
         _state.update { it.copy(gauntletFinished = false, gauntletReport = emptyList(), gauntletReportPath = null) }
         if (showcaseMode) auditThemeSounds() // 🆕 SFX compartidos del tema (una vez por corrida)
@@ -2461,16 +3051,80 @@ class StreetFighterViewModel @Inject constructor(
                 gauntletRunning = true,
                 gauntletProgress = "$gauntletDone/$gauntletTotal",
                 showcaseRunning = showcaseMode,
+                showcaseSpeed = showcaseSpeed,
                 gauntletMapFile = mapFile,
             )
         }
     }
 
-    /** 🆕 (2026-07-18k) SALTAR (View): termina YA la ventana del paso actual del showcase. */
-    fun skipShowcaseStep() {
+    /**
+     * SALTAR (View): da por terminado el bloque del peleador actual y avanza en el siguiente
+     * tick. No basta con cortar la pose: el tope temporal también debe quedar satisfecho para
+     * que el showcase no espere el resto del guion con el personaje inmóvil.
+     */
+    fun skipShowcaseFighter() {
         if (!gauntletActive || !showcaseMode) return
-        showcaseStepUntilMs = 0L
+        showcaseForcedState = null
+        showcaseStep = showcaseTotalSteps(_state.value.player.id) + 1
+        showcaseFiredStep = showcaseStep
+        showcaseStepUntilMs = _state.value.gameTimeMs
     }
+
+    /** Termina solo la animación actual y conserva al mismo peleador para el paso siguiente. */
+    fun skipToNextShowcaseAnimation() {
+        if (!gauntletActive || !showcaseMode) return
+        val now = _state.value.gameTimeMs
+        showcaseForcedState = null
+        showcaseFiredStep = -2
+        showcaseStepUntilMs = now
+        _state.update {
+            it.copy(
+                player = resetShowcaseFighter(it.player, now),
+                cpu = resetShowcaseFighter(it.cpu, now),
+            )
+        }
+    }
+
+    /** Retrocede a la animación anterior en el showcase. */
+    fun goToPreviousShowcaseAnimation() {
+        if (!gauntletActive || !showcaseMode) return
+        val now = _state.value.gameTimeMs
+        showcaseForcedState = null
+        showcaseFiredStep = -2
+        // Restamos 2 porque la simulación incrementará 1 de forma inmediata
+        showcaseStep = (showcaseStep - 2).coerceAtLeast(-1)
+        showcaseStepUntilMs = now
+        _state.update {
+            it.copy(
+                player = resetShowcaseFighter(it.player, now),
+                cpu = resetShowcaseFighter(it.cpu, now),
+            )
+        }
+    }
+
+    /** Alterna 1x → 2x → 4x para acelerar el showcase visual o autojuego en curso. */
+    fun cycleShowcaseSpeed() {
+        if (!gauntletActive) return
+        val index = SHOWCASE_SPEEDS.indexOf(showcaseSpeed).coerceAtLeast(0)
+        showcaseSpeed = SHOWCASE_SPEEDS[(index + 1) % SHOWCASE_SPEEDS.size]
+        _state.update { it.copy(showcaseSpeed = showcaseSpeed) }
+    }
+
+    private fun resetShowcaseFighter(fighter: SfFighter, now: Long): SfFighter =
+        withAnimationFrame(
+            fighter.copy(
+                state = SfFighterState.IDLE,
+                velocityX = 0f,
+                velocityY = 0f,
+                slideVelocity = 0f,
+                slideFriction = 0f,
+                attackStruck = false,
+                fireballFired = false,
+                y = SfConstants.STAGE_FLOOR,
+            ),
+            frame = 0,
+            now = now,
+        )
 
     /** Se llama al inicio del tick: encadena la siguiente pelea al terminar el combate o al vencer el tope. */
     private fun maybeAdvanceGauntlet(now: Long): Boolean {
@@ -2492,6 +3146,7 @@ class StreetFighterViewModel @Inject constructor(
     private fun finishGauntlet() {
         gauntletActive = false
         showcaseMode = false
+        gauntletCampaignMode = false
         val issues = assetIssues.toList()
         val path = writeGauntletReport(issues)
         _state.update {
@@ -2512,7 +3167,10 @@ class StreetFighterViewModel @Inject constructor(
         val stamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
         val file = java.io.File(dir, "sf_diagnostico_$stamp.txt")
         val header = "POW — Diagnóstico IA vs IA (autojuego)\n" +
-            "Peleas: $gauntletDone/$gauntletTotal\nProblemas: ${issues.size}\n\n"
+            "Peleas: $gauntletDone/$gauntletTotal\n" +
+            "Rondas por KO: $gauntletKoRounds\n" +
+            "Rondas por tiempo: $gauntletTimeoutRounds\n" +
+            "Problemas: ${issues.size}\n\n"
         file.writeText(header + if (issues.isEmpty()) "Sin problemas detectados." else issues.joinToString("\n"))
         file.absolutePath
     }.getOrNull()
@@ -2630,6 +3288,10 @@ class StreetFighterViewModel @Inject constructor(
         // changeState, así que su sonido se emite aquí reutilizando los .ogg correctos del tema
         // (pedido del dueño: mejor repetir un audio correcto que dejar la animación muda).
         // Solo idx 0: el guion es espejo y emitir dos veces duplicaba el volumen.
+        // 🆕 (2026-07-18o/p) Voz de DAÑO del pack en el showcase (bypass del cooldown, es demo).
+        if (idx == 0 && st in SF_HURT_STATES) {
+            emitVoiceLines(sfVoicePacks[nf.id]?.hurt.orEmpty(), now)
+        }
         if (idx == 0) when (st) {
             SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_BODY_LIGHT ->
                 _soundEvents.tryEmit("light-punch-hit")
@@ -2637,8 +3299,11 @@ class StreetFighterViewModel @Inject constructor(
                 _soundEvents.tryEmit("medium-punch-hit")
             SfFighterState.HURT_HEAD_HEAVY, SfFighterState.HURT_BODY_HEAVY ->
                 _soundEvents.tryEmit("heavy-punch-hit")
-            SfFighterState.KO -> _soundEvents.tryEmit("heavy-kick-hit") // golpe final (thud)
-            SfFighterState.VICTORY -> emitSpecialVoice(nf.id, now) // su voz al celebrar
+            SfFighterState.KO -> {
+                _soundEvents.tryEmit("heavy-kick-hit") // golpe final (thud)
+                emitLossVoice(nf.id, now) // 🆕 voz de derrota del perdedor
+            }
+            SfFighterState.VICTORY -> emitWinVoice(nf.id, now) // su voz al celebrar (policía = WIN)
             SfFighterState.BONUS_POWER_11 -> emitSpecialVoice(nf.id, now) // metamorfosis
             else -> Unit // giros: sin SFX (tampoco lo tienen en pelea real)
         }
@@ -2679,7 +3344,18 @@ class StreetFighterViewModel @Inject constructor(
                 )
             }
         }
-        if (!sfAssetExists("STREETFIGHTER/SOUNDS/${specialSfxKey(id)}.ogg")) {
+        // 🆕 (2026-07-18o/p/q) Voz del peleadór: si tiene PACK, verifica cada LÍNEA (archivo .ogg)
+        // de todos sus eventos; si no, su special_<id>.ogg.
+        val pack = sfVoicePacks[id]
+        if (pack != null) {
+            (pack.intro + pack.attack + pack.hurt + pack.power + pack.win).forEach { line ->
+                if (!sfAssetExists("STREETFIGHTER/SOUNDS/${line.file}.ogg")) {
+                    logAssetIssue("FALTA VOZ ${line.file}.ogg (${id.name})")
+                }
+            }
+        } else if (id !in sfVoicelessFighters &&
+            !sfAssetExists("STREETFIGHTER/SOUNDS/${specialSfxKey(id)}.ogg")
+        ) {
             logAssetIssue("FALTA SONIDO ${specialSfxKey(id)}.ogg (${id.name})")
         }
     }
@@ -2693,6 +3369,17 @@ class StreetFighterViewModel @Inject constructor(
         }
         if (!sfAssetExists(SF_CLASSIC_THEME.soundsDir + SF_CLASSIC_THEME.musicFile)) {
             logAssetIssue("FALTA MUSICA DEL TEMA: ${SF_CLASSIC_THEME.musicFile}")
+        }
+        // 🆕 (2026-07-18k) Música por progresión (lobby + pistas de batalla de Prankedy)
+        (listOfNotNull(SF_CLASSIC_THEME.lobbyMusic.takeIf { it.isNotBlank() }) +
+            SF_CLASSIC_THEME.battleMusic).forEach { m ->
+            if (!sfAssetExists(SF_CLASSIC_THEME.soundsDir + m)) {
+                logAssetIssue("FALTA MUSICA (progresión): $m")
+            }
+        }
+        // 🆕 (2026-07-18u) Grito de ataque masculino por defecto (pendiente: "ZA ZA" seg 8-10).
+        if (!sfAssetExists("STREETFIGHTER/SOUNDS/$maleGruntClip.ogg")) {
+            logAssetIssue("FALTA (opcional) $maleGruntClip.ogg — grito de ataque masculino por defecto")
         }
     }
 
@@ -2761,18 +3448,32 @@ class StreetFighterViewModel @Inject constructor(
         SfArcadeLadder.difficultyForStep(arcadeChosenDifficulty, step)
 
     /**
-     * Fin del COMBATE en arcade (offline): si GANASTE, desbloquea al rival vencido + su mapa y
+     * Fin del COMBATE en arcade (offline): si GANASTE, desbloquea según la DIFICULTAD ELEGIDA y
      * guarda el progreso; si perdiste, marca la derrota. El overlay lo dibuja la View según
      * `arcadeOutcome`. Lo llama endRound cuando alguien llega a ROUNDS_TO_WIN.
+     *
+     * 🆕 (2026-07-18) REGLAS DE DESBLOQUEO por [arcadeChosenDifficulty] (decisión del dueño):
+     *  - FÁCIL (BASICA)   → SOLO el MAPA del rival (día). El peleadór NO se desbloquea.
+     *  - MEDIO (NORMAL)   → el PELEADÓR + su mapa (noche). Es el mínimo para tener al personaje.
+     *  - DIFÍCIL (AVANZADA/apocalíptica) → NADA por ahora (próximamente: animaciones/poderes).
+     * La escalera SIEMPRE avanza al ganar (independiente del desbloqueo).
      */
     private fun handleArcadeMatchEnd(winnerIdx: Int) {
         val s = _state.value
         val step = arcadeLadder.getOrNull(s.arcadeStep - 1) ?: return
         val outcome = if (winnerIdx == 0) {
-            // Peleadór + su mapa hogar (día/noche/apocalipsis) para práctica y multiplayer
-            arcadeRepo.unlockFighter(step.rival.name)
-            // Por si el mapa de la pelea (variante de luz) no era el “hogar” base
-            step.mapFile?.let { arcadeRepo.unlockMap(it) }
+            when (arcadeChosenDifficulty) {
+                SfCpuDifficulty.BASICA -> {
+                    // Solo el mapa del rival (variante de la pelea = día)
+                    step.mapFile?.let { arcadeRepo.unlockMap(it) }
+                }
+                SfCpuDifficulty.NORMAL -> {
+                    // Peleadór + su mapa (noche): mínimo para desbloquear al personaje
+                    arcadeRepo.unlockFighter(step.rival.name)
+                    step.mapFile?.let { arcadeRepo.unlockMap(it) }
+                }
+                else -> Unit // AVANZADA/PESADILLA (apocalíptica): aún no desbloquea nada
+            }
             arcadeRepo.setLadderStep(s.arcadeStep)
             if (s.arcadeStep >= arcadeLadder.size) SfArcadeOutcome.COMPLETED else SfArcadeOutcome.WON
         } else {
@@ -2836,8 +3537,19 @@ class StreetFighterViewModel @Inject constructor(
         cpuLastOffenseMs[1] = 0L
         cpuWantsSpaceUntilMs[0] = 0L
         cpuWantsSpaceUntilMs[1] = 0L
-        cpuLastAttackSig[0] = -1
-        cpuLastAttackSig[1] = -1
+        cpuForceEngageUntilMs[0] = 0L
+        cpuForceEngageUntilMs[1] = 0L
+        cpuAttackHistory[0].clear()
+        cpuAttackHistory[1].clear()
+        cpuDiffOverride[0] = null
+        cpuDiffOverride[1] = null
+        introVoiceSent = false
+        lastHurtVoiceMs.fill(0L)
+        lastAttackVoiceMs.fill(0L)
+        lastHitTakenMs.fill(0L)
+        lowHpVoiceTriggered.fill(false)
+        rapidHitsTaken.fill(0)
+        comboEscapeUntilMs.fill(0L)
         cpuIntensity = 0f // VS: sin escalado; arcade/IA-vs-IA la suben después
         pendingAttacks.clear()
         pendingBonusPower = null
@@ -3531,12 +4243,19 @@ class StreetFighterViewModel @Inject constructor(
         koFrame = 0
         hurtFreezeUntilMs = 0L
         endMenuAtMs = 0L
+        introVoiceSent = false // 🆕 la intro del policía vuelve a sonar en la ronda nueva
         cpuNextDecisionMs[0] = 0L
         cpuNextDecisionMs[1] = 0L
         cpuHold[0] = SfInput()
         cpuHold[1] = SfInput()
         specialCooldownUntil[0] = 0L
         specialCooldownUntil[1] = 0L
+        lastHitTakenMs.fill(0L)
+        rapidHitsTaken.fill(0)
+        comboEscapeUntilMs.fill(0L)
+        lastHurtVoiceMs.fill(0L)
+        lastAttackVoiceMs.fill(0L)
+        lowHpVoiceTriggered.fill(false)
         pendingAttacks.clear()
         pendingBonusPower = null
         controlHistory.clear()

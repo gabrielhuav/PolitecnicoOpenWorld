@@ -7,6 +7,20 @@
 > CRLF, Read para verificar). Los BUGS del modo (stun-lock, revancha, servidor LAN) viven en
 > `PENDIENTES_SF_2026-07-16.md` y NO dependen de esto.
 
+## Cambios 2026-07-19 (Antigravity) — Sombra Isla de las Muñecas y QA de Voces
+
+- **Sombra Isla de las Muñecas:** Implementada la plataforma de madera flotante y la sombra más prolongada (1.8x) para evitar que los peleadores parezcan flotar sobre el agua en el mapa Isla de las Muñecas.
+- **QA Voces Policías:** Verificado que el mapeo y los archivos de audio coinciden con el diseño.
+- **Voz Masculina por Defecto ("ZA ZA"):** Se recortaron los segundos 8-10 del fuente `ZA ZA.mp3` y se guardó como `special_male_attack_grunt.ogg` en `SOUNDS/`.
+- **Señor de la Tienda (pack completo):** Se agregaron audios de ataque normal x2, daño x2 (incluyendo "puerquito" con subtítulos) y victoria.
+- **Escomboy y Escomgirl:** Se eliminaron sus audios de voz especiales y se reemplazaron por un efecto de electricidad acelerado a 1.5x.
+- **Robot (Escomrobot):** Se añadió su audio de victoria `special_robot_win.ogg`.
+- **La Presidenta:** Se eliminó su especial de voz y se convirtió en su audio de victoria `special_la_presidenta_win.ogg` recortando el primer segundo de silencio.
+- **La Tzitzimime:** Se eliminó su especial de voz y se convirtió en su golpe normal `special_la_tzitzimime_attack.ogg` recortando el último 10% de su duración (dejando 2.25s).
+- **Paramédico Cruz Roja:** Se configuró su especial de voz como su audio de victoria (`special_paramedico_cruz_roja.ogg` con subtítulo) y se añadió el efecto de electricidad a 1.5x como su especial de poder (`special_paramedico_cruz_roja_power.ogg`).
+- **Policía CDMX Mujer:** Se re-asignó el audio recortado de 2.3 segundos como su sonido al recibir daño (`special_pol_m_hurt.ogg`), se dejó la frase única como su ataque normal (`special_pol_m_attack.ogg`), y se configuró la pista oficial `special_policia_cdmx.ogg` como su audio de victoria.
+- **Interrupción de Sonidos (Anti-Overlapping):** Se modificó el reproductor de audios y SoundPool en `StreetFighterScreen.kt` para que no se traslapen los sonidos de golpes ni las voces del mismo peleador al recibir golpes sucesivos, interrumpiendo la reproducción anterior y reiniciándola desde el principio.
+
 ## Fix 2026-07-18g (Claude) — regresiones de IA/input
 
 - `isAnimationCompleted` (VM) ahora da por terminada la animación al llegar al último frame,
@@ -25,6 +39,106 @@
   (escalera en orden rotando peleador). Encadena peleas IA vs IA (tope 60 s c/u), progreso +
   DETENER, y al final escribe un .txt en getExternalFilesDir + reporte en pantalla. Sirve para
   cazar assets rotos: cuando salga el reporte, corregir en la siguiente pasada.
+
+## Fix 2026-07-19b (Fable) — el HURT "no sonaba"
+
+La interrupción anti-traslape (`getFighterPrefix` en `playSfSpecial`) agrupa attack+hurt del mismo
+peleadór bajo un prefijo; al recuperarse y contraatacar, su `attack` cortaba su propio `hurt` casi
+al instante. Fix: un HURT en curso NO se corta por un ATAQUE del mismo peleadór (solo otro HURT lo
+reinicia). Se inicializaron los arreglos de tiempos a 0L para evitar un desbordamiento numérico (overflow) de Long.MIN_VALUE que silenciaba los quejidos, se eliminó el cooldown de hurt (cooldown = 0s) para interrupción inmediata en combos, y se garantizó el play completo (sin interrupciones) de los ataques especiales. **Coverage:** solo 6 peleadores tienen hurt (Charro,
+Paparazzi1, Llorona, Señor Tienda, Policía Mujer + Granadera); el resto solo suena el SFX de
+impacto global. Detalle en `AUDIO_INVENTARIO_SF.md`.
+
+## Cambios 2026-07-18r/s (Fable) — re-mapeo de voces + tamaño AAB (ver AUDIO_INVENTARIO_SF.md)
+
+- **Voces re-disparan** (`playSfSpecial`): si el mismo clip ya suena, se corta y re-lanza (antes se
+  ignoraba → "no se repetía" al re-atacar).
+- **Re-mapeo de audios del dueño (18s):** Llorona/Tzitzimime → golpe normal (attack); Rey Grupero →
+  intro; Paramédico Cruz Roja → win; Paparazzi 1 power = `special_paparazzi_5`, daño ×3; granadero
+  win = `special_granadero` (diana). BORRADOS: `special_gr_win/lazaro/paramedico/prankedy/
+  paparazzi_1/papz1_attack_1/2`. `sfVoicelessFighters` = {Lázaro, Paramédico, Prankedy} (especial
+  suena hadouken; auditoría no los marca). **POLICÍAS: el dueño duda del contenido vs nombre →
+  pendiente escuchar y confirmar.** Mapeo COMPLETO y guía de empaquetado: `AUDIO_INVENTARIO_SF.md`.
+- **Tamaño AAB (bloqueaba la subida):** el peso era IMAGES (atlas de fondo), no el audio. Los 48
+  `fondo_*_anim.webp` se pasaron de webp LOSSLESS a LOSSY q90 → **221→82 MB** (total SF 235→97 MB).
+  Audio: borrados `amb_*.ogg` (4.5 MB) y `prankedy-persecucion.mp3` (musicFile→`prankedy_lobby.mp3`).
+
+## Cambios 2026-07-18q (Fable) — FRASES por evento + subtítulos multilínea + diana granadero
+
+Sistema de voz reescrito a **líneas con FRASE** (`SfVoiceLine(file, phrase)`; cada evento es una
+lista, se elige al azar y muestra subtítulo). Mapeo FINAL (corrección del dueño):
+- **HOMBRE (policía + granadero comparten intro/attack; WIN difiere):**
+  - intro `special_pol_h_intro` = "¡Está prohibido beber en la vía pública!"
+  - attack `special_pol_h_attack` = "Buenas joven, ¿si sabe porque lo detuvimos?" (antes era su "power")
+  - win normal `special_pol_h_win` = "¿Se cree más chingón que nosotros o qué joven?"
+  - **win granadero** `special_gr_win` = **"3 de diana"** (bugle, sin subtítulo; de `special_granadero.ogg`
+    recortado 10 s — antes estaba mal en su ataque).
+- **MUJER (policía + granadera comparten attack; WIN difiere):**
+  - attack (2 frases al azar) `special_pol_m_attack_1/2` = "Tu denuncia me hace lo que el viento a
+    Juárez" / "¿Sabes cuántas tengo?" (venían de "golpeada", ahora son su ATAQUE)
+  - win normal `special_pol_m_win` = "Al decidir ser policía me comprometí como mujer" (era "Ataque MUJER")
+  - **win granadera** `special_gr_win` = "3 de diana" (misma diana).
+  - (La mujer YA NO tiene hurt: la golpeada pasó a ataque y el "ataque" a victoria.)
+- **Subtítulos:** ahora **multilínea (máx 3)** con word-wrap ~24 chars y **fuente más chica**
+  (`sizeMul` 0.85→0.6, apilados desde abajo) → las frases largas ya no se salen de pantalla.
+  Todas las frases se sanitizan a A-Z/0-9 (fuente pixel del HUD) con `sfHudSanitize`.
+- Paparazzi 1 sin cambios (attack×2, hurt×2, sin frases). Auditoría del showcase verifica cada
+  archivo `.ogg` de cada línea del pack.
+
+## Cambios 2026-07-18o/p (Fable) — PACK DE VOCES por evento (policía + Paparazzi 1)
+
+Sistema GENÉRICO de voz por peleadór (`SfVoicePack` + `sfVoicePacks: Map<SfFighterId, SfVoicePack>`),
+material del dueño (`nuevoMaterial18JUL/Audios/`). Eventos: **intro, attack, hurt, power, win**
+(cada uno con N variantes). Se reproducen por la ruta `special_*` (MediaPlayer en la Screen, apto
+para clips largos). Naming: 1 variante = `special_<key>_<ev>.ogg`; N = `special_<key>_<ev>_<n>.ogg`.
+
+- **Policías (comparten pack POR GÉNERO, normal + granadero):** `pol_h` (HOMBRE:
+  `POLICIA_CDMX_HOMBRE`/`POLICIA_GRANADERO_HOMBRE`/`GRANADERO`) = intro+power+win; `pol_m` (MUJER:
+  `POLICIA_CDMX`/`POLICIA_GRANADERO_MUJER`) = win + hurt×2, **SIN power** (ajuste dueño 2026-07-18p):
+  hurt_1 = primeros 3 s de "golpeada mujer"; hurt_2 = primer 1 s de "Ataque mujer" (ese audio NO va
+  en el special, es reacción de daño → su special usa el fallback genérico). "win hombre" recortada
+  la 1ª mitad muda. **Las voces COMPLEMENTAN los SFX genéricos de golpe (suenan los 2), no los
+  reemplazan** (el `<strength>-<type>-hit` se emite igual en `applyAttackHit`).
+- **Paparazzi 1** (`PAPARAZZI_1`, key `papz1`): attack×2 (grito al golpear) + hurt×2 (recibir/STUN).
+  ("Golpear" 15 s dividido en 2; "recibir golpe/STUN" = hurt_1; "STUN últimos 3 s" = hurt_2.)
+- **Hooks:** POWER = `emitSpecialVoice`; WIN = `emitWinVoice` (VICTORY real+showcase); HURT =
+  `emitHurtVoice` en `applyAttackHit` (cooldown 2.6 s/índice; showcase demo sin cooldown); ATTACK =
+  `emitAttackVoice` en `changeState` al entrar a golpe (cooldown 4.2 s/índice); INTRO =
+  `emitIntroVoice` 1×/ronda (guard `introVoiceSent`, hook en `tick`). Resets en
+  `resetInternals`/`resetRound` (introVoiceSent, lastHurt/AttackVoiceMs).
+- Interpretación (el dueño puede corregir): "Ataque"/"Golpear" = grito ofensivo; donde el pack no
+  tenga un evento, no suena. La auditoría del showcase verifica TODOS los eventos/variantes del pack.
+
+## Cambios 2026-07-18n (Fable) — IA vs IA con desnivel + verificación dificultad estilo 3rd Strike
+
+- **IA vs IA "se esquivan y nadie gana" → DESNIVEL ALEATORIO:** `startAiVsAi` ahora baja la
+  dificultad a UNO de los dos al azar (1–2 escalones bajo PESADILLA, piso NORMAL) vía nuevo
+  `cpuDiffOverride[2]`; `buildCpuInput` usa esa dificultad POR ÍNDICE solo en IA vs IA. Así el
+  más fuerte conecta y GANA; se re-aleatoriza en cada pelea/revancha/gauntlet (el ganador varía).
+  Se limpia en `resetInternals`; fuera de IA vs IA no cambia nada (usa la dificultad global).
+- **✅ Verificación dificultad estilo "SF III: 3rd Strike" (ya implementada):** el arcade YA tiene
+  dificultad variable OCULTA + calibrada a la elegida:
+  - `SfArcadeLadder.intensityForStep(index,total)` = rampa 0.20→1.0 según avanzas (rank oculto).
+  - `SfArcadeLadder.difficultyForStep(base,step)` = sube el TIER (+1 en jefes/≥10, +2 en la final)
+    sobre la dificultad ELEGIDA como base (Fácil/Medio/Difícil).
+  - `cpuIntensity` calibra cadencia de decisión y agresividad/bloqueo en `buildCpuInput`/
+    `smartCpuDecision`. Resultado: se endurece al avanzar Y respeta la base elegida — igual que 3rd Strike.
+
+## Cambios 2026-07-18m (Fable) — desbloqueo por dificultad, dev-tools, flechas P1/P2, dificultad sin escenario
+
+- **Desbloqueo por dificultad ELEGIDA** (`handleArcadeMatchEnd`, key = `arcadeChosenDifficulty`):
+  FÁCIL (BASICA) → SOLO el mapa del rival; MEDIO (NORMAL) → el PELEADÓR + su mapa (mínimo para
+  tener al personaje); DIFÍCIL (AVANZADA/apocalíptica) → NADA por ahora (próx.: animaciones/
+  poderes). La escalera siempre avanza al ganar. Antes: cualquier victoria desbloqueaba peleadór+mapa.
+- **"ELIGE DIFICULTAD" sin escenario:** los strings `sf_arcade_diff_*_desc` + `_maps_hint` ya NO
+  dicen día/noche/apocalíptica; ahora describen el AI y el desbloqueo (ES+EN).
+- **Flechas P1/P2 en el selector:** `SelectArrowHeader` + params `allyId`/`showPickArrow` en
+  `CharacterSelectOverlay`. Al elegir al P2/rival (práctica + IA vs IA): flecha AZUL "P1 ▼" sobre
+  el ya elegido y flecha ROJA "P2 ▼" sobre el resaltado (además de la animación del card).
+- **Autojuego/Showcase = SOLO Modo Desarrollador:** los 4 botones (todos vs todos, 9 campañas,
+  showcase animaciones/sonidos, showcase audios) se envuelven en `if (devMode)` dentro de
+  `SfModeMenuOverlay` (param `devMode = viewModel.devUnlockAll()`), bajo header
+  `sf_dev_tools_header`. Los usuarios normales solo ven Arcade/Práctica/IA vs IA/Multijugador.
 
 ## Fix 2026-07-18j (Fable) — IA variada + showcase completo con auditoría estática
 
@@ -69,6 +183,34 @@
   aceleradas solo en el bot QA. Test puro: 600 configuraciones aleatorias + presencia de assets.
 - CI: errores `ComplexCondition`/`UnusedParameter` corregidos; detekt bloqueante local PASS;
   debug APK, unit tests y release AAB compilan con AGP/Gradle actuales. Versión 1.0.0.12.
+
+## Hotfix de entrega 2026-07-18 — límite Play, skip real y AAB manual
+
+- El primer upload de 1.0.0.12 llegó con firma/versionCode válidos, pero Play rechazó el módulo
+  `base` por superar 500 MB comprimidos.
+- Los 48 atlas de escenario pasaron de PNG a WebP lossless exacto; se verificó hash RGBA idéntico
+  por archivo. Los 29 fondos fijos heredados sin referencias runtime se movieron a
+  `_ORPHAN_ASSETS/STREETFIGHTER/legacy_static_backgrounds` (preservados, fuera del AAB).
+- Resultado real de `bundleRelease`: AAB **434.47 MiB**, `base` comprimido **433.84 MiB
+  (454.91 MB)**, margen preventivo **45.09 MB** bajo el límite decimal. Las 21 voces y los
+  WAV generales no se recomprimieron.
+- `skipShowcaseStep` marca completado el bloque del peleador y su timer; el tick siguiente
+  encadena al siguiente peleador sin esperar el resto del guion.
+- CI migra a Actions Node 24, `tracks: alpha`, notas ES/EN y validación 500 MB. El AAB firmado
+  se guarda como artefacto; `manual-play-upload` permite la entrega manual sin doble publicación.
+
+## Hotfix 2026-07-18 · fondos realmente animados + QA acelerado + La Llorona
+
+- Pipeline de mapas: 15 cuadros fuente repartidos en 5 s, playback 6 fps y ping-pong de 28
+  pasos. Matriz cerrada 16×3: día, noche y noche tenebrosa; logo POW aplicado por fotograma.
+  Los auxiliares se escriben en `additional_assets/`, fuera del proyecto Android interno.
+- Showcase: salto de animación (mismo personaje), salto de personaje, velocidad 1×/2×/4×,
+  repetir voz y showcase audio-only de los 21 OGG con duración real.
+- La Llorona: la hoja 09 fusionaba 14 figuras HURT HEAD en siete blobs. El slicer calcula el
+  ancho esperado de pose, separa 14/14 y selecciona cuatro cuadros completos; el validador
+  rechaza cuerpos HURT anormalmente anchos. Atlas final: 123 frames, 30 animaciones.
+- Verificación release AGP 9.3/Gradle 9.5/JBR: AAB 438.52 MiB, `base` 459.16 MB comprimidos,
+  margen 40.84 MB bajo Play. `additional_assets` tiene cero entradas en el bundle.
 
 ## Objetivo
 
@@ -118,8 +260,8 @@ historia (Rey Grupero compite por él), no el personaje.
    **jefe final (Prankedy)**. Los intermedios se desbloquean según salga cada rival
    (aleatorio). Candado **🔒 en la esquina superior** de los mapas bloqueados en el selector
    (motiva a seguir jugando).
-8. **Mapa "Ciudad Universitaria UNAM" = renombrar "Biblioteca UNAM"** (mismo asset
-   `fondo_UNAM_bibliotecaCentral_1.png`, solo cambia el nombre visible). Está en CU.
+8. **Mapa "Ciudad Universitaria UNAM" = renombrar "Biblioteca UNAM"** (asset runtime
+   `fondo_unam_biblioteca_cu_anim.webp`; el PNG fijo histórico quedó archivado). Está en CU.
 
 ## ESCALERA — 11 peleas (CERRADA con el dueño 2026-07-16)
 
@@ -232,6 +374,21 @@ Los locked salen con candado; el fondo del muelle SF queda de fallback.
   todas las tarjetas; **solo el focused** anima (un frame del atlas, no el filmstrip);
   confirmar con botón. Lógica separada del Canvas de combate.
 
+## FIX 2026-07-17f · La Llorona: proyectil sin recortar (RESUELTO)
+
+**Síntoma:** al lanzar su poder especial se veía un asset enorme sin recortar (solo ella).
+**Causa raíz:** su hoja croma `_12` (SPECIAL HEAVY/PROJECTILE) llegó como **JPG**; el croma sucio
+hacía que el slicer detectara un blob gigante y lo tomara como `proj-fly-1` (bbox 141×232 y 18.7%
+de la celda, vs ~50-90 px y 1-4% en los demás personajes). Además los 2 sprites de la **columna 0**
+del bloque de proyectiles salían **fusionados verticalmente** en un solo blob (x=258, 165×396).
+**Fix aplicado** sobre `newSFAssets/LaLlorona/LaLlorona_12_SpecialHeavy_Extra.png`:
+1. Snap del croma a verde puro (`g>90 && g>r*1.25 && g>b*1.25` → `#00FF00`) para limpiar el JPEG.
+2. Enmascarar con croma la franja izquierda `x<245` (elemento espurio).
+3. Cortar con croma la franja `y 528-582, x 245-440` para SEPARAR los dos sprites de la columna 0.
+4. Re-slice de la hoja 12 + `pack_sf_character.py lallorona LaLlorona` + sacar `GEN/` de assets.
+**Resultado:** `proj-fly-1/2` y `proj-hit-1/2/3` quedan en 52-56 px y 1.5-3.1% de la celda (igual
+que Charro/Rey Grupero). ⚠️ Si se regenera la hoja 12, hacerlo en **PNG con croma limpio**.
+
 ## PENDIENTE — siguiente sesión
 
 > ✅ Hechos (2026-07-17e…18h): arcade por defecto; bloqueados ???; rival visible; mapas×3;
@@ -293,3 +450,20 @@ Más motions/combos/cancels/fluidez. Definir set con el dueño antes de implemen
 Docs 07 (§HUELUM VS. GOYA) + este doc (marcar avance / borrarlo al terminar) + README
 público raíz (EN **y** ES). Arcade es offline → NO toca red. Verificar con Read, balance de
 llaves y CRLF. Listo para Rebuild.
+
+## Fix 18l — IA compartida, aterrizaje y anti-bucle (2026-07-18)
+
+- **Causa raíz del pegado/timeout:** `updateStageConstraints` limita `y` exactamente a
+  `STAGE_FLOOR`, pero el handler de `JUMP_UP/FORWARD/BACKWARD` solo aterrizaba con `y > floor`.
+  El peleador quedaba para siempre en `JUMP_*` aunque visualmente estuviera abajo. Ahora aterriza
+  con `y >= floor && velocityY >= 0`, y los tres estados aéreos están cubiertos por `watchStuck`.
+- `buildCpuInput` usa un solo motor en VS, Arcade, IA vs IA y Autoplay. `repairCpuFacing` se ejecuta
+  para cualquier CPU antes de leer `forward/backward`; dificultad controla cadencia/defensa y
+  `CpuStyle` solo sesga presión o poderes según el personaje.
+- La colisión cuerpo a cuerpo continúa buscando BODY/LEGS si HEAD no traslapa. La CPU no intenta
+  golpes cortos fuera de `CPU_MELEE_DIST`; tras pasividad fuerza acercamiento real.
+- Variedad/justicia: memoria de 3 golpes, cooldown separado para special/bonus, defensa reactiva y
+  ventana `COMBO_ESCAPE_MS` tras 3 impactos rápidos para impedir cadenas de poder sin salida.
+- Auditoría: cada estancamiento y ronda decidida por tiempo es un problema explícito; el `.txt`
+  incluye rondas por KO y por tiempo. Validación principal: **Autoplay everyone vs everyone**
+  (18×17 = 306 combates) en emulador, seguida por las 9 campañas por dificultad.

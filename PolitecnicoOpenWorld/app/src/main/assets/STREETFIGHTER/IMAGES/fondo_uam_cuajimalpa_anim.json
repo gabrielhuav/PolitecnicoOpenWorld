@@ -4,11 +4,12 @@
   "cols": 4,
   "rows": 7,
   "frameCount": 28,
-  "fps": 12.0,
+  "fps": 6.0,
   "loop": true,
   "pingPong": true,
   "slug": "uam_cuajimalpa",
-  "source": "UAM Cuajimalpa.png",
+  "source": "UAM Cuajimalpa.mp4",
   "maxAtlasSide": 2048,
-  "kenBurns": true
+  "logoApplied": true,
+  "sourceSampleSpanSeconds": 5.0
 }

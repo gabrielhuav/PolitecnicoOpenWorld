@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -58,7 +59,7 @@ import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
 // Selector de MAPA (pre-pelea) — LÓGICA SEPARADA del draw loop del combate.
 //
 //  - Cada tarjeta: miniatura ESTÁTICA (`*_thumb.png`, ~256 px). NUNCA el atlas completo.
-//  - Solo el mapa FOCUSED (tocado) se previsualiza animado si es `_anim.png`:
+//  - Solo el mapa FOCUSED (tocado) se previsualiza animado si es `_anim.webp`:
 //      se carga UN atlas submuestreado y se pinta UN frame a la vez (sub-rect),
 //      no se muestra el filmstrip/spreadsheet entero.
 //  - Confirmación explícita: tocar = previsualizar; "Elegir este mapa" = onSelect.
@@ -88,7 +89,7 @@ private data class StageAnimPreview(
 
 /**
  * Overlay de elección de escenario.
- * @param onSelect null = al azar; String = archivo del fondo (p. ej. fondo_escom_anim.png)
+ * @param onSelect null = al azar; String = archivo del fondo (p. ej. fondo_escom_anim.webp)
  * @param unlockedMaps null = todos; si no, los que no estén salen con 🔒
  */
 @Composable
@@ -106,7 +107,7 @@ fun SfStageSelectOverlay(
     // Solo el focused anima (y solo si es _anim y NO lowEnd). Se descarga al cambiar de focus.
     val focusedFile = (focus as? StageFocus.Map)?.file
     val animPreview = remember(focusedFile, lowEnd) {
-        if (!lowEnd && focusedFile != null && focusedFile.endsWith("_anim.png")) {
+        if (!lowEnd && focusedFile != null && focusedFile.endsWith("_anim.webp")) {
             loadStageAnimPreview(context, theme.imagesDir, focusedFile)
         } else {
             null
@@ -116,8 +117,9 @@ fun SfStageSelectOverlay(
         onDispose { /* ImageBitmap GC; no hay recycle de ImageBitmap de Compose */ }
     }
 
+    val powMenuBg = remember { Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11))) }
     Box(
-        modifier = Modifier.fillMaxSize().background(Color(0xE6101018)),
+        modifier = Modifier.fillMaxSize().background(powMenuBg),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -317,10 +319,10 @@ private fun StageAnimFrameView(preview: StageAnimPreview) {
 // Carga de assets (solo UI del selector; el combate usa loadStageBackground)
 // ---------------------------------------------------------------------------
 
-/** Miniatura estática ~256 px (`*_thumb.png`); fallback submuestreado del archivo. */
+/** Miniatura estática ~256 px (`*_thumb.png`); fallback submuestreado del WebP. */
 private fun loadStageStaticThumb(context: Context, imagesDir: String, file: String): ImageBitmap? {
     return runCatching {
-        val thumbName = file.removeSuffix(".png") + "_thumb.png"
+        val thumbName = file.substringBeforeLast('.') + "_thumb.png"
         val fromThumb = runCatching {
             context.assets.open(imagesDir + thumbName).use { BitmapFactory.decodeStream(it) }
         }.getOrNull()
@@ -346,7 +348,7 @@ private fun loadStageAnimPreview(
     imagesDir: String,
     file: String,
 ): StageAnimPreview? {
-    if (!file.endsWith("_anim.png")) return null
+    if (!file.endsWith("_anim.webp")) return null
     return runCatching {
         val jsonName = file.substringBeforeLast('.') + ".json"
         val metaText = context.assets.open(imagesDir + jsonName).use {

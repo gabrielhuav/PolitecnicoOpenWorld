@@ -35,7 +35,7 @@ class SfArcadeRepository(context: Context) {
         /** Peleadores desbloqueados de arranque: los 3 estudiantes (el jugador elige uno). */
         val DEFAULT_FIGHTERS = setOf("ESCOMBOY", "ESCOMGIRL", "ROBOT")
         /** Mapa desbloqueado de arranque (hogar de los starters = ESCOM día). */
-        const val DEFAULT_MAP = "fondo_escom_anim.png"
+        const val DEFAULT_MAP = "fondo_escom_anim.webp"
     }
 
     private val prefs: SharedPreferences =
@@ -92,21 +92,26 @@ class SfArcadeRepository(context: Context) {
      */
     fun unlockedMaps(): Set<String> {
         ensureMapsSyncedFromFighters()
-        val stored = prefs.getStringSet(KEY_MAPS, null)?.toSet().orEmpty()
+        val stored = prefs.getStringSet(KEY_MAPS, null)
+            ?.mapTo(mutableSetOf(), SfStageCatalog::normalizeFile)
+            .orEmpty()
         val starterMaps = SfStageCatalog.filesForStage(SfStageCatalog.ESCOM)
         return stored + starterMaps + setOf(DEFAULT_MAP)
     }
 
-    fun isMapUnlocked(file: String): Boolean = file in unlockedMaps()
+    fun isMapUnlocked(file: String): Boolean = SfStageCatalog.normalizeFile(file) in unlockedMaps()
 
     /**
      * Desbloquea un archivo de mapa y **toda su familia** (día/noche/apocalipsis del mismo
      * escenario). Así, al ganar en arcade con un fondo de noche, el día también queda usable.
      */
     fun unlockMap(file: String): Boolean {
-        val family = SfStageCatalog.stageForFile(file)?.let { SfStageCatalog.filesForStage(it) }
-            ?: setOf(file)
-        val current = prefs.getStringSet(KEY_MAPS, null)?.toSet().orEmpty()
+        val normalized = SfStageCatalog.normalizeFile(file)
+        val family = SfStageCatalog.stageForFile(normalized)?.let { SfStageCatalog.filesForStage(it) }
+            ?: setOf(normalized)
+        val current = prefs.getStringSet(KEY_MAPS, null)
+            ?.mapTo(mutableSetOf(), SfStageCatalog::normalizeFile)
+            .orEmpty()
         if (family.all { it in current }) return false
         prefs.edit().putStringSet(KEY_MAPS, current + family).apply()
         return true
@@ -116,7 +121,9 @@ class SfArcadeRepository(context: Context) {
     fun unlockMapsForFighterName(idName: String) {
         val id = runCatching { SfFighterId.valueOf(idName) }.getOrNull() ?: return
         val maps = SfStageCatalog.unlockableMapsForFighter(id)
-        val current = prefs.getStringSet(KEY_MAPS, null)?.toSet().orEmpty()
+        val current = prefs.getStringSet(KEY_MAPS, null)
+            ?.mapTo(mutableSetOf(), SfStageCatalog::normalizeFile)
+            .orEmpty()
         if (maps.all { it in current }) return
         prefs.edit().putStringSet(KEY_MAPS, current + maps).apply()
     }
@@ -127,8 +134,9 @@ class SfArcadeRepository(context: Context) {
      */
     private fun ensureMapsSyncedFromFighters() {
         val fighters = unlockedFighters()
-        var maps = prefs.getStringSet(KEY_MAPS, null)?.toSet().orEmpty()
-        var dirty = false
+        val storedMaps = prefs.getStringSet(KEY_MAPS, null)?.toSet().orEmpty()
+        var maps = storedMaps.mapTo(mutableSetOf(), SfStageCatalog::normalizeFile).toSet()
+        var dirty = maps != storedMaps
         for (name in fighters) {
             val id = runCatching { SfFighterId.valueOf(name) }.getOrNull() ?: continue
             val family = SfStageCatalog.unlockableMapsForFighter(id)
@@ -176,7 +184,7 @@ class SfArcadeRepository(context: Context) {
             .put("playerId", session.playerId)
             .put("step", session.step)
             .put("total", session.total)
-            .put("mapFile", session.mapFile)
+            .put("mapFile", session.mapFile?.let(SfStageCatalog::normalizeFile))
             .put("playerRoundWins", session.playerRoundWins)
             .put("cpuRoundWins", session.cpuRoundWins)
             .put("difficulty", session.difficulty)
@@ -201,7 +209,9 @@ class SfArcadeRepository(context: Context) {
                 step = o.getInt("step"),
                 total = o.getInt("total"),
                 ladderRivals = rivals,
-                mapFile = o.optString("mapFile", null).takeIf { it.isNotEmpty() && it != "null" },
+                mapFile = (o.opt("mapFile") as? String)
+                    ?.takeIf { it.isNotEmpty() && it != "null" }
+                    ?.let(SfStageCatalog::normalizeFile),
                 playerRoundWins = o.optInt("playerRoundWins", 0),
                 cpuRoundWins = o.optInt("cpuRoundWins", 0),
                 difficulty = o.optString("difficulty", "NORMAL"),

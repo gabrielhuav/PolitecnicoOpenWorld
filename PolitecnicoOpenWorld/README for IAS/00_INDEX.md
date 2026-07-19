@@ -96,6 +96,21 @@
   las fuentes locales y síntesis únicamente para el Robot ficticio. Arte: HURT únicos de Llorona
   + metamorfosis inversa Yoalli→Presidenta. Auditoría IA: 9 campañas/135 peleas aceleradas y 600
   configuraciones estructurales. Play Store: `versionCode 12`, `versionName 1.0.0.12`.
+- **✅ Hotfix de entrega 1.0.0.12 (Sol):** el primer upload llegó firmado pero Play rechazó
+  `base` por superar 500 MB. Los 48 atlas de mapas pasaron PNG→WebP lossless con hash RGBA
+  idéntico y 29 fondos fijos sin referencias se archivaron en `_ORPHAN_ASSETS`; AAB real
+  **434.47 MiB**, `base` comprimido **433.84 MiB**. SALTAR termina peleador+timer. CI usa
+  Actions Node 24, `tracks`, notas ES/EN y entrega AAB firmado; label `manual-play-upload`
+  omite solo el upload automático.
+
+- **✅ Hotfix animación/showcase/Llorona (Sol):** los 48 fondos se regeneraron como WebP
+  lossless con 15 cuadros únicos distribuidos en 5 s y playback 6 fps: **16 día + 16 noche +
+  16 noche tenebrosa**, todos con `logoPOW.png` aplicado por frame. Los auxiliares fijos salen a
+  `additional_assets/`, fuera del proyecto Android compilable. Showcase separa siguiente
+  animación/personaje, velocidad 1×/2×/4×, repetición de voz y recorrido audio-only 21/21.
+  La hoja 09 de La Llorona ahora separa 14 poses pegadas; `hit-face-*` ya no contiene dos
+  cuerpos y el validador detecta cuerpos fusionados. `bundleRelease` final: **438.52 MiB**,
+  `base` comprimido **459.16 MB**, margen Play **40.84 MB**.
 
 ### Docs de trabajo / Working docs (no son 00–09)
 
@@ -104,15 +119,18 @@
 | `GUIA_mantenimiento_no_senior.md` | **EMPEZAR AQUÍ si eres IA/dev nuevo:** 7 reglas, chuleta, qué NO hacer. |
 | `DISENO_ARCADE_SF_POW.md` | Diseño + avance del ARCADE POW (escalera, desbloqueos, IA por fases). |
 | **`SF_STAGES_MAPS_UNLOCK.md`** | **16 mapas × 3 luces, peleadór→hogar (tabla dueño), desbloqueos MP.** |
+| **`QA_SF_STAGES_2026-07-18.md`** | **QA de fondos (dueño): encuadre `SfBgFraming` (5 mapas nuevos ✅ + salto), pendientes: sombra Isla Muñecas, video día FES Acatlán, subtítulos que se salen.** |
+| **`AUDIO_INVENTARIO_SF.md`** | **Qué audio tiene cada peleadór, globales vs por-peleadór, qué borrar, y el fix de tamaño AAB (atlas lossless→lossy 221→82 MB). Script `tools/sf_audio_review.sh`.** |
+| **`PROMPT_panoramico_todos_los_mapas.md`** | **Trabajo FINAL diferido: aplicar el encuadre panorámico + salto a los 16 mapas, uno por uno. Prompt autónomo con todo lo necesario.** |
 | `AUDIT_SF_MULTIPLAYER.md` | Multijugador 1v1: protocolo, server `MultiplayerSF/`, BT/LAN. |
 | `ASSETS_STREETFIGHTER_MIGRACION.md` | Pipeline assets pelea (JSON, pack, migración SF→POW). |
-| **`SF_SPECIAL_VOICES_SFX.md`** | Voces/SFX v3: 21/21 español, cortes locales, Whisper, hashes, `MediaPlayer`; v1/v2 queda histórico. |
+| **`SF_SPECIAL_VOICES_SFX.md`** | Voces/SFX v3: 21/21 español, cortes locales, Whisper, hashes, `MediaPlayer`; v1/v2 queda histórico. **⚠️ TRABAJO FUTURO (humano): subtítulos de frases DESACTIVADOS** (`voiceSubtitlesEnabled=false`) porque los audios nuevos ya no coinciden con el texto — re-transcribir las 21 frases y reactivar. Ver la caja al inicio de ese doc. |
 | `GUIA_regeneracion_sprites_croma.md` | Regenerar sprites croma pelea+mundo. |
 | `GUIA_generacion_assets_SF.md` | Guía manual de generación de assets. |
 | `NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |
 | `CHECKPOINT_SENIOR_refactor.md` | Receta del patrón manager/Hilt/detekt (referencia). |
 | `CAMPAIGN/` | Guion Modo Historia (misiones 1–3 + side). |
-| `_ARCHIVO/` | Histórico + prompts: **`PROMPT_traspaso_GPT56_2026-07-18_git_audio.md`** (SIGUIENTE SESIÓN: **1º git/PR a producción**, 2º audio Llorona/Presidenta), `PROMPT_traspaso_Fable_2026-07-18_voces.md`, `PROMPT_traspaso_IA_CPU_2026-07-18.md`. |
+| `_ARCHIVO/` | Histórico + prompts: **`PROMPT_traspaso_Gemini_2026-07-18_audio.md`** (SIGUIENTE SESIÓN: sistema de voces + pendiente "ZA ZA" grito masculino + policías), `PROMPT_traspaso_GPT56_2026-07-18_git_audio.md`, `PROMPT_traspaso_Fable_2026-07-18_voces.md`. |
 
 ---
 
@@ -169,3 +187,9 @@ manda**; luego sincroniza estos docs y, si es user-facing, el README público de
 signatures, state fields, pseudocode and gotchas the public README doesn't. *(Redundant `README.md` (136 KB)
 and `plan.artifact.md` copies were removed from here on 2026-06-22.)* On contradiction, **the code wins**;
 then sync these docs and, if user-facing, the public root README.
+
+**Actualización SF 2026-07-18 (Fix 18l):** la IA de `StreetFighterViewModel` es compartida por
+Arcade/VS/IA-vs-IA/Autoplay; se corrigió el aterrizaje eterno en `JUMP_*`, la orientación tras
+cruces, hitboxes BODY/LEGS, variedad/defensa/cooldowns y el bucle de hit-stun. El auditor ahora
+falla por pasividad o timeout y valida 306 cruces everyone-vs-everyone; detalle en `07` y
+`DISENO_ARCADE_SF_POW.md`.

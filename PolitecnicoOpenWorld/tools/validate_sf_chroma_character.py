@@ -74,8 +74,19 @@ def main():
                 errors.append("bonusPower%d debe tener 5 cuadros + transicion" % power)
         if len(projectiles) != 5:
             errors.append("JSON tiene %d proj-*; deben ser 5" % len(projectiles))
-        if set(events) != {"light", "medium", "heavy"}:
-            errors.append("events.projectile debe declarar light/medium/heavy")
+        # Un mapa vacío es válido: el motor usa SfProjectileEvent() como fallback.
+        # Si el personaje sí personaliza el proyectil, debe declarar las tres fuerzas.
+        if events and set(events) != {"light", "medium", "heavy"}:
+            errors.append("events.projectile debe estar vacío o declarar light/medium/heavy")
+        if sheet_path.is_file():
+            sheet = Image.open(sheet_path).convert("RGBA")
+            for key, frame in frames.items():
+                if not key.startswith(("hit-face-", "hit-stomach-")):
+                    continue
+                x, y, width, height = frame["src"]
+                bbox = sheet.crop((x, y, x + width, y + height)).getchannel("A").getbbox()
+                if bbox and (bbox[2] - bbox[0]) > (bbox[3] - bbox[1]) * 1.15:
+                    errors.append("Posible cuerpo duplicado o fusionado: %s" % key)
 
     print("SF sheet:", sheet_path)
     if data:

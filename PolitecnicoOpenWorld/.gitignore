@@ -1,6 +1,9 @@
 # Entorno de desarrollo e IDE
 *.iml
 .gradle
+
+# 🆕 Carpeta temporal de revisión de audio (tools/sf_audio_review.sh --mp3); NO empaquetar
+tools/_audio_review/
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
