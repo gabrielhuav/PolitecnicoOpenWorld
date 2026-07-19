@@ -112,6 +112,7 @@ class StreetFighterViewModel @Inject constructor(
         val hurt: List<SfVoiceLine> = emptyList(),
         val power: List<SfVoiceLine> = emptyList(),
         val win: List<SfVoiceLine> = emptyList(),
+        val loss: List<SfVoiceLine> = emptyList(),
     )
 
     private val sfVoicePacks: Map<SfFighterId, SfVoicePack> = run {
@@ -213,11 +214,13 @@ class StreetFighterViewModel @Inject constructor(
                 power = listOf(SfVoiceLine("special_power_electricity"))
             ),
             // 🆕 (2026-07-19) Prankedy: audios de daño (hurt) recortados de PrankedyMixes.mp3
+            // + audio de derrota (loss) extraído de Prankedy losses.mkv (recortado último segundo)
             SfFighterId.PRANKEDY to SfVoicePack(
                 hurt = listOf(
                     SfVoiceLine("special_prankedy_hurt_1"),
                     SfVoiceLine("special_prankedy_hurt_2")
-                )
+                ),
+                loss = listOf(SfVoiceLine("special_prankedy_loss"))
             ),
         )
     }
@@ -275,6 +278,12 @@ class StreetFighterViewModel @Inject constructor(
         val p = sfVoicePacks[id]
         if (p != null && emitVoiceLines(p.win, now)) return
         emitSpecialVoice(id, now)
+    }
+
+    /** 🆕 Voz de DERROTA del peleadór (pack LOSS; si no tiene, silencio — no hay fallback). */
+    private fun emitLossVoice(id: SfFighterId, now: Long) {
+        val p = sfVoicePacks[id] ?: return
+        emitVoiceLines(p.loss, now)
     }
 
     // Anti-spam de voces por índice (no repetir en menos del intervalo).
@@ -1062,6 +1071,10 @@ class StreetFighterViewModel @Inject constructor(
         // correctos antes que dejar animaciones sin sonido.
         if (newState == SfFighterState.VICTORY && f.state != SfFighterState.VICTORY) {
             emitWinVoice(nf.id, now)
+        }
+        // 🆕 (2026-07-19) Voz de DERROTA: cuando un peleadór entra en KO, emite su quejido de loss.
+        if (newState == SfFighterState.KO && f.state != SfFighterState.KO) {
+            emitLossVoice(nf.id, now)
         }
         sim.setFighter(idx, nf)
         return true
@@ -3163,7 +3176,10 @@ class StreetFighterViewModel @Inject constructor(
                 _soundEvents.tryEmit("medium-punch-hit")
             SfFighterState.HURT_HEAD_HEAVY, SfFighterState.HURT_BODY_HEAVY ->
                 _soundEvents.tryEmit("heavy-punch-hit")
-            SfFighterState.KO -> _soundEvents.tryEmit("heavy-kick-hit") // golpe final (thud)
+            SfFighterState.KO -> {
+                _soundEvents.tryEmit("heavy-kick-hit") // golpe final (thud)
+                emitLossVoice(nf.id, now) // 🆕 voz de derrota del perdedor
+            }
             SfFighterState.VICTORY -> emitWinVoice(nf.id, now) // su voz al celebrar (policía = WIN)
             SfFighterState.BONUS_POWER_11 -> emitSpecialVoice(nf.id, now) // metamorfosis
             else -> Unit // giros: sin SFX (tampoco lo tienen en pelea real)
