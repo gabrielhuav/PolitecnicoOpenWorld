@@ -125,12 +125,42 @@ import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterViewMod
 // (2026-07-15) El modo es PÚBLICO; el Modo Desarrollador solo desbloquea a RYU/KEN
 // (roster gateado por el VM: selectableFighters).
 
+private fun getFighterPrefix(key: String): String {
+    var clean = key.removeSuffix(".ogg").removeSuffix(".mp3")
+    while (clean.isNotEmpty() && (clean.last().isDigit() || clean.last() == '_')) {
+        clean = clean.dropLast(1)
+    }
+    val suffixes = listOf("hurt", "attack", "win", "power", "intro")
+    for (s in suffixes) {
+        if (clean.endsWith(s)) {
+            clean = clean.removeSuffix(s)
+            break
+        }
+    }
+    while (clean.isNotEmpty() && clean.last() == '_') {
+        clean = clean.dropLast(1)
+    }
+    return clean
+}
+
 /** Reproduce una voz o pieza larga completa; SoundPool puede truncar archivos extensos. */
 private fun playSfSpecial(
     context: Context,
     assetPath: String,
     activePlayers: MutableMap<String, MediaPlayer>,
 ): Boolean {
+    // 🆕 Interrumpir cualquier audio del mismo personaje que ya se esté reproduciendo
+    val newPrefix = getFighterPrefix(assetPath.substringAfterLast('/'))
+    val keysToStop = activePlayers.keys.filter { key ->
+        getFighterPrefix(key.substringAfterLast('/')) == newPrefix
+    }
+    keysToStop.forEach { key ->
+        activePlayers.remove(key)?.let { current ->
+            runCatching { if (current.isPlaying) current.stop() }
+            runCatching { current.release() }
+        }
+    }
+
     // 🆕 (2026-07-18r) RE-DISPARO: si el MISMO clip ya suena, lo cortamos y lo volvemos a
     // lanzar desde el inicio (antes se ignoraba mientras sonaba → "no se repetía" al re-atacar).
     activePlayers.remove(assetPath)?.let { current ->
@@ -302,6 +332,7 @@ fun StreetFighterScreen(
         }.toMap()
     }
     val activeSpecialPlayers = remember { mutableMapOf<String, MediaPlayer>() }
+    val activeStreams = remember { mutableMapOf<String, Int>() }
     LaunchedEffect(soundIds) {
         viewModel.soundEvents.collect { key ->
             if (key == SF_STOP_SPECIALS_EVENT) {
@@ -312,10 +343,26 @@ fun StreetFighterScreen(
                     assetPath = "${theme.soundsDir}$key.ogg",
                     activePlayers = activeSpecialPlayers,
                 )
-                if (!played) soundIds["hadouken"]?.let { soundPool.play(it, 1f, 1f, 1, 0, 1f) }
+                if (!played) {
+                    val fallbackId = soundIds["hadouken"]
+                    fallbackId?.let { pid ->
+                        activeStreams["hadouken"]?.let { lastStream ->
+                            soundPool.stop(lastStream)
+                        }
+                        val streamId = soundPool.play(pid, 1f, 1f, 1, 0, 1f)
+                        activeStreams["hadouken"] = streamId
+                    }
+                }
             } else {
                 val poolId = soundIds[key] ?: soundIds["hadouken"]
-                poolId?.let { soundPool.play(it, 1f, 1f, 1, 0, 1f) }
+                poolId?.let { pid ->
+                    val finalKey = if (soundIds.containsKey(key)) key else "hadouken"
+                    activeStreams[finalKey]?.let { lastStream ->
+                        soundPool.stop(lastStream)
+                    }
+                    val streamId = soundPool.play(pid, 1f, 1f, 1, 0, 1f)
+                    activeStreams[finalKey] = streamId
+                }
             }
         }
     }

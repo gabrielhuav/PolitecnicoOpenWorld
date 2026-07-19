@@ -165,7 +165,8 @@ class StreetFighterViewModel @Inject constructor(
             SfFighterId.LA_TZITZIMIME to SfVoicePack(attack = listOf(SfVoiceLine("special_la_tzitzimime_attack"))),
             SfFighterId.REY_GRUPERO to SfVoicePack(intro = listOf(SfVoiceLine("special_rey_grupero"))),
             SfFighterId.PARAMEDICO_CRUZ_ROJA to SfVoicePack(
-                win = listOf(SfVoiceLine("special_paramedico_cruz_roja")),
+                win = listOf(SfVoiceLine("special_paramedico_cruz_roja", "No olvides que saber primeros auxilios marca la diferencia y salva vidas.")),
+                power = listOf(SfVoiceLine("special_paramedico_cruz_roja_power"))
             ),
             // 🆕 (2026-07-18u) Charro Negro: 2 gritos de ataque + 3 de daño (su special_charro_negro
             // sigue como fallback del poder especial).

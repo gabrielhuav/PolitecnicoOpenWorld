@@ -48,7 +48,7 @@ Fuente de verdad: `sfVoicePacks` (packs por evento con frase) + fallback `specia
 | **La Llorona** (`LA_LLORONA`) | power = `special_llorona_power` · attack = `special_llorona_attack` (seg 7-11 del fuente) · hurt = `special_llorona_hurt` | (usa el power) |
 | **La Tzitzimime** (`LA_TZITZIMIME`) | attack (golpe normal) = `special_la_tzitzimime_attack` (90% de duración del original) | (no tiene; fallback hadouken) |
 | **Rey Grupero** (`REY_GRUPERO`) | intro = `special_rey_grupero` | `special_rey_grupero` |
-| **Paramédico Cruz Roja** (`PARAMEDICO_CRUZ_ROJA`) | win = `special_paramedico_cruz_roja` | `special_paramedico_cruz_roja` |
+| **Paramédico Cruz Roja** (`PARAMEDICO_CRUZ_ROJA`) | win = `special_paramedico_cruz_roja` · power = `special_paramedico_cruz_roja_power` (electricidad a 1.5x) | (no tiene; fallback hadouken) |
 | **Charro Negro** (`CHARRO_NEGRO`) | attack ×2 = `special_charro_attack_1/2` · hurt ×3 = `special_charro_hurt_1/2/3` | `special_charro_negro` |
 | **Señor de la Tienda** (`SENOR_TIENDA`) | attack ×2 = `special_senor_tienda_attack_1/2` · hurt ×2 = `special_senor_tienda_hurt_1` / `_2` (puerquito) · win = `special_senor_tienda_win` | `special_senor_tienda` |
 | **Robot** (`ROBOT`) | win = `special_robot_win` (del fuente `victory ROBOT.mp3`) | `special_robot` (su special) |
@@ -91,6 +91,9 @@ tu propia voz). Archivo: **`special_male_attack_grunt.ogg`**.
 - **Robot:** se agrega su audio de victoria `special_robot_win.ogg` (`victory ROBOT.mp3`).
 - **La Presidenta:** se elimina su especial de voz y se convierte en su audio de victoria `special_la_presidenta_win.ogg` recortando el primer segundo de silencio.
 - **La Tzitzimime:** se recorta el último 10% del audio original de su especial (duración 2.25s) y se convierte exclusivamente en su sonido de golpe normal (`special_la_tzitzimime_attack.ogg`).
+- **Paramédico Cruz Roja:** su especial de voz ahora se convierte en su audio de victoria con subtítulo y su especial de poder es el efecto de electricidad acelerado a 1.5x (`special_paramedico_cruz_roja_power.ogg`).
+- **Policía CDMX Mujer:** se recortó la pista de ataque `special_pol_m_attack_1.ogg` para durar únicamente los primeros 2.3 segundos.
+- **Interrupción de Sonidos al Ser Golpeado:** se modificó el reproductor de audios y el SoundPool en `StreetFighterScreen.kt` para que no se traslapen/repitan sonidos de golpes ni las voces de daño del mismo personaje. Si ya se están reproduciendo, se interrumpen y reinician desde el principio inmediatamente.
 - `tools/_audio_review/` regenerado completamente con las conversiones a mp3 de todos los cambios.
 
 ## Cambios de audio 2026-07-18u

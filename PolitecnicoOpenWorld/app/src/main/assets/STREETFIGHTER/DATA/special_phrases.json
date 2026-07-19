@@ -79,14 +79,6 @@
       "subtitle_ms": 10200,
       "tier": "authentic_voice"
     },
-    "PARAMEDICO_CRUZ_ROJA": {
-      "phrase_es": "No olvides que saber primeros auxilios marca la diferencia y salva vidas.",
-      "phrase_en": "Remember: knowing first aid makes a difference and saves lives.",
-      "phrase_hud": "NO OLVIDES QUE SABER PRIMEROS AUXILIOS MARCA LA DIFERENCIA Y SALVA VIDAS",
-      "audio": "special_paramedico_cruz_roja.ogg",
-      "subtitle_ms": 4400,
-      "tier": "authentic_voice"
-    },
     "PARAMEDICO": {
       "phrase_es": "Así, los niños y adultos reciben lo estrictamente necesario para su diagnóstico.",
       "phrase_en": "This way, children and adults receive exactly what is needed for their diagnosis.",
