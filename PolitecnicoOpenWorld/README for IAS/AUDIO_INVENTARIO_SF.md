@@ -50,7 +50,8 @@ Fuente de verdad: `sfVoicePacks` (packs por evento con frase) + fallback `specia
 | **Rey Grupero** (`REY_GRUPERO`) | intro = `special_rey_grupero` | `special_rey_grupero` |
 | **Paramédico Cruz Roja** (`PARAMEDICO_CRUZ_ROJA`) | win = `special_paramedico_cruz_roja` | `special_paramedico_cruz_roja` |
 | **Charro Negro** (`CHARRO_NEGRO`) | attack ×2 = `special_charro_attack_1/2` · hurt ×3 = `special_charro_hurt_1/2/3` | `special_charro_negro` |
-| Presidenta, Yoalli, Señor Tienda, ESCOM×3, Paparazzi 5 | (sin pack) | `special_<id>` (su special) |
+| **Señor de la Tienda** (`SENOR_TIENDA`) | attack ×2 = `special_senor_tienda_attack_1/2` · hurt ×2 = `special_senor_tienda_hurt_1` / `_2` (puerquito) · win = `special_senor_tienda_win` | `special_senor_tienda` |
+| Presidenta, Yoalli, ESCOM×3, Paparazzi 5 | (sin pack) | `special_<id>` (su special) |
 | **Lázaro, Paramédico, Prankedy** | SIN VOZ (borrados) → su especial suena hadouken | — (en `sfVoicelessFighters`) |
 
 **Naming:** 1 variante = `special_<key>_<evento>.ogg`; N variantes = `special_<key>_<evento>_<n>.ogg`.
@@ -77,9 +78,13 @@ Sonido de ataque NORMAL (no especial) que suena AL AZAR cuando un peleadór **HO
 Probabilidad por rol: **enemigo (índice 1) 35 %**, **jugador (índice 0) 10 %** (para no saturar
 tu propia voz). Archivo: **`special_male_attack_grunt.ogg`**.
 
-⚠️ **PENDIENTE:** el fuente **"ZA ZA.mp3" (17 s) NO estaba en la carpeta**. Falta:
-recortar **seg 8-10** (2 s) y guardarlo como `special_male_attack_grunt.ogg` en `SOUNDS/`.
-El código ya está cableado (no-op mientras falte el .ogg; el showcase lo reporta como opcional).
+✅ **RESUELTO (2026-07-19):** el fuente **"ZA ZA.mp3" (17 s)** fue proveído por el dueño; se recortó el **seg 8-10** (2 s) y se guardó como `special_male_attack_grunt.ogg` en `SOUNDS/`.
+
+## Cambios de audio 2026-07-19
+
+- **Señor de la Tienda (pack COMPLETO):** attack ×2 (`special_senor_tienda_attack_1/2`), hurt ×2 (`special_senor_tienda_hurt_1` y `_2` ("puerquito" de `Puerquito.mp3`)), y win (`special_senor_tienda_win`).
+- **Grito masculino por defecto:** recortado seg 8-10 de `ZA ZA.mp3` y guardado como `special_male_attack_grunt.ogg` en `SOUNDS/`.
+- `tools/_audio_review/` regenerado con todas las nuevas voces en mp3.
 
 ## Cambios de audio 2026-07-18u
 

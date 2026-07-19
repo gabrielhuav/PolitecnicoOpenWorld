@@ -176,13 +176,27 @@ class StreetFighterViewModel @Inject constructor(
                     SfVoiceLine("special_charro_hurt_3"),
                 ),
             ),
+            // 🆕 (2026-07-19) Señor de la Tienda: 2 gritos de ataque + 2 de daño (hurt_2 es "puerquito") + 1 de victoria
+            SfFighterId.SENOR_TIENDA to SfVoicePack(
+                attack = listOf(
+                    SfVoiceLine("special_senor_tienda_attack_1"),
+                    SfVoiceLine("special_senor_tienda_attack_2")
+                ),
+                hurt = listOf(
+                    SfVoiceLine("special_senor_tienda_hurt_1"),
+                    SfVoiceLine("special_senor_tienda_hurt_2", "¡Ya me agarraste de tu puerquito!")
+                ),
+                win = listOf(
+                    SfVoiceLine("special_senor_tienda_win")
+                )
+            ),
         )
     }
 
     // 🆕 (2026-07-18u) GRITO DE ATAQUE POR DEFECTO (masculino): sonido normal (no especial) que
     // suena AL AZAR cuando un peleadór HOMBRE golpea y NO tiene voz de ataque propia. El ENEMIGO
     // (índice 1) lo emite más seguido; el jugador (índice 0) muy rara vez (para no saturar tu voz).
-    // Archivo: special_male_attack_grunt.ogg (del "ZA ZA", seg 8-10). ⚠️ PENDIENTE de subir el .ogg.
+    // Archivo: special_male_attack_grunt.ogg (del "ZA ZA", seg 8-10).
     private val maleGruntClip = "special_male_attack_grunt"
     private val sfMaleFighters = setOf(
         SfFighterId.PRANKEDY, SfFighterId.SENOR_TIENDA, SfFighterId.PAPARAZZI_1, SfFighterId.PAPARAZZI_5,
