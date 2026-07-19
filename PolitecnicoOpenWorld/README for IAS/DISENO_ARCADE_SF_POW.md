@@ -374,6 +374,21 @@ Los locked salen con candado; el fondo del muelle SF queda de fallback.
   todas las tarjetas; **solo el focused** anima (un frame del atlas, no el filmstrip);
   confirmar con botón. Lógica separada del Canvas de combate.
 
+## FIX 2026-07-17f · La Llorona: proyectil sin recortar (RESUELTO)
+
+**Síntoma:** al lanzar su poder especial se veía un asset enorme sin recortar (solo ella).
+**Causa raíz:** su hoja croma `_12` (SPECIAL HEAVY/PROJECTILE) llegó como **JPG**; el croma sucio
+hacía que el slicer detectara un blob gigante y lo tomara como `proj-fly-1` (bbox 141×232 y 18.7%
+de la celda, vs ~50-90 px y 1-4% en los demás personajes). Además los 2 sprites de la **columna 0**
+del bloque de proyectiles salían **fusionados verticalmente** en un solo blob (x=258, 165×396).
+**Fix aplicado** sobre `newSFAssets/LaLlorona/LaLlorona_12_SpecialHeavy_Extra.png`:
+1. Snap del croma a verde puro (`g>90 && g>r*1.25 && g>b*1.25` → `#00FF00`) para limpiar el JPEG.
+2. Enmascarar con croma la franja izquierda `x<245` (elemento espurio).
+3. Cortar con croma la franja `y 528-582, x 245-440` para SEPARAR los dos sprites de la columna 0.
+4. Re-slice de la hoja 12 + `pack_sf_character.py lallorona LaLlorona` + sacar `GEN/` de assets.
+**Resultado:** `proj-fly-1/2` y `proj-hit-1/2/3` quedan en 52-56 px y 1.5-3.1% de la celda (igual
+que Charro/Rey Grupero). ⚠️ Si se regenera la hoja 12, hacerlo en **PNG con croma limpio**.
+
 ## PENDIENTE — siguiente sesión
 
 > ✅ Hechos (2026-07-17e…18h): arcade por defecto; bloqueados ???; rival visible; mapas×3;

@@ -42,6 +42,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfProjectileEvent
 import ovh.gabrielhuav.pow.domain.models.streetfighter.bonusPowerIndex
 import ovh.gabrielhuav.pow.domain.models.streetfighter.sfBonusPowerState
 import ovh.gabrielhuav.pow.BuildConfig
+import ovh.gabrielhuav.pow.data.auth.AuthManager
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.data.repository.SfArcadeRepository
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStageCatalog
@@ -304,7 +305,15 @@ class StreetFighterViewModel @Inject constructor(
         .replace(Regex("[^A-Z0-9 ]"), " ").replace(Regex("\\s+"), " ").trim()
 
     /** Fija el subtítulo (frase) por un tiempo proporcional a su longitud. */
+    // 🆕 (2026-07-19) SUBTÍTULOS DE FRASES **DESACTIVADOS**: los audios de voz se reemplazaron y
+    // las frases del catálogo ya no corresponden a lo que se escucha. El pipeline queda INTACTO
+    // (catálogo + estado + dibujo en la Screen); basta poner este flag en true cuando se
+    // re-sincronice el texto con los audios nuevos. Ver README for IAS §TRABAJO FUTURO
+    // (requiere intervención HUMANA: volver a transcribir/curar la frase de cada peleador).
+    private val voiceSubtitlesEnabled = false
+
     private fun setVoiceSubtitle(phrase: String, now: Long) {
+        if (!voiceSubtitlesEnabled) return
         val hud = sfHudSanitize(phrase)
         if (hud.isBlank()) return
         val until = now + (1600L + hud.length * 70L).coerceIn(2000L, 6000L)
@@ -502,10 +511,20 @@ class StreetFighterViewModel @Inject constructor(
 
     /** 🆕 (2026-07-19) Si el personaje fue realmente desbloqueado por progresión (inicial o ganado). */
     fun isFighterActuallyUnlocked(id: SfFighterId): Boolean =
-        arcadeRepo.unlockedFighters().contains(id.name)
+        // 🆕 (2026-07-19) Con sesión Google en Firebase + Modo Desarrollador se REVELA el arte a
+        // color (sin silueta pixelada). Solo en ese caso; para el resto sigue oculto.
+        revealLockedArt() || arcadeRepo.unlockedFighters().contains(id.name)
 
     /** 🆕 Ajustes → "Mostrar hitboxes": dibuja las cajas push/hurt/hit sobre los peleadores. */
     fun showHitboxes(): Boolean = SettingsRepository(appContext).getShowHitboxes()
+
+    /**
+     * 🆕 REVELAR el arte de los bloqueados (a color, sin pixelar) — SOLO si el jugador está
+     * logueado en Firebase con Google **y** tiene el Modo Desarrollador activo. Para el resto
+     * siguen saliendo como silueta negra pixelada (no se sabe quién es hasta desbloquear).
+     */
+    fun revealLockedArt(): Boolean =
+        SettingsRepository(appContext).getDeveloperMode() && AuthManager(appContext).isSignedIn()
 
     /** Ids desbloqueados (arcade) como SfFighterId (ignora nombres inválidos). */
     private fun unlockedIds(): Set<SfFighterId> =

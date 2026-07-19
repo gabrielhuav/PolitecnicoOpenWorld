@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -318,32 +319,38 @@ fun MenuButtonsList(
     onNavigateToStreetFighter: () -> Unit = {}
 ) {
     // MUNDO LIBRE: el open world sin campaña (antes "Iniciar Juego"). Spawn por defecto.
-    MenuButton(
-        text = stringResource(R.string.menu_start_game),
-        onClick = {
-            viewModel.onStartGame()
-            onNavigateToMap(false, null)
-        },
-        enabled = !state.isLoading && !state.isWarmingUp
-    )
+    WithCornerBadge(stringResource(R.string.badge_alpha), Color(0xFF8A5A12)) {
+        MenuButton(
+            text = stringResource(R.string.menu_start_game),
+            onClick = {
+                viewModel.onStartGame()
+                onNavigateToMap(false, null)
+            },
+            enabled = !state.isLoading && !state.isWarmingUp
+        )
+    }
     Spacer(Modifier.height(16.dp))
 
     // MODO HISTORIA: abre la pantalla de campaña (prólogo + elegir escuela + cargar partida).
-    MenuButton(
-        text = stringResource(R.string.menu_load_game),
-        onClick = onNavigateToStory,
-        enabled = !state.isWarmingUp
-    )
+    WithCornerBadge(stringResource(R.string.badge_alpha), Color(0xFF8A5A12)) {
+        MenuButton(
+            text = stringResource(R.string.menu_load_game),
+            onClick = onNavigateToStory,
+            enabled = !state.isWarmingUp
+        )
+    }
     Spacer(Modifier.height(16.dp))
 
     // El botón MULTIJUGADOR dispara el warmup ANTES de mostrar el diálogo
     // de nombre. Mientras dura el warmup queda deshabilitado para evitar
     // que el usuario lance dos pings en paralelo.
-    MenuButton(
-        text = stringResource(R.string.menu_multiplayer),
-        onClick = onMultiplayerClick,
-        enabled = !state.isWarmingUp
-    )
+    WithCornerBadge(stringResource(R.string.badge_alpha), Color(0xFF8A5A12)) {
+        MenuButton(
+            text = stringResource(R.string.menu_multiplayer),
+            onClick = onMultiplayerClick,
+            enabled = !state.isWarmingUp
+        )
+    }
     Spacer(Modifier.height(16.dp))
 
     MenuButton(
@@ -364,12 +371,14 @@ fun MenuButtonsList(
     // 🆕 HUELUM VS. GOYA — MODO PRINCIPAL: botón DESTACADO y ANIMADO (pulso + brillo dorado que
     // barre + borde y sombra que laten) para que resalte enormemente sobre los demás modos.
     Spacer(Modifier.height(20.dp))
-    FeaturedStreetFighterButton(
-        text = stringResource(R.string.menu_street_fighter),
-        tag = stringResource(R.string.menu_featured_tag),
-        onClick = onNavigateToStreetFighter,
-        enabled = !state.isWarmingUp,
-    )
+    WithCornerBadge(stringResource(R.string.badge_beta), Color(0xFF1C6B4A)) {
+        FeaturedStreetFighterButton(
+            text = stringResource(R.string.menu_street_fighter),
+            tag = stringResource(R.string.menu_featured_tag),
+            onClick = onNavigateToStreetFighter,
+            enabled = !state.isWarmingUp,
+        )
+    }
 }
 
 /**
@@ -443,6 +452,38 @@ private fun FeaturedStreetFighterButton(text: String, tag: String, onClick: () -
                 letterSpacing = 4.sp,
             )
         }
+    }
+}
+
+/** 🆕 Etiqueta de estado (ALPHA / BETA). Se monta en la ESQUINA SUPERIOR DERECHA del botón. */
+@Composable
+private fun StageBadge(text: String, color: Color, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        color = Color.White,
+        fontSize = 9.sp,
+        fontWeight = FontWeight.Black,
+        letterSpacing = 1.5.sp,
+        modifier = modifier
+            .clip(CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp))
+            .background(color)
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+    )
+}
+
+/**
+ * 🆕 Envuelve un botón y le pega la etiqueta a CABALLO de su esquina superior derecha
+ * (ni totalmente fuera ni totalmente dentro), sin ocupar un renglón extra del menú.
+ */
+@Composable
+private fun WithCornerBadge(text: String, color: Color, button: @Composable () -> Unit) {
+    Box {
+        button()
+        StageBadge(
+            text = text,
+            color = color,
+            modifier = Modifier.align(Alignment.TopEnd).offset(x = 8.dp, y = (-8).dp),
+        )
     }
 }
 

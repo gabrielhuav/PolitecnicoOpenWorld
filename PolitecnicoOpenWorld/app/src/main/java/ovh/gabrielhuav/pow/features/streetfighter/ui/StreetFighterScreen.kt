@@ -2259,10 +2259,13 @@ private fun CharacterCard(
     // para que se note quién es tu peleador y quién el rival. null = card normal.
     highlightColor: Color? = null,
     silhouette: Boolean = false, // 🆕 (2026-07-19)
+    // 🆕 (2026-07-19) REVELAR a color: solo con sesión Google en Firebase + Modo Desarrollador.
+    reveal: Boolean = false,
 ) {
-    val preview = rememberFighterPreview(id, animate = animate && !locked && !silhouette)
-    // 🆕 BLOQUEADO / SILUETA: silueta pixelada negra (siempre estática).
-    val shown = if ((locked || silhouette) && preview != null) remember(preview) { pixelateBitmap(preview, 12) } else preview
+    val preview = rememberFighterPreview(id, animate = animate && (reveal || (!locked && !silhouette)))
+    // 🆕 BLOQUEADO / SILUETA: silueta pixelada negra (siempre estática). Con `reveal` se ve normal.
+    val obscure = (locked || silhouette) && !reveal
+    val shown = if (obscure && preview != null) remember(preview) { pixelateBitmap(preview, 12) } else preview
     val shape = RoundedCornerShape(10.dp)
     // El recuadro del color de la flecha manda sobre el fondo/borde normales.
     val cardBg = highlightColor?.copy(alpha = 0.28f) ?: Color(0xFF23233A)
@@ -2288,7 +2291,7 @@ private fun CharacterCard(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit,
                     filterQuality = FilterQuality.None,
-                    colorFilter = if (locked || silhouette) ColorFilter.tint(Color(0xFF15151F)) else null,
+                    colorFilter = if (obscure) ColorFilter.tint(Color(0xFF15151F)) else null,
                 )
             } else {
                 Text("?", color = Color.White, fontSize = 40.sp)
@@ -2317,8 +2320,8 @@ private fun CharacterCard(
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = if (locked) "???" else id.displayName, // oculta la identidad hasta desbloquear
-            color = if (locked) Color(0xFFFFD54A) else Color.White,
+            text = if (locked && !reveal) "???" else id.displayName, // oculta la identidad hasta desbloquear
+            color = if (locked && !reveal) Color(0xFFFFD54A) else Color.White,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,

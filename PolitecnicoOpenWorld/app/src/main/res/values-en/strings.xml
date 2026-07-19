@@ -16,6 +16,8 @@
     <string name="menu_collectibles">COLLECTIBLES</string>
     <string name="menu_street_fighter">HUELUM VS. GOYA</string>
     <string name="menu_featured_tag">◆ COMBAT MODE ◆</string>
+    <string name="badge_alpha">ALPHA</string>
+    <string name="badge_beta">BETA</string>
     <string name="menu_mp_dialog_title">Connect to Server</string>
     <string name="menu_mp_username_label">Username</string>
     <string name="menu_mp_connect">Connect</string>

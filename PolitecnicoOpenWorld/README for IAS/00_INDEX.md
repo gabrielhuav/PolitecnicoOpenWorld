@@ -124,7 +124,7 @@
 | **`PROMPT_panoramico_todos_los_mapas.md`** | **Trabajo FINAL diferido: aplicar el encuadre panorámico + salto a los 16 mapas, uno por uno. Prompt autónomo con todo lo necesario.** |
 | `AUDIT_SF_MULTIPLAYER.md` | Multijugador 1v1: protocolo, server `MultiplayerSF/`, BT/LAN. |
 | `ASSETS_STREETFIGHTER_MIGRACION.md` | Pipeline assets pelea (JSON, pack, migración SF→POW). |
-| **`SF_SPECIAL_VOICES_SFX.md`** | Voces/SFX v3: 21/21 español, cortes locales, Whisper, hashes, `MediaPlayer`; v1/v2 queda histórico. |
+| **`SF_SPECIAL_VOICES_SFX.md`** | Voces/SFX v3: 21/21 español, cortes locales, Whisper, hashes, `MediaPlayer`; v1/v2 queda histórico. **⚠️ TRABAJO FUTURO (humano): subtítulos de frases DESACTIVADOS** (`voiceSubtitlesEnabled=false`) porque los audios nuevos ya no coinciden con el texto — re-transcribir las 21 frases y reactivar. Ver la caja al inicio de ese doc. |
 | `GUIA_regeneracion_sprites_croma.md` | Regenerar sprites croma pelea+mundo. |
 | `GUIA_generacion_assets_SF.md` | Guía manual de generación de assets. |
 | `NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |
