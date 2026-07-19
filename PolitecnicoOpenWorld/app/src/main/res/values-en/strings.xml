@@ -658,6 +658,7 @@
     <string name="sf_dev_tools_header">TOOLS (Developer Mode)</string>
     <string name="sf_gauntlet_stop">Stop</string>
     <string name="sf_showcase_skip">Skip animation</string>
+    <string name="sf_showcase_prev_animation">Previous animation</string>
     <string name="sf_showcase_next_animation">Next animation</string>
     <string name="sf_showcase_next_fighter">Next fighter</string>
     <string name="sf_showcase_speed">Speed %1$s</string>

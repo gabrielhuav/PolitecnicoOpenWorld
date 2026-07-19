@@ -500,6 +500,10 @@ class StreetFighterViewModel @Inject constructor(
     /** 🆕 Modo Desarrollador (Ajustes): si está ON, TODO desbloqueado (personajes y mapas). */
     fun devUnlockAll(): Boolean = SettingsRepository(appContext).getDeveloperMode()
 
+    /** 🆕 (2026-07-19) Si el personaje fue realmente desbloqueado por progresión (inicial o ganado). */
+    fun isFighterActuallyUnlocked(id: SfFighterId): Boolean =
+        arcadeRepo.unlockedFighters().contains(id.name)
+
     /** 🆕 Ajustes → "Mostrar hitboxes": dibuja las cajas push/hurt/hit sobre los peleadores. */
     fun showHitboxes(): Boolean = SettingsRepository(appContext).getShowHitboxes()
 
@@ -639,6 +643,7 @@ class StreetFighterViewModel @Inject constructor(
     // 🆕 SHOWCASE: variante del gauntlet que recorre TODAS las animaciones + sonidos de cada
     // peleador (script de moves), para QA visual/auditiva de los assets (watchStuck loguea los rotos).
     private var showcaseMode = false
+    private var gauntletCampaignMode = false
     private var showcaseStep = 0
     private var showcaseStepUntilMs = 0L
     private var showcaseFiredStep = -1
@@ -857,7 +862,7 @@ class StreetFighterViewModel @Inject constructor(
                 val auditSteps = if (gauntletActive && !showcaseMode) gauntletAuditSteps else 1
                 for (step in 0 until auditSteps) {
                     if (step > 0 && !gauntletActive) break
-                    val speed = if (showcaseMode) showcaseSpeed else 1f
+                    val speed = if (gauntletActive) showcaseSpeed else 1f
                     val scaledDtMs = (dtMs * speed).toLong().coerceAtLeast(1L)
                     gameNow += scaledDtMs
                     tick(gameNow, scaledDtMs / 1000f)
@@ -2879,11 +2884,17 @@ class StreetFighterViewModel @Inject constructor(
         // 🆕 (2026-07-18n) DESNIVEL ALEATORIO: dos peleadores iguales se esquivan sin fin y nadie
         // gana. Se le baja la dificultad a UNO al azar (1–2 escalones) → el otro conecta y gana.
         // Se re-aleatoriza en cada pelea (revancha/gauntlet) para que el ganador varíe.
-        val weak = Random.nextInt(2)
-        val steps = 1 + Random.nextInt(2) // 1 o 2 escalones por debajo
-        val weakDiff = SfCpuDifficulty.entries[(difficulty.ordinal - steps).coerceAtLeast(0)]
-        cpuDiffOverride[weak] = weakDiff
-        cpuDiffOverride[1 - weak] = difficulty
+        if (gauntletCampaignMode) {
+            // Auditoría de campañas: P0 (Jugador) gana SIEMPRE para avanzar la escalera.
+            cpuDiffOverride[0] = SfCpuDifficulty.PESADILLA
+            cpuDiffOverride[1] = SfCpuDifficulty.BASICA
+        } else {
+            val weak = Random.nextInt(2)
+            val steps = 1 + Random.nextInt(2)
+            val weakDiff = SfCpuDifficulty.entries[(difficulty.ordinal - steps).coerceAtLeast(0)]
+            cpuDiffOverride[weak] = weakDiff
+            cpuDiffOverride[1 - weak] = difficulty
+        }
         roundIntroUntilMs = ROUND_INTRO_MS // banner "RONDA 1 / PELEA" (gameNow arranca en 0)
         val base = StreetFighterState()
         _state.value = base.copy(
@@ -2905,9 +2916,22 @@ class StreetFighterViewModel @Inject constructor(
     /** Bot 1: TODOS contra TODOS (round-robin). ~N² peleas — déjalo corriendo/grabando. */
     fun startGauntletRoundRobin() {
         showcaseMode = false
+        gauntletCampaignMode = false
         val roster = SfArcadeLadder.ALL_PARTICIPANTS
         val q = ArrayDeque<GauntletFight>()
-        for (a in roster) for (b in roster) if (a != b) q.add(GauntletFight(a, b))
+        val lightings = SfStageCatalog.Lighting.entries
+        var mapIndex = 0
+        for (a in roster) {
+            for (b in roster) {
+                if (a != b) {
+                    val stage = SfStageCatalog.ALL_STAGES[mapIndex % SfStageCatalog.ALL_STAGES.size]
+                    val lighting = lightings[(mapIndex / SfStageCatalog.ALL_STAGES.size) % lightings.size]
+                    val mapFile = stage.file(lighting)
+                    mapIndex++
+                    q.add(GauntletFight(a, b, mapFile = mapFile))
+                }
+            }
+        }
         beginGauntlet(q)
     }
 
@@ -2921,6 +2945,7 @@ class StreetFighterViewModel @Inject constructor(
      */
     fun startShowcase() {
         showcaseMode = true
+        gauntletCampaignMode = false
         showcaseSpeed = 1f
         val q = ArrayDeque<GauntletFight>()
         SfArcadeLadder.ALL_PARTICIPANTS.forEach {
@@ -2932,6 +2957,7 @@ class StreetFighterViewModel @Inject constructor(
     /** Bot 2: las 9 campañas completas (3 protagonistas × 3 dificultades), 135 peleas reales. */
     fun startGauntletArcade() {
         showcaseMode = false
+        gauntletCampaignMode = true
         val difficulties = listOf(
             SfCpuDifficulty.BASICA,
             SfCpuDifficulty.NORMAL,
@@ -3040,9 +3066,26 @@ class StreetFighterViewModel @Inject constructor(
         }
     }
 
-    /** Alterna 1x → 2x → 4x para acelerar todo el showcase visual. */
-    fun cycleShowcaseSpeed() {
+    /** Retrocede a la animación anterior en el showcase. */
+    fun goToPreviousShowcaseAnimation() {
         if (!gauntletActive || !showcaseMode) return
+        val now = _state.value.gameTimeMs
+        showcaseForcedState = null
+        showcaseFiredStep = -2
+        // Restamos 2 porque la simulación incrementará 1 de forma inmediata
+        showcaseStep = (showcaseStep - 2).coerceAtLeast(-1)
+        showcaseStepUntilMs = now
+        _state.update {
+            it.copy(
+                player = resetShowcaseFighter(it.player, now),
+                cpu = resetShowcaseFighter(it.cpu, now),
+            )
+        }
+    }
+
+    /** Alterna 1x → 2x → 4x para acelerar el showcase visual o autojuego en curso. */
+    fun cycleShowcaseSpeed() {
+        if (!gauntletActive) return
         val index = SHOWCASE_SPEEDS.indexOf(showcaseSpeed).coerceAtLeast(0)
         showcaseSpeed = SHOWCASE_SPEEDS[(index + 1) % SHOWCASE_SPEEDS.size]
         _state.update { it.copy(showcaseSpeed = showcaseSpeed) }
@@ -3084,6 +3127,7 @@ class StreetFighterViewModel @Inject constructor(
     private fun finishGauntlet() {
         gauntletActive = false
         showcaseMode = false
+        gauntletCampaignMode = false
         val issues = assetIssues.toList()
         val path = writeGauntletReport(issues)
         _state.update {

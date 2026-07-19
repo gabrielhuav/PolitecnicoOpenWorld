@@ -38,6 +38,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CutCornerShape
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -62,6 +74,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -477,6 +490,7 @@ fun StreetFighterScreen(
                     theme, state, images, playerData, cpuData, stageBg,
                     roundBannerText, fightBannerText, showHitboxes,
                     playerContentH, cpuContentH, effectiveBgFile,
+                    playerSilhouette = !viewModel.isFighterActuallyUnlocked(state.player.id),
                 )
             }
         }
@@ -557,20 +571,26 @@ fun StreetFighterScreen(
                     Spacer(modifier = Modifier.height(6.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         PowButton(
+                            text = stringResource(R.string.sf_showcase_prev_animation),
+                            onClick = viewModel::goToPreviousShowcaseAnimation,
+                            color = Color(0xFF1B5E20),
+                            modifier = Modifier.width(156.dp),
+                        )
+                        PowButton(
                             text = stringResource(R.string.sf_showcase_next_animation),
                             onClick = viewModel::skipToNextShowcaseAnimation,
                             color = Color(0xFF1B5E20),
                             modifier = Modifier.width(156.dp),
                         )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         PowButton(
                             text = stringResource(R.string.sf_showcase_next_fighter),
                             onClick = viewModel::skipShowcaseFighter,
                             color = Color(0xFF7B3F00),
                             modifier = Modifier.width(156.dp),
                         )
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         PowButton(
                             text = stringResource(
                                 R.string.sf_showcase_speed,
@@ -580,6 +600,9 @@ fun StreetFighterScreen(
                             color = Color(0xFF1565C0),
                             modifier = Modifier.width(156.dp),
                         )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         PowButton(
                             text = stringResource(R.string.sf_showcase_replay_audio),
                             onClick = viewModel::replayCurrentShowcaseAudio,
@@ -587,6 +610,18 @@ fun StreetFighterScreen(
                             modifier = Modifier.width(156.dp),
                         )
                     }
+                } else {
+                    // 🆕 Para el Autojuego todos contra todos y Auditoría de campañas, mostramos el control de velocidad
+                    Spacer(modifier = Modifier.height(6.dp))
+                    PowButton(
+                        text = stringResource(
+                            R.string.sf_showcase_speed,
+                            "${state.showcaseSpeed.toInt()}x",
+                        ),
+                        onClick = viewModel::cycleShowcaseSpeed,
+                        color = Color(0xFF1565C0),
+                        modifier = Modifier.width(156.dp),
+                    )
                 }
             }
         }
@@ -668,6 +703,7 @@ fun StreetFighterScreen(
                     subtitle = stringResource(R.string.sf_mp_pick_sub, state.roomCode ?: ""),
                     onSelect = viewModel::selectCharacter,
                     lowEnd = lowEnd,
+                    isActuallyUnlocked = { viewModel.isFighterActuallyUnlocked(it) },
                 )
                 SfOnlineStatus.WAITING_MAP -> if (state.isHost) {
                     StageSelectOverlay(
@@ -757,6 +793,7 @@ fun StreetFighterScreen(
                             onBack = { arcadeSetup = false; sfMenu = true },
                             backText = stringResource(R.string.sf_other_modes),
                             lowEnd = lowEnd,
+                            isActuallyUnlocked = { viewModel.isFighterActuallyUnlocked(it) },
                         )
                         arcadeSetup && difficulty == null -> ArcadeDifficultyOverlay(
                             onSelect = { d ->
@@ -777,6 +814,7 @@ fun StreetFighterScreen(
                             onSelect = { pendingFighter = it },
                             onBack = { aiVsAiSetup = false; sfMenu = true },
                             lowEnd = lowEnd,
+                            isActuallyUnlocked = { viewModel.isFighterActuallyUnlocked(it) },
                         )
                         aiVsAiSetup && rival == null -> CharacterSelectOverlay(
                             fighters = viewModel.selectableFighters(),
@@ -804,6 +842,7 @@ fun StreetFighterScreen(
                             },
                             onBack = { pendingFighter = null },
                             lowEnd = lowEnd,
+                            isActuallyUnlocked = { viewModel.isFighterActuallyUnlocked(it) },
                         )
                         // PRÁCTICA (versus): peleador → RIVAL → DIFICULTAD → mapa
                         fighter == null -> CharacterSelectOverlay(
@@ -813,6 +852,7 @@ fun StreetFighterScreen(
                             onSelect = { pendingFighter = it },
                             onBack = { sfMenu = true },
                             lowEnd = lowEnd,
+                            isActuallyUnlocked = { viewModel.isFighterActuallyUnlocked(it) },
                         )
                         rival == null -> CharacterSelectOverlay(
                             fighters = viewModel.selectableFighters(),
@@ -823,6 +863,7 @@ fun StreetFighterScreen(
                             onSelect = { pendingRival = it },
                             onBack = { pendingFighter = null },
                             lowEnd = lowEnd,
+                            isActuallyUnlocked = { viewModel.isFighterActuallyUnlocked(it) },
                         )
                         difficulty == null -> DifficultySelectOverlay(
                             onSelect = { pendingDifficulty = it },
@@ -1226,8 +1267,9 @@ private fun SfModeMenuOverlay(
     onAudioShowcaseStop: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val powMenuBg = remember { Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11))) }
     Box(
-        modifier = Modifier.fillMaxSize().background(Color(0xE6101018)),
+        modifier = Modifier.fillMaxSize().background(powMenuBg),
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -1242,20 +1284,12 @@ private fun SfModeMenuOverlay(
                 letterSpacing = 3.sp,
             )
             Spacer(modifier = Modifier.height(20.dp))
-            // ARCADE — modalidad PRINCIPAL (grande y destacada)
-            PowButton(
-                text = "★ ${stringResource(R.string.sf_mode_arcade)} ★",
+            // ARCADE — modalidad PRINCIPAL (grande y destacada, ahora ANIMADO como en el menú principal)
+            FeaturedArcadeButton(
+                text = stringResource(R.string.sf_mode_arcade),
+                tag = stringResource(R.string.sf_mode_arcade_desc),
                 onClick = onArcade,
-                color = Color(0xFFB8143A),
-                modifier = Modifier.fillMaxWidth(0.82f).height(66.dp),
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.sf_mode_arcade_desc),
-                color = Color(0xFFFFD54A),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
+                enabled = true
             )
             Spacer(modifier = Modifier.height(18.dp))
             // Otras modalidades
@@ -1288,49 +1322,44 @@ private fun SfModeMenuOverlay(
                     color = Color(0xFFFFD54A),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 PowButton(
                     text = stringResource(R.string.sf_gauntlet_all),
                     onClick = onGauntletAll,
-                    color = Color(0xFF6A1B9A),
+                    color = Color(0xFF333333),
                     modifier = Modifier.fillMaxWidth(0.68f),
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 PowButton(
                     text = stringResource(R.string.sf_gauntlet_arcade),
                     onClick = onGauntletArcade,
-                    color = Color(0xFF6A1B9A),
+                    color = Color(0xFF333333),
                     modifier = Modifier.fillMaxWidth(0.68f),
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 PowButton(
                     text = stringResource(R.string.sf_gauntlet_showcase),
                     onClick = onGauntletShowcase,
-                    color = Color(0xFF6A1B9A),
+                    color = Color(0xFF333333),
                     modifier = Modifier.fillMaxWidth(0.68f),
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                PowButton(
-                    text = stringResource(
-                        if (audioShowcaseRunning) {
-                            R.string.sf_audio_showcase_stop
-                        } else {
-                            R.string.sf_audio_showcase_all
-                        },
-                    ),
-                    onClick = if (audioShowcaseRunning) onAudioShowcaseStop else onAudioShowcase,
-                    color = Color(0xFF00695C),
-                    modifier = Modifier.fillMaxWidth(0.68f),
-                )
-                if (audioShowcaseRunning && audioShowcaseFighter != null) {
+                if (audioShowcaseRunning) {
                     Spacer(modifier = Modifier.height(6.dp))
+                    PowButton(
+                        text = stringResource(R.string.sf_audio_showcase_stop),
+                        onClick = onAudioShowcaseStop,
+                        color = Color(0xFF7B1FA2),
+                        modifier = Modifier.fillMaxWidth(0.68f),
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = stringResource(
                             R.string.sf_audio_showcase_progress,
                             audioShowcaseIndex,
                             audioShowcaseTotal,
-                            audioShowcaseFighter.shortName,
+                            audioShowcaseFighter?.shortName ?: "",
                         ),
                         color = Color(0xFFFFD54A),
                         fontSize = 12.sp,
@@ -1357,6 +1386,81 @@ private fun SfModeMenuOverlay(
             TextButton(onClick = onBack) {
                 Text(stringResource(R.string.sf_back), color = Color(0xFFD4AF37))
             }
+        }
+    }
+}
+
+/**
+ * Botón principal animado estilo POW para el modo Arcade.
+ * Presenta pulso de escala, barrido de brillo dorado, borde y sombra doradas latentes.
+ */
+@Composable
+private fun FeaturedArcadeButton(text: String, tag: String, onClick: () -> Unit, enabled: Boolean) {
+    val shape = CutCornerShape(topStart = 20.dp, bottomEnd = 20.dp)
+    val gold = Color(0xFFFFD54A)
+    val tr = rememberInfiniteTransition(label = "sfArcadeFeatured")
+    val scale by tr.animateFloat(
+        1f, 1.05f,
+        infiniteRepeatable(tween(850, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "scale",
+    )
+    val glow by tr.animateFloat(
+        0.45f, 1f,
+        infiniteRepeatable(tween(850, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "glow",
+    )
+    val shimmer by tr.animateFloat(
+        0f, 1f,
+        infiniteRepeatable(tween(1600, easing = LinearEasing), RepeatMode.Restart), label = "shimmer",
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(0.85f)
+            .height(76.dp)
+            .graphicsLayer { scaleX = if (enabled) scale else 1f; scaleY = if (enabled) scale else 1f }
+            .shadow(elevation = 18.dp, shape = shape, ambientColor = gold, spotColor = gold)
+            .clip(shape)
+            .background(
+                Brush.linearGradient(listOf(Color(0xFF8A0F32), Color(0xFFC4143C), Color(0xFF8A0F32))),
+            )
+            .border(BorderStroke(3.dp, gold.copy(alpha = if (enabled) glow else 0.5f)), shape)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Barrido de brillo dorado (detrás del texto)
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .drawBehind {
+                    val w = size.width
+                    val hl = w * 0.30f
+                    val x = -hl + (w + hl) * shimmer
+                    drawRect(
+                        brush = Brush.horizontalGradient(
+                            0f to Color.Transparent,
+                            0.5f to gold.copy(alpha = 0.40f),
+                            1f to Color.Transparent,
+                            startX = x,
+                            endX = x + hl,
+                        ),
+                    )
+                },
+        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "★ $text ★",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 2.sp,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = tag,
+                color = gold,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
@@ -1410,6 +1514,7 @@ private fun CharacterSelectOverlay(
     // FLECHA ROJA sobre el que estás resaltando (además de la animación del card).
     allyId: SfFighterId? = null,      // P1 ya elegido → flecha AZUL ("P1")
     showPickArrow: Boolean = false,   // true en el paso de elegir P2 → flecha ROJA en el focused
+    isActuallyUnlocked: (SfFighterId) -> Boolean = { true },
 ) {
     // 🆕 Solo el focused anima (y solo si NO es gama baja). 2.º toque confirma.
     var focusedId by remember(fighters) { mutableStateOf(fighters.firstOrNull()) }
@@ -1418,8 +1523,9 @@ private fun CharacterSelectOverlay(
     LaunchedEffect(Unit) {
         while (true) { delay(450); flashRed = !flashRed }
     }
+    val powMenuBg = remember { Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11))) }
     Box(
-        modifier = Modifier.fillMaxSize().background(Color(0xE6101018)),
+        modifier = Modifier.fillMaxSize().background(powMenuBg),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1457,6 +1563,7 @@ private fun CharacterSelectOverlay(
                             selected = id == focusedId,
                             animate = !lowEnd && id == focusedId,
                             highlightColor = hl,
+                            silhouette = !isActuallyUnlocked(id),
                             onSelect = {
                                 if (lowEnd || id == focusedId) onSelect(id)
                                 else focusedId = id
@@ -1520,10 +1627,11 @@ private fun ArcadeResultOverlay(
     onRetry: () -> Unit,
     onExit: () -> Unit,
 ) {
+    val powMenuBg = remember { Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11))) }
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xE6101018))
+            .background(powMenuBg)
             .clickable(enabled = true, onClick = {}), // bloquea toques al joystick de atrás
         contentAlignment = Alignment.Center,
     ) {
@@ -1592,8 +1700,9 @@ private fun DifficultySelectOverlay(
     onSelect: (SfCpuDifficulty) -> Unit,
     onBack: () -> Unit,
 ) {
+    val powMenuBg = remember { Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11))) }
     Box(
-        modifier = Modifier.fillMaxSize().background(Color(0xE6101018)),
+        modifier = Modifier.fillMaxSize().background(powMenuBg),
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -1649,8 +1758,9 @@ private fun ArcadeDifficultyOverlay(
     onSelect: (SfCpuDifficulty) -> Unit,
     onBack: () -> Unit,
 ) {
+    val powMenuBg = remember { Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11))) }
     Box(
-        modifier = Modifier.fillMaxSize().background(Color(0xE6101018)),
+        modifier = Modifier.fillMaxSize().background(powMenuBg),
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -2150,10 +2260,11 @@ private fun CharacterCard(
     // 🆕 (2026-07-18) Recuadro translúcido + borde del color de la flecha (azul P1 / rojo P2)
     // para que se note quién es tu peleador y quién el rival. null = card normal.
     highlightColor: Color? = null,
+    silhouette: Boolean = false, // 🆕 (2026-07-19)
 ) {
-    val preview = rememberFighterPreview(id, animate = animate && !locked)
-    // 🆕 BLOQUEADO: silueta pixelada negra (siempre estática).
-    val shown = if (locked && preview != null) remember(preview) { pixelateBitmap(preview, 12) } else preview
+    val preview = rememberFighterPreview(id, animate = animate && !locked && !silhouette)
+    // 🆕 BLOQUEADO / SILUETA: silueta pixelada negra (siempre estática).
+    val shown = if ((locked || silhouette) && preview != null) remember(preview) { pixelateBitmap(preview, 12) } else preview
     val shape = RoundedCornerShape(10.dp)
     // El recuadro del color de la flecha manda sobre el fondo/borde normales.
     val cardBg = highlightColor?.copy(alpha = 0.28f) ?: Color(0xFF23233A)
@@ -2179,7 +2290,7 @@ private fun CharacterCard(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit,
                     filterQuality = FilterQuality.None,
-                    colorFilter = if (locked) ColorFilter.tint(Color(0xFF15151F)) else null,
+                    colorFilter = if (locked || silhouette) ColorFilter.tint(Color(0xFF15151F)) else null,
                 )
             } else {
                 Text("?", color = Color.White, fontSize = 40.sp)
@@ -2405,6 +2516,7 @@ private fun DrawScope.drawScene(
     playerContentH: Map<String, Int> = emptyMap(),
     cpuContentH: Map<String, Int> = emptyMap(),
     bgFile: String? = null,
+    playerSilhouette: Boolean = false,
 ) {
     val framing = framingForBg(bgFile) // 🆕 zoom/anclaje por escenario (Facultad de Medicina…)
     val scale = minOf(size.width / SfConstants.SCENE_WIDTH, size.height / SfConstants.SCENE_HEIGHT)
@@ -2460,8 +2572,8 @@ private fun DrawScope.drawScene(
     drawShadow(ctx, theme, images.getValue(theme.shadowImage), state.cpu, bgFile)
 
     // ---- Peleadores (sheet según el personaje del snapshot) ----
-    drawFighter(ctx, images, playerData, state.player, t, showHitboxes, playerContentH)
-    drawFighter(ctx, images, cpuData, state.cpu, t, showHitboxes, cpuContentH)
+    drawFighter(ctx, images, playerData, state.player, t, showHitboxes, playerContentH, silhouette = playerSilhouette)
+    drawFighter(ctx, images, cpuData, state.cpu, t, showHitboxes, cpuContentH, silhouette = false)
 
     // ---- Proyectiles especiales ----
     // Si el DUEÑO del proyectil trae sus propios frames "proj-*" en su JSON (Prankedy:
@@ -2823,6 +2935,7 @@ private fun DrawScope.drawSpriteAnchored(
     direction: SfDirection,
     shakeX: Float = 0f,
     spriteScale: Float = 1f,   // parche de escala por-frame (p. ej. HURT de peleadores ALPHA)
+    silhouette: Boolean = false,
 ) {
     val anchorSx = ctx.ox + (worldX - ctx.camX) * ctx.scale
     val anchorSy = ctx.oy + (worldY - ctx.camY) * ctx.scale
@@ -2839,6 +2952,7 @@ private fun DrawScope.drawSpriteAnchored(
             dstOffset = IntOffset(dstX.toInt(), dstY.toInt()),
             dstSize = IntSize((src[2] * s).toInt(), (src[3] * s).toInt()),
             filterQuality = FilterQuality.None,
+            colorFilter = if (silhouette) ColorFilter.tint(Color(0xFF15151F)) else null,
         )
     }
     if (direction == SfDirection.LEFT) {
@@ -2919,6 +3033,7 @@ private fun DrawScope.drawFighter(
     t: Long,
     showHitboxes: Boolean = false,
     contentHeights: Map<String, Int> = emptyMap(),
+    silhouette: Boolean = false,
 ) {
     // 🆕 Nunca “desaparecer”: si falta hoja/anim/frame, cae a IDLE-1 o al primer frame disponible.
     val sheetKey = f.id.spriteAsset.substringAfterLast('/')
@@ -2960,7 +3075,7 @@ private fun DrawScope.drawFighter(
     }
     drawSpriteAnchored(
         ctx, sheet, frame.src, origin, f.x, f.y, drawDirection,
-        shakeX = shake, spriteScale = spriteScale,
+        shakeX = shake, spriteScale = spriteScale, silhouette = silhouette,
     )
 
     // 🆕 HITBOXES (Ajustes → "Mostrar hitboxes"): push/hurt/hit. También se reescalan

@@ -160,6 +160,7 @@ class SfArcadeCampaignAuditTest {
             )
             SfFighterId.PARAMEDICO -> emptyList()
         }
+    }
 
     private fun assertAsset(relativePath: String, label: String) {
         val asset = File(assetsRoot, relativePath)

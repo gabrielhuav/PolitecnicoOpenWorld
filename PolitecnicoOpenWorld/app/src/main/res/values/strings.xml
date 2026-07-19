@@ -660,6 +660,7 @@
     <string name="sf_dev_tools_header">HERRAMIENTAS (Modo Desarrollador)</string>
     <string name="sf_gauntlet_stop">Detener</string>
     <string name="sf_showcase_skip">Saltar animación</string>
+    <string name="sf_showcase_prev_animation">Anterior animación</string>
     <string name="sf_showcase_next_animation">Siguiente animación</string>
     <string name="sf_showcase_next_fighter">Siguiente personaje</string>
     <string name="sf_showcase_speed">Velocidad %1$s</string>
