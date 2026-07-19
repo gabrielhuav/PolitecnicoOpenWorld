@@ -305,16 +305,23 @@ class StreetFighterViewModel @Inject constructor(
             return
         }
 
-        if (now - lastAttackVoiceMs[i] < attackVoiceCooldownMs) return
+        // Si tiene sus propios especiales/clips de ataque (como Charro Negro, Llorona, Señor de la Tienda, etc.),
+        // SIEMPRE los usa (se sobreponen a los genéricos) y no se bloquean por el cooldown largo de frase.
         val lines = sfVoicePacks[id]?.attack.orEmpty()
         if (lines.isNotEmpty()) {
-            if (emitVoiceLines(lines, now)) lastAttackVoiceMs[i] = now
+            if (emitVoiceLines(lines, now)) {
+                lastAttackVoiceMs[i] = now
+            }
             return
         }
+
+        if (now - lastAttackVoiceMs[i] < attackVoiceCooldownMs) return
         // 🆕 (2026-07-18u) Grito masculino por defecto (solo hombres sin voz de ataque propia).
         if (id in sfMaleFighters) {
             val chance = if (i == 0) 0.10f else 0.35f // jugador raro / enemigo más seguido
-            if (Random.nextFloat() < chance && emitVoiceClip(maleGruntClip)) lastAttackVoiceMs[i] = now
+            if (Random.nextFloat() < chance && emitVoiceClip(maleGruntClip)) {
+                lastAttackVoiceMs[i] = now
+            }
         }
     }
 
