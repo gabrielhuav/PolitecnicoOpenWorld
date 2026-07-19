@@ -195,8 +195,10 @@ class StreetFighterViewModel @Inject constructor(
                     SfVoiceLine("special_senor_tienda_win")
                 )
             ),
-            // 🆕 (2026-07-19) Robot: audio de victoria
+            // 🆕 (2026-07-19) Robot: audio de ataque, daño (hurt) y victoria
             SfFighterId.ROBOT to SfVoicePack(
+                attack = listOf(SfVoiceLine("special_robot_attack")),
+                hurt = listOf(SfVoiceLine("special_robot_hurt")),
                 win = listOf(SfVoiceLine("special_robot_win"))
             ),
             // 🆕 (2026-07-19) La Presidenta: audio de victoria con subtítulo (recortado el primer segundo)
