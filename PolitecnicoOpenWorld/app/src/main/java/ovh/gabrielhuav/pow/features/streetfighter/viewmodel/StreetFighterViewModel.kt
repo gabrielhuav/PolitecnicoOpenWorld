@@ -268,10 +268,10 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     // Anti-spam de voces por índice (no repetir en menos del intervalo).
-    private val lastHurtVoiceMs = LongArray(2) { Long.MIN_VALUE }
-    private val lastAttackVoiceMs = LongArray(2) { Long.MIN_VALUE }
-    // 🆕 (2026-07-19b) hurt más responsivo (era 2.6 s → casi nunca sonaba en combos).
-    private val hurtVoiceCooldownMs = 1200L
+    private val lastHurtVoiceMs = LongArray(2) { 0L }
+    private val lastAttackVoiceMs = LongArray(2) { 0L }
+    // 🆕 (2026-07-19c) Sin cooldown en hurt para permitir interrupción inmediata en combos
+    private val hurtVoiceCooldownMs = 0L
     private val attackVoiceCooldownMs = 4200L
 
     /** Voz de DAÑO (pack HURT, variante al azar) con cooldown por índice. */
@@ -503,7 +503,7 @@ class StreetFighterViewModel @Inject constructor(
     // desnivelar la pelea y que alguien gane. null = usar la dificultad global (VS/arcade normal).
     private val cpuDiffOverride = arrayOfNulls<SfCpuDifficulty>(2)
     // Antibucle de combo: tras tres impactos rápidos, el defensor recibe una ventana de escape.
-    private val lastHitTakenMs = LongArray(2) { Long.MIN_VALUE }
+    private val lastHitTakenMs = LongArray(2) { 0L }
     private val rapidHitsTaken = IntArray(2)
     private val comboEscapeUntilMs = LongArray(2)
 
@@ -3388,9 +3388,9 @@ class StreetFighterViewModel @Inject constructor(
         cpuDiffOverride[0] = null
         cpuDiffOverride[1] = null
         introVoiceSent = false
-        lastHurtVoiceMs.fill(Long.MIN_VALUE)
-        lastAttackVoiceMs.fill(Long.MIN_VALUE)
-        lastHitTakenMs.fill(Long.MIN_VALUE)
+        lastHurtVoiceMs.fill(0L)
+        lastAttackVoiceMs.fill(0L)
+        lastHitTakenMs.fill(0L)
         rapidHitsTaken.fill(0)
         comboEscapeUntilMs.fill(0L)
         cpuIntensity = 0f // VS: sin escalado; arcade/IA-vs-IA la suben después
@@ -4093,11 +4093,11 @@ class StreetFighterViewModel @Inject constructor(
         cpuHold[1] = SfInput()
         specialCooldownUntil[0] = 0L
         specialCooldownUntil[1] = 0L
-        lastHitTakenMs.fill(Long.MIN_VALUE)
+        lastHitTakenMs.fill(0L)
         rapidHitsTaken.fill(0)
         comboEscapeUntilMs.fill(0L)
-        lastHurtVoiceMs.fill(Long.MIN_VALUE)
-        lastAttackVoiceMs.fill(Long.MIN_VALUE)
+        lastHurtVoiceMs.fill(0L)
+        lastAttackVoiceMs.fill(0L)
         pendingAttacks.clear()
         pendingBonusPower = null
         controlHistory.clear()
