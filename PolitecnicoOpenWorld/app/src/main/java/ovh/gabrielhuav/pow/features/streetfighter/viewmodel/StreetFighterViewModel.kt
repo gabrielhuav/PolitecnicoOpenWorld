@@ -212,6 +212,13 @@ class StreetFighterViewModel @Inject constructor(
             SfFighterId.ESCOMGIRL to SfVoicePack(
                 power = listOf(SfVoiceLine("special_power_electricity"))
             ),
+            // 🆕 (2026-07-19) Prankedy: audios de daño (hurt) recortados de PrankedyMixes.mp3
+            SfFighterId.PRANKEDY to SfVoicePack(
+                hurt = listOf(
+                    SfVoiceLine("special_prankedy_hurt_1"),
+                    SfVoiceLine("special_prankedy_hurt_2")
+                )
+            ),
         )
     }
 
