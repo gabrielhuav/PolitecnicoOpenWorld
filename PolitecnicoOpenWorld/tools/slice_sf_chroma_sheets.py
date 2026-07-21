@@ -200,7 +200,25 @@ def split_groups(bands, nA, nB):
     B = [bl for b in bands[best:] for bl in b]
     return A, B, (len(A) != nA or len(B) != nB)
 
-def merge_fragments(grp, n_expected=0):
+def _rows_of(grp, gap=90):
+    """Parte un grupo en FILAS por cercania de su centro vertical.
+
+    Mismo criterio de bandas que usa `detect` (90 px), para que "fila" signifique lo
+    mismo en todo el archivo. Devuelve una lista de filas ordenadas de arriba a abajo,
+    cada una ordenada de izquierda a derecha.
+    """
+    rows = []
+    for bl in sorted(grp, key=lambda b: (b[1] + b[3]) / 2):
+        cy = (bl[1] + bl[3]) / 2
+        if rows and abs(cy - rows[-1][0]) < gap:
+            rows[-1][1].append(bl)
+            rows[-1][0] = sum((b[1] + b[3]) / 2 for b in rows[-1][1]) / len(rows[-1][1])
+        else:
+            rows.append([cy, [bl]])
+    return [sorted(r[1], key=lambda b: b[0]) for r in rows]
+
+
+def merge_fragments(grp, n_expected=0, split_rows=True):
     """Fusiona blobs que pertenecen a UNA MISMA pose (2026-07-21).
 
     Dos poses distintas de una hoja NUNCA se solapan horizontalmente: hay un hueco real
@@ -217,6 +235,22 @@ def merge_fragments(grp, n_expected=0):
     """
     if len(grp) < 2:
         return grp
+    # 🆕 (2026-07-21) Un grupo puede ocupar DOS FILAS (HURT HEAD son 14 poses en 2x7).
+    # Al aplanar y ordenar por X, cada pose de arriba quedaba junto a la de abajo, con
+    # solapamiento horizontal casi total -> se fusionaban EN VERTICAL y el cuadro salia
+    # con dos personajes apilados (senortienda/escomboy/escomgirl/yoalliehecatl).
+    # Un trozo suelto de una pose siempre esta en la MISMA banda que su cuerpo, asi que
+    # fusionar fila por fila conserva intacto el comportamiento de las hojas de una sola
+    # fila (los otros 14 peleadores) y arregla las de dos.
+    # Solo cuentan como DOS FILAS DE POSES si ambas van bien pobladas. Las filas de
+    # EFECTOS (hoja 12: proyectil) tambien quedan dispersas en vertical, pero en grupitos
+    # de uno o dos trozos; partirlas ahi impedia fusionar el efecto y rompia la hoja 12.
+    rows = _rows_of(grp) if split_rows else []
+    if len(rows) > 1 and min(len(r) for r in rows) >= 3:
+        out = []
+        for row in rows:
+            out += merge_fragments(row, n_expected, split_rows=False)
+        return out
     grp = sorted(grp, key=lambda bl: bl[0])
     widths = sorted(bl[2] - bl[0] for bl in grp)
     typical = widths[len(widths) // 2]  # mediana de anchos de la fila
@@ -539,8 +573,13 @@ def main():
     # 🆕 (2026-07-21) PRIMERO fusionar los fragmentos de una misma pose (efectos grandes que
     # el croma separa del cuerpo) y DESPUES partir las poses que quedaron pegadas. El orden
     # importa: si se parte antes de fusionar, se trocea todavia mas un cuadro ya roto.
-    A = merge_fragments(A, nA)
-    B = merge_fragments(B, nB)
+    # La hoja 12 es el caso ESPECIAL (rejilla 4x3, fila 3 = efectos del proyectil): sus
+    # trozos se reparten en vertical a proposito y la particion por filas los separaria
+    # en vez de fusionarlos. Se queda con el comportamiento historico; si se toca, hay
+    # que re-aplicar tools/fix_llorona_projectile.py.
+    rows_ok = num != 12
+    A = merge_fragments(A, nA, split_rows=rows_ok)
+    B = merge_fragments(B, nB, split_rows=rows_ok)
     A = maybe_split(A, lbl, raw, nA)
     B = maybe_split(B, lbl, raw, nB)
     if num == 12 and len(B) != nB:
