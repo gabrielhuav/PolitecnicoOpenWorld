@@ -189,6 +189,49 @@ def split_groups(bands, nA, nB):
     B = [bl for b in bands[best:] for bl in b]
     return A, B, (len(A) != nA or len(B) != nB)
 
+def merge_fragments(grp, n_expected=0):
+    """Fusiona blobs que pertenecen a UNA MISMA pose (2026-07-21).
+
+    Dos poses distintas de una hoja NUNCA se solapan horizontalmente: hay un hueco real
+    entre ellas. En cambio, una pose con efectos grandes (auras, haces, destellos) se parte
+    en varios componentes cuando el croma separa una parte del cuerpo. El sintoma reportado:
+    "esos 2 assets juntos hacen el asset completo".
+
+    ⚠️ NO basta con "se tocan": en estas hojas las poses vecinas suelen quedar TANGENTES
+    (una empieza justo donde acaba la otra) y fusionarlas encadenaba filas enteras. Se
+    fusiona solo cuando hay evidencia real de que es un trozo y no una pose:
+      a) SOLAPAMIENTO fuerte (>30 % del mas estrecho): dos poses nunca se solapan asi.
+      b) el vecino es un FRAGMENTO anormalmente estrecho (<60 % del ancho tipico de la
+         fila) y ademas toca al anterior: es un pedazo suelto del efecto, no una pose.
+    """
+    if len(grp) < 2:
+        return grp
+    grp = sorted(grp, key=lambda bl: bl[0])
+    widths = sorted(bl[2] - bl[0] for bl in grp)
+    typical = widths[len(widths) // 2]  # mediana de anchos de la fila
+    out = [list(grp[0])]
+    merged = [False]
+    for bl in grp[1:]:
+        prev = out[-1]
+        overlap = min(prev[2], bl[2]) - max(prev[0], bl[0])
+        narrowest = min(prev[2] - prev[0], bl[2] - bl[0])
+        strong_overlap = overlap > 0.30 * max(narrowest, 1)
+        is_fragment = narrowest < 0.60 * typical and overlap >= -3
+        if strong_overlap or is_fragment:
+            prev[0] = min(prev[0], bl[0])
+            prev[1] = min(prev[1], bl[1])
+            prev[2] = max(prev[2], bl[2])
+            prev[3] = max(prev[3], bl[3])
+            # bid=None -> `cut` usa la mascara CRUDA de todo el bbox, asi entran TODOS los
+            # fragmentos fusionados (con el id de una sola etiqueta se perderian los demas).
+            prev[4] = None
+            merged[-1] = True
+        else:
+            out.append(list(bl))
+            merged.append(False)
+    return [tuple(b) for b in out]
+
+
 def maybe_split(grp, lbl, raw, n_expected):
     """Si el grupo trae MENOS blobs de los esperados y hay uno anormalmente ancho
     (cuadros fusionados por confeti/efectos), lo parte en el valle de densidad."""
@@ -206,19 +249,43 @@ def maybe_split(grp, lbl, raw, n_expected):
         cand = max(grp, key=lambda bl: (bl[2] - bl[0]) / expected_width)
         if (cand[2] - cand[0]) < 1.45 * expected_width:
             break
+        # 🆕 (2026-07-21) Un blob FUSIONADO (bid=None) ya se decidio que es UNA sola pose con
+        # efectos: no se vuelve a partir, o se deshace el arreglo.
+        if cand[4] is None:
+            break
         x0, y0, x1, y1, bid = cand
         m = (lbl[y0:y1, x0:x1] == bid) & raw[y0:y1, x0:x1]
         cols = m.sum(axis=0)
-        lo, hi = int(len(cols) * 0.25), int(len(cols) * 0.75)
-        cutx = lo + int(np.argmin(cols[lo:hi]))
+        # 🆕 Cuantas poses caben en este blob. Antes se partia SIEMPRE en 2 por el minimo de
+        # densidad del centro: con 3-4 poses pegadas (SUPER ART con auras) los cortes caian
+        # en cualquier parte y cada cuadro salia con trozos del vecino. Ahora se reparte en
+        # k tramos UNIFORMES (el paso de la fila es regular) y cada corte se AFINA al valle
+        # mas cercano, que es donde de verdad acaba una pose.
+        k = int(round((x1 - x0) / expected_width))
+        k = max(2, min(k, n_expected - len(grp) + 1))
+        window = max(4, int(expected_width * 0.25))
+        cuts = []
+        for i in range(1, k):
+            ideal = int(round((x1 - x0) * i / k))
+            lo = max(1, ideal - window)
+            hi = min(len(cols) - 1, ideal + window)
+            cuts.append(lo + int(np.argmin(cols[lo:hi])) if hi > lo else ideal)
+        bounds = [0] + cuts + [len(cols)]
+
         def tight(c0, c1):
             sub = cols[c0:c1]
             nz = np.nonzero(sub)[0]
-            if len(nz) == 0: return None
-            return (x0 + c0 + int(nz[0]), y0, x0 + c0 + int(nz[-1]) + 1, y1, bid)
-        a, b = tight(0, cutx), tight(cutx, len(cols))
-        if not a or not b: break
-        grp.remove(cand); grp += [a, b]
+            if len(nz) == 0:
+                return None
+            # Cada tramo se recorta con su propia mascara cruda (bid=None): el id original
+            # ya no identifica a uno solo de los tramos.
+            return (x0 + c0 + int(nz[0]), y0, x0 + c0 + int(nz[-1]) + 1, y1, None)
+
+        parts = [p for p in (tight(bounds[i], bounds[i + 1]) for i in range(k)) if p]
+        if len(parts) < 2:
+            break
+        grp.remove(cand)
+        grp += parts
         grp = sorted(grp, key=lambda bl: bl[0])
     return grp
 
@@ -455,6 +522,11 @@ def main():
             total = sum(len(b) for b in bands)
 
     A, B, warn = split_groups(bands, nA, nB)
+    # 🆕 (2026-07-21) PRIMERO fusionar los fragmentos de una misma pose (efectos grandes que
+    # el croma separa del cuerpo) y DESPUES partir las poses que quedaron pegadas. El orden
+    # importa: si se parte antes de fusionar, se trocea todavia mas un cuadro ya roto.
+    A = merge_fragments(A, nA)
+    B = merge_fragments(B, nB)
     A = maybe_split(A, lbl, raw, nA)
     B = maybe_split(B, lbl, raw, nB)
     if num == 12 and len(B) != nB:
