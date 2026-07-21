@@ -478,6 +478,8 @@ fun StreetFighterScreen(
     // Textos del banner de RONDA (i18n; la fuente arcade solo tiene A-Z/0-9)
     val roundBannerText = stringResource(R.string.sf_round_banner, state.roundNumber)
     val fightBannerText = stringResource(R.string.sf_fight_banner)
+    // 🆕 (2026-07-20) Etiqueta del contador de COMBO ("GOLPES"/"HITS")
+    val comboHitsLabel = stringResource(R.string.sf_combo_hits)
     // 🆕 Ajustes → "Mostrar hitboxes" (se lee al entrar al modo)
     val showHitboxes = remember { viewModel.showHitboxes() }
 
@@ -488,7 +490,7 @@ fun StreetFighterScreen(
             Canvas(modifier = Modifier.fillMaxSize()) {
                 drawScene(
                     theme, state, images, playerData, cpuData, stageBg,
-                    roundBannerText, fightBannerText, showHitboxes,
+                    roundBannerText, fightBannerText, comboHitsLabel, showHitboxes,
                     playerContentH, cpuContentH, effectiveBgFile,
                     playerSilhouette = !viewModel.isFighterActuallyUnlocked(state.player.id),
                 )
@@ -2513,6 +2515,7 @@ private fun DrawScope.drawScene(
     bg: SfStageBackground?,
     roundBannerText: String,
     fightBannerText: String,
+    comboHitsLabel: String,
     showHitboxes: Boolean = false,
     playerContentH: Map<String, Int> = emptyMap(),
     cpuContentH: Map<String, Int> = emptyMap(),
@@ -2584,8 +2587,19 @@ private fun DrawScope.drawScene(
         val owner = if (fb.ownerIndex == 0) state.player else state.cpu
         val ownerData = if (fb.ownerIndex == 0) playerData else cpuData
         val ownerSheet = images[owner.id.spriteAsset.substringAfterLast('/')]
-        if (ownerSheet != null && ownerData.frames.containsKey("proj-fly-1")) {
-            val key = if (fb.state == SfFireballState.ACTIVE) {
+        // 🆕 (2026-07-21) PODERES DE PROYECTIL con efecto PROPIO: si el fireball viene de un
+        // bonus power cuya hoja trae sus 3 cuadros de efecto (bonus-N-2 vuelo, -3 vuelo/impacto,
+        // -4 disipación), se dibujan ESOS. Si no existen, cae a los proj-* compartidos.
+        val bonusFly = "bonus-${fb.bonusPower}-2"
+        val useBonusFx = fb.bonusPower > 0 && ownerData.frames.containsKey(bonusFly)
+        if (ownerSheet != null && (useBonusFx || ownerData.frames.containsKey("proj-fly-1"))) {
+            val key = if (useBonusFx) {
+                if (fb.state == SfFireballState.ACTIVE) {
+                    if (fb.animationFrame % 2 == 0) bonusFly else "bonus-${fb.bonusPower}-3"
+                } else {
+                    "bonus-${fb.bonusPower}-${(fb.animationFrame + 3).coerceIn(3, 4)}"
+                }
+            } else if (fb.state == SfFireballState.ACTIVE) {
                 if (fb.animationFrame % 2 == 0) "proj-fly-1" else "proj-fly-2"
             } else {
                 "proj-hit-${(fb.animationFrame + 1).coerceIn(1, 3)}"
@@ -2628,6 +2642,19 @@ private fun DrawScope.drawScene(
             val textW = text.length * 12f * sizeMul
             drawFontText(ctx, theme, images.getValue(theme.hudImage), text, (SfConstants.SCENE_WIDTH - textW) / 2f, 58f, sizeMul)
         }
+    }
+
+    // ---- 🆕 (2026-07-20) Contador de COMBO (3rd Strike): "N GOLPES" del lado del atacante ----
+    // El VM llena/expira comboCount (>=2 = mostrar); aquí SOLO se pinta con sombra.
+    if (state.comboCount >= 2 && state.comboPlayerId in 0..1) {
+        val hud = images.getValue(theme.hudImage)
+        val comboText = "${state.comboCount} $comboHitsLabel"
+        val sizeMul = 1.2f
+        val tw = comboText.length * 12f * sizeMul
+        val x = if (state.comboPlayerId == 0) 16f else SfConstants.SCENE_WIDTH - tw - 16f
+        val y = 64f // debajo de las barras de vida, sin tapar a los peleadores
+        drawFontText(ctx, theme, hud, comboText, x + 1f, y + 1f, sizeMul) // sombra
+        drawFontText(ctx, theme, hud, comboText, x, y, sizeMul)
     }
 
     // ---- 🆕 Banner de RONDA ("RONDA N" + "PELEA"), fuente arcade, input congelado ----

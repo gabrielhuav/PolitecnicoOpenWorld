@@ -7,6 +7,35 @@
 > CRLF, Read para verificar). Los BUGS del modo (stun-lock, revancha, servidor LAN) viven en
 > `PENDIENTES_SF_2026-07-16.md` y NO dependen de esto.
 
+## Cambios 2026-07-20 (Fable) — COMBOS 3rd Strike + audit de audio + QA visual de assets
+
+- **🥊 COMBOS estilo SF III 3rd Strike (primer corte del P1 "Combate SF original"):**
+  - **Chain cancel:** un golpe normal que CONECTA (attackStruck) se cancela en el siguiente
+    de mayor fuerza — ligero→medio→fuerte, puño o patada (`tryChainCancel` en el VM). En
+    whiff NO hay cancel (recuperación completa, como el arcade).
+  - **Special cancel:** cualquier golpe normal conectado cancela en el ESPECIAL (respeta
+    cooldown y tope de proyectiles). `specialValidFrom`/`attackValidFrom` se ampliaron con
+    los estados de golpe; el gate real es `tryChainCancel` (ningún otro handler pide
+    golpe→golpe), así que NO se puede encadenar sin conectar.
+  - **Contador de combo en HUD:** "N GOLPES"/"N HITS" (string `sf_combo_hits`, paridad
+    ES+EN) del lado del atacante, desde 2 golpes; campos nuevos `comboCount`/`comboPlayerId`
+    en `StreetFighterState` (el VM llena/expira con `RAPID_HIT_WINDOW_MS`; la View solo pinta).
+  - **Escalado de daño:** −10% por golpe encadenado, piso 50% (`COMBO_DAMAGE_SCALE_*`) —
+    los combos no son letales gratis. El anti-bucle previo (COMBO_ESCAPE) sigue intacto.
+  - Aplica offline (VS/arcade/IA vs IA); online el HP del rival es autoridad remota (sin
+    contador local). Falta: probar en dispositivo (Rebuild) y afinar ventanas con el dueño.
+- **🔊 Audit MP3→OGG retomado:** nueva tool `tools/sf_audio_audit.py` (mapeo real desde
+  `sfVoicePacks`, duración, pitch, transcripción Whisper, regenera `_audio_review/*.mp3`) →
+  reporte `tools/sf_audio_audit_report.md`. **Frase win de La Presidenta corregida** en el VM
+  («Porque patria se escribe con A de mujer»). Los 4 clips escom* quedan FLAGGED para oído
+  del dueño (gritos sin habla; escomboy_attack dura 10.7 s). Ver `AUDIO_INVENTARIO_SF.md`.
+- **👁️ QA visual de assets:** nueva tool `tools/sf_contact_sheet.py` (hoja de contacto con
+  1 frame por animación) + hojas generadas de los 17 peleadores en `tools/_contact_sheets/`.
+  La Llorona: sus frames EMPACADOS están todos de frente (el "de espaldas" reportado debe
+  ser de runtime/espejado o de otra anim → confirmar en dispositivo con la hoja a la mano).
+- **🗺️ Mapas UAM AZC/Cuajimalpa:** los atlas actuales YA salen de los videos más recientes
+  en disco; actualizar = BLOQUEADO en videos nuevos del dueño (ver QA_SF_STAGES).
+
 ## Cambios 2026-07-19 (Antigravity) — Sombra Isla de las Muñecas y QA de Voces
 
 - **Sombra Isla de las Muñecas:** Implementada la plataforma de madera flotante y la sombra más prolongada (1.8x) para evitar que los peleadores parezcan flotar sobre el agua en el mapa Isla de las Muñecas.
@@ -230,7 +259,8 @@ Policía CDMX (Hombre) · Paramédico Cruz Roja.
 **③ POW ALPHA (poses de plantilla, badge "ALPHA") — 6.** Cambio de plan: `ESCOMBOY`,
 `ESCOMGIRL`, `ROBOT` y `GRANADERO` ahora SÍ entran a la escalera como PLACEHOLDER (arte
 pendiente). Siguen fuera: `LAZARO` y `PARAMEDICO` (ALPHA). Arte final:
-`GUIA_generacion_assets_SF.md`.
+`_ARCHIVO/GUIA_generacion_assets_SF.md` (archivada 2026-07-20; el flujo vigente es
+`GUIA_regeneracion_sprites_croma.md` + `PROMPT_SOL56_TANDAS_NUEVAS.md`).
 
 **④ Personajes a ELIMINAR del todo:** `REY_BROMAS` y `PEPE_REY` (skins ya COMENTADOS en
 `features/map_exterior/ui/components/PlayerSkin.kt`) + su comentario en `SfModels.kt`.
@@ -406,7 +436,11 @@ Ver **`_ARCHIVO/PROMPT_traspaso_IA_CPU_2026-07-18.md`**.
 
 ### P1 — Combate “SF original” (grande, después de P0)
 
-Más motions/combos/cancels/fluidez. Definir set con el dueño antes de implementar.
+Más motions/combos/cancels/fluidez. **✅ Primer corte 2026-07-20:** chain/special cancels +
+contador de combo + escalado de daño (ver §Cambios 2026-07-20). Lo que sigue depende de los
+ASSETS nuevos (tandas 5–8 con Sol 5.6): dash/backdash, bloqueo/parry dedicado, ataques
+agachado/aéreos, patada larga, agarres, super arts → cada uno necesitará estados nuevos en
+`SfFighterState` + cajas en los JSON. Definir ventanas finas con el dueño en dispositivo.
 
 ## Añadidos 2026-07-17c
 

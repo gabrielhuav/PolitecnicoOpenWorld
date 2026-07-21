@@ -19,7 +19,7 @@
 ## ✅ CHECKLIST DEFINITIVO DE COPYRIGHT (2026-07-16) — qué falta cambiar y cómo
 
 **Decisión del dueño: REGENERAR TODO con el generador de imágenes de ChatGPT Plus** (prompts
-listos en `GUIA_generacion_assets_SF.md`, "modo simple"). Flujo por pieza: el dueño genera el
+listos en `_ARCHIVO/GUIA_generacion_assets_SF.md`, "modo simple", archivada). Flujo por pieza: el dueño genera el
 PNG con ChatGPT → lo deja en la raíz del repo → la IA lo rebana/empaqueta/cablea (los slicers
 de `tools/` ya existen). Estado por archivo, en ORDEN DE PRIORIDAD:
 

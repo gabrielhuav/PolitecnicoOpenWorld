@@ -398,6 +398,11 @@ data class SfFireball(
     val state: SfFireballState = SfFireballState.ACTIVE,
     val animationFrame: Int = 0,
     val animationTimerMs: Long = 0L,
+    // 🆕 (2026-07-21) Índice del BONUS POWER que lo lanzó (1..11; 0 = special normal).
+    // Los poderes "de proyectil" traen su propio efecto dibujado en los cuadros 2-4 de
+    // su hoja (`bonus-N-2/3/4`): la View los usa en vez de los `proj-*` compartidos, así
+    // cada poder se ve distinto (mazo, libro, bolsa de dinero…). Ver SfModels/§bonus.
+    val bonusPower: Int = 0,
 )
 
 /** Splash de impacto (decals.png; 4 frames, avanza cada 4 FRAME_TIME). */

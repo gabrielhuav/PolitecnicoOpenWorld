@@ -11,13 +11,18 @@
 > campos de estado `specialSubtitleHud`/`specialSubtitleUntilMs` y el dibujo en `StreetFighterScreen`.
 > Los AUDIOS no se tocaron: se siguen reproduciendo normal.
 >
-> **Para reactivarlos (tarea humana):**
-> 1. Escuchar cada `special_<id>.ogg` nuevo y **volver a transcribir/curar** la frase real de cada
->    peleador (21 en total) en `tools/sf_voice_scrape/special_phrases_catalog.json`.
-> 2. Actualizar `phrase_es`, `phrase_en` (traducción) y `phrase_hud` (solo A-Z/0-9 para la fuente
->    arcade del HUD) + `subtitleMs` si cambió la duración.
-> 3. Regenerar el pack: `python3 tools/build_special_phrases_pack.py` → `special_phrases.json`.
-> 4. Poner `voiceSubtitlesEnabled = true` y probar en dispositivo que el texto calce con la voz.
+> **Para reactivarlos (tarea humana) — 🆕 FLUJO NUEVO 2026-07-20 (más simple):**
+> 1. **Lugar ÚNICO de frases: `assets/STREETFIGHTER/DATA/voice_phrases.json`** — una entrada
+>    POR CLIP (`es`/`en` curables + `draft` de Whisper como referencia). Escuchar el mp3
+>    gemelo en `tools/_audio_review/` y escribir/validar `es` (y `en`). `es` vacía = ese
+>    clip no muestra subtítulo (gritos/SFX).
+> 2. El código YA está cableado y APAGADO: `SfVoicePhrases.kt` (cargador) + hook en
+>    `emitVoiceLines` (el catálogo MANDA sobre la frase inline de `SfVoiceLine`).
+> 3. Al terminar de curar: poner `voiceSubtitlesEnabled = true` en el VM y probar en
+>    dispositivo. (Regenerar el catálogo tras cambiar audios:
+>    `tools/sf_audio_audit.py` → `tools/build_voice_phrases_catalog.py`; conserva lo curado.)
+> *(El flujo viejo vía `special_phrases_catalog.json`/`build_special_phrases_pack.py` sigue
+> existiendo solo para el fallback `special_<id>` de `emitSpecialVoice`.)*
 >
 > *(Nota: el modo "showcase" de audio sigue mostrando `audioShowcasePhrase`; si también quedó
 > desincronizado, curarlo en el mismo paso.)*

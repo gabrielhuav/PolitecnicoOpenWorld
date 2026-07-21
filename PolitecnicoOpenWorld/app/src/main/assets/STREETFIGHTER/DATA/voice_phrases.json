@@ -1,0 +1,350 @@
+{
+  "_readme": "FRASES por clip de voz de HUELUM VS. GOYA. Escribe/valida 'es' (y 'en' para paridad) escuchando tools/_audio_review/<clip>.mp3; 'draft' es Whisper (solo referencia). 'es' vacia = sin subtitulo. Al terminar de curar: poner voiceSubtitlesEnabled = true en StreetFighterViewModel. Regenerable con tools/build_voice_phrases_catalog.py (conserva lo curado).",
+  "clips": {
+    "special_charro_attack_1": {
+      "es": "",
+      "en": "",
+      "draft": ""
+    },
+    "special_charro_attack_2": {
+      "es": "",
+      "en": "",
+      "draft": "Rrrrr. Rrrrrrr."
+    },
+    "special_charro_attack_3": {
+      "es": "",
+      "en": "",
+      "draft": ""
+    },
+    "special_charro_hurt_1": {
+      "es": "",
+      "en": "",
+      "draft": "¡Cri, cri, cri, cri, cri!"
+    },
+    "special_charro_hurt_2": {
+      "es": "",
+      "en": "",
+      "draft": "Ssssssssssssssss"
+    },
+    "special_charro_hurt_3": {
+      "es": "",
+      "en": "",
+      "draft": ""
+    },
+    "special_charro_negro": {
+      "es": "",
+      "en": "",
+      "draft": "Aaaaaaaaaaaaaaaaaaaaa"
+    },
+    "special_escomboy_attack": {
+      "es": "",
+      "en": "",
+      "draft": ""
+    },
+    "special_escomgirl_attack": {
+      "es": "",
+      "en": "",
+      "draft": ""
+    },
+    "special_escomgirl_hurt": {
+      "es": "",
+      "en": "",
+      "draft": ""
+    },
+    "special_escomgirl_loss": {
+      "es": "",
+      "en": "",
+      "draft": ""
+    },
+    "special_granadero_win": {
+      "es": "",
+      "en": "",
+      "draft": ""
+    },
+    "special_la_presidenta_attack": {
+      "es": "",
+      "en": "",
+      "draft": "jajajajajaja"
+    },
+    "special_la_presidenta_hurt": {
+      "es": "",
+      "en": "",
+      "draft": "Una decisión soberana."
+    },
+    "special_la_presidenta_power": {
+      "es": "",
+      "en": "",
+      "draft": "y algunos de los. Hoy estamos"
+    },
+    "special_la_presidenta_win": {
+      "es": "Porque patria se escribe con A de mujer",
+      "en": "",
+      "draft": "porque patria se escribe con a de mujer"
+    },
+    "special_la_tzitzimime_attack": {
+      "es": "",
+      "en": "",
+      "draft": ""
+    },
+    "special_la_tzitzimime_hurt": {
+      "es": "",
+      "en": "",
+      "draft": ""
+    },
+    "special_la_tzitzimime_power": {
+      "es": "",
+      "en": "",
+      "draft": ""
+    },
+    "special_la_tzitzimime_win": {
+      "es": "",
+      "en": "",
+      "draft": ""
+    },
+    "special_llorona_attack": {
+      "es": "",
+      "en": "",
+      "draft": "¡Dónde está mi tío!"
+    },
+    "special_llorona_hurt": {
+      "es": "",
+      "en": "",
+      "draft": ""
+    },
+    "special_llorona_power": {
+      "es": "",
+      "en": "",
+      "draft": "¡Ay, sí, oh!"
+    },
+    "special_male_attack_grunt": {
+      "es": "",
+      "en": "",
+      "draft": "SAC! SAC!"
+    },
+    "special_paparazzi_5": {
+      "es": "",
+      "en": "",
+      "draft": "Pero, ¿para qué, o qué? Dime, ¿de qué se trata? Contésame, por favor."
+    },
+    "special_paparazzi_5_attack": {
+      "es": "",
+      "en": "",
+      "draft": "¿Quieres que estén en tu madre, huy? ¡Dímelo!"
+    },
+    "special_paparazzi_5_hurt": {
+      "es": "",
+      "en": "",
+      "draft": "¿Qué te pasa?"
+    },
+    "special_papz1_hurt_1": {
+      "es": "",
+      "en": "",
+      "draft": "de la chingada que no me estés molestando, ¿eh? Bueno, me vas a dejar de molestarlo, ¿eh?"
+    },
+    "special_papz1_hurt_2": {
+      "es": "",
+      "en": "",
+      "draft": "Gabron, ya te dije que me dejes de estar chingando ¿no?"
+    },
+    "special_papz1_hurt_3": {
+      "es": "",
+      "en": "",
+      "draft": "Que te calman así... Parale..."
+    },
+    "special_paramedico_cruz_roja_win": {
+      "es": "No olvides que saber primeros auxilios marca la diferencia y salva vidas.",
+      "en": "",
+      "draft": "No olvides que saber primeros auxilios, marca la diferencia y salva vidas."
+    },
+    "special_pol_h_attack": {
+      "es": "Buenas joven, ¿si sabe porque lo detuvimos?",
+      "en": "",
+      "draft": "Bueno, solo ven si sabe por qué lo detuvimos"
+    },
+    "special_pol_h_intro": {
+      "es": "¡Está prohibido beber en la vía pública!",
+      "en": "",
+      "draft": "¡Está prohibido beber en vía divina!"
+    },
+    "special_pol_h_win": {
+      "es": "¿Se cree más chingón que nosotros o qué joven?",
+      "en": "",
+      "draft": "Se crea más chingón que nosotros, o qué por eso?"
+    },
+    "special_pol_m_attack_1": {
+      "es": "",
+      "en": "",
+      "draft": "¡Ahhh!"
+    },
+    "special_pol_m_attack_2": {
+      "es": "",
+      "en": "",
+      "draft": "Ya, ya, ya, ya, ya."
+    },
+    "special_pol_m_hurt": {
+      "es": "",
+      "en": "",
+      "draft": "¡Pone jocada! ¡Te regalas!"
+    },
+    "special_policia_cdmx_hombre_power": {
+      "es": "",
+      "en": "",
+      "draft": "trabajamos permanentemente en estrategias de seguridad vial."
+    },
+    "special_policia_cdmx_mujer_win": {
+      "es": "Si dices policía, me comprometí como mujer a que la ciudadanía sintiera una mejor seguridad",
+      "en": "",
+      "draft": "Si le hice el policía me comprometí como mujer a que la ciudadanía sintiera una mejor seguridad, que me tuvieran confianza y que ellos se quedaran o obtuvieran de mí una mejor tranquilidad."
+    },
+    "special_power_electricity": {
+      "es": "",
+      "en": "",
+      "draft": ""
+    },
+    "special_prankedy_attack_1": {
+      "es": "",
+      "en": "",
+      "draft": "a ver volteate volteate volteate volteate"
+    },
+    "special_prankedy_attack_2": {
+      "es": "",
+      "en": "",
+      "draft": "¿Y qué, si me paso a pegar o nada más te vas a decir?"
+    },
+    "special_prankedy_attack_3": {
+      "es": "",
+      "en": "",
+      "draft": "¿Qué pasó? ¿Eh?"
+    },
+    "special_prankedy_attack_4": {
+      "es": "",
+      "en": "",
+      "draft": "¿Que va a ser? ¿Qué va a haber? Se agarramos aquí a putas solo el día de una vez"
+    },
+    "special_prankedy_hurt_1": {
+      "es": "",
+      "en": "",
+      "draft": "¡Pac! ¡Pacama!"
+    },
+    "special_prankedy_hurt_2": {
+      "es": "",
+      "en": "",
+      "draft": "¡Bruh!"
+    },
+    "special_prankedy_loss": {
+      "es": "",
+      "en": "",
+      "draft": "la broma pues terminó mal tengo fracturado un ojo aquí tengo también una marca del golpe"
+    },
+    "special_prankedy_lowhp": {
+      "es": "",
+      "en": "",
+      "draft": "¡Uke! ¡Uke, pendejo! ¡Te pones al pedo, guay, todavía!"
+    },
+    "special_prankedy_power": {
+      "es": "",
+      "en": "",
+      "draft": "no se sienta un culo de mi perro que ahorita lo aterrizo"
+    },
+    "special_prankedy_win": {
+      "es": "",
+      "en": "",
+      "draft": "es que yo podré ser ciego pero si me doy cuenta cuando alguien es miserable"
+    },
+    "special_rey_grupero": {
+      "es": "",
+      "en": "",
+      "draft": "¿Fue el hermano Mergaras en la selfie? Claro, claro. ¿Y a ti te conozco de algo, no?"
+    },
+    "special_rey_grupero_attack": {
+      "es": "",
+      "en": "",
+      "draft": "Fue ir hermano me regalas una selfie"
+    },
+    "special_rey_grupero_hurt": {
+      "es": "",
+      "en": "",
+      "draft": "¡Vamos! ¡Vamos! ¡Vamos!"
+    },
+    "special_rey_grupero_power": {
+      "es": "",
+      "en": "",
+      "draft": "Estos son los de la verga, güey, son los de la verga, güey."
+    },
+    "special_robot": {
+      "es": "",
+      "en": "",
+      "draft": "Sistema activado. Objetivo localizado."
+    },
+    "special_robot_attack": {
+      "es": "",
+      "en": "",
+      "draft": ""
+    },
+    "special_robot_hurt": {
+      "es": "",
+      "en": "",
+      "draft": "Eeeeeeeeeeeeeeeeeee"
+    },
+    "special_robot_win": {
+      "es": "",
+      "en": "",
+      "draft": "La base de datos de virus ha sido actualizada."
+    },
+    "special_senor_tienda": {
+      "es": "",
+      "en": "",
+      "draft": "Si el salis que retira te voy, te rompo tu madre y así derecho. Retira te cabrón."
+    },
+    "special_senor_tienda_attack_1": {
+      "es": "",
+      "en": "",
+      "draft": "Ahora, hasta exigentes de por mis pendejos."
+    },
+    "special_senor_tienda_attack_2": {
+      "es": "",
+      "en": "",
+      "draft": "Otra vez tienes a chingar la madre cabrón. A ver, ¿podre que ha de chingar?"
+    },
+    "special_senor_tienda_hurt_1": {
+      "es": "",
+      "en": "",
+      "draft": "¡Ya estoy en la ventana!"
+    },
+    "special_senor_tienda_hurt_2": {
+      "es": "¡Ya me agarraste de tu puerquito!",
+      "en": "",
+      "draft": "¡Sera, este es el Big Wanker!"
+    },
+    "special_senor_tienda_win": {
+      "es": "",
+      "en": "",
+      "draft": "Ya estuvo cabrón, ahora si vete para acá, vamos a rompernos la madre, voy, yo vas a salir otra vez como pinche mariquita, que sales corriendo cabrón."
+    },
+    "special_yoalli_ehecatl": {
+      "es": "",
+      "en": "",
+      "draft": "Música"
+    },
+    "special_yoalli_ehecatl_attack_1": {
+      "es": "",
+      "en": "",
+      "draft": "¡Aaaaaaah!"
+    },
+    "special_yoalli_ehecatl_attack_2": {
+      "es": "",
+      "en": "",
+      "draft": ""
+    },
+    "special_yoalli_ehecatl_hurt_1": {
+      "es": "",
+      "en": "",
+      "draft": "¡Aaaaaaah!"
+    },
+    "special_yoalli_ehecatl_hurt_2": {
+      "es": "",
+      "en": "",
+      "draft": "¡Aaaaaah!"
+    }
+  }
+}

@@ -53,7 +53,24 @@
 | 08 | `08_SERVERS.md` | Servidores Node.js (open world v3 + zombi) + protocolo de red |
 | 09 | `09_CONVENTIONS_GOTCHAS.md` | Convenciones, reglas de gama baja, protocolo de actualización de docs |
 
-### Estado vigente (2026-07-18h) — LÉEME PRIMERO
+### Estado vigente (2026-07-20) — LÉEME PRIMERO
+
+> **🆕 2026-07-20 (Fable) — post-release 1.0.0.12 EN PRODUCCIÓN (Play Store, CI/CD verde):**
+> - **PENDIENTES vivos → `PENDIENTES_2026-07-20.md`** (dueño: videos UAM, sprites tandas 5–8
+>   con Sol 5.6, oído de audios escom, curar frases; código: probar combos en dispositivo).
+> - **🥊 COMBOS 3rd Strike (1er corte):** chain/special cancels + contador "N GOLPES" +
+>   escalado de daño. Ver 07 §COMBOS + `DISENO_ARCADE_SF_POW.md` §2026-07-20.
+> - **Audit MP3→OGG retomado:** `tools/sf_audio_audit.py` → `tools/sf_audio_audit_report.md`
+>   (mapeo real, duración, pitch, transcripción Whisper) + `_audio_review/*.mp3` regenerados.
+>   Frase win de La Presidenta corregida. Escom* flagged para oído del dueño.
+> - **QA visual de assets:** `tools/sf_contact_sheet.py` + hojas de los 17 peleadores en
+>   `tools/_contact_sheets/` (frames de La Llorona empacados están DE FRENTE).
+> - **Frases de voz — LUGAR ÚNICO:** `assets/STREETFIGHTER/DATA/voice_phrases.json`
+>   (por clip: `es`/`en` curables + `draft` Whisper). Cargador `SfVoicePhrases.kt` +
+>   hook en `emitVoiceLines` LISTOS pero APAGADOS (`voiceSubtitlesEnabled=false`).
+>   Regenerable con `tools/build_voice_phrases_catalog.py` (conserva lo curado).
+> - **Prompt de assets nuevos (hojas 20–29):** `PROMPT_SOL56_TANDAS_NUEVAS.md`.
+> - **Purga:** `GUIA_generacion_assets_SF.md` (fondo negro, superada) → `_ARCHIVO/`.
 
 > **ES:** El estado del modo pelea y del resto del juego vive en **00–09** (sobre todo
 > **07 §HUELUM VS. GOYA**). Los prompts/checkpoints/pendientes de sesiones pasadas están en
@@ -116,6 +133,7 @@
 
 | Archivo / File | Contenido / Contents |
 |---|---|
+| **`PENDIENTES_2026-07-20.md`** | **⭐ Lista VIVA de deudas post-release 1.0.0.12 (dueño vs código).** |
 | `GUIA_mantenimiento_no_senior.md` | **EMPEZAR AQUÍ si eres IA/dev nuevo:** 7 reglas, chuleta, qué NO hacer. |
 | `DISENO_ARCADE_SF_POW.md` | Diseño + avance del ARCADE POW (escalera, desbloqueos, IA por fases). |
 | **`SF_STAGES_MAPS_UNLOCK.md`** | **16 mapas × 3 luces, peleadór→hogar (tabla dueño), desbloqueos MP.** |
@@ -125,8 +143,8 @@
 | `AUDIT_SF_MULTIPLAYER.md` | Multijugador 1v1: protocolo, server `MultiplayerSF/`, BT/LAN. |
 | `ASSETS_STREETFIGHTER_MIGRACION.md` | Pipeline assets pelea (JSON, pack, migración SF→POW). |
 | **`SF_SPECIAL_VOICES_SFX.md`** | Voces/SFX v3: 21/21 español, cortes locales, Whisper, hashes, `MediaPlayer`; v1/v2 queda histórico. **⚠️ TRABAJO FUTURO (humano): subtítulos de frases DESACTIVADOS** (`voiceSubtitlesEnabled=false`) porque los audios nuevos ya no coinciden con el texto — re-transcribir las 21 frases y reactivar. Ver la caja al inicio de ese doc. |
-| `GUIA_regeneracion_sprites_croma.md` | Regenerar sprites croma pelea+mundo. |
-| `GUIA_generacion_assets_SF.md` | Guía manual de generación de assets. |
+| `GUIA_regeneracion_sprites_croma.md` | Regenerar sprites croma pelea+mundo (proceso VIGENTE de recorte). |
+| **`PROMPT_SOL56_TANDAS_NUEVAS.md`** | **⭐ Prompt de las 10 hojas NUEVAS (20–29, moveset 3rd Strike) por personaje + rutas de assets + estándar de calidad.** |
 | `NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |
 | `CHECKPOINT_SENIOR_refactor.md` | Receta del patrón manager/Hilt/detekt (referencia). |
 | `CAMPAIGN/` | Guion Modo Historia (misiones 1–3 + side). |

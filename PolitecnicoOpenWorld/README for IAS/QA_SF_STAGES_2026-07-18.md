@@ -42,16 +42,20 @@ FES Acatlán · UAM Azcapotzalco · Isla de las Muñecas · Mictlán · Campos d
   que NO se mueva** (las imágenes/frames del atlas son muy distintas entre sí y "saltan").
   Es trabajo de asset (regenerar el atlas de día con frames coherentes o 1 frame estático).
   PENDIENTE.
+- **🆕 UAM Azcapotzalco y UAM Cuajimalpa (pedido del dueño 2026-07-20):** quiere ACTUALIZARLOS.
+  Verificado: los 6 atlas actuales YA vienen de sus videos más recientes en disco
+  (`fondo_uam_*_anim.json` → source `UAM Azcapo*.mp4` de 17JUL y `UAM Cuajimala New*.mp4` de
+  18JUL, 28 frames ping-pong). **BLOQUEADO en el dueño: faltan videos nuevos.** Cuando los
+  suelte, correr `tools/build_map_backgrounds.py` (mismo pipeline; limpiar los stems como en
+  QA §MATERIAL NUEVO).
 
-## Subtítulos de frases (se salen de pantalla) — PENDIENTE (código)
+## Subtítulos de frases (se salen de pantalla) — ✅ CORREGIDO 2026-07-18q
 
-Las frases de los personajes (special/voz) se muestran como subtítulo pero **se salen de la
-pantalla** (una sola línea centrada, ancho `sub.length * 12 * sizeMul`). Debe:
-- Ir **abajo del lugar** (parte inferior de la escena, como hoy ~`SCENE_HEIGHT - 28`).
-- **Recortarse en varias líneas** (máx ~3 según longitud), sin desbordar el ancho de escena.
-Ubicación: `StreetFighterScreen.kt` bloque "Subtítulo del special" (~línea 2340) +
-`drawFontText`. Habría que envolver el texto en palabras a un ancho máx y dibujar N líneas
-apiladas hacia arriba desde la base. PENDIENTE (aún no tocado; el dueño lo confirmará).
+Resuelto: subtítulo **multilínea (máx 3)** con word-wrap ~24 chars, fuente `sizeMul` 0.6,
+anclado abajo (ver `StreetFighterScreen.kt` bloque "Subtítulo del special" + DISENO §18q).
+⚠️ OJO: los subtítulos de FRASES están APAGADOS (`voiceSubtitlesEnabled=false`) hasta
+re-transcribir las frases — ver `SF_SPECIAL_VOICES_SFX.md` (caja inicial) y
+`tools/sf_audio_audit_report.md` (transcripciones borrador 2026-07-20).
 
 ## 🆕 MATERIAL NUEVO PROCESADO (2026-07-18k, Fable) — `nuevoMaterial18JUL/`
 

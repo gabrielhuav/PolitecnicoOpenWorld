@@ -941,3 +941,13 @@ búsqueda de zonas BODY/LEGS en colisiones. La dificultad ajusta reacción/defen
 ligeros por peleador sesgan presión o poderes sin duplicar la IA. Hay memoria de tres ataques,
 cooldowns separados para especiales/poderes, defensa reactiva y escape anti-hit-stun. El auditor
 considera fallo cualquier estancamiento o ronda por tiempo y reporta los totales KO/timeout.
+
+### HUELUM VS. GOYA — 🥊 COMBOS estilo 3rd Strike (2026-07-20)
+
+Primer corte del combate "SF original" (P1): **chain cancel** (golpe normal que CONECTA se
+cancela en el de mayor fuerza: ligero→medio→fuerte, puño o patada) y **special cancel**
+(golpe conectado → especial, con su cooldown). Gate único en `tryChainCancel` (VM): exige
+`attackStruck`, así que en whiff no hay cancel. **Contador "N GOLPES/HITS"** en el HUD
+(`comboCount`/`comboPlayerId` en `StreetFighterState`, string `sf_combo_hits` ES+EN, dibujo
+en `drawScene`) y **escalado de daño** −10%/golpe (piso 50%). Offline only (online el HP del
+rival es autoridad remota). Detalle y pendientes: `DISENO_ARCADE_SF_POW.md` §2026-07-20.

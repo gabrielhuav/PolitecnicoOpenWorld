@@ -616,6 +616,8 @@
     <!-- Banner de rondas (fuente arcade: solo A-Z y 0-9, sin acentos ni signos) -->
     <string name="sf_round_banner">RONDA %1$d</string>
     <string name="sf_fight_banner">PELEA</string>
+    <!-- 🆕 Contador de combo (2026-07-20; fuente arcade: solo A-Z y 0-9) -->
+    <string name="sf_combo_hits">GOLPES</string>
     <string name="sf_choose_rival">Ahora elige al RIVAL (lo controla la CPU)</string>
     <!-- 🆕 Dificultad de la CPU (paso 3 del flujo offline, 2026-07-16) -->
     <string name="sf_choose_difficulty">ELIGE LA DIFICULTAD</string>

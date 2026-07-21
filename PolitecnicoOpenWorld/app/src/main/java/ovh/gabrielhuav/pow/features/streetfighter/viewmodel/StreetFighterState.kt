@@ -53,6 +53,12 @@ data class StreetFighterState(
     val displayHp0: Float = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat(),
     val displayHp1: Float = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat(),
 
+    // ─── 🆕 COMBO estilo SF III 3rd Strike (2026-07-20) ───
+    // Golpes CONECTADOS encadenados del combo en curso. El VM lo llena/expira (ventana
+    // RAPID_HIT_WINDOW_MS); la View SOLO lo pinta ("N GOLPES") cuando comboCount >= 2.
+    val comboCount: Int = 0,
+    val comboPlayerId: Int = -1,   // índice del atacante del combo (0/1); -1 = sin combo
+
     // ─── 🆕 RONDAS estilo SF (2026-07-16): mejor de 3 — gana quien tome 2 rondas ───
     // Cada ronda termina por KO o timeout (más vida gana; EMPATE exacto → azar; online el
     // azar es DETERMINISTA con semilla compartida para que ambos lados coincidan).

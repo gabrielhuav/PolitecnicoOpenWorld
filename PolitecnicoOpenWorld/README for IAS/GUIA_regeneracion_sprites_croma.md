@@ -3,7 +3,7 @@
 > **Qué es:** el procedimiento VIGENTE para regenerar el arte de un peleador de
 > "HUELUM VS. GOYA" **y** su set del mundo abierto desde CERO con ChatGPT Images,
 > usando hojas con **fondo croma verde #00FF00** y 2 grupos de animación por hoja.
-> Sustituye al "modo simple" de `GUIA_generacion_assets_SF.md` (fondo negro) para
+> Sustituye al "modo simple" de `_ARCHIVO/GUIA_generacion_assets_SF.md` (fondo negro; archivada 2026-07-20) para
 > personajes nuevos. **Prankedy, Señor de la Tienda, Rey Grupero, ambos Paparazzi, las policías CDMX,
 > Paramédico Cruz Roja, ambos Policías Granadero, los tres estudiantes ESCOM, Yoalli Ehécatl,
 > el Charro Negro, La Tzitzimime y La Presidenta ya se

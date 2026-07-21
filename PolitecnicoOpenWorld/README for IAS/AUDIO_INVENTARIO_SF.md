@@ -4,6 +4,30 @@
 > puede borrar. Script: `tools/sf_audio_review.sh` (inventario; `--mp3` convierte las voces a mp3
 > para escucharlas). Todo vive en `app/src/main/assets/STREETFIGHTER/SOUNDS/`.
 
+## 🆕 AUDIT MP3→OGG retomado (2026-07-20, Fable) — `tools/sf_audio_audit.py`
+
+Herramienta NUEVA que retoma el audit completo de voces. Por cada `.ogg` de `SOUNDS/`:
+mapeo REAL peleadór:evento (parsea `sfVoicePacks` del VM), duración, F0 mediano (género
+de la voz), tipo (VOZ HABLADA / GRITO / SFX) y transcripción Whisper de borrador. Además
+REGENERA `tools/_audio_review/*.mp3` (escucha) y escribe **`tools/sf_audio_audit_report.md`**.
+Correr con el venv `.codex-tmp/pow-audio-venv` (tiene faster-whisper):
+`python tools/sf_audio_audit.py` (flags `--no-transcribe`, `--no-mp3`).
+
+Hallazgos 2026-07-20 (detalle en el reporte):
+- **⚠️ ESCOM pendiente de OÍDO del dueño:** los 4 clips son GRITOS sin habla; el pitch de
+  los 3 de escomgirl es agudo (256–327 Hz, plausible mujer), pero `special_escomboy_attack`
+  dura **10.7 s** (larguísimo para un grito de ataque) con perfil raro → el dueño reportó
+  "audios de escomboy a escomgirl": escuchar los 4 mp3 de `_audio_review/` y decidir si se
+  recortan/reasignan (no se pudo resolver por análisis: no hay palabras que transcribir).
+- **Frase de La Presidenta (win) CORREGIDA en el VM:** el corte del 19JUL cambió el
+  contenido; la frase real es «Porque patria se escribe con A de mujer» (antes decía
+  "Sí. Siempre…"). Verificada con Whisper.
+- Las demás frases inline (policías, paramédico, puerquito) coinciden razonablemente con el
+  audio (las "discrepancias" del reporte en esos casos son mis-oídas de Whisper).
+- El reporte trae TRANSCRIPCIONES BORRADOR de las ~70 voces → es el insumo para re-activar
+  los subtítulos (`voiceSubtitlesEnabled`): curar a oído, poner frases en `SfVoiceLine` y
+  encender el flag (ver `SF_SPECIAL_VOICES_SFX.md` caja inicial).
+
 ## ⚠️ El peso del AAB NO era el audio — eran los FONDOS (resuelto)
 
 - **IMAGES 221 MB → 82 MB** re-encodeando los 48 atlas `fondo_*_anim.webp` de **webp LOSSLESS a

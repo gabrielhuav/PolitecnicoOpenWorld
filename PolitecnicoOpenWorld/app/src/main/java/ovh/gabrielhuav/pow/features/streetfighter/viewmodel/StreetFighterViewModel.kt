@@ -227,7 +227,9 @@ class StreetFighterViewModel @Inject constructor(
                 attack = listOf(SfVoiceLine("special_la_presidenta_attack")),
                 hurt = listOf(SfVoiceLine("special_la_presidenta_hurt")),
                 power = listOf(SfVoiceLine("special_la_presidenta_power")),
-                win = listOf(SfVoiceLine("special_la_presidenta_win", "Sí. Siempre. Nosotros vamos a actuar siempre en el marco de la ley. Siempre."))
+                // 🆕 (2026-07-20, audit sf_audio_audit) el corte 19JUL cambió el contenido del
+                // audio: la frase real ya no es "Sí. Siempre…" sino esta (verificada con Whisper).
+                win = listOf(SfVoiceLine("special_la_presidenta_win", "Porque patria se escribe con A de mujer"))
             ),
             // 🆕 (2026-07-19) Escomboy / Escomgirl: mapeo de su poder especial de electricidad (compartido)
             // 🆕 (2026-07-19) Escomboy / Escomgirl: mapeo de sus audios de voz e impactos
@@ -320,12 +322,21 @@ class StreetFighterViewModel @Inject constructor(
         _state.update { it.copy(specialSubtitleHud = hud, specialSubtitleUntilMs = until) }
     }
 
-    /** Emite una LÍNEA del evento (al azar) + su subtítulo si tiene frase. */
+    // 🆕 (2026-07-20) Catálogo de frases POR CLIP (voice_phrases.json): el "lugar único"
+    // donde el dueño cura la frase de cada audio. Si un clip tiene frase curada, MANDA
+    // sobre la inline de SfVoiceLine. Sigue sin mostrarse nada (voiceSubtitlesEnabled).
+    private val voicePhrases by lazy {
+        ovh.gabrielhuav.pow.features.streetfighter.data.SfVoicePhrases.load(appContext)
+    }
+
+    /** Emite una LÍNEA del evento (al azar) + su subtítulo si tiene frase (catálogo > inline). */
     private fun emitVoiceLines(lines: List<SfVoiceLine>, now: Long): Boolean {
         if (lines.isEmpty()) return false
         val line = lines.random()
         if (!emitVoiceClip(line.file)) return false
-        if (line.phrase.isNotBlank()) setVoiceSubtitle(line.phrase, now)
+        val phrase = voicePhrases[line.file]?.textForLang(java.util.Locale.getDefault().language)
+            ?: line.phrase
+        if (phrase.isNotBlank()) setVoiceSubtitle(phrase, now)
         return true
     }
 
@@ -519,12 +530,10 @@ class StreetFighterViewModel @Inject constructor(
     fun showHitboxes(): Boolean = SettingsRepository(appContext).getShowHitboxes()
 
     /**
-     * 🆕 REVELAR el arte de los bloqueados (a color, sin pixelar) — SOLO si el jugador está
-     * logueado en Firebase con Google **y** tiene el Modo Desarrollador activo. Para el resto
-     * siguen saliendo como silueta negra pixelada (no se sabe quién es hasta desbloquear).
+     * 🆕 REVELAR el arte de los bloqueados (a color, sin pixelar) — siempre que el Modo Desarrollador esté activo.
      */
     fun revealLockedArt(): Boolean =
-        SettingsRepository(appContext).getDeveloperMode() && AuthManager(appContext).isSignedIn()
+        SettingsRepository(appContext).getDeveloperMode()
 
     /** Ids desbloqueados (arcade) como SfFighterId (ignora nombres inválidos). */
     private fun unlockedIds(): Set<SfFighterId> =
@@ -615,6 +624,11 @@ class StreetFighterViewModel @Inject constructor(
     private val lastHitTakenMs = LongArray(2) { 0L }
     private val rapidHitsTaken = IntArray(2)
     private val comboEscapeUntilMs = LongArray(2)
+    // 🆕 (2026-07-20) COMBO estilo SF III 3rd Strike: golpes CONECTADOS encadenados por
+    // ATACANTE (índice). Alimenta el contador del HUD ("N GOLPES") y el escalado de daño.
+    // Expira si pasa la ventana RAPID_HIT_WINDOW_MS sin conectar otro golpe.
+    private val comboHits = IntArray(2)
+    private val comboLastHitMs = LongArray(2)
 
     // 🆕 DIAGNÓSTICO / anti-atasco (2026-07-18h): detecta animaciones que NO terminan (assets sin
     // frame -1 / incompletas → peleador congelado, "se pegan y no se mueven") y estancamientos sin
@@ -746,6 +760,11 @@ class StreetFighterViewModel @Inject constructor(
         const val RAPID_HIT_WINDOW_MS = 1200L
         const val COMBO_ESCAPE_MS = 950L
         const val RAPID_HITS_BEFORE_ESCAPE = 3
+        // 🆕 Combos (3rd Strike): el HUD muestra el contador desde 2 golpes; cada golpe
+        // encadenado hace -10% de daño (piso 50%) para que el combo no sea letal gratis.
+        const val COMBO_DISPLAY_MIN = 2
+        const val COMBO_DAMAGE_SCALE_STEP = 0.10f
+        const val COMBO_DAMAGE_SCALE_MIN = 0.5f
         const val MAX_ACTIVE_FIREBALLS_PER_FIGHTER = 1
         const val MAX_FIREBALLS_TOTAL = 4
         // Rangos IA (px): clinch → separar; melee → golpear; mid → footsies
@@ -792,12 +811,20 @@ class StreetFighterViewModel @Inject constructor(
         SfFighterState.CROUCH_UP, SfFighterState.CROUCH_DOWN, SfFighterState.CROUCH,
         SfFighterState.CROUCH_TURN, SfFighterState.LIGHT_PUNCH, SfFighterState.MEDIUM_PUNCH,
         SfFighterState.HEAVY_PUNCH,
+        // 🆕 (2026-07-20) SPECIAL CANCEL (3rd Strike): también desde las patadas. El único
+        // camino que lo pide estando en golpe es tryChainCancel (exige haber CONECTADO).
+        SfFighterState.LIGHT_KICK, SfFighterState.MEDIUM_KICK, SfFighterState.HEAVY_KICK,
     )
 
     private val attackValidFrom = setOf(
         SfFighterState.IDLE, SfFighterState.WALK_FORWARD, SfFighterState.WALK_BACKWARD,
         // Tras giro: la IA/jugador debe poder golpear sin esperar a completar IDLE_TURN
         SfFighterState.IDLE_TURN, SfFighterState.JUMP_LAND, SfFighterState.CROUCH_UP,
+        // 🆕 (2026-07-20) CHAIN CANCEL (3rd Strike): golpe→golpe de mayor fuerza. Ningún
+        // handler pide golpe estando ya en golpe salvo tryChainCancel (exige attackStruck),
+        // así que esto NO permite encadenar a lo loco sin conectar.
+        SfFighterState.LIGHT_PUNCH, SfFighterState.MEDIUM_PUNCH, SfFighterState.HEAVY_PUNCH,
+        SfFighterState.LIGHT_KICK, SfFighterState.MEDIUM_KICK, SfFighterState.HEAVY_KICK,
     )
 
     private val validFrom: Map<SfFighterState, Set<SfFighterState>> = mapOf(
@@ -1018,7 +1045,20 @@ class StreetFighterViewModel @Inject constructor(
 
     private fun MutableStateFlow<StreetFighterState>.update(sim: Sim, now: Long, showEnd: Boolean) {
         val subActive = value.specialSubtitleUntilMs > 0L && now < value.specialSubtitleUntilMs
+        // 🆕 (2026-07-20) COMBO del HUD: expira al pasar la ventana sin conectar otro golpe;
+        // se muestra el del atacante con el combo MÁS RECIENTE (solo uno pega a la vez).
+        for (i in 0..1) {
+            if (comboHits[i] > 0 && now - comboLastHitMs[i] > RAPID_HIT_WINDOW_MS) comboHits[i] = 0
+        }
+        val comboIdx = when {
+            comboHits[0] >= COMBO_DISPLAY_MIN && comboLastHitMs[0] >= comboLastHitMs[1] -> 0
+            comboHits[1] >= COMBO_DISPLAY_MIN -> 1
+            comboHits[0] >= COMBO_DISPLAY_MIN -> 0
+            else -> -1
+        }
         value = value.copy(
+            comboCount = if (comboIdx >= 0) comboHits[comboIdx] else 0,
+            comboPlayerId = comboIdx,
             player = sim.p0,
             cpu = sim.p1,
             fireballs = sim.fireballs,
@@ -1391,11 +1431,17 @@ class StreetFighterViewModel @Inject constructor(
                     _soundEvents.tryEmit("light-attack")
                     return
                 }
+                // 🆕 (2026-07-20) chain cancel ligero→medio (o especial) si CONECTÓ
+                if (tryChainCancel(sim, idx, input, now)) return
                 if (isAnimationCompleted(f)) changeState(sim, idx, SfFighterState.IDLE, now)
             }
             SfFighterState.MEDIUM_PUNCH, SfFighterState.HEAVY_PUNCH,
             SfFighterState.MEDIUM_KICK, SfFighterState.HEAVY_KICK,
-            -> if (isAnimationCompleted(f)) changeState(sim, idx, SfFighterState.IDLE, now)
+            -> {
+                // 🆕 (2026-07-20) chain cancel medio→fuerte / cualquier golpe→especial si CONECTÓ
+                if (tryChainCancel(sim, idx, input, now)) return
+                if (isAnimationCompleted(f)) changeState(sim, idx, SfFighterState.IDLE, now)
+            }
 
             SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_HEAD_MEDIUM, SfFighterState.HURT_HEAD_HEAVY,
             SfFighterState.HURT_BODY_LIGHT, SfFighterState.HURT_BODY_MEDIUM, SfFighterState.HURT_BODY_HEAVY,
@@ -1459,7 +1505,10 @@ class StreetFighterViewModel @Inject constructor(
                     SfAttackStrength.MEDIUM
                 }
                 val event = dataFor(f).projectileEvents[strength] ?: SfProjectileEvent()
-                if (f.animationFrame == 2 && !f.fireballFired) {
+                // 🆕 (2026-07-21) El proyectil sale al ENTRAR al último cuadro del personaje
+                // (los poderes de proyectil solo tienen 2 poses propias) y viaja marcado con
+                // su índice de poder para dibujarse con SU efecto (bonus-N-2/3/4).
+                if (f.animationFrame == 1 && !f.fireballFired) {
                     sim.setFighter(idx, f.copy(fireballFired = true))
                     sim.fireballs.add(
                         SfFireball(
@@ -1470,6 +1519,7 @@ class StreetFighterViewModel @Inject constructor(
                             strength = strength,
                             velocity = strength.fireballVelocity,
                             animationTimerMs = now,
+                            bonusPower = f.state.bonusPowerIndex() ?: 0,
                         ),
                     )
                 }
@@ -1516,6 +1566,33 @@ class StreetFighterViewModel @Inject constructor(
         input.mediumKick -> changeState(sim, idx, SfFighterState.MEDIUM_KICK, now)
         input.heavyKick -> changeState(sim, idx, SfFighterState.HEAVY_KICK, now)
         else -> false
+    }
+
+    /**
+     * 🆕 (2026-07-20) CHAIN CANCEL estilo SF III 3rd Strike: un golpe normal que CONECTÓ
+     * (attackStruck) puede cancelarse ANTES de terminar en el siguiente golpe de mayor
+     * fuerza (ligero→medio→fuerte, puño o patada) o en el ESPECIAL (special cancel; respeta
+     * el cooldown y el tope de proyectiles de trySpecial). En fallo (whiff) NO hay cancel:
+     * se sufre la recuperación completa, como en el arcade original.
+     */
+    private fun tryChainCancel(sim: Sim, idx: Int, input: SfInput, now: Long): Boolean {
+        val f = sim.fighter(idx)
+        if (!f.attackStruck) return false
+        if (input.special != null && trySpecial(sim, idx, input.special, now)) return true
+        val next = when (attackMeta[f.state]?.strength) {
+            SfAttackStrength.LIGHT -> when {
+                input.mediumPunch -> SfFighterState.MEDIUM_PUNCH
+                input.mediumKick -> SfFighterState.MEDIUM_KICK
+                else -> null
+            }
+            SfAttackStrength.MEDIUM -> when {
+                input.heavyPunch -> SfFighterState.HEAVY_PUNCH
+                input.heavyKick -> SfFighterState.HEAVY_KICK
+                else -> null
+            }
+            else -> null
+        } ?: return false
+        return changeState(sim, idx, next, now)
     }
 
     private fun trySpecial(sim: Sim, idx: Int, strength: SfAttackStrength, now: Long): Boolean {
@@ -1821,7 +1898,17 @@ class StreetFighterViewModel @Inject constructor(
         // BLOQUEO (estilo SF): caminar HACIA ATRÁS = cubrirse. El golpe entra "chip":
         // daño /4 (mínimo 1), medio retroceso, sin pose de HURT, sin splash ni puntos.
         val blocked = defender.state == SfFighterState.WALK_BACKWARD
-        val damage = if (blocked) maxOf(1, strength.damage / 4) else strength.damage
+        // 🆕 (2026-07-20) COMBO (3rd Strike): golpe limpio dentro de la ventana = encadena;
+        // el daño escala hacia abajo (-10% por golpe encadenado, piso 50%).
+        val chainHit = !blocked && now - lastHitTakenMs[defenderIdx] <= RAPID_HIT_WINDOW_MS
+        if (!blocked) {
+            comboHits[attackerIdx] = if (chainHit) comboHits[attackerIdx] + 1 else 1
+            comboLastHitMs[attackerIdx] = now
+        }
+        val comboScale = (1f - COMBO_DAMAGE_SCALE_STEP * (comboHits[attackerIdx] - 1))
+            .coerceAtLeast(COMBO_DAMAGE_SCALE_MIN)
+        val damage = if (blocked) maxOf(1, strength.damage / 4)
+        else maxOf(1, (strength.damage * comboScale).toInt())
 
         _soundEvents.tryEmit(
             if (blocked) "land" // golpe amortiguado (thud)
@@ -1836,8 +1923,7 @@ class StreetFighterViewModel @Inject constructor(
             direction = attacker.direction.opposite(), // BattleScene: el golpeado queda de frente
         )
         if (!blocked) {
-            val chained = now - lastHitTakenMs[defenderIdx] <= RAPID_HIT_WINDOW_MS
-            rapidHitsTaken[defenderIdx] = if (chained) rapidHitsTaken[defenderIdx] + 1 else 1
+            rapidHitsTaken[defenderIdx] = if (chainHit) rapidHitsTaken[defenderIdx] + 1 else 1
             lastHitTakenMs[defenderIdx] = now
             if (rapidHitsTaken[defenderIdx] >= RAPID_HITS_BEFORE_ESCAPE && defender.hitPoints > 0) {
                 comboEscapeUntilMs[defenderIdx] = now + COMBO_ESCAPE_MS
@@ -2751,6 +2837,33 @@ class StreetFighterViewModel @Inject constructor(
                 playerRoundWins = s.playerRoundWins,
                 cpuRoundWins = s.cpuRoundWins,
                 difficulty = s.cpuDifficulty.name,
+                baseDifficulty = arcadeChosenDifficulty.name,
+                paused = true,
+            ),
+        )
+    }
+
+    /**
+     * 🆕 (2026-07-20) CHECKPOINT ENTRE PELEAS: al decidirse un combate se guarda la campaña
+     * apuntando al SIGUIENTE escalón a jugar (ganó → +1; perdió → −1, piso 1) con marcador
+     * 0-0. Antes aquí se BORRABA la sesión → cerrar la app en la pantalla GANASTE/PERDISTE
+     * perdía la campaña entera (escalera re-aleatorizada desde el escalón 1).
+     */
+    private fun persistArcadeCheckpoint(nextStep: Int) {
+        if (arcadeLadder.isEmpty()) return
+        val idx = nextStep.coerceIn(1, arcadeLadder.size)
+        val stepData = arcadeLadder[idx - 1]
+        arcadeRepo.saveSession(
+            SfArcadeRepository.ArcadeSession(
+                playerId = arcadePlayer.name,
+                step = idx,
+                total = arcadeLadder.size,
+                ladderRivals = arcadeLadder.map { it.rival.name },
+                mapFile = stepData.mapFile,
+                playerRoundWins = 0,
+                cpuRoundWins = 0,
+                difficulty = arcadeDifficultyForStep(stepData).name,
+                baseDifficulty = arcadeChosenDifficulty.name,
                 paused = true,
             ),
         )
@@ -2770,11 +2883,15 @@ class StreetFighterViewModel @Inject constructor(
         arcadePlayer = player
         val savedDiff = runCatching { SfCpuDifficulty.valueOf(ses.difficulty) }
             .getOrDefault(SfCpuDifficulty.NORMAL)
-        // Inferir base del arcade (la pelea puede haber subido a jefe)
-        arcadeChosenDifficulty = when (savedDiff) {
-            SfCpuDifficulty.PESADILLA -> SfCpuDifficulty.AVANZADA
-            else -> savedDiff
-        }
+        // 🆕 (2026-07-20) La BASE elegida viaja en la sesión (v2). Solo las sesiones viejas
+        // caen a la inferencia (con pérdida: un guardado en jefe inflaba la base y cambiaba
+        // las reglas de desbloqueo y la iluminación de los mapas).
+        arcadeChosenDifficulty = runCatching { SfCpuDifficulty.valueOf(ses.baseDifficulty) }
+            .getOrNull()
+            ?: when (savedDiff) {
+                SfCpuDifficulty.PESADILLA -> SfCpuDifficulty.AVANZADA
+                else -> savedDiff
+            }
         arcadeLadder = rivals.mapIndexed { i, rival ->
             val n = i + 1
             SfArcadeLadder.Step(
@@ -3479,8 +3596,13 @@ class StreetFighterViewModel @Inject constructor(
         } else {
             SfArcadeOutcome.LOST
         }
-        // Combate resuelto → la sesión a medias ya no aplica
-        arcadeRepo.clearSession()
+        // 🆕 (2026-07-20) La campaña SOBREVIVE el cierre de la app: checkpoint al siguiente
+        // escalón (mismo que tomaría Continuar/Reintentar). Solo la final completada limpia.
+        when (outcome) {
+            SfArcadeOutcome.COMPLETED -> arcadeRepo.clearSession()
+            SfArcadeOutcome.WON -> persistArcadeCheckpoint(s.arcadeStep + 1)
+            else -> persistArcadeCheckpoint((s.arcadeStep - 1).coerceAtLeast(1))
+        }
         _state.value = _state.value.copy(arcadeOutcome = outcome)
     }
 
@@ -3501,10 +3623,14 @@ class StreetFighterViewModel @Inject constructor(
 
     /** Salir del arcade → volver al selector de personaje (fresco). */
     fun arcadeExit() {
-        // Si había pelea en curso, guarda antes de salir (por si el usuario vuelve)
+        // Pelea A MEDIAS (sin resultado): guarda su snapshot por si el usuario vuelve.
+        // 🆕 (2026-07-20) Con resultado ya decidido NO se re-guarda: el checkpoint correcto
+        // (siguiente escalón, 0-0) lo dejó handleArcadeMatchEnd — re-guardar aquí metía el
+        // marcador 2-x de la pelea terminada y al retomar acababa en una sola ronda.
         val s = _state.value
-        if (s.arcadeActive && !s.showEndMenu) persistArcadeSession(s)
-        else arcadeRepo.clearSession()
+        if (s.arcadeActive && s.arcadeOutcome == SfArcadeOutcome.NONE && !s.showEndMenu) {
+            persistArcadeSession(s)
+        }
         arcadeLadder = emptyList()
         resetInternals()
         _state.value = StreetFighterState()
@@ -3550,6 +3676,8 @@ class StreetFighterViewModel @Inject constructor(
         lowHpVoiceTriggered.fill(false)
         rapidHitsTaken.fill(0)
         comboEscapeUntilMs.fill(0L)
+        comboHits.fill(0)
+        comboLastHitMs.fill(0L)
         cpuIntensity = 0f // VS: sin escalado; arcade/IA-vs-IA la suben después
         pendingAttacks.clear()
         pendingBonusPower = null
@@ -4253,6 +4381,8 @@ class StreetFighterViewModel @Inject constructor(
         lastHitTakenMs.fill(0L)
         rapidHitsTaken.fill(0)
         comboEscapeUntilMs.fill(0L)
+        comboHits.fill(0)
+        comboLastHitMs.fill(0L)
         lastHurtVoiceMs.fill(0L)
         lastAttackVoiceMs.fill(0L)
         lowHpVoiceTriggered.fill(false)

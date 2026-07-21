@@ -184,6 +184,17 @@ DERIVED_BONUS_POWERS = {
     ("yoalliehecatl", 10): ("lapresidenta", 11, True),
 }
 
+# 🆕 (2026-07-21) PODERES DE PROYECTIL: hojas dibujadas como GUION (no como animación del
+# personaje). Sus 5 cuadros son: 1 = personaje lanzando, 2-3-4 = SOLO el proyectil/efecto
+# viajando e impactando (mazo, libro, bolsa de dinero…), 5 = personaje en seguimiento.
+# Si se animaran los 5, el personaje DESAPARECE 3 cuadros (bug reportado en La Presidenta).
+# Aquí la animación usa solo 1 y 5; los cuadros 2-4 siguen empacados y la View los dibuja
+# como el PROYECTIL de ese poder (SfFireball.bonusPower).
+# Los poderes NO listados animan sus 5 cuadros (el personaje sale en todos: aura/rayo).
+BONUS_PROJECTILE_POWERS = {
+    "lapresidenta": {1, 2, 3, 4, 5, 6},
+}
+
 
 def derived_bonus_path(char_name, key, gen_root):
     match = re.fullmatch(r"bonus-(\d+)-(\d+)", key)
@@ -203,7 +214,8 @@ def frame_source_path(char_name, key, char_gen_dir, gen_root):
         char_gen_dir, filename_for_key(key))
 
 
-def dedicated_animations(template, bonus_powers=0, unique_hurt_frames=False):
+def dedicated_animations(template, bonus_powers=0, unique_hurt_frames=False,
+                         projectile_powers=frozenset()):
     """Animaciones completas para arte croma; conserva estados/timings del motor."""
     out = json.loads(json.dumps(template))
     out["lightPunch"] = animation_with_transition(
@@ -252,8 +264,14 @@ def dedicated_animations(template, bonus_powers=0, unique_hurt_frames=False):
         out["hurtBodyMedium"] = animation_with_transition(
             [f"hit-stomach-{i}" for i in range(1, 5)], [8, 7, 7, 9])
     for power in range(1, bonus_powers + 1):
-        out[f"bonusPower{power}"] = animation_with_transition(
-            [f"bonus-{power}-{i}" for i in range(1, 6)], [5, 7, 10, 12, 18])
+        if power in projectile_powers:
+            # Solo las 2 poses del personaje (1 = lanza, 5 = seguimiento), sostenidas para
+            # conservar la duración total del poder. Los cuadros 2-4 son el proyectil.
+            out[f"bonusPower{power}"] = animation_with_transition(
+                [f"bonus-{power}-1", f"bonus-{power}-5"], [12, 22])
+        else:
+            out[f"bonusPower{power}"] = animation_with_transition(
+                [f"bonus-{power}-{i}" for i in range(1, 6)], [5, 7, 10, 12, 18])
     return out
 
 def reference_frame_key(key):
@@ -505,6 +523,7 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
             ryu_animations,
             bonus_power_count,
             unique_hurt_frames=char_name == "lallorona",
+            projectile_powers=BONUS_PROJECTILE_POWERS.get(char_name, frozenset()),
         ),
         "events": {"projectile": PROJECTILE_PROFILES.get(char_name, {})},
     }

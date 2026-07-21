@@ -54,6 +54,11 @@ class SfArcadeRepository(context: Context) {
         val playerRoundWins: Int,
         val cpuRoundWins: Int,
         val difficulty: String,
+        // 🆕 (2026-07-20) Dificultad BASE elegida (Fácil/Medio/Difícil). Antes solo se
+        // guardaba la de la PELEA (sube en jefes) y al retomar se INFERÍA la base con
+        // pérdida → cambiaban reglas de desbloqueo e iluminación. "" = sesión vieja
+        // (el VM cae a la inferencia legacy).
+        val baseDifficulty: String = "",
         val paused: Boolean = true,
     )
 
@@ -181,6 +186,7 @@ class SfArcadeRepository(context: Context) {
      */
     fun saveSession(session: ArcadeSession) {
         val o = JSONObject()
+            .put("v", 2) // versión del snapshot (2 = con baseDifficulty, 2026-07-20)
             .put("playerId", session.playerId)
             .put("step", session.step)
             .put("total", session.total)
@@ -188,6 +194,7 @@ class SfArcadeRepository(context: Context) {
             .put("playerRoundWins", session.playerRoundWins)
             .put("cpuRoundWins", session.cpuRoundWins)
             .put("difficulty", session.difficulty)
+            .put("baseDifficulty", session.baseDifficulty)
             .put("paused", session.paused)
         val arr = JSONArray()
         session.ladderRivals.forEach { arr.put(it) }
@@ -215,6 +222,7 @@ class SfArcadeRepository(context: Context) {
                 playerRoundWins = o.optInt("playerRoundWins", 0),
                 cpuRoundWins = o.optInt("cpuRoundWins", 0),
                 difficulty = o.optString("difficulty", "NORMAL"),
+                baseDifficulty = o.optString("baseDifficulty", ""),
                 paused = o.optBoolean("paused", true),
             )
         }.getOrNull()
