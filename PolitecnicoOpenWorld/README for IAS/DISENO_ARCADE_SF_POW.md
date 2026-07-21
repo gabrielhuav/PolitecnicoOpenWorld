@@ -7,6 +7,62 @@
 > CRLF, Read para verificar). Los BUGS del modo (stun-lock, revancha, servidor LAN) viven en
 > `PENDIENTES_SF_2026-07-16.md` y NO dependen de esto.
 
+## Cambios 2026-07-21c (Fable) — tutorial paso a paso, poses recuperadas y GAMA BAJA
+
+### ⚡ GAMA BAJA — regresión de RAM que introdujeron las hojas nuevas (CRÍTICO)
+
+Al empacar las hojas 20-29 los atlas pasaron de 2560×4608 a **2560×7680**. Se decodificaban
+en **ARGB_8888 sin opciones**: ~**73 MB de RAM por peleador** (×2 en pantalla, ×3 con el
+placeholder ALPHA). Eso es OOM asegurado en gama baja, y además muchas GPU antiguas ni
+aceptan texturas de ese tamaño.
+
+**Fix:** `SfSharedSheets.sheetFor(context, id, sampleSize)` acepta submuestreo y la Screen
+usa `sampleSize = 2` cuando `isLowEndDevice()`. Los atlas bajan a 1280×3840 (~18 MB, **4×
+menos**). Las coordenadas del JSON se dividen por el mismo factor con `sheetScale` en
+`drawSpriteAnchored`/`drawFighter` (solo afecta al RECORTE; el tamaño de DESTINO no cambia,
+así que el sprite se ve igual de grande, solo más suave). No se puede usar RGB_565: los
+sprites necesitan alfa.
+
+⚠️ **Tamaño en disco:** IMAGES pasó de ~82 MB a **102 MB** con todas las poses nuevas. Con
+el AAB en 438 MiB y 40.84 MB de margen bajo el límite de Play, esto se come la mitad del
+colchón. Palanca medida y NO aplicada: convertir los atlas de peleador a **WebP lossless**
+ahorra ~25 % (3.42 → 2.56 MB en La Presidenta, píxeles idénticos), pero WebP decodifica más
+lento que PNG y eso penaliza justo a la gama baja que acabamos de arreglar. Decidir con el
+dueño antes del próximo release.
+
+### 🏃 Poses que se recortaban y se TIRABAN
+
+`correr` (8 cuadros, hoja 03), `idle-relaxed` (6) y `talk` (4, hoja 18) se recortaban a
+`_extra/` y no llegaban al juego. Ahora son estados:
+- **`RUN`**: se entra sosteniendo ADELANTE al terminar un dash (dash-run de 3rd Strike),
+  a 320 px/s (entre caminar 180 y dash 430). Se puede **saltar y atacar desde la carrera**
+  (`RUN` está en `attackValidFrom` y en el origen de `JUMP_START`).
+- **`IDLE_RELAXED` / `TALK`**: poses sin guardia para intro de ronda y variantes de burla.
+
+Las poses de arma (handgun/rifle, 22 cuadros) siguen en `_extra/`: son del mundo abierto,
+no del modo pelea.
+
+### 🎚️ Dificultad POR PERSONAJE que escala con el nivel
+
+La IA es compartida, pero `CpuStyle` (specialBias/pressureBias, ahora + **comboBias**) ya
+no es estático: `cpuStyleForLevel` **acentúa el perfil** con `cpuIntensity` (0.20→1.0 según
+el escalón). Un zoner lanza cada vez más poderes, un rusher presiona y encadena combos cada
+vez más. En VS (`cpuIntensity` = 0) el perfil queda prácticamente en su base, así que las
+peleas sueltas no cambian.
+
+### 🎓 Tutorial PASO A PASO con identificadores visuales
+
+- **21 lecciones básicas nuevas** (bloque `basics` de `combos.json`): una por movimiento —
+  caminar, agacharse, saltar, cada puño, patada, bloqueo, dash, correr, backdash, parry,
+  agarre, barrida, antiaéreo, overhead, patada larga, aéreo, especial, súper y burla. El
+  currículum (`SfCombos.curriculum`) enseña PRIMERO los básicos y luego los combos.
+- **Identificadores visuales:** cada paso es un chip del **color del botón real** (X azul,
+  Y amarillo, B rojo, A verde, P cian, G naranja, S dorado, direcciones azul-violeta), con
+  ✓ al acertar y borde blanco en el paso actual.
+- **Feedback de ERROR:** si ejecutas otro movimiento reconocible, sale un cartel rojo
+  "ESO NO ERA" con **lo que hiciste → lo que tocaba** (`reportTutorialMistake`, con
+  cooldown de 1.5 s para no saturar). Antes te quedabas adivinando por qué no avanzaba.
+
 ## Cambios 2026-07-21b (Fable) — COMBOS data-driven, TUTORIAL interactivo y fix del menú
 
 ### 🥊 Catálogo de COMBOS (`assets/STREETFIGHTER/DATA/combos.json`)

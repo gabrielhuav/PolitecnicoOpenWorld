@@ -76,6 +76,11 @@ NEW_MOVE_ANIMATIONS = {
     "getUp":            ("getup", 6, [5, 5, 5, 5, 5, 5]),
     "superArt":         ("super", 8, [5, 5, 6, 7, 8, 7, 6, 10]),
     "hurtCrouch":       ("hurt-crouch", 4, [5, 6, 6, 6]),
+    # 🆕 (2026-07-21) Poses que YA se recortaban pero se tiraban a _extra/: la CARRERA
+    # (hoja 03) y las de intro sin guardia (hoja 18). Ahora son estados del motor.
+    "run":              ("run", 8, [3, 3, 3, 3, 3, 3, 3, 3]),
+    "idleRelaxed":      ("idle-relaxed", 6, [8, 8, 8, 8, 8, 8]),
+    "talk":             ("talk", 4, [7, 7, 7, 7]),
 }
 NEW_MOVE_KEYS = [f"{prefix}-{i}"
                  for prefix, count, _ in NEW_MOVE_ANIMATIONS.values()
@@ -346,7 +351,7 @@ def reference_frame_key(key):
     new_move = re.match(
         r"(dash|backdash|block-high|block-low|parry-high|parry-low|crouch-punch|crouch-kick|"
         r"crouch-hp|sweep|air-punch|air-kick|long-kick|overhead|grab|throw|taunt|thrown|"
-        r"getup|super|hurt-crouch)-(\d+)$", key)
+        r"getup|super|hurt-crouch|run|idle-relaxed)-(\d+)$", key)
     if new_move:
         prefix, idx = new_move.group(1), int(new_move.group(2))
         # Defensivas / movilidad / reacciones: hurtbox prestada, nunca hitbox.
@@ -354,8 +359,11 @@ def reference_frame_key(key):
             return "forwards-3", False
         if prefix == "backdash":
             return "backwards-3", False
-        if prefix in ("block-high", "parry-high", "taunt"):
+        if prefix in ("block-high", "parry-high", "taunt", "idle-relaxed"):
             return "idle-1", False
+        # Correr comparte la caja de caminar (mismo cuerpo, más rápido)
+        if prefix == "run":
+            return f"forwards-{min(idx, 6)}", False
         if prefix in ("block-low", "parry-low", "hurt-crouch"):
             return "crouch-3", False
         if prefix == "thrown":

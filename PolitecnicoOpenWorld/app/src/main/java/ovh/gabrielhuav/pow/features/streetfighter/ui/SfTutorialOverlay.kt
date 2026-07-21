@@ -27,6 +27,50 @@ import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PowButton
 
 /**
+ * Color del BOTÓN real que hay que pulsar, deducido de la etiqueta del paso. Es el
+ * identificador visual: el jugador asocia el chip con el botón que ve en pantalla.
+ */
+private fun chipColor(label: String): Color = when {
+    label.contains("PUÑO LIGERO") -> Color(0xFF3498DB)   // X
+    label.contains("PUÑO MEDIO") -> Color(0xFFF1C40F)    // Y
+    label.contains("PUÑO FUERTE") -> Color(0xFFE74C3C)   // B
+    label.contains("PATADA") -> Color(0xFF2ECC71)        // A
+    label.contains("PARRY") -> Color(0xFF1ABC9C)         // P
+    label.contains("AGARRE") -> Color(0xFFE67E22)        // G
+    label.contains("SÚPER") -> Color(0xFFFFD700)         // S
+    label.contains("BURLA") -> Color(0xFF7F8C8D)         // T
+    else -> Color(0xFF5B6ACD)                            // joystick / direcciones
+}
+
+/** Chip de un paso de la receta: color del botón, ✓ al acertar, resaltado si es el actual. */
+@Composable
+private fun StepChip(label: String, done: Boolean, current: Boolean) {
+    val base = chipColor(label)
+    Text(
+        text = (if (done) "✓ " else "") + label,
+        color = if (done) Color(0xFF7BE0A8) else Color.White,
+        fontSize = 10.sp,
+        fontWeight = if (current) FontWeight.Black else FontWeight.Bold,
+        maxLines = 1,
+        modifier = Modifier
+            .clip(RoundedCornerShape(5.dp))
+            .background(
+                when {
+                    done -> Color(0xFF14301F)
+                    current -> base.copy(alpha = 0.85f)
+                    else -> base.copy(alpha = 0.25f)
+                },
+            )
+            .border(
+                width = if (current) 2.dp else 0.dp,
+                color = if (current) Color.White else Color.Transparent,
+                shape = RoundedCornerShape(5.dp),
+            )
+            .padding(horizontal = 5.dp, vertical = 2.dp),
+    )
+}
+
+/**
  * 🆕 (2026-07-21) HUD del TUTORIAL INTERACTIVO.
  *
  * Va ENCIMA de la pelea (el jugador sigue usando joystick y botones normales). Muestra la
@@ -42,6 +86,8 @@ fun SfTutorialOverlay(
     steps: List<String>,
     stepIndex: Int,
     flash: String,
+    /** "LO QUE HICISTE → LO QUE TOCABA" cuando el jugador se equivoca (vacío si no). */
+    error: String,
     completed: Boolean,
     onSkip: () -> Unit,
     onRestart: () -> Unit,
@@ -83,24 +129,28 @@ fun SfTutorialOverlay(
                     textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier.height(4.dp))
-                // Receta: el paso PENDIENTE resalta; los ya hechos van en verde con ✓
+                // 🆕 Receta con IDENTIFICADORES VISUALES: cada paso es un chip del COLOR
+                // del botón real que hay que pulsar (X azul, Y amarillo, B rojo, A verde,
+                // P cian, G naranja, S dorado) para que se reconozca de un vistazo.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     steps.forEachIndexed { i, step ->
-                        val done = i < stepIndex
-                        val current = i == stepIndex
-                        Text(
-                            text = (if (done) "✓ " else "") + step + if (i < steps.lastIndex) "   →   " else "",
-                            color = when {
-                                done -> Color(0xFF7BE0A8)
-                                current -> Color(0xFFFFD54A)
-                                else -> Color.White.copy(alpha = 0.55f)
-                            },
-                            fontSize = 11.sp,
-                            fontWeight = if (current) FontWeight.Black else FontWeight.Bold,
+                        StepChip(
+                            label = step,
+                            done = i < stepIndex,
+                            current = i == stepIndex,
                         )
+                        if (i < steps.lastIndex) {
+                            Text(
+                                text = "→",
+                                color = Color.White.copy(alpha = 0.6f),
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(horizontal = 3.dp),
+                            )
+                        }
                     }
                 }
                 if (hint.isNotBlank()) {
@@ -115,7 +165,7 @@ fun SfTutorialOverlay(
             }
         }
 
-        // ── Confirmación de acierto ──
+        // ── Confirmación de acierto (verde/dorado) o aviso de ERROR (rojo) ──
         if (flash.isNotBlank()) {
             Text(
                 text = if (flash == "COMPLETO") {
@@ -123,11 +173,36 @@ fun SfTutorialOverlay(
                 } else {
                     stringResource(R.string.sf_tutorial_step_ok)
                 },
-                color = Color(0xFFFFD54A),
+                color = if (flash == "COMPLETO") Color(0xFFFFD54A) else Color(0xFF7BE0A8),
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Black,
                 modifier = Modifier.align(Alignment.Center),
             )
+        } else if (error.isNotBlank()) {
+            // "LO QUE HICISTE → LO QUE TOCABA": el jugador ve exactamente su equivocación.
+            Column(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xCC5A1020))
+                    .border(1.dp, Color(0xFFE74C3C), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = stringResource(R.string.sf_tutorial_wrong),
+                    color = Color(0xFFFF8A80),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Black,
+                )
+                Text(
+                    text = error,
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
 
         // ── Controles del tutorial (abajo-izquierda, lejos del diamante de botones) ──

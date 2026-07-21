@@ -66,8 +66,13 @@ data class StreetFighterState(
     /** Pasos del combo y cuántos lleva acertados (para pintar "✓ ✓ ○"). */
     val tutorialSteps: List<String> = emptyList(),
     val tutorialStepIndex: Int = 0,
-    /** Mensaje efímero de acierto/fallo ("¡BIEN!"). */
+    /** Mensaje efímero de acierto ("OK" = paso, "COMPLETO" = combo entero). */
     val tutorialFlash: String = "",
+    /**
+     * 🆕 Aviso de ERROR: "LO QUE HICISTE → LO QUE TOCABA". Se llena cuando el jugador
+     * ejecuta un movimiento reconocible distinto al que pide la lección.
+     */
+    val tutorialError: String = "",
     /** El jugador completó TODAS las lecciones. */
     val tutorialCompleted: Boolean = false,
 

@@ -252,6 +252,12 @@ fun StreetFighterScreen(
     // ---- Bitmaps del tema + sheets de los peleadores ACTUALES (decodificados una vez) ----
     val playerId = state.player.id
     val cpuId = state.cpu.id
+    // 🆕 (2026-07-21) GAMA BAJA: submuestreo de los atlas de peleador. Con las hojas 20-29
+    // los atlas llegaron a 2560×7168 (≈73 MB en ARGB_8888 por peleador, ×2 en pantalla):
+    // demasiado para gama baja y para GPUs con tope de textura de 2048. A 1/2 quedan en
+    // ~18 MB y 1280×3584. Todas las coordenadas del JSON se dividen por este factor.
+    val sheetSample = remember { if (viewModel.isLowEndDevice()) 2 else 1 }
+    val sheetSampleScale = remember(sheetSample) { 1f / sheetSample }
     // 🆕 Hojas pesadas SOLO en pelea (no en selector → menos RAM/lag al abrir el modo).
     // En selector solo se usan thumbs de region-decoder por card.
     val images = remember(theme, playerId, cpuId, state.inCharacterSelect) {
@@ -278,9 +284,11 @@ fun StreetFighterScreen(
                     add(SfFighterId.LA_PRESIDENTA)
                 }
             }.distinct()
+            // 🆕 (2026-07-21) GAMA BAJA: los atlas dedicados se decodifican a 1/2 de
+            // resolución (73 MB → 18 MB de RAM por peleador). Ver `sheetSample` abajo.
             ids.forEach { id ->
                 m[id.spriteAsset.substringAfterLast('/')] =
-                    SfSharedSheets.sheetFor(context, id).asImageBitmap()
+                    SfSharedSheets.sheetFor(context, id, sheetSample).asImageBitmap()
             }
         }
         m
@@ -290,7 +298,7 @@ fun StreetFighterScreen(
     // 🆕 (2026-07-21) PLACEHOLDER ALPHA: hoja del estudiante del mismo género, cargada SOLO
     // si alguno de los dos peleadores tiene movimientos sin arte propia (hoy: La Llorona,
     // que no trae PATADA LARGA / OVERHEAD). Se dibuja en silueta con el rótulo "ALPHA".
-    val alphaFallback = remember(playerId, cpuId, state.inCharacterSelect) {
+    val alphaFallback = remember(playerId, cpuId, state.inCharacterSelect, sheetSample) {
         if (state.inCharacterSelect) return@remember null
         val needy = listOf(playerId to playerData, cpuId to cpuData).firstOrNull { (_, d) ->
             SF_NEW_MOVE_STATES.any { d.animations[it.jsKey].isNullOrEmpty() }
@@ -300,8 +308,13 @@ fun StreetFighterScreen(
             AlphaFallback(
                 data = SfFrameCatalog.load(context, fallbackId),
                 sheetKey = fallbackId.spriteAsset.substringAfterLast('/'),
+                // 🆕 Es un TERCER atlas en RAM: en gama baja va submuestreado como los otros.
                 bitmap = context.assets.open(fallbackId.spriteAsset).use {
-                    BitmapFactory.decodeStream(it)
+                    BitmapFactory.decodeStream(
+                        it,
+                        null,
+                        BitmapFactory.Options().apply { inSampleSize = sheetSample },
+                    )
                 }?.asImageBitmap(),
             )
         }.getOrNull()?.takeIf { it.bitmap != null }
@@ -516,6 +529,7 @@ fun StreetFighterScreen(
                     playerContentH, cpuContentH, effectiveBgFile,
                     playerSilhouette = !viewModel.isFighterActuallyUnlocked(state.player.id),
                     alphaFallback = alphaFallback,
+                    sheetScale = sheetSampleScale,
                 )
             }
         }
@@ -567,6 +581,7 @@ fun StreetFighterScreen(
                     steps = state.tutorialSteps,
                     stepIndex = state.tutorialStepIndex,
                     flash = state.tutorialFlash,
+                    error = state.tutorialError,
                     completed = state.tutorialCompleted,
                     onSkip = viewModel::tutorialSkipLesson,
                     onRestart = viewModel::tutorialRestartLesson,
@@ -2684,6 +2699,8 @@ private fun DrawScope.drawScene(
     bgFile: String? = null,
     playerSilhouette: Boolean = false,
     alphaFallback: AlphaFallback? = null,
+    // 🆕 (2026-07-21) Submuestreo de los atlas de peleador en gama baja (1f = completo).
+    sheetScale: Float = 1f,
 ) {
     val framing = framingForBg(bgFile) // 🆕 zoom/anclaje por escenario (Facultad de Medicina…)
     val scale = minOf(size.width / SfConstants.SCENE_WIDTH, size.height / SfConstants.SCENE_HEIGHT)
@@ -2751,6 +2768,7 @@ private fun DrawScope.drawScene(
             drawFighter(
                 ctx, images + (alpha.sheetKey to alpha.bitmap), alpha.data, fighter, t,
                 showHitboxes, emptyMap(), silhouette = true, sheetKeyOverride = alpha.sheetKey,
+                sheetScale = sheetScale,
             )
             val hud = images.getValue(theme.hudImage)
             val w = ALPHA_TAG.length * 12f * 0.7f
@@ -2762,6 +2780,7 @@ private fun DrawScope.drawScene(
             drawFighter(
                 ctx, images, data, fighter, t, showHitboxes, contentH,
                 silhouette = side == 0 && playerSilhouette,
+                sheetScale = sheetScale,
             )
         }
     }
@@ -2795,7 +2814,7 @@ private fun DrawScope.drawScene(
                 val effectScale = ownerData.projectileEvents[fb.strength]?.visualScale ?: 1f
                 drawSpriteAnchored(
                     ctx, ownerSheet, fd.src, fd.origin, fb.x, fb.y, fb.direction,
-                    spriteScale = effectScale,
+                    spriteScale = effectScale, sheetScale = sheetScale,
                 )
             }
         }
@@ -3172,6 +3191,10 @@ private fun DrawScope.drawSpriteAnchored(
     shakeX: Float = 0f,
     spriteScale: Float = 1f,   // parche de escala por-frame (p. ej. HURT de peleadores ALPHA)
     silhouette: Boolean = false,
+    // 🆕 (2026-07-21) 1f = atlas a resolución completa; 0.5f = atlas submuestreado en gama
+    // baja. SOLO afecta al RECORTE (las coordenadas del JSON son de la hoja original); el
+    // tamaño de DESTINO no cambia, así que el sprite se ve igual de grande, solo más suave.
+    sheetScale: Float = 1f,
 ) {
     val anchorSx = ctx.ox + (worldX - ctx.camX) * ctx.scale
     val anchorSy = ctx.oy + (worldY - ctx.camY) * ctx.scale
@@ -3183,8 +3206,11 @@ private fun DrawScope.drawSpriteAnchored(
     val draw: DrawScope.() -> Unit = {
         drawImage(
             image = image,
-            srcOffset = IntOffset(src[0], src[1]),
-            srcSize = IntSize(src[2], src[3]),
+            srcOffset = IntOffset((src[0] * sheetScale).toInt(), (src[1] * sheetScale).toInt()),
+            srcSize = IntSize(
+                (src[2] * sheetScale).toInt().coerceAtLeast(1),
+                (src[3] * sheetScale).toInt().coerceAtLeast(1),
+            ),
             dstOffset = IntOffset(dstX.toInt(), dstY.toInt()),
             dstSize = IntSize((src[2] * s).toInt(), (src[3] * s).toInt()),
             filterQuality = FilterQuality.None,
@@ -3273,6 +3299,8 @@ private fun DrawScope.drawFighter(
     // 🆕 (2026-07-21) Placeholder ALPHA: dibuja con la hoja de OTRO peleador (el estudiante
     // del mismo género) sin cambiar la identidad lógica del que pelea.
     sheetKeyOverride: String? = null,
+    // 🆕 (2026-07-21) Submuestreo del atlas en gama baja (1f = completo, 0.5f = mitad).
+    sheetScale: Float = 1f,
 ) {
     // 🆕 Nunca “desaparecer”: si falta hoja/anim/frame, cae a IDLE-1 o al primer frame disponible.
     val sheetKey = sheetKeyOverride ?: f.id.spriteAsset.substringAfterLast('/')
@@ -3315,6 +3343,7 @@ private fun DrawScope.drawFighter(
     drawSpriteAnchored(
         ctx, sheet, frame.src, origin, f.x, f.y, drawDirection,
         shakeX = shake, spriteScale = spriteScale, silhouette = silhouette,
+        sheetScale = sheetScale,
     )
 
     // 🆕 HITBOXES (Ajustes → "Mostrar hitboxes"): push/hurt/hit. También se reescalan

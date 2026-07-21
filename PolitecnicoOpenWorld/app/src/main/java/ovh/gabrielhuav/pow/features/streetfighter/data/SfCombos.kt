@@ -27,6 +27,8 @@ enum class SfComboAction {
     PARRY, GRAB, TAUNT,
     SPECIAL, SUPER_ART,
     JUMP, CROUCH,
+    // 🆕 (2026-07-21) Acciones BÁSICAS que enseña el tutorial paso a paso.
+    WALK_FORWARD, RUN, BLOCK_HIGH,
     ;
 
     companion object {
@@ -56,29 +58,51 @@ data class SfCombo(
         if (langTag.lowercase(Locale.ROOT).take(2) == "en") hintEn else hintEs
 }
 
+/** Catálogo completo: básicos (una acción cada uno), combos universales y firmas. */
+private class SfComboData(
+    val basics: List<SfCombo>,
+    val universal: List<SfCombo>,
+    val signatures: Map<SfFighterId, SfCombo>,
+)
+
 object SfCombos {
     private const val ASSET = "STREETFIGHTER/DATA/combos.json"
-    private val cache = AtomicReference<Pair<List<SfCombo>, Map<SfFighterId, SfCombo>>?>(null)
+    private val cache = AtomicReference<SfComboData?>(null)
 
     fun clearCache() {
         cache.set(null)
     }
 
+    /**
+     * 🆕 (2026-07-21) LECCIONES BÁSICAS: un movimiento por lección (caminar, agacharse,
+     * cada puño, patada, bloqueo, dash, parry, agarre…). Son la primera mitad del tutorial:
+     * antes de encadenar combos hay que saber ejecutar cada cosa.
+     */
+    fun basics(context: Context): List<SfCombo> = load(context).basics
+
     /** Combos que valen para CUALQUIER peleador, ordenados por dificultad. */
-    fun universal(context: Context): List<SfCombo> = load(context).first
+    fun universal(context: Context): List<SfCombo> = load(context).universal
 
     /** Combo de FIRMA del peleador (null si no tiene uno declarado). */
-    fun signature(context: Context, id: SfFighterId): SfCombo? = load(context).second[id]
+    fun signature(context: Context, id: SfFighterId): SfCombo? = load(context).signatures[id]
 
-    /** Universales + el de firma del peleador, en el orden en que los enseña el tutorial. */
+    /** Universales + el de firma del peleador (lo que se LISTA en la hoja de combos). */
     fun forFighter(context: Context, id: SfFighterId): List<SfCombo> =
         universal(context) + listOfNotNull(signature(context, id))
 
-    private fun load(context: Context): Pair<List<SfCombo>, Map<SfFighterId, SfCombo>> {
+    /**
+     * Currículum COMPLETO del tutorial: primero los básicos (un movimiento cada uno) y
+     * después los combos. Así se aprende "pasito a pasito" antes de encadenar.
+     */
+    fun curriculum(context: Context, id: SfFighterId): List<SfCombo> =
+        basics(context) + forFighter(context, id)
+
+    private fun load(context: Context): SfComboData {
         cache.get()?.let { return it }
         val parsed = runCatching {
             context.assets.open(ASSET).bufferedReader().use { it.readText() }
-        }.getOrNull()?.let { parse(it) } ?: (emptyList<SfCombo>() to emptyMap())
+        }.getOrNull()?.let { parse(it) }
+            ?: SfComboData(emptyList(), emptyList(), emptyMap())
         cache.compareAndSet(null, parsed)
         return cache.get() ?: parsed
     }
@@ -92,25 +116,33 @@ object SfCombos {
         return out
     }
 
-    private fun parse(rawJson: String): Pair<List<SfCombo>, Map<SfFighterId, SfCombo>> {
-        val root = JSONObject(rawJson)
-        val universal = mutableListOf<SfCombo>()
-        root.optJSONArray("universal")?.let { arr ->
-            for (i in 0 until arr.length()) {
-                val o = arr.optJSONObject(i) ?: continue
-                val actions = steps(o.optJSONArray("steps"))
-                if (actions.isEmpty()) continue
-                universal += SfCombo(
-                    id = o.optString("id", "combo_$i"),
-                    nameEs = o.optString("es", ""),
-                    nameEn = o.optString("en", o.optString("es", "")),
-                    hintEs = o.optString("hintEs", ""),
-                    hintEn = o.optString("hintEn", o.optString("hintEs", "")),
-                    level = o.optInt("level", 1).coerceIn(1, 4),
-                    steps = actions,
-                )
-            }
+    /** Lee un array de combos ("basics" o "universal") conservando su orden de enseñanza. */
+    private fun comboArray(root: JSONObject, key: String): List<SfCombo> {
+        val arr = root.optJSONArray(key) ?: return emptyList()
+        val out = mutableListOf<SfCombo>()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val actions = steps(o.optJSONArray("steps"))
+            if (actions.isEmpty()) continue
+            out += SfCombo(
+                id = o.optString("id", "${key}_$i"),
+                nameEs = o.optString("es", ""),
+                nameEn = o.optString("en", o.optString("es", "")),
+                hintEs = o.optString("hintEs", ""),
+                hintEn = o.optString("hintEn", o.optString("hintEs", "")),
+                level = o.optInt("level", 1).coerceIn(0, 4),
+                steps = actions,
+            )
         }
+        return out
+    }
+
+    private fun parse(rawJson: String): SfComboData {
+        val root = JSONObject(rawJson)
+        // Los BÁSICOS conservan el orden del JSON (es el orden pedagógico); los combos se
+        // ordenan por dificultad.
+        val basics = comboArray(root, "basics")
+        val universal = comboArray(root, "universal").sortedBy { it.level }
         val signatures = mutableMapOf<SfFighterId, SfCombo>()
         root.optJSONObject("signature")?.let { obj ->
             val keys = obj.keys()
@@ -132,6 +164,6 @@ object SfCombos {
                 )
             }
         }
-        return universal.sortedBy { it.level } to signatures
+        return SfComboData(basics, universal, signatures)
     }
 }

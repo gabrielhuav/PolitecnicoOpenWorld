@@ -45,9 +45,27 @@ object SfSharedSheets {
      * (armada en runtime desde el set del mundo). Llamar fuera del hilo de dibujo si se puede.
      */
     @Synchronized
-    fun sheetFor(context: Context, id: SfFighterId): Bitmap {
+    /**
+     * 🆕 (2026-07-21) [sampleSize] > 1 decodifica el atlas DEDICADO a resolución reducida.
+     *
+     * Los atlas croma llegan a 2560×7168: en ARGB_8888 son ~73 MB de RAM **por peleador**
+     * (×2 en pantalla). En gama baja eso provoca OOM y además muchas GPU antiguas ni
+     * siquiera aceptan texturas de ese tamaño. Con `sampleSize = 2` bajan a ~18 MB y, como
+     * los sprites se pintan a ~100 px dentro de una escena virtual de 382 px, la pérdida
+     * apenas se nota en un teléfono de gama baja. Las cajas/orígenes del JSON se dividen
+     * por el mismo factor en la View (ver `sheetSampleScale` en StreetFighterScreen).
+     * ⚠️ NO se puede usar RGB_565: los sprites necesitan canal alfa.
+     */
+    fun sheetFor(context: Context, id: SfFighterId, sampleSize: Int = 1): Bitmap {
         val set = id.sharedSet
-            ?: return context.assets.open(id.spriteAsset).use { BitmapFactory.decodeStream(it) }
+            ?: return context.assets.open(id.spriteAsset).use { stream ->
+                val opts = BitmapFactory.Options().apply {
+                    inSampleSize = sampleSize.coerceAtLeast(1)
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                }
+                BitmapFactory.decodeStream(stream, null, opts)
+                    ?: error("No se pudo decodificar ${id.spriteAsset}")
+            }
         cache.get(id)?.let { return it }
         val sheet = buildSharedSheet(context, set)
         cache.put(id, sheet)

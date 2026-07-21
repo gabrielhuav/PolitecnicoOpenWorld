@@ -80,7 +80,9 @@ SHEETS = {
     2:  [("CROUCH",         9, (nums("crouch", 3), "first_half"),None),
          ("CROUCH TURN",    4, (nums("crouch-turn", 3), "even"), None)],
     3:  [("CAMINAR",        6, (nums("forwards", 6), "even"),    ("Walk", "w")),
-         ("CORRER",         8, (None, None),                     ("Run", "r"))],
+         # 🆕 (2026-07-21) CORRER ya no va solo al mundo: el modo pelea lo usa como
+         # carrera tras el dash (antes se recortaba a _extra/ y se desperdiciaba).
+         ("CORRER",         8, (nums("run", 8), "even"),         ("Run", "r"))],
     4:  [("JUMP START",     2, (["jump-start-land-1", "jump-start-2"], "even"), None),
          ("JUMP LAND",      3, (nums("jump-land", 3), "even"), None)],
     5:  [("JUMP UP",        6, (nums("jump-up", 6), "even"),     None),
@@ -109,8 +111,10 @@ SHEETS = {
          ("HANDGUN AIM",    5, (None, None), None)],
     17: [("RIFLE READY",    6, (None, None), None),
          ("RIFLE AIM",      6, (None, None), None)],
-    18: [("IDLE RELAXED",   6, (None, None), ("Idle", "i")),
-         ("TALK",           4, (None, None), ("Talk", "t"))],
+    # 🆕 (2026-07-21) IDLE RELAXED y TALK se usan en la INTRO de ronda (pose sin guardia
+    # antes de "PELEA"), no solo en el mundo abierto.
+    18: [("IDLE RELAXED",   6, (nums("idle-relaxed", 6), "even"), ("Idle", "i")),
+         ("TALK",           4, (nums("talk", 4), "even"),         ("Talk", "t"))],
     19: [("WALK BACKWARD",  6, (nums("backwards", 6), "even"),   None),
          ("HANDGUN WALK",   6, (None, None),                     None)],
     # ── 🆕 TANDAS 5-8 (2026-07-21): moveset estilo SF III 3rd Strike ──

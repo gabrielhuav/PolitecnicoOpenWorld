@@ -600,6 +600,7 @@
     <string name="sf_tutorial_done">TUTORIAL COMPLETE!</string>
     <string name="sf_tutorial_repeat">REPEAT</string>
     <string name="sf_tutorial_skip">SKIP</string>
+    <string name="sf_tutorial_wrong">NOT THAT ONE</string>
     <string name="sf_controls_help">X/Y/B = light, medium and heavy punch\nA neutral/forward/back = light, medium and heavy kick\n↓ ↘ → + X/Y/B = light, medium or heavy special</string>
     <string name="sf_exit_title">Leave the fight</string>
     <string name="sf_exit_message">Quit the fight and return to the main menu?</string>

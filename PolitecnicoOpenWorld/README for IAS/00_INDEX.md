@@ -53,7 +53,21 @@
 | 08 | `08_SERVERS.md` | Servidores Node.js (open world v3 + zombi) + protocolo de red |
 | 09 | `09_CONVENTIONS_GOTCHAS.md` | Convenciones, reglas de gama baja, protocolo de actualización de docs |
 
-### Estado vigente (2026-07-21b) — LÉEME PRIMERO
+### Estado vigente (2026-07-21c) — LÉEME PRIMERO
+
+> **🆕 2026-07-21c (Fable) — tutorial paso a paso, poses recuperadas y GAMA BAJA:**
+> - **⚡ CRÍTICO gama baja:** los atlas llegaron a 2560×7680 = **73 MB de RAM por peleador**
+>   en ARGB_8888. Ahora se decodifican a **1/2** en gama baja (`sheetFor(..., sampleSize)`
+>   + `sheetScale` en la View) → ~18 MB. ⚠️ IMAGES creció 82→**102 MB**: revisar margen de
+>   Play antes del próximo release (WebP lossless daría −25 %, sin aplicar).
+> - **Poses recuperadas:** `correr`, `idle-relaxed` y `talk` se recortaban y se tiraban a
+>   `_extra/`; ahora son estados (**RUN** con dash-run, se puede saltar/atacar corriendo).
+> - **Dificultad por personaje que ESCALA:** `cpuStyleForLevel` acentúa el perfil de cada
+>   peleador con el escalón (zoner→más poderes, rusher→más presión y combos).
+> - **Tutorial paso a paso:** 21 lecciones básicas (una por movimiento), chips del color del
+>   botón real y cartel de error "lo que hiciste → lo que tocaba".
+
+### Estado 2026-07-21b
 
 > **🆕 2026-07-21b (Fable) — COMBOS + TUTORIAL + fix del menú:**
 > - **Catálogo de combos data-driven:** `assets/STREETFIGHTER/DATA/combos.json` (10

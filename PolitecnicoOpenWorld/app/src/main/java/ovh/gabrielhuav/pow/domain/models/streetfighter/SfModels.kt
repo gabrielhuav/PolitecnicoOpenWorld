@@ -36,6 +36,8 @@ object SfConstants {
     const val JUMP_VELOCITY = -420f
 
     // ── 🆕 (2026-07-21) MOVESET 3rd Strike ──
+    /** Carrera sostenida tras el dash: entre caminar (180) y el propio dash (430). */
+    const val RUN_VELOCITY = 320f
     /** Dash: mucho más rápido que caminar y de duración corta (lo corta su animación). */
     const val DASH_FORWARD_VELOCITY = 430f
     const val DASH_BACKWARD_VELOCITY = -390f
@@ -327,6 +329,15 @@ enum class SfFighterState(val jsKey: String) {
     GET_UP("getUp"),
     SUPER_ART("superArt"),
     HURT_CROUCH("hurtCrouch"),
+    /**
+     * 🆕 (2026-07-21) CARRERA: se entra sosteniendo ADELANTE al terminar un dash (como el
+     * dash-run de 3rd Strike). Su arte ya venía en la hoja 03 pero se descartaba.
+     */
+    RUN("run"),
+    /** 🆕 Pose SIN guardia de la hoja 18; se usa en la intro de ronda, antes de "PELEA". */
+    IDLE_RELAXED("idleRelaxed"),
+    /** 🆕 Gesticulando (hoja 18): variante de burla y presentación de ronda. */
+    TALK("talk"),
 }
 
 /**
@@ -344,6 +355,7 @@ val SF_NEW_MOVE_STATES: Set<SfFighterState> = setOf(
     SfFighterState.GRAB, SfFighterState.THROW, SfFighterState.TAUNT,
     SfFighterState.THROWN, SfFighterState.GET_UP,
     SfFighterState.SUPER_ART, SfFighterState.HURT_CROUCH,
+    SfFighterState.RUN, SfFighterState.IDLE_RELAXED, SfFighterState.TALK,
 )
 
 /** 🆕 Estados de ATAQUE nuevos (los que pueden conectar un golpe). */
@@ -399,6 +411,7 @@ val SF_HURT_STATES: Set<SfFighterState> = setOf(
     SfFighterState.LONG_KICK, SfFighterState.OVERHEAD,
     SfFighterState.GRAB, SfFighterState.THROW, SfFighterState.TAUNT,
     SfFighterState.SUPER_ART, SfFighterState.HURT_CROUCH,
+    SfFighterState.RUN, SfFighterState.IDLE_RELAXED, SfFighterState.TALK,
 ) + SF_BONUS_POWER_STATES
 
 /** Caja alineada a ejes relativa al ancla (pies) del peleador. */
