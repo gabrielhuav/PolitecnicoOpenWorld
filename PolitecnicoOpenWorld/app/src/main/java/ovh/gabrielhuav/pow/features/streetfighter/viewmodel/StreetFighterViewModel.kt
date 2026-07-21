@@ -445,7 +445,9 @@ class StreetFighterViewModel @Inject constructor(
         if (p != null && emitVoiceLines(p.power, now)) return
         _soundEvents.tryEmit(specialSfxKey(id))
         val phrase = specialPhrases[id] ?: return
-        setVoiceSubtitle(phrase.phraseEs, now)
+        // 🆕 (2026-07-21g) Usaba phraseEs FIJO: la traducción `phrase_en` del catálogo no se
+        // mostraba nunca, ni con el juego en inglés. Mismo criterio que emitVoiceLines.
+        setVoiceSubtitle(phrase.textForLang(java.util.Locale.getDefault().language), now)
     }
 
     /** Reproduce otra vez la voz completa del peleador visible en el showcase. */
