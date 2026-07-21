@@ -26,10 +26,10 @@ de abajo. Por eso "los assets se ven bien" y el juego se ve mal a la vez.
 | Peleador | Veredicto del dueño | Qué falla | Causa confirmada |
 |---|---|---|---|
 | **charronegro** | ✅ **Todo bien recortado** | — | — |
-| **escomboy** | ❌ Mal | `hurtHeadLight`, `hurtHeadMedium`, `hurtHeadHeavy`, `fatality`, `superArt` (completo pero mal recortado) | `hit-face-1..4` con **2 figuras apiladas** por celda (`MULTI_FIGURA`). Las 3 animaciones `hurtHead*` salen SOLO de `hit-face-*`, así que **es un único defecto, no tres**. `superArt`/`fatality`: pendiente de aislar. |
-| escomgirl | *(pendiente)* | | |
-| lallorona | *(pendiente)* | | |
-| lapresidenta | *(pendiente)* | | |
+| **escomboy** | ❌ Mal | `hurtHeadLight`, `hurtHeadMedium`, `hurtHeadHeavy`, `fatality`, `superArt` (completo pero mal recortado) | **C1** en `hit-face-1..4`. Las 3 `hurtHead*` salen SOLO de `hit-face-*` → **un único defecto, no tres**. |
+| **escomgirl** | ❌ Mal (lo demás bien) | `hurtHeadLight`, `hurtHeadMedium`, `hurtHeadHeavy` — "vienen dobles" | **C1** en `hit-face-1..4`, igual que escomboy. |
+| **lallorona** | ⚠️ Parcial | `fatality` y `superArt`: **solo** `super-4`, `super-5`, `super-6`. El resto bien. | **C2**: los blobs 03/04/05 de la hoja 29 son los únicos SIN hueco entre ellos (601-823, 823-1037, 1037-1301). Salieron de un blob fusionado partido por `maybe_split`. **El arte está entero; los cortes están mal puestos.** |
+| **lapresidenta** | ❌ Mal (bonus powers) | `bonusPower1` (solo anima en `bonus-1-1`), `bonusPower2` mal, `bonusPower3` (solo `bonus-3-1`), `bonusPower4` mal por poco, `bonusPower5` bien recortado pero el poder sale incompleto, `bonusPower6` mal por poco, `bonusPower7` muy bien pero **no cierra el círculo del poder**, `bonusPower8` **le falta por delante**, `bonusPower9` mal, `bonusPower10` **todo mal, el martillo no sale completo**. `fatality`: `super-4`, `super-5`, `bonus-1-1`. `superArt` igual. | **C3** confirmado por medición: los 20 cuadros de `bonus-7/8/9/10` **tocan el borde DERECHO** del lienzo de 256 px. Además `bonus-7/8/9/10` son cuadros **idénticos entre sí** (estáticos). |
 | latzitzimime | *(pendiente)* | | |
 | paparazzi1 | *(pendiente)* | | |
 | paparazzi5 | *(pendiente)* | | |
@@ -43,6 +43,63 @@ de abajo. Por eso "los assets se ven bien" y el juego se ve mal a la vez.
 | robot | *(pendiente)* | | |
 | senortienda | *(pendiente)* | | |
 | yoalliehecatl | *(pendiente)* | | |
+
+## Las 3 causas raíz (C1, C2, C3)
+
+Todo lo reportado hasta ahora se explica con **tres** defectos del pipeline, no con decenas
+de assets malos. El arte fuente está bien en los tres casos.
+
+### C1 · Dos figuras apiladas en `hit-face-*`
+
+`merge_fragments` comparaba solo el solapamiento en **X**. Cuando la fila HURT HEAD viene en
+**dos filas de 7 poses**, al aplanar y ordenar por X cada pose queda junto a la de abajo, con
+solape horizontal casi total → las fusionaba en vertical.
+
+- **Afecta a:** escomboy, escomgirl (confirmados a ojo), senortienda, yoalliehecatl.
+- **Estado:** ✅ **arreglado** en `slice_sf_chroma_sheets.py` (fusión fila por fila, verificado
+  sobre las 520 hojas con 0 regresiones). ⚠️ **Inerte:** falta re-recortar y re-empaquetar.
+- escomboy y yoalliehecatl ya dan `HURT HEAD 14/14 OK`. senortienda y escomgirl dan 15/14
+  porque sus hojas traen **16 poses, no 14**.
+
+### C2 · Cortes arbitrarios cuando dos poses con efecto se tocan
+
+Si dos poses de la fila se tocan (sus auras se solapan), el croma las detecta como UN blob y
+`maybe_split` lo parte en cortes calculados por "valle de densidad". Esos cortes **atraviesan
+el efecto**, así que cada cuadro se lleva un trozo del vecino y pierde el suyo.
+
+- **Firma para detectarlo:** blobs contiguos SIN hueco entre ellos (`x1` de uno == `x0` del
+  siguiente). Con `--list` se ve al instante.
+- **Afecta a:** lallorona `super-4/5/6`, lapresidenta `super-4/5`, y probablemente el resto de
+  `superArt` reportados como "completo pero mal recortado".
+- **Estado:** ❌ **sin arreglar.**
+
+### C3 · El slicer NO busca el cuerpo en los cuadros de poder
+
+`slice_sf_chroma_sheets.py:659` → `anchor_body=label.startswith("SPECIAL")`.
+
+La función que localiza el cuerpo (`dense_body_center_x`, que ignora el efecto y se queda con
+el primer grupo denso de columnas) se aplica **SOLO** a las etiquetas que empiezan por
+`SPECIAL`. La hoja 29 se llama `SUPER ART`, y los bonus powers van por otro script
+(`slice_sf_bonus_powers.py`). En esos casos `place_sf` hace `x = CX - w // 2`: centra la
+**caja entera**, efecto incluido. Resultado: el personaje se descoloca y **el poder se sale
+del lienzo de 256 px**.
+
+Medido sobre los cuadros ya empaquetados (arte que llega justo al borde = se cortó):
+
+| prefijo | tocan el borde | total |
+|---|---|---|
+| `bonus-*` | **21** | 130 (16 %) |
+| `special-*` | 15 | 270 (6 %) |
+| `super-*` | 0 | 144 |
+
+De los 21 de `bonus-*`, **todos son de La Presidenta** y **todos por la DERECHA** — que es
+justo hacia donde lanza el poder: `bonus-7-1..5`, `bonus-8-1..5`, `bonus-9-1..5`,
+`bonus-10-1..5`. Coincide exactamente con "le falta cerrar el círculo", "le falta más por
+delante" y "el martillo no sale completo".
+
+- **Estado:** ❌ **sin arreglar.** El arreglo es anclar el cuerpo también en `SUPER ART` y en
+  los bonus powers, y/o permitir que el lienzo no recorte el efecto.
+- ⚠️ Tocar esto afecta a los 18 peleadores a la vez → **delegar a Sol 5.6 o Fable 5**.
 
 ## Correlación con el audit automático
 
