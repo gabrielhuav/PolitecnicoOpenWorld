@@ -53,7 +53,22 @@
 | 08 | `08_SERVERS.md` | Servidores Node.js (open world v3 + zombi) + protocolo de red |
 | 09 | `09_CONVENTIONS_GOTCHAS.md` | Convenciones, reglas de gama baja, protocolo de actualización de docs |
 
-### Estado vigente (2026-07-20) — LÉEME PRIMERO
+### Estado vigente (2026-07-21) — LÉEME PRIMERO
+
+> **🆕 2026-07-21 (Fable) — MOVESET 3rd Strike COMPLETO (assets + motor):**
+> - **179/180 hojas nuevas (20-29) recortadas y empacadas** para los 18 peleadores.
+>   Flujo repetible: **`FLUJO_ASSETS_SF.md`** (⭐ empezar por ahí para cualquier asset).
+> - **21 estados nuevos jugables:** dash/backdash, bloqueo alto-bajo, **parry**, golpes
+>   agachado, antiaéreo, **barrida** (derriba), aéreos, **patada larga**, **overhead**
+>   (rompe guardia baja), **agarre→lanzamiento**, burla, **Super Art** con medidor.
+>   Tabla de controles y reglas en `DISENO_ARCADE_SF_POW.md` §2026-07-21 y 07 §MOVESET.
+> - **Placeholder ALPHA:** si falta una hoja, el movimiento se juega igual con el arte del
+>   estudiante del mismo género en silueta negra + rótulo "ALPHA".
+> - **Arreglados:** proyectil de La Llorona (se lanzaba a sí misma) y `bonusPower1-6` de
+>   La Presidenta (desaparecía 3 cuadros).
+> - Verificado: compila, tests en verde, detekt 0 smells. **Falta dispositivo.**
+
+### Estado 2026-07-20
 
 > **🆕 2026-07-20 (Fable) — post-release 1.0.0.12 EN PRODUCCIÓN (Play Store, CI/CD verde):**
 > - **PENDIENTES vivos → `PENDIENTES_2026-07-20.md`** (dueño: videos UAM, sprites tandas 5–8
@@ -133,6 +148,7 @@
 
 | Archivo / File | Contenido / Contents |
 |---|---|
+| **`FLUJO_ASSETS_SF.md`** | **⭐ FLUJO COMPLETO de assets de pelea: identificar → recortar → empacar → QA + trampas conocidas.** |
 | **`PENDIENTES_2026-07-20.md`** | **⭐ Lista VIVA de deudas post-release 1.0.0.12 (dueño vs código).** |
 | `GUIA_mantenimiento_no_senior.md` | **EMPEZAR AQUÍ si eres IA/dev nuevo:** 7 reglas, chuleta, qué NO hacer. |
 | `DISENO_ARCADE_SF_POW.md` | Diseño + avance del ARCADE POW (escalera, desbloqueos, IA por fases). |

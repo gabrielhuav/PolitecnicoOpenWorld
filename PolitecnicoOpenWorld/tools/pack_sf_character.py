@@ -50,6 +50,37 @@ DEDICATED_EXTRA_KEYS = (
     ["special-5"]
 )
 
+# 🆕 (2026-07-21) TANDAS 5-8 (hojas 20-29): moveset estilo SF III 3rd Strike.
+# clave de animacion del motor -> (prefijo de cuadro, numero de cuadros, delays)
+# Solo se empaquetan/animan los que EXISTAN en el GEN del personaje: quien no tenga la
+# hoja simplemente no gana ese estado y el motor lo ignora (nunca entra a el).
+NEW_MOVE_ANIMATIONS = {
+    "dashForward":      ("dash", 4, [3, 3, 4, 4]),
+    "dashBackward":     ("backdash", 4, [3, 3, 4, 4]),
+    "blockHigh":        ("block-high", 4, [3, 4, 6, 4]),
+    "blockLow":         ("block-low", 4, [3, 4, 6, 4]),
+    "parryHigh":        ("parry-high", 3, [3, 5, 4]),
+    "parryLow":         ("parry-low", 3, [3, 5, 4]),
+    "crouchPunch":      ("crouch-punch", 4, [3, 4, 5, 4]),
+    "crouchKick":       ("crouch-kick", 4, [3, 4, 5, 4]),
+    "crouchHeavyPunch": ("crouch-hp", 5, [4, 4, 6, 5, 5]),
+    "sweep":            ("sweep", 6, [4, 4, 6, 6, 5, 5]),
+    "airPunch":         ("air-punch", 4, [3, 4, 5, 4]),
+    "airKick":          ("air-kick", 4, [3, 4, 5, 4]),
+    "longKick":         ("long-kick", 7, [4, 4, 5, 7, 6, 5, 5]),
+    "overhead":         ("overhead", 5, [5, 5, 7, 6, 5]),
+    "grab":             ("grab", 2, [4, 6]),
+    "throw":            ("throw", 6, [4, 5, 6, 6, 6, 8]),
+    "taunt":            ("taunt", 6, [6, 6, 6, 6, 6, 8]),
+    "thrown":           ("thrown", 6, [4, 5, 5, 6, 6, 10]),
+    "getUp":            ("getup", 6, [5, 5, 5, 5, 5, 5]),
+    "superArt":         ("super", 8, [5, 5, 6, 7, 8, 7, 6, 10]),
+    "hurtCrouch":       ("hurt-crouch", 4, [5, 6, 6, 6]),
+}
+NEW_MOVE_KEYS = [f"{prefix}-{i}"
+                 for prefix, count, _ in NEW_MOVE_ANIMATIONS.values()
+                 for i in range(1, count + 1)]
+
 # Posicion/escala del efecto segun el objeto real de cada personaje. El frame es
 # cero-based dentro de la animacion especial y ya no queda hardcodeado en Kotlin.
 PROJECTILE_PROFILES = {
@@ -215,7 +246,7 @@ def frame_source_path(char_name, key, char_gen_dir, gen_root):
 
 
 def dedicated_animations(template, bonus_powers=0, unique_hurt_frames=False,
-                         projectile_powers=frozenset()):
+                         projectile_powers=frozenset(), available_keys=frozenset()):
     """Animaciones completas para arte croma; conserva estados/timings del motor."""
     out = json.loads(json.dumps(template))
     out["lightPunch"] = animation_with_transition(
@@ -272,6 +303,11 @@ def dedicated_animations(template, bonus_powers=0, unique_hurt_frames=False,
         else:
             out[f"bonusPower{power}"] = animation_with_transition(
                 [f"bonus-{power}-{i}" for i in range(1, 6)], [5, 7, 10, 12, 18])
+    # 🆕 (2026-07-21) Movimientos nuevos: solo si TODOS sus cuadros existen en el GEN.
+    for anim, (prefix, count, delays) in NEW_MOVE_ANIMATIONS.items():
+        keys = [f"{prefix}-{i}" for i in range(1, count + 1)]
+        if all(k in available_keys for k in keys):
+            out[anim] = animation_with_transition(keys, delays)
     return out
 
 def reference_frame_key(key):
@@ -304,6 +340,53 @@ def reference_frame_key(key):
         return f"special-{min(idx, 4)}", False
     if key == "special-5":
         return "special-4", False
+    # 🆕 (2026-07-21) Poses de las hojas 20-29. El template no las tiene, asi que cada una
+    # hereda la caja clasica mas parecida; el 2o valor dice si conserva HITBOX (golpea).
+    # Sin esto se empacarian sin cajas: invulnerables y sin poder pegar.
+    new_move = re.match(
+        r"(dash|backdash|block-high|block-low|parry-high|parry-low|crouch-punch|crouch-kick|"
+        r"crouch-hp|sweep|air-punch|air-kick|long-kick|overhead|grab|throw|taunt|thrown|"
+        r"getup|super|hurt-crouch)-(\d+)$", key)
+    if new_move:
+        prefix, idx = new_move.group(1), int(new_move.group(2))
+        # Defensivas / movilidad / reacciones: hurtbox prestada, nunca hitbox.
+        if prefix == "dash":
+            return "forwards-3", False
+        if prefix == "backdash":
+            return "backwards-3", False
+        if prefix in ("block-high", "parry-high", "taunt"):
+            return "idle-1", False
+        if prefix in ("block-low", "parry-low", "hurt-crouch"):
+            return "crouch-3", False
+        if prefix == "thrown":
+            return f"fall-{min(idx, 5)}", False
+        if prefix == "getup":
+            # Se levanta: del suelo (fall) a la guardia (idle)
+            return ("fall-4", False) if idx <= 2 else (("crouch-3", False) if idx <= 4 else ("idle-1", False))
+        if prefix == "throw":
+            # El daño del lanzamiento lo aplica la logica, no una hitbox por cuadro
+            return "idle-1", False
+        # Ofensivas: hitbox SOLO en los cuadros activos (contacto), como en las clasicas.
+        if prefix == "crouch-punch":
+            return "light-punch-2", idx in (2, 3)
+        if prefix == "crouch-kick":
+            return "light-kick-2", idx in (2, 3)
+        if prefix == "crouch-hp":
+            return "heavy-punch-1", idx in (3, 4)
+        if prefix == "sweep":
+            return "heavy-kick-3", idx in (3, 4)
+        if prefix == "air-punch":
+            return "light-punch-2", idx in (2, 3)
+        if prefix == "air-kick":
+            return "light-kick-2", idx in (2, 3)
+        if prefix == "long-kick":
+            return "heavy-kick-3", idx in (4, 5)
+        if prefix == "overhead":
+            return "heavy-punch-1", idx in (3, 4)
+        if prefix == "grab":
+            return "light-punch-2", idx == 2
+        if prefix == "super":
+            return "special-3", idx in (4, 5, 6)
     return key, True
 
 def pack_character(char_name, char_title, gen_root=GEN_DIR):
@@ -343,6 +426,9 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
     existing_proj = [k for k in proj_keys if os.path.exists(os.path.join(char_gen_dir, f"{k}.png"))]
     extra_keys = [k for k in DEDICATED_EXTRA_KEYS
                   if os.path.exists(os.path.join(char_gen_dir, filename_for_key(k)))]
+    # 🆕 (2026-07-21) Cuadros de las hojas 20-29 presentes en el GEN de ESTE personaje
+    new_move_keys = [k for k in NEW_MOVE_KEYS
+                     if os.path.exists(os.path.join(char_gen_dir, filename_for_key(k)))]
     bonus_keys = []
     bonus_power_count = 0
     power = 1
@@ -359,7 +445,7 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
             sys.exit(1)
         else:
             break
-    all_keys = frame_keys + extra_keys + existing_proj + bonus_keys
+    all_keys = frame_keys + extra_keys + existing_proj + bonus_keys + new_move_keys
     num_frames = len(all_keys)
 
     # Algunas hojas de LIGHT PUNCH traen dos cuadros casi identicos a la guardia: el
@@ -524,6 +610,7 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
             bonus_power_count,
             unique_hurt_frames=char_name == "lallorona",
             projectile_powers=BONUS_PROJECTILE_POWERS.get(char_name, frozenset()),
+            available_keys=frozenset(new_move_keys),
         ),
         "events": {"projectile": PROJECTILE_PROFILES.get(char_name, {})},
     }

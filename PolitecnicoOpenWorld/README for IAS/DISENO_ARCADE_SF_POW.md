@@ -7,6 +7,53 @@
 > CRLF, Read para verificar). Los BUGS del modo (stun-lock, revancha, servidor LAN) viven en
 > `PENDIENTES_SF_2026-07-16.md` y NO dependen de esto.
 
+## Cambios 2026-07-21 (Fable) — MOVESET 3rd Strike COMPLETO + arreglos de assets
+
+**Assets (hojas 20-29, tandas 5-8):** 179/180 hojas recortadas y empacadas para los 18
+peleadores. Flujo completo y repetible en **`FLUJO_ASSETS_SF.md`** (herramientas nuevas:
+`sf_identify_new_sheets.py`, `slice_new_sheets_batch.py`, `fix_llorona_projectile.py`).
+17/18 con las 21 animaciones nuevas; La Llorona sin `longKick`/`overhead` (falta su hoja 26).
+
+**Motor — 21 estados nuevos en `SfFighterState`** (`jsKey` = animación del JSON), todos
+protegidos por `hasAnim`: quien no tenga el arte NUNCA entra al estado.
+
+| Movimiento | Cómo se hace | Regla |
+|---|---|---|
+| **Dash / Backdash** | doble toque adelante/atrás | velocidad alta, lo corta su animación |
+| **Bloqueo alto/bajo** | atrás (de pie) / atrás+abajo | daño /4, ahora con POSE de guardia visible |
+| **Parry alto/bajo** | botón **P** (bajo si agachado) | ventana 260 ms: anula el golpe ENTERO y deja al atacante vendido 320 ms |
+| **Golpes agachado** | agachado + puño/patada | encadenan entre sí (cancel bajo) |
+| **Antiaéreo** | agachado + puño fuerte | |
+| **Barrida** | agachado + patada fuerte | DERRIBA (THROWN → GET_UP) |
+| **Aéreos** | puño/patada en el salto | UNO por salto |
+| **Patada larga** | adelante + patada fuerte | su normal de mayor alcance |
+| **Overhead** | adelante + puño medio | **rompe la guardia baja** |
+| **Agarre → lanzamiento** | botón **G** pegado al rival | atraviesa el bloqueo; daño fijo 26 |
+| **Burla** | botón **T** | |
+| **Super Art** | botón **S** con medidor lleno | consume el medidor, daño 45, derriba |
+
+- **Medidor de súper** (`SfFighter.superMeter`, 0-100): +8 al pegar, +5 al recibir, +2 al
+  bloquear. Barra en el HUD bajo cada nombre (dorada al llenarse). Solo se pinta para
+  peleadores con `superArt`.
+- **Derribado = INVULNERABLE** mientras está en el suelo y se levanta (como el arcade).
+- **IA:** `cpuNewMove` usa el arsenal nuevo — súper de cerca, barrida para castigar,
+  agarre a quien se cubre, overhead contra guardia baja, patada larga en footsies, parry en
+  dificultades altas y dash para cerrar hueco. Devuelve null si el peleador no tiene el arte
+  → la IA de siempre queda intacta.
+- **Placeholder ALPHA:** si falta una hoja, el movimiento **igual se juega** con el arte del
+  estudiante del mismo género en silueta negra pixelada + rótulo "ALPHA" (fuente del HUD).
+- **Controles:** columna nueva de botones (T/P/G/S) que solo aparece si el peleador tiene el
+  moveset; el hint de controles cambia al de los movimientos nuevos. Strings ES+EN.
+- **Verificado:** `compileDebugKotlin` OK, `testDebugUnitTest` OK, detekt 0 smells.
+  **Falta probar en dispositivo** (afinar ventanas de parry/dash con el dueño).
+
+**Arreglos de assets de esta pasada:**
+- **La Llorona:** su especial "se lanzaba a sí misma" — su hoja 12 es una rejilla 4×3 y el
+  slicer metió 2 cuadros de su CUERPO como `proj-*`. Ahora sus 5 cuadros de proyectil son
+  los efectos reales (cadena, zarpazo, orbe, estela).
+- **La Presidenta:** `bonusPower1-6` la hacían desaparecer 3 cuadros (eran guiones con el
+  proyectil, no animación suya) y sus efectos (mazo, libro, bolsa de dinero) no se usaban.
+
 ## Cambios 2026-07-20 (Fable) — COMBOS 3rd Strike + audit de audio + QA visual de assets
 
 - **🥊 COMBOS estilo SF III 3rd Strike (primer corte del P1 "Combate SF original"):**

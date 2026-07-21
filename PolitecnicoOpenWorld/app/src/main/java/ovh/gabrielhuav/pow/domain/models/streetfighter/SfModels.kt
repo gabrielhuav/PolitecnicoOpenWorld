@@ -35,6 +35,29 @@ object SfConstants {
     const val JUMP_BACKWARD_VELOCITY = -180f
     const val JUMP_VELOCITY = -420f
 
+    // ── 🆕 (2026-07-21) MOVESET 3rd Strike ──
+    /** Dash: mucho más rápido que caminar y de duración corta (lo corta su animación). */
+    const val DASH_FORWARD_VELOCITY = 430f
+    const val DASH_BACKWARD_VELOCITY = -390f
+    /** Ventana del doble toque de dirección que dispara el dash. */
+    const val DASH_DOUBLE_TAP_MS = 260L
+    /** Medidor de súper: se llena con el daño hecho y recibido. */
+    const val SUPER_METER_MAX = 100
+    const val SUPER_METER_ON_HIT = 8       // al conectar un golpe
+    const val SUPER_METER_ON_TAKE = 5      // al recibirlo (el que pierde también carga)
+    const val SUPER_METER_ON_BLOCK = 2
+    /** Daño de los golpes nuevos que no reusan una fuerza clásica. */
+    const val SUPER_ART_DAMAGE = 45
+    const val THROW_DAMAGE = 26
+    /** Empuje del lanzamiento y de la barrida (derribo). */
+    const val THROW_PUSH_VELOCITY = 420f
+    /** Ventana ACTIVA del parry desde que arranca (ms). Fuera de ella no protege. */
+    const val PARRY_WINDOW_MS = 260L
+    /** Ventaja tras un parry exitoso: el atacante se queda en recuperación. */
+    const val PARRY_ADVANTAGE_MS = 320L
+    /** Alcance del agarre (px entre peleadores). */
+    const val GRAB_RANGE = 62f
+
     // battle.js
     const val HEALTH_MAX_HIT_POINTS = 200
     const val BATTLE_TIME = 99
@@ -278,7 +301,71 @@ enum class SfFighterState(val jsKey: String) {
     BONUS_POWER_11("bonusPower11"),
     VICTORY("victory"),
     KO("ko"),
+
+    // ── 🆕 (2026-07-21) MOVESET estilo SF III 3rd Strike (hojas 20-29) ──
+    // Los `jsKey` coinciden con las animaciones que escribe pack_sf_character.py.
+    // ⚠️ Un peleador SIN esas hojas NO tiene estas animaciones: el motor comprueba
+    // `hasAnim` antes de entrar, así que nunca cae en un estado sin arte.
+    DASH_FORWARD("dashForward"),
+    DASH_BACKWARD("dashBackward"),
+    BLOCK_HIGH("blockHigh"),
+    BLOCK_LOW("blockLow"),
+    PARRY_HIGH("parryHigh"),
+    PARRY_LOW("parryLow"),
+    CROUCH_PUNCH("crouchPunch"),
+    CROUCH_KICK("crouchKick"),
+    CROUCH_HEAVY_PUNCH("crouchHeavyPunch"),
+    SWEEP("sweep"),
+    AIR_PUNCH("airPunch"),
+    AIR_KICK("airKick"),
+    LONG_KICK("longKick"),
+    OVERHEAD("overhead"),
+    GRAB("grab"),
+    THROW("throw"),
+    TAUNT("taunt"),
+    THROWN("thrown"),
+    GET_UP("getUp"),
+    SUPER_ART("superArt"),
+    HURT_CROUCH("hurtCrouch"),
 }
+
+/**
+ * 🆕 TODOS los estados de las hojas 20-29. El motor exige `hasAnim` antes de entrar a
+ * cualquiera de ellos: un peleador sin esas hojas simplemente no los usa.
+ */
+val SF_NEW_MOVE_STATES: Set<SfFighterState> = setOf(
+    SfFighterState.DASH_FORWARD, SfFighterState.DASH_BACKWARD,
+    SfFighterState.BLOCK_HIGH, SfFighterState.BLOCK_LOW,
+    SfFighterState.PARRY_HIGH, SfFighterState.PARRY_LOW,
+    SfFighterState.CROUCH_PUNCH, SfFighterState.CROUCH_KICK,
+    SfFighterState.CROUCH_HEAVY_PUNCH, SfFighterState.SWEEP,
+    SfFighterState.AIR_PUNCH, SfFighterState.AIR_KICK,
+    SfFighterState.LONG_KICK, SfFighterState.OVERHEAD,
+    SfFighterState.GRAB, SfFighterState.THROW, SfFighterState.TAUNT,
+    SfFighterState.THROWN, SfFighterState.GET_UP,
+    SfFighterState.SUPER_ART, SfFighterState.HURT_CROUCH,
+)
+
+/** 🆕 Estados de ATAQUE nuevos (los que pueden conectar un golpe). */
+val SF_NEW_ATTACK_STATES: Set<SfFighterState> = setOf(
+    SfFighterState.CROUCH_PUNCH, SfFighterState.CROUCH_KICK,
+    SfFighterState.CROUCH_HEAVY_PUNCH, SfFighterState.SWEEP,
+    SfFighterState.AIR_PUNCH, SfFighterState.AIR_KICK,
+    SfFighterState.LONG_KICK, SfFighterState.OVERHEAD,
+    SfFighterState.GRAB, SfFighterState.SUPER_ART,
+)
+
+/** 🆕 Estados de BLOQUEO (absorben el golpe con daño reducido y sin pose de daño). */
+val SF_BLOCK_STATES: Set<SfFighterState> =
+    setOf(SfFighterState.BLOCK_HIGH, SfFighterState.BLOCK_LOW)
+
+/** 🆕 Estados de PARRY (anulan el golpe por completo durante su ventana activa). */
+val SF_PARRY_STATES: Set<SfFighterState> =
+    setOf(SfFighterState.PARRY_HIGH, SfFighterState.PARRY_LOW)
+
+/** 🆕 Estados en el SUELO tras un derribo: no se puede golpear ni ser golpeado. */
+val SF_DOWNED_STATES: Set<SfFighterState> =
+    setOf(SfFighterState.THROWN, SfFighterState.GET_UP)
 
 val SF_BONUS_POWER_STATES: List<SfFighterState> = listOf(
     SfFighterState.BONUS_POWER_1, SfFighterState.BONUS_POWER_2, SfFighterState.BONUS_POWER_3,
@@ -302,6 +389,16 @@ val SF_HURT_STATES: Set<SfFighterState> = setOf(
     SfFighterState.HURT_BODY_LIGHT, SfFighterState.HURT_BODY_MEDIUM, SfFighterState.HURT_BODY_HEAVY,
     SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY,
     SfFighterState.CROUCH, SfFighterState.CROUCH_UP, SfFighterState.CROUCH_DOWN,
+    // 🆕 (2026-07-21) Los movimientos nuevos también son golpeables (menos THROWN/GET_UP,
+    // que son invulnerables en el suelo, como en el arcade original).
+    SfFighterState.DASH_FORWARD, SfFighterState.DASH_BACKWARD,
+    SfFighterState.BLOCK_HIGH, SfFighterState.BLOCK_LOW,
+    SfFighterState.PARRY_HIGH, SfFighterState.PARRY_LOW,
+    SfFighterState.CROUCH_PUNCH, SfFighterState.CROUCH_KICK,
+    SfFighterState.CROUCH_HEAVY_PUNCH, SfFighterState.SWEEP,
+    SfFighterState.LONG_KICK, SfFighterState.OVERHEAD,
+    SfFighterState.GRAB, SfFighterState.THROW, SfFighterState.TAUNT,
+    SfFighterState.SUPER_ART, SfFighterState.HURT_CROUCH,
 ) + SF_BONUS_POWER_STATES
 
 /** Caja alineada a ejes relativa al ancla (pies) del peleador. */
@@ -378,11 +475,24 @@ data class SfFighter(
      */
     val metamorphosing: Boolean = false,
     val metamorphosed: Boolean = false,
+    /**
+     * 🆕 (2026-07-21) MEDIDOR DE SÚPER (0..[SfConstants.SUPER_METER_MAX]). Sube al conectar
+     * y al recibir golpes; la SUPER ART lo consume entero. Es el recurso que hace que el
+     * ataque máximo no se pueda repetir sin ganárselo, como en 3rd Strike.
+     */
+    val superMeter: Int = 0,
+    /** 🆕 Ya usó su levantada tras el derribo actual (evita re-encadenar GET_UP). */
+    val downed: Boolean = false,
 ) {
     val isAirborne: Boolean
         get() = state == SfFighterState.JUMP_UP ||
             state == SfFighterState.JUMP_FORWARD ||
-            state == SfFighterState.JUMP_BACKWARD
+            state == SfFighterState.JUMP_BACKWARD ||
+            state == SfFighterState.AIR_PUNCH ||
+            state == SfFighterState.AIR_KICK
+
+    /** 🆕 La súper está cargada al máximo (se puede ejecutar). */
+    val superReady: Boolean get() = superMeter >= SfConstants.SUPER_METER_MAX
 }
 
 /** Estado de un hadouken en vuelo (Fireball.js). */
@@ -429,4 +539,11 @@ data class SfInput(
     val heavyKick: Boolean = false,
     val special: SfAttackStrength? = null, // hadouken detectado (↓ ↘ → + puño)
     val bonusPower: Int? = null,           // poder extra Grok (boton P; indice 1..N)
+    // ── 🆕 (2026-07-21) intenciones del moveset 3rd Strike ──
+    val dashForward: Boolean = false,      // doble toque ADELANTE
+    val dashBackward: Boolean = false,     // doble toque ATRÁS
+    val parry: Boolean = false,            // botón PARRY (alto/bajo según agachado)
+    val grab: Boolean = false,             // botón AGARRE
+    val taunt: Boolean = false,            // botón BURLA
+    val superArt: Boolean = false,         // botón SÚPER (requiere medidor lleno)
 )

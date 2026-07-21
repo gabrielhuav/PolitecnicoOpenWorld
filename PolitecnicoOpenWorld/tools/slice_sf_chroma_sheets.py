@@ -45,6 +45,30 @@ SF_POSE_TARGET_H = {
     "STUN": 100.0,
     "KO": None,
     "PROJECTILE": None,
+    # 🆕 (2026-07-21) TANDAS 5-8 (hojas 20-29). Las poses AGACHADAS comparten la altura
+    # del CROUCH ya aprobado; las que cambian de silueta a proposito (barrida horizontal,
+    # vuelo del lanzamiento, levantarse desde el suelo, super art con efectos) van con
+    # None = conservan la escala fisica del Idle en vez de estirarse a una altura fija.
+    "DASH FORWARD": 95.0,
+    "BACKDASH": 95.0,
+    "BLOCK ALTO": 100.0,
+    "BLOCK BAJO": 70.0,
+    "PARRY ALTO": 100.0,
+    "PARRY BAJO": 70.0,
+    "CROUCH PUNCH": 70.0,
+    "CROUCH KICK": 70.0,
+    "CROUCH HEAVY PUNCH": 80.0,
+    "BARRIDA": None,
+    "AIR PUNCH": None,
+    "AIR KICK": None,
+    "PATADA LARGA": None,
+    "OVERHEAD": None,
+    "AGARRE Y LANZAMIENTO": None,
+    "TAUNT": 100.0,
+    "SER LANZADO": None,
+    "LEVANTARSE": None,
+    "SUPER ART": None,
+    "DANO AGACHADO": 70.0,
 }
 
 def nums(p, n): return ["%s-%d" % (p, i) for i in range(1, n + 1)]
@@ -89,6 +113,30 @@ SHEETS = {
          ("TALK",           4, (None, None), ("Talk", "t"))],
     19: [("WALK BACKWARD",  6, (nums("backwards", 6), "even"),   None),
          ("HANDGUN WALK",   6, (None, None),                     None)],
+    # ── 🆕 TANDAS 5-8 (2026-07-21): moveset estilo SF III 3rd Strike ──
+    # Mismo contrato que arriba: (rotulo, cuadros esperados, (claves SF, modo), destino mundo).
+    # Los rotulos deben coincidir con SF_POSE_TARGET_H para calibrar la altura de la pose.
+    20: [("DASH FORWARD",   4, (nums("dash", 4), "even"),        None),
+         ("BACKDASH",       4, (nums("backdash", 4), "even"),    None)],
+    21: [("BLOCK ALTO",     4, (nums("block-high", 4), "even"),  None),
+         ("BLOCK BAJO",     4, (nums("block-low", 4), "even"),   None)],
+    22: [("PARRY ALTO",     3, (nums("parry-high", 3), "even"),  None),
+         ("PARRY BAJO",     3, (nums("parry-low", 3), "even"),   None)],
+    23: [("CROUCH PUNCH",   4, (nums("crouch-punch", 4), "even"), None),
+         ("CROUCH KICK",    4, (nums("crouch-kick", 4), "even"), None)],
+    24: [("CROUCH HEAVY PUNCH", 5, (nums("crouch-hp", 5), "even"), None),
+         ("BARRIDA",        6, (nums("sweep", 6), "even"),       None)],
+    25: [("AIR PUNCH",      4, (nums("air-punch", 4), "even"),   None),
+         ("AIR KICK",       4, (nums("air-kick", 4), "even"),    None)],
+    26: [("PATADA LARGA",   7, (nums("long-kick", 7), "even"),   None),
+         ("OVERHEAD",       5, (nums("overhead", 5), "even"),    None)],
+    # La hoja 27 trae 2 cuadros de intento de agarre + 6 del lanzamiento en un solo grupo.
+    27: [("AGARRE Y LANZAMIENTO", 8, (nums("grab", 2) + nums("throw", 6), "even"), None),
+         ("TAUNT",          6, (nums("taunt", 6), "even"),       None)],
+    28: [("SER LANZADO",    6, (nums("thrown", 6), "even"),      None),
+         ("LEVANTARSE",     6, (nums("getup", 6), "even"),       None)],
+    29: [("SUPER ART",      8, (nums("super", 8), "even"),       None),
+         ("DANO AGACHADO",  4, (nums("hurt-crouch", 4), "even"), None)],
 }
 # Grupos con targets SF None se guardan en GEN/<char>/_extra/ (capas de armas,
 # jump land, specials L/M, talk...): nada se tira.
@@ -390,7 +438,7 @@ def main():
     m = re.search(r"_(\d{1,2})_", os.path.basename(args.sheet))
     num = args.sheet_num or (int(m.group(1)) if m else None)
     if num not in SHEETS:
-        sys.exit("No se qué hoja es (usa --sheet-num 1..19). Detectado: %s" % num)
+        sys.exit("No se qué hoja es (usa --sheet-num 1..29). Detectado: %s" % num)
     (nameA, nA, sfA, wA), (nameB, nB, sfB, wB) = SHEETS[num]
 
     # cierre 5 normal; si el conteo no cuadra (efectos dispersos), reintenta con 25

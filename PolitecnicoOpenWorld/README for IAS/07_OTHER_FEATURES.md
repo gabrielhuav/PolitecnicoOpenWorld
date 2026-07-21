@@ -942,6 +942,19 @@ ligeros por peleador sesgan presión o poderes sin duplicar la IA. Hay memoria d
 cooldowns separados para especiales/poderes, defensa reactiva y escape anti-hit-stun. El auditor
 considera fallo cualquier estancamiento o ronda por tiempo y reporta los totales KO/timeout.
 
+### HUELUM VS. GOYA — 🥊 MOVESET completo estilo 3rd Strike (2026-07-21)
+
+21 estados nuevos en `SfFighterState` (hojas 20-29), todos con guarda `hasAnim`: dash y
+backdash (doble toque), bloqueo alto/bajo con pose propia, **parry** alto/bajo (ventana
+260 ms: anula el golpe y castiga al atacante 320 ms), golpes agachado con cadena propia,
+antiaéreo, **barrida** (derriba → `THROWN`/`GET_UP`, invulnerable en el suelo), aéreos (uno
+por salto), **patada larga**, **overhead** (rompe guardia baja), **agarre→lanzamiento**
+(atraviesa el bloqueo), burla y **Super Art** con medidor (`SfFighter.superMeter`, barra en
+el HUD). La IA los usa vía `cpuNewMove`. Si a un peleador le falta una hoja, el movimiento
+igual se juega con **placeholder ALPHA** (silueta del estudiante de su género + rótulo).
+Detalle y tabla de controles: `DISENO_ARCADE_SF_POW.md` §2026-07-21. Pipeline de los
+assets: `FLUJO_ASSETS_SF.md`.
+
 ### HUELUM VS. GOYA — 🥊 COMBOS estilo 3rd Strike (2026-07-20)
 
 Primer corte del combate "SF original" (P1): **chain cancel** (golpe normal que CONECTA se

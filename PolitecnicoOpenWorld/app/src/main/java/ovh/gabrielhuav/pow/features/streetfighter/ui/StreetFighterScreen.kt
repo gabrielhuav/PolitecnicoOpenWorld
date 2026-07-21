@@ -98,6 +98,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfBox
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackType
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BONUS_POWER_STATES
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_NEW_MOVE_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfConstants
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCpuDifficulty
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfDirection
@@ -286,6 +287,25 @@ fun StreetFighterScreen(
     }
     val playerData = remember(playerId) { SfFrameCatalog.load(context, playerId) }
     val cpuData = remember(cpuId) { SfFrameCatalog.load(context, cpuId) }
+    // 🆕 (2026-07-21) PLACEHOLDER ALPHA: hoja del estudiante del mismo género, cargada SOLO
+    // si alguno de los dos peleadores tiene movimientos sin arte propia (hoy: La Llorona,
+    // que no trae PATADA LARGA / OVERHEAD). Se dibuja en silueta con el rótulo "ALPHA".
+    val alphaFallback = remember(playerId, cpuId, state.inCharacterSelect) {
+        if (state.inCharacterSelect) return@remember null
+        val needy = listOf(playerId to playerData, cpuId to cpuData).firstOrNull { (_, d) ->
+            SF_NEW_MOVE_STATES.any { d.animations[it.jsKey].isNullOrEmpty() }
+        } ?: return@remember null
+        val fallbackId = viewModel.alphaFallbackId(needy.first)
+        runCatching {
+            AlphaFallback(
+                data = SfFrameCatalog.load(context, fallbackId),
+                sheetKey = fallbackId.spriteAsset.substringAfterLast('/'),
+                bitmap = context.assets.open(fallbackId.spriteAsset).use {
+                    BitmapFactory.decodeStream(it)
+                }?.asImageBitmap(),
+            )
+        }.getOrNull()?.takeIf { it.bitmap != null }
+    }
     val lowEnd = remember { viewModel.isLowEndDevice() }
     // 🆕 Alturas de CONTENIDO opaco: en GAMA BAJA se OMITEN (scan caro de cada frame del
     // sheet al entrar a pelea → lag de carga). En media/alta se miden para forzar tamaño.
@@ -480,6 +500,8 @@ fun StreetFighterScreen(
     val fightBannerText = stringResource(R.string.sf_fight_banner)
     // 🆕 (2026-07-20) Etiqueta del contador de COMBO ("GOLPES"/"HITS")
     val comboHitsLabel = stringResource(R.string.sf_combo_hits)
+    // 🆕 (2026-07-21) ¿El peleador elegido tiene el moveset nuevo? (botones extra)
+    val hasNewMoves = remember(state.player.id) { viewModel.playerHasNewMoves() }
     // 🆕 Ajustes → "Mostrar hitboxes" (se lee al entrar al modo)
     val showHitboxes = remember { viewModel.showHitboxes() }
 
@@ -493,6 +515,7 @@ fun StreetFighterScreen(
                     roundBannerText, fightBannerText, comboHitsLabel, showHitboxes,
                     playerContentH, cpuContentH, effectiveBgFile,
                     playerSilhouette = !viewModel.isFighterActuallyUnlocked(state.player.id),
+                    alphaFallback = alphaFallback,
                 )
             }
         }
@@ -519,9 +542,27 @@ fun StreetFighterScreen(
                 bonusPowerCount = state.player.id.bonusPowerCount,
                 onBonusPower = viewModel::onBonusPowerPressed,
             )
+            // 🆕 (2026-07-21) Botones del moveset 3rd Strike. Solo se muestran si el
+            // peleador TIENE ese arte (los compartidos/ALPHA no los tienen).
+            if (hasNewMoves) {
+                FighterNewMoveButtons(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 8.dp, bottom = 190.dp),
+                    superReady = state.player.superReady,
+                    onParry = viewModel::onParryPressed,
+                    onGrab = viewModel::onGrabPressed,
+                    onTaunt = viewModel::onTauntPressed,
+                    onSuper = viewModel::onSuperArtPressed,
+                )
+            }
             if (!state.isPaused && !state.showEndMenu) {
                 Text(
-                    text = stringResource(R.string.sf_controls_hint),
+                    // 🆕 (2026-07-21) Con moveset nuevo se explica ESE (dash/parry/agarre/
+                    // súper/barrida): es lo que el jugador no puede adivinar.
+                    text = stringResource(
+                        if (hasNewMoves) R.string.sf_controls_hint_new else R.string.sf_controls_hint,
+                    ),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 4.dp)
@@ -2494,9 +2535,62 @@ private fun FighterXboxButtons(
 }
 
 // ------------------------------------------------------------------
+// 🆕 (2026-07-21) Botones del MOVESET 3rd Strike: parry, agarre, burla y súper.
+// Van en una columna aparte del diamante para no cambiar los controles de siempre.
+// La SÚPER solo se ve activa con el medidor lleno.
+// ------------------------------------------------------------------
+
+@Composable
+private fun FighterNewMoveButtons(
+    modifier: Modifier = Modifier,
+    superReady: Boolean,
+    onParry: () -> Unit,
+    onGrab: () -> Unit,
+    onTaunt: () -> Unit,
+    onSuper: () -> Unit,
+) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        // Burla (gris, sin efecto en combate)
+        ActionButton(text = "T", color = Color(0xFF7F8C8D), onHoldEvent = { pressed ->
+            if (pressed) onTaunt()
+        })
+        Spacer(modifier = Modifier.size(6.dp))
+        // Parry (cian): desvía el golpe si se aprieta a tiempo
+        ActionButton(text = "P", color = Color(0xFF1ABC9C), onHoldEvent = { pressed ->
+            if (pressed) onParry()
+        })
+        Spacer(modifier = Modifier.size(6.dp))
+        // Agarre (naranja): lanza al rival pegado, atraviesa la guardia
+        ActionButton(text = "G", color = Color(0xFFE67E22), onHoldEvent = { pressed ->
+            if (pressed) onGrab()
+        })
+        Spacer(modifier = Modifier.size(6.dp))
+        // Súper (dorado si está cargada, apagado si no)
+        ActionButton(
+            text = "S",
+            color = if (superReady) Color(0xFFFFD700) else Color(0xFF555555),
+            onHoldEvent = { pressed -> if (pressed) onSuper() },
+        )
+    }
+}
+
+// ------------------------------------------------------------------
 // Render de la escena (mundo virtual 382x224 con letterbox "contain").
 // Todos los recortes/posiciones salen del SfTheme.
 // ------------------------------------------------------------------
+
+/**
+ * 🆕 (2026-07-21) Arte PRESTADA para el placeholder ALPHA: hoja del estudiante del mismo
+ * género que se usa cuando al peleador le falta la hoja de un movimiento nuevo.
+ */
+private class AlphaFallback(
+    val data: SfFighterData,
+    val sheetKey: String,
+    val bitmap: ImageBitmap?,
+)
+
+/** Rótulo del placeholder (fuente arcade del HUD: solo A-Z y 0-9). */
+private const val ALPHA_TAG = "ALPHA"
 
 private class SceneCtx(
     val scale: Float,
@@ -2521,6 +2615,7 @@ private fun DrawScope.drawScene(
     cpuContentH: Map<String, Int> = emptyMap(),
     bgFile: String? = null,
     playerSilhouette: Boolean = false,
+    alphaFallback: AlphaFallback? = null,
 ) {
     val framing = framingForBg(bgFile) // 🆕 zoom/anclaje por escenario (Facultad de Medicina…)
     val scale = minOf(size.width / SfConstants.SCENE_WIDTH, size.height / SfConstants.SCENE_HEIGHT)
@@ -2576,8 +2671,32 @@ private fun DrawScope.drawScene(
     drawShadow(ctx, theme, images.getValue(theme.shadowImage), state.cpu, bgFile)
 
     // ---- Peleadores (sheet según el personaje del snapshot) ----
-    drawFighter(ctx, images, playerData, state.player, t, showHitboxes, playerContentH, silhouette = playerSilhouette)
-    drawFighter(ctx, images, cpuData, state.cpu, t, showHitboxes, cpuContentH, silhouette = false)
+    // 🆕 (2026-07-21) PLACEHOLDER ALPHA: si al peleador le falta la hoja del movimiento en
+    // curso, se dibuja con el arte del estudiante de su género en SILUETA NEGRA PIXELADA y
+    // con el rótulo "ALPHA" encima (mismo lenguaje visual que los personajes bloqueados).
+    listOf(
+        Triple(state.player, playerData, playerContentH),
+        Triple(state.cpu, cpuData, cpuContentH),
+    ).forEachIndexed { side, (fighter, data, contentH) ->
+        val alpha = alphaFallback?.takeIf { data.animations[fighter.state.jsKey].isNullOrEmpty() }
+        if (alpha != null && alpha.bitmap != null) {
+            drawFighter(
+                ctx, images + (alpha.sheetKey to alpha.bitmap), alpha.data, fighter, t,
+                showHitboxes, emptyMap(), silhouette = true, sheetKeyOverride = alpha.sheetKey,
+            )
+            val hud = images.getValue(theme.hudImage)
+            val w = ALPHA_TAG.length * 12f * 0.7f
+            drawFontText(
+                ctx, theme, hud, ALPHA_TAG,
+                fighter.x - ctx.camX - w / 2f, fighter.y - ctx.camY - 118f, 0.7f,
+            )
+        } else {
+            drawFighter(
+                ctx, images, data, fighter, t, showHitboxes, contentH,
+                silhouette = side == 0 && playerSilhouette,
+            )
+        }
+    }
 
     // ---- Proyectiles especiales ----
     // Si el DUEÑO del proyectil trae sus propios frames "proj-*" en su JSON (Prankedy:
@@ -2642,6 +2761,27 @@ private fun DrawScope.drawScene(
             val textW = text.length * 12f * sizeMul
             drawFontText(ctx, theme, images.getValue(theme.hudImage), text, (SfConstants.SCENE_WIDTH - textW) / 2f, 58f, sizeMul)
         }
+    }
+
+    // ---- 🆕 (2026-07-21) MEDIDOR DE SÚPER (3rd Strike): barra bajo cada nombre ----
+    // Solo se pinta si el peleador tiene el moveset nuevo (si no, nunca carga y estorbaría).
+    listOf(0 to state.player, 1 to state.cpu).forEach { (side, fighter) ->
+        val data = if (side == 0) playerData else cpuData
+        if (data.animations["superArt"].isNullOrEmpty()) return@forEach
+        val frac = (fighter.superMeter / SfConstants.SUPER_METER_MAX.toFloat()).coerceIn(0f, 1f)
+        val w = 96f
+        val x = if (side == 0) 32f else SfConstants.SCENE_WIDTH - 32f - w
+        val y = 44f
+        drawRect( // marco
+            color = Color(0xFF202020),
+            topLeft = Offset(ctx.ox + x * ctx.scale, ctx.oy + y * ctx.scale),
+            size = Size(w * ctx.scale, 5f * ctx.scale),
+        )
+        drawRect( // relleno (dorado al llenarse = súper lista)
+            color = if (frac >= 1f) Color(0xFFFFD700) else Color(0xFF3AA6FF),
+            topLeft = Offset(ctx.ox + (x + 1f) * ctx.scale, ctx.oy + (y + 1f) * ctx.scale),
+            size = Size((w - 2f) * frac * ctx.scale, 3f * ctx.scale),
+        )
     }
 
     // ---- 🆕 (2026-07-20) Contador de COMBO (3rd Strike): "N GOLPES" del lado del atacante ----
@@ -3062,9 +3202,12 @@ private fun DrawScope.drawFighter(
     showHitboxes: Boolean = false,
     contentHeights: Map<String, Int> = emptyMap(),
     silhouette: Boolean = false,
+    // 🆕 (2026-07-21) Placeholder ALPHA: dibuja con la hoja de OTRO peleador (el estudiante
+    // del mismo género) sin cambiar la identidad lógica del que pelea.
+    sheetKeyOverride: String? = null,
 ) {
     // 🆕 Nunca “desaparecer”: si falta hoja/anim/frame, cae a IDLE-1 o al primer frame disponible.
-    val sheetKey = f.id.spriteAsset.substringAfterLast('/')
+    val sheetKey = sheetKeyOverride ?: f.id.spriteAsset.substringAfterLast('/')
     val sheet = images[sheetKey]
         ?: images.values.firstOrNull()
         ?: return
