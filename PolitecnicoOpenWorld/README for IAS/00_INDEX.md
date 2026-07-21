@@ -40,18 +40,45 @@
 
 ## Mapa de archivos / File map
 
+> **🆕 (2026-07-21) La carpeta está dividida por ARQUITECTURA.** El juego tiene **dos modos
+> principales** y su documentación ya no se mezcla:
+>
+> | Carpeta | Modo |
+> |---|---|
+> | **`MUNDO/`** | 🌎 **Mundo libre POW** — open world, misiones, zombis, interiores, servidores |
+> | **`SF/`** | 🥊 **Peleas "Huelum vs. Goya"** — empieza por `SF/00_SF_INDEX.md` |
+> | raíz | lo COMPARTIDO por ambos (arquitectura, datos, convenciones) |
+>
+> **➡️ Empieza SIEMPRE por [`_SESION_ACTUAL.md`](_SESION_ACTUAL.md):** estado vivo del trabajo,
+> qué está pendiente y a qué IA conviene delegar cada cosa.
+
+### Compartido (raíz)
+
 | # | Archivo / File | Contenido / Contents |
 |---|---|---|
+| — | `_SESION_ACTUAL.md` | **🧠 Memoria de sesión.** Estado vivo + guía de delegación entre IAs. Se actualiza SIEMPRE antes de cerrar. |
 | 00 | `00_INDEX.md` | Este índice + prompt de reuso / This index + reuse prompt |
 | 01 | `01_ARCHITECTURE.md` | Visión general, MVVM, navegación, build, stack / Overview, MVVM, navigation, build, stack |
 | 02 | `02_DATA_LAYER.md` | Room (DB v8), DAOs, entidades, cachés, repos, red / Room, DAOs, entities, caches, repos, network |
-| 03 | `03_DOMAIN_MODELS.md` | Modelos puros + IA (NpcAiManager, PoliceManager, PrankedyManager) + modelos zombi |
-| 04 | `04_MAP_EXTERIOR.md` | Open world: WorldMapViewModel + parciales, estado, render, policía |
-| 05 | `05_ZOMBIE_MINIGAME.md` | Minijuego zombi: VM, tick offline/online, constantes, render, diseñador |
-| 06 | `06_INTERIOR_METRO.md` | Interiores ESCOM + metro + CollisionGrid |
-| 07 | `07_OTHER_FEATURES.md` | Menú principal, ajustes, ShineCTO, coleccionables, 🥊 HUELUM VS. GOYA (modo pelea 1v1; en CÓDIGO los ids siguen siendo street_fighter/Sf*) |
-| 08 | `08_SERVERS.md` | Servidores Node.js (open world v3 + zombi) + protocolo de red |
+| 07 | `07_OTHER_FEATURES.md` | Menú principal, ajustes, ShineCTO, coleccionables (+ 🥊 SF; ⚠️ su parte de SF debería migrar a `SF/`) |
 | 09 | `09_CONVENTIONS_GOTCHAS.md` | Convenciones, reglas de gama baja, protocolo de actualización de docs |
+
+### 🌎 `MUNDO/` — mundo libre POW
+
+| # | Archivo / File | Contenido / Contents |
+|---|---|---|
+| 03 | `MUNDO/03_DOMAIN_MODELS.md` | Modelos puros + IA (NpcAiManager, PoliceManager, PrankedyManager) + modelos zombi |
+| 04 | `MUNDO/04_MAP_EXTERIOR.md` | Open world: WorldMapViewModel + parciales, estado, render, policía |
+| 05 | `MUNDO/05_ZOMBIE_MINIGAME.md` | Minijuego zombi: VM, tick offline/online, constantes, render, diseñador |
+| 06 | `MUNDO/06_INTERIOR_METRO.md` | Interiores ESCOM + metro + CollisionGrid |
+| 08 | `MUNDO/08_SERVERS.md` | Servidores Node.js (open world v3 + zombi) + protocolo de red |
+| — | `MUNDO/CAMPAIGN/` | Campaña: overview + misiones 1-3 + secundarias |
+| — | `MUNDO/NPC_SPRITES_PIPELINE.md` | Pipeline de sprites de NPC |
+
+### 🥊 `SF/` — peleas "Huelum vs. Goya"
+
+Índice propio en **`SF/00_SF_INDEX.md`** (diseño, assets gráficos, audio, herramientas y las
+reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `street_fighter`/`Sf*`.
 
 ### Estado vigente (2026-07-21f) — LÉEME PRIMERO
 

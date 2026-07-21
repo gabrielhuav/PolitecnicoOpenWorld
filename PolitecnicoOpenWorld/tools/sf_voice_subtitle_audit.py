@@ -198,7 +198,7 @@ def main() -> None:
     # pero NO viaja por git. El .md si se versiona, para que la siguiente sesion (o el
     # dueno desde el movil) tenga el audit aunque no tenga la carpeta local.
     ap.add_argument("--md", default=os.path.join(
-        ROOT, "README for IAS", "AUDIT_VOCES_SUBTITULOS.md"))
+        ROOT, "README for IAS", "SF", "AUDIT_VOCES_SUBTITULOS.md"))
     args = ap.parse_args()
 
     mapping, inline = parse_voice_packs()
