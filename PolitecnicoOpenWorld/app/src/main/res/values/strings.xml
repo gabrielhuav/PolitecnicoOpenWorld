@@ -603,6 +603,11 @@
     <string name="sf_tutorial_repeat">REPETIR</string>
     <string name="sf_tutorial_skip">SALTAR</string>
     <string name="sf_tutorial_wrong">ESO NO ERA</string>
+    <!-- 🆕 (2026-07-21) Coleccionables de PELEADOR (recompensa del arcade en Difícil) -->
+    <string name="collectibles_tab_objects">OBJETOS</string>
+    <string name="collectibles_tab_fighters">PELEADORES</string>
+    <string name="collectibles_view_story">VER HISTORIA</string>
+    <string name="collectibles_story_soon">Próximamente: la historia de este personaje está en camino.</string>
     <string name="sf_controls_help">X/Y/B = puños ligero, medio y fuerte\nA neutro/adelante/atrás = patada ligera, media y fuerte\n↓ ↘ → + X/Y/B = especial ligero, medio o fuerte</string>
     <string name="sf_exit_title">Salir de la pelea</string>
     <string name="sf_exit_message">¿Abandonar la pelea y volver al menú principal?</string>

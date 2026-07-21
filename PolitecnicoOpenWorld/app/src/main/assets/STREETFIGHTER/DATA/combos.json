@@ -106,6 +106,24 @@
       "steps": ["longKick"]
     },
     {
+      "id": "epico_carrera",
+      "es": "Embestida epica",
+      "en": "Epic charge",
+      "hintEs": "Doble toque adelante para CORRER, mete la patada larga en plena carrera y remata con tu ESPECIAL. Cierra distancia y castiga de un tiron.",
+      "hintEn": "Double tap forward to RUN, land the long kick mid-run and finish with your SPECIAL. Closes distance and punishes in one go.",
+      "level": 3,
+      "steps": ["dashForward", "run", "longKick", "special"]
+    },
+    {
+      "id": "fatality",
+      "es": "FATALITY (poder super especial)",
+      "en": "FATALITY (super special power)",
+      "hintEs": "Con el medidor LLENO: doble toque adelante para correr y, SIN SOLTAR adelante, pulsa S. Es tu poder mas devastador: derriba y acabas AL OTRO LADO del rival.",
+      "hintEn": "With a FULL meter: double tap forward to run and, STILL holding forward, press S. Your most devastating power: it knocks down and you end up ON THE OTHER SIDE of the rival.",
+      "level": 4,
+      "steps": ["dashForward", "run", "fatality"]
+    },
+    {
       "id": "super_remate",
       "es": "Remate con Super Art",
       "en": "Super Art finisher",

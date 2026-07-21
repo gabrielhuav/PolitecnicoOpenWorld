@@ -251,7 +251,8 @@ def frame_source_path(char_name, key, char_gen_dir, gen_root):
 
 
 def dedicated_animations(template, bonus_powers=0, unique_hurt_frames=False,
-                         projectile_powers=frozenset(), available_keys=frozenset()):
+                         projectile_powers=frozenset(), available_keys=frozenset(),
+                         all_frame_keys=frozenset()):
     """Animaciones completas para arte croma; conserva estados/timings del motor."""
     out = json.loads(json.dumps(template))
     out["lightPunch"] = animation_with_transition(
@@ -313,7 +314,47 @@ def dedicated_animations(template, bonus_powers=0, unique_hurt_frames=False,
         keys = [f"{prefix}-{i}" for i in range(1, count + 1)]
         if all(k in available_keys for k in keys):
             out[anim] = animation_with_transition(keys, delays)
+    # 🆕 (2026-07-21) FATALITY: no es arte nueva, es una SECUENCIA CINEMÁTICA compuesta con
+    # cuadros que el personaje YA tiene. Guion: concentración → ejecución de la súper →
+    # desata su poder propio → remate → pose de victoria. Solo se genera si existen las
+    # piezas; si falta alguna, el peleador simplemente no tiene fatality.
+    fatality = fatality_animation(available_keys, all_frame_keys)
+    if fatality:
+        out["fatality"] = fatality
     return out
+
+
+def fatality_animation(available_keys, all_frame_keys):
+    """Secuencia del fatality a partir de cuadros existentes (None si no alcanza)."""
+    def have(key):
+        return key in available_keys or key in all_frame_keys
+
+    charge = [k for k in ("super-1", "super-2", "super-3") if have(k)]
+    strike = [k for k in ("super-4", "super-5", "super-6") if have(k)]
+    if not charge or not strike:
+        return None  # sin SUPER ART no hay fatality
+    # El poder PROPIO del personaje: su bonus power 1 si lo tiene, si no su special.
+    power = [k for k in ("bonus-1-1", "bonus-1-5") if have(k)]
+    if not power:
+        power = [k for k in ("special-1", "special-3", "special-5") if have(k)]
+    finish = [k for k in ("super-7", "super-8") if have(k)]
+    pose = [k for k in ("victory-1", "victory-3") if have(k)]
+
+    keys = charge + strike + power + finish + pose
+    if len(keys) < 6:
+        return None
+    # Ritmo cinematográfico: arranque lento, golpes rápidos, remate sostenido.
+    delays = []
+    for i, _ in enumerate(keys):
+        if i < len(charge):
+            delays.append(7)
+        elif i < len(charge) + len(strike):
+            delays.append(4)
+        elif i < len(charge) + len(strike) + len(power):
+            delays.append(8)
+        else:
+            delays.append(10)
+    return animation_with_transition(keys, delays)
 
 def reference_frame_key(key):
     """Devuelve la caja clasica mas cercana a la pose nueva y si conserva hitbox."""
@@ -605,9 +646,16 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
         print(f"Tamano SF {prefix:12s}: rango {min_h}-{max_h}px OK")
         
     # Save the packed sprite sheet
+    # 🆕 (2026-07-21) WebP LOSSLESS en vez de PNG: mismos pixeles visibles y ~25 % menos de
+    # peso (los atlas crecieron mucho con las hojas 20-29 y el AAB va justo bajo el limite
+    # de 500 MB de Play). SfFighterId.spriteAsset apunta a .webp. Si quedara un .png viejo
+    # del mismo personaje se borra, para no duplicar peso en el APK.
     os.makedirs(IMAGES_DIR, exist_ok=True)
-    out_sheet_path = os.path.join(IMAGES_DIR, f"{char_title}.png")
-    sheet_img.save(out_sheet_path, "PNG")
+    out_sheet_path = os.path.join(IMAGES_DIR, f"{char_title}.webp")
+    sheet_img.save(out_sheet_path, "WEBP", lossless=True, quality=100, method=6)
+    legacy_png = os.path.join(IMAGES_DIR, f"{char_title}.png")
+    if os.path.exists(legacy_png):
+        os.remove(legacy_png)
     print(f"Saved sprite sheet to: {out_sheet_path} (size: {sheet_w}x{sheet_h})")
     
     # Save the JSON data
@@ -619,6 +667,7 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
             unique_hurt_frames=char_name == "lallorona",
             projectile_powers=BONUS_PROJECTILE_POWERS.get(char_name, frozenset()),
             available_keys=frozenset(new_move_keys),
+            all_frame_keys=frozenset(all_keys),
         ),
         "events": {"projectile": PROJECTILE_PROFILES.get(char_name, {})},
     }

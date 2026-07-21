@@ -39,7 +39,19 @@ interface SfNetTransport {
     fun sendMatchEnded(winner: String)
     fun sendDamage(damage: Int, strength: String, atkType: String)
     /** `timer` = 🆕 sincronía del reloj de la ronda: solo lo manda el HOST (null en el invitado). */
-    fun sendPlayerState(x: Float, y: Float, state: String, frame: Int, dir: Int, hp: Int, timer: Int?, fireballs: List<SfNetFireball>)
+    /** `meter` = 🆕 (2026-07-21) medidor de súper, para que el rival vea la barra dorada. */
+    @Suppress("LongParameterList")
+    fun sendPlayerState(
+        x: Float,
+        y: Float,
+        state: String,
+        frame: Int,
+        dir: Int,
+        hp: Int,
+        timer: Int?,
+        fireballs: List<SfNetFireball>,
+        meter: Int = 0,
+    )
 
     fun close()
 }

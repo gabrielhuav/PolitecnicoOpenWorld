@@ -53,7 +53,22 @@
 | 08 | `08_SERVERS.md` | Servidores Node.js (open world v3 + zombi) + protocolo de red |
 | 09 | `09_CONVENTIONS_GOTCHAS.md` | Convenciones, reglas de gama baja, protocolo de actualización de docs |
 
-### Estado vigente (2026-07-21c) — LÉEME PRIMERO
+### Estado vigente (2026-07-21d) — LÉEME PRIMERO
+
+> **🆕 2026-07-21d (Fable) — FATALITY, coleccionables de peleador, WebP y audit MP:**
+> - **💀 FATALITY 18/18**: secuencia cinemática compuesta con arte EXISTENTE (súper → su
+>   poder → remate → pose). Comando propio: **súper EN CARRERA** con medidor lleno. Daño 70,
+>   derriba y el atacante **cruza al otro lado**. En la IA y en el tutorial.
+> - **🏆 Arcade DIFÍCIL ya da algo**: el coleccionable del rival (Coleccionables → pestaña
+>   **PELEADORES**); "Ver Historia" → "Próximamente". Sin migración de Room (prefijo de id).
+> - **📦 WebP lossless**: IMAGES 102 → **88.6 MB**.
+> - **🌐 MP**: 2 bugs REALES corregidos (el daño de fatality/súper/agarre no viajaba bien).
+>   ⚠️ Falta sincronizar `superMeter` (cosmético).
+> - **🗂️ Auditoría visual**: `tools/_audit_sheets/` con TODAS las animaciones de los 18,
+>   `_FATALITIES.png` y `_RESUMEN.png`.
+> - ⚠️ **Pendiente**: La Tzitzimime/Yoalli pueden tener bonus powers sin recortar.
+
+### Estado 2026-07-21c
 
 > **🆕 2026-07-21c (Fable) — tutorial paso a paso, poses recuperadas y GAMA BAJA:**
 > - **⚡ CRÍTICO gama baja:** los atlas llegaron a 2560×7680 = **73 MB de RAM por peleador**

@@ -28,4 +28,10 @@ interface CollectibleDao {
     // Para verificar si ya se pobló la base de datos
     @Query("SELECT COUNT(id) FROM collectibles")
     suspend fun getCollectiblesCount(): Int
+
+    // 🆕 (2026-07-21) Lectura puntual (no reactiva): la usa el alta idempotente de los
+    // coleccionables de PELEADOR para saber cuáles faltan sin re-insertar los existentes
+    // (un REPLACE ciego borraría el isCollected ya ganado).
+    @Query("SELECT * FROM collectibles")
+    suspend fun getAllCollectibles(): List<CollectibleEntity>
 }

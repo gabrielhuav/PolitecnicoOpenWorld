@@ -86,6 +86,8 @@ private val SHOWCASE_SPEEDS = listOf(1f, 2f, 4f)
 @HiltViewModel
 class StreetFighterViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
+    // 🆕 (2026-07-21) Recompensa de ARCADE en DIFÍCIL: el coleccionable del rival vencido.
+    private val collectibleRepo: ovh.gabrielhuav.pow.data.repository.CollectibleRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(StreetFighterState())
@@ -841,10 +843,13 @@ class StreetFighterViewModel @Inject constructor(
         SfFighterState.OVERHEAD to AttackMeta(SfAttackStrength.MEDIUM, SfAttackType.PUNCH),
         SfFighterState.GRAB to AttackMeta(SfAttackStrength.LIGHT, SfAttackType.PUNCH),
         SfFighterState.SUPER_ART to AttackMeta(SfAttackStrength.HEAVY, SfAttackType.PUNCH),
+        SfFighterState.FATALITY to AttackMeta(SfAttackStrength.HEAVY, SfAttackType.PUNCH),
     )
 
     // 🆕 (2026-07-21) Estados que DERRIBAN al defensor (pasa a THROWN y luego GET_UP).
-    private val knockdownStates = setOf(SfFighterState.SWEEP, SfFighterState.SUPER_ART)
+    private val knockdownStates = setOf(
+        SfFighterState.SWEEP, SfFighterState.SUPER_ART, SfFighterState.FATALITY,
+    )
 
     // validFrom del JS (Fighter.js states + los specials que añade el constructor de Ryu/Ken)
     private val specialValidFrom = setOf(
@@ -975,6 +980,12 @@ class StreetFighterViewModel @Inject constructor(
         SfFighterState.SUPER_ART to specialValidFrom,
         // 🆕 (2026-07-21) CARRERA: solo continúa un dash (nunca se entra desde parado).
         SfFighterState.RUN to setOf(SfFighterState.DASH_FORWARD, SfFighterState.RUN),
+        // 🆕 FATALITY: su COMANDO PROPIO es lanzarlo EN CARRERA (correr + súper) con el
+        // medidor lleno — de ahí lo de "correr + golpe + poder". Se puede usar en cualquier
+        // momento de la pelea, no es un remate de fin de ronda.
+        SfFighterState.FATALITY to setOf(
+            SfFighterState.RUN, SfFighterState.DASH_FORWARD,
+        ),
         // Poses de intro/burla sin guardia: solo desde neutro.
         SfFighterState.IDLE_RELAXED to neutralGround,
         SfFighterState.TALK to neutralGround,
@@ -1346,8 +1357,8 @@ class StreetFighterViewModel @Inject constructor(
                 nf = nf.copy(attackStruck = false)
                 _soundEvents.tryEmit("medium-attack")
             }
-            SfFighterState.SUPER_ART -> {
-                // La súper CONSUME el medidor entero: no se puede repetir sin recargarlo.
+            SfFighterState.SUPER_ART, SfFighterState.FATALITY -> {
+                // Súper y fatality CONSUMEN el medidor entero: no se repiten sin recargarlo.
                 nf = nf.copy(
                     velocityX = 0f, velocityY = 0f, attackStruck = false, superMeter = 0,
                 )
@@ -1745,6 +1756,8 @@ class StreetFighterViewModel @Inject constructor(
             // atacar desde ella (por eso vale la pena correr).
             SfFighterState.RUN -> {
                 when {
+                    // 🆕 FATALITY: súper EN CARRERA con el medidor lleno (su comando propio)
+                    input.superArt && tryFatality(sim, idx, now) -> Unit
                     input.up -> changeState(sim, idx, SfFighterState.JUMP_START, now)
                     tryAttacks(sim, idx, input, now) -> Unit
                     !input.forward -> {
@@ -1752,6 +1765,11 @@ class StreetFighterViewModel @Inject constructor(
                         changeState(sim, idx, SfFighterState.IDLE, now)
                     }
                 }
+            }
+            // 🆕 FATALITY: al terminar la cinemática el atacante CRUZA al otro lado del
+            // rival (con giro), que es el remate espectacular pedido.
+            SfFighterState.FATALITY -> if (isAnimationCompleted(f)) {
+                crossToOtherSide(sim, idx, now)
             }
             // Poses de intro/burla: terminan y vuelven a guardia.
             SfFighterState.IDLE_RELAXED, SfFighterState.TALK ->
@@ -1874,6 +1892,44 @@ class StreetFighterViewModel @Inject constructor(
         val f = sim.fighter(idx)
         if (!f.superReady) return false
         return changeState(sim, idx, SfFighterState.SUPER_ART, now)
+    }
+
+    /**
+     * 🆕 (2026-07-21) FATALITY ("poder súper especial"): comando propio = **súper EN
+     * CARRERA** con el medidor lleno. Es el movimiento más devastador del peleador y
+     * termina con el atacante CRUZANDO al otro lado del rival.
+     */
+    private fun tryFatality(sim: Sim, idx: Int, now: Long): Boolean {
+        val f = sim.fighter(idx)
+        if (!f.superReady) return false
+        return changeState(sim, idx, SfFighterState.FATALITY, now)
+    }
+
+    /**
+     * 🆕 (2026-07-21) Remate del fatality: el atacante aparece AL OTRO LADO del rival y
+     * queda encarándolo (el giro lo da la propia animación de la cinemática). Se respeta el
+     * límite del escenario para no dejarlo fuera de pantalla.
+     */
+    private fun crossToOtherSide(sim: Sim, idx: Int, now: Long) {
+        val me = sim.fighter(idx)
+        val foe = sim.fighter(1 - idx)
+        val wasLeft = me.x <= foe.x
+        val target = if (wasLeft) {
+            foe.x + SfConstants.FATALITY_CROSS_OFFSET
+        } else {
+            foe.x - SfConstants.FATALITY_CROSS_OFFSET
+        }
+        sim.setFighter(
+            idx,
+            me.copy(
+                x = target.coerceIn(STAGE_X_MIN, STAGE_X_MAX),
+                velocityX = 0f,
+                direction = if (wasLeft) SfDirection.LEFT else SfDirection.RIGHT,
+            ),
+        )
+        // El rival también queda encarando al atacante tras el cruce
+        sim.setFighter(1 - idx, foe.copy(direction = if (wasLeft) SfDirection.RIGHT else SfDirection.LEFT))
+        forceState(sim, idx, SfFighterState.IDLE, now)
     }
 
     /** 🆕 (2026-07-21) AGARRE: solo tiene sentido pegado al rival (como en el arcade). */
@@ -2233,6 +2289,19 @@ class StreetFighterViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 🆕 (2026-07-21) Daño REAL de un ataque. Los movimientos nuevos no siempre usan el
+     * daño de su fuerza base: la súper, el fatality y el agarre tienen el suyo. Se usa
+     * tanto offline como al avisar por RED (sendDamage), para que en línea peguen igual.
+     */
+    private fun damageForAttack(attacker: SfFighter, strength: SfAttackStrength): Int =
+        when (attacker.state) {
+            SfFighterState.SUPER_ART -> SfConstants.SUPER_ART_DAMAGE
+            SfFighterState.FATALITY -> SfConstants.FATALITY_DAMAGE
+            SfFighterState.GRAB -> SfConstants.THROW_DAMAGE
+            else -> strength.damage
+        }
+
     /** 🆕 (2026-07-21) Suma al medidor de súper con tope en el máximo. */
     private fun chargeSuper(f: SfFighter, amount: Int): Int =
         (f.superMeter + amount).coerceIn(0, SfConstants.SUPER_METER_MAX)
@@ -2315,7 +2384,10 @@ class StreetFighterViewModel @Inject constructor(
         if (inOnlineFight && defenderIdx == 1) {
             _soundEvents.tryEmit("${strength.name.lowercase()}-${type.name.lowercase()}-hit")
             sim.setFighter(attackerIdx, attacker.copy(attackStruck = true))
-            transport?.sendDamage(strength.damage, strength.name, type.name)
+            // 🆕 (2026-07-21) ONLINE: hay que avisar el daño REAL del movimiento. Súper,
+            // fatality y agarre NO usan el daño de su fuerza base; sin esto, en línea un
+            // fatality pegaba como un golpe fuerte normal (28 en vez de 70).
+            transport?.sendDamage(damageForAttack(attacker, strength), strength.name, type.name)
             hitPos?.let { (x, y) ->
                 sim.splashes.add(SfHitSplash(x = x, y = y, playerId = attackerIdx, strength = strength, animationTimerMs = now))
             }
@@ -2403,11 +2475,7 @@ class StreetFighterViewModel @Inject constructor(
         val comboScale = (1f - COMBO_DAMAGE_SCALE_STEP * (comboHits[attackerIdx] - 1))
             .coerceAtLeast(COMBO_DAMAGE_SCALE_MIN)
         // 🆕 (2026-07-21) La SUPER ART pega con su daño propio (no el de su fuerza base).
-        val baseDamage = if (attacker.state == SfFighterState.SUPER_ART) {
-            SfConstants.SUPER_ART_DAMAGE
-        } else {
-            strength.damage
-        }
+        val baseDamage = damageForAttack(attacker, strength)
         val damage = if (blocked) maxOf(1, baseDamage / 4)
         else maxOf(1, (baseDamage * comboScale).toInt())
 
@@ -3383,6 +3451,19 @@ class StreetFighterViewModel @Inject constructor(
         if (!hasAnim(me, SfFighterState.PARRY_HIGH)) return null // sin moveset nuevo
         val aggressive = nightmare || cpuIntensity > 0.5f
 
+        // 🆕 FATALITY: su comando es SÚPER EN CARRERA, así que la IA lo prepara en dos
+        // tiempos — primero arranca a correr y, ya corriendo, lo suelta.
+        val canFatality = me.superReady && hasAnim(me, SfFighterState.FATALITY)
+        if (canFatality && me.state == SfFighterState.RUN) {
+            if (roll < (if (aggressive) 0.7f else 0.35f)) {
+                return SfInput(forward = true, superArt = true)
+            }
+        } else if (canFatality && aggressive && roll < 0.35f) {
+            val inRange = dist in 90f..CPU_MID_DIST
+            if (inRange && hasAnim(me, SfFighterState.DASH_FORWARD)) {
+                return SfInput(dashForward = true, forward = true)
+            }
+        }
         // SÚPER: se guarda para cuando de verdad conecta (rango de golpe)
         if (me.superReady && dist < CPU_MELEE_DIST && hasAnim(me, SfFighterState.SUPER_ART) &&
             roll < (if (aggressive) 0.55f else 0.30f)
@@ -3469,6 +3550,8 @@ class StreetFighterViewModel @Inject constructor(
         SfComboAction.WALK_FORWARD -> SfInput(forward = true)
         SfComboAction.RUN -> SfInput(forward = true)
         SfComboAction.BLOCK_HIGH -> SfInput(backward = true)
+        // El fatality se pide EN CARRERA: adelante sostenido + súper.
+        SfComboAction.FATALITY -> SfInput(forward = true, superArt = true)
     }
 
     /** Estado en el que DEBE entrar el peleador si la acción salió bien (validación). */
@@ -3507,13 +3590,29 @@ class StreetFighterViewModel @Inject constructor(
         SfComboAction.BLOCK_HIGH -> setOf(
             SfFighterState.BLOCK_HIGH, SfFighterState.BLOCK_LOW, SfFighterState.WALK_BACKWARD,
         )
+        SfComboAction.FATALITY -> setOf(SfFighterState.FATALITY)
     }
 
-    /** ¿El peleador puede ejecutar esta acción (tiene el arte y, si aplica, el recurso)? */
-    private fun canPerform(f: SfFighter, action: SfComboAction): Boolean {
-        if (action == SfComboAction.SUPER_ART && !f.superReady) return false
+    /**
+     * ¿El peleador tiene ARTE para esta acción? (independiente de recursos como el medidor).
+     * Es lo que decide si una lección/combo se puede ENSEÑAR: el medidor se llena durante
+     * la propia lección pegándole al muñeco.
+     */
+    private fun hasArtFor(f: SfFighter, action: SfComboAction): Boolean {
         val states = stateForAction(action)
         return states.none { it in SF_NEW_MOVE_STATES } || states.any { hasAnim(f, it) }
+    }
+
+    /**
+     * ¿Puede ejecutarla AHORA MISMO? Añade el requisito de RECURSO (medidor lleno para la
+     * súper y el fatality). Lo usa la IA al elegir una ruta; el tutorial NO, porque si no
+     * las lecciones de súper/fatality se filtraban al arrancar con el medidor a cero y
+     * nunca se enseñaban.
+     */
+    private fun canPerform(f: SfFighter, action: SfComboAction): Boolean {
+        val needsMeter = action == SfComboAction.SUPER_ART || action == SfComboAction.FATALITY
+        if (needsMeter && !f.superReady) return false
+        return hasArtFor(f, action)
     }
 
     /**
@@ -3784,9 +3883,11 @@ class StreetFighterViewModel @Inject constructor(
         val lang = java.util.Locale.getDefault().language
         // Currículum COMPLETO: primero los BÁSICOS (un movimiento por lección) y después
         // los combos. Se filtran los que este peleador no puede hacer (sin arte propia).
+        // Se filtra por ARTE, no por recursos: el medidor de la súper se llena durante la
+        // propia lección pegándole al muñeco (con `canPerform` estas lecciones se caían).
         val probe = _state.value.player.copy(id = playerId)
         tutorialCombos = SfCombos.curriculum(appContext, playerId)
-            .filter { combo -> combo.steps.all { canPerform(probe, it) } }
+            .filter { combo -> combo.steps.all { hasArtFor(probe, it) } }
             .ifEmpty { SfCombos.basics(appContext) }
         resetInternals()
         val base = StreetFighterState()
@@ -3850,6 +3951,7 @@ class StreetFighterViewModel @Inject constructor(
         SfComboAction.WALK_FORWARD -> "CAMINAR ADELANTE"
         SfComboAction.RUN -> "SEGUIR ADELANTE (CORRER)"
         SfComboAction.BLOCK_HIGH -> "MANTENER ATRÁS"
+        SfComboAction.FATALITY -> "BOTÓN S CORRIENDO (FATALITY)"
     }
 
     /**
@@ -4596,7 +4698,16 @@ class StreetFighterViewModel @Inject constructor(
                     arcadeRepo.unlockFighter(step.rival.name)
                     step.mapFile?.let { arcadeRepo.unlockMap(it) }
                 }
-                else -> Unit // AVANZADA/PESADILLA (apocalíptica): aún no desbloquea nada
+                else -> {
+                    // 🆕 (2026-07-21) DIFÍCIL (AVANZADA/PESADILLA): además del avance, gana
+                    // el COLECCIONABLE del rival (Menú principal → Coleccionables →
+                    // PELEADORES), con su historia. Antes esta dificultad no daba NADA.
+                    arcadeRepo.unlockFighter(step.rival.name)
+                    step.mapFile?.let { arcadeRepo.unlockMap(it) }
+                    viewModelScope.launch {
+                        runCatching { collectibleRepo.unlockFighterCollectible(step.rival.name) }
+                    }
+                }
             }
             arcadeRepo.setLadderStep(s.arcadeStep)
             if (s.arcadeStep >= arcadeLadder.size) SfArcadeOutcome.COMPLETED else SfArcadeOutcome.WON
@@ -5164,7 +5275,11 @@ class StreetFighterViewModel @Inject constructor(
             lastSeenSnapshot = rs
             remoteSnapshotAtMs = now // edad del snapshot (para extrapolar sus proyectiles)
         }
+        // Los estados NUEVOS viajan como enum.name; un cliente viejo que no los conozca
+        // conserva el estado anterior en vez de romperse (parse defensivo ya existente).
         val st = rs.state?.let { n -> runCatching { SfFighterState.valueOf(n) }.getOrNull() } ?: sim.p1.state
+        // 🆕 (2026-07-21) Medidor del rival (opcional: un cliente viejo no lo manda).
+        val remoteMeter = rs.meter?.coerceIn(0, SfConstants.SUPER_METER_MAX) ?: sim.p1.superMeter
         val tx = rs.x ?: sim.p1.x
         val ty = rs.y ?: sim.p1.y
         val far = abs(tx - sim.p1.x) > NET_SNAP_DIST || abs(ty - sim.p1.y) > NET_SNAP_DIST
@@ -5176,6 +5291,7 @@ class StreetFighterViewModel @Inject constructor(
             animationFrame = rs.frame ?: 0,
             direction = if ((rs.dir ?: 1) >= 0) SfDirection.RIGHT else SfDirection.LEFT,
             hitPoints = rs.hp ?: sim.p1.hitPoints,
+            superMeter = remoteMeter,
         )
         // 🆕 SINCRONÍA DEL TIMER: el HOST manda su reloj en PLAYER_STATE; el invitado lo
         // ADOPTA solo si el drift acumulado es >= TIMER_RESYNC_DIFF (el conteo local sigue
@@ -5228,6 +5344,9 @@ class StreetFighterViewModel @Inject constructor(
             fireballs = sim.fireballs.filter { it.ownerIndex == 0 }.map {
                 SfNetFireball(it.x, it.y, it.direction.sign, it.strength.name, it.state.name, it.animationFrame)
             },
+            // 🆕 (2026-07-21) Medidor de súper: sin esto la barra dorada del rival se veía
+            // siempre vacía en línea (y no se entendía cuándo podía soltar súper/fatality).
+            meter = f.superMeter,
         )
     }
 

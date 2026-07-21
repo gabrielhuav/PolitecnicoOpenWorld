@@ -221,11 +221,23 @@ abstract class SfStreamPeer(
     override fun sendDamage(damage: Int, strength: String, atkType: String) =
         sendRaw(mapOf("type" to "PLAYER_DAMAGE", "damage" to damage, "strength" to strength, "atkType" to atkType))
 
-    override fun sendPlayerState(x: Float, y: Float, state: String, frame: Int, dir: Int, hp: Int, timer: Int?, fireballs: List<SfNetFireball>) =
+    @Suppress("LongParameterList")
+    override fun sendPlayerState(
+        x: Float,
+        y: Float,
+        state: String,
+        frame: Int,
+        dir: Int,
+        hp: Int,
+        timer: Int?,
+        fireballs: List<SfNetFireball>,
+        meter: Int,
+    ) =
         sendRaw(
             mapOf(
                 "type" to "PLAYER_STATE", "x" to x, "y" to y, "state" to state,
-                "frame" to frame, "dir" to dir, "hp" to hp, "timer" to timer, "fireballs" to fireballs,
+                "frame" to frame, "dir" to dir, "hp" to hp, "timer" to timer,
+                "fireballs" to fireballs, "meter" to meter,
             ),
         )
 

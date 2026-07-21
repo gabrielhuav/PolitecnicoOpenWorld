@@ -601,6 +601,11 @@
     <string name="sf_tutorial_repeat">REPEAT</string>
     <string name="sf_tutorial_skip">SKIP</string>
     <string name="sf_tutorial_wrong">NOT THAT ONE</string>
+    <!-- 🆕 (2026-07-21) Fighter collectibles (Hard arcade reward) -->
+    <string name="collectibles_tab_objects">ITEMS</string>
+    <string name="collectibles_tab_fighters">FIGHTERS</string>
+    <string name="collectibles_view_story">VIEW STORY</string>
+    <string name="collectibles_story_soon">Coming soon: this character\'s story is on its way.</string>
     <string name="sf_controls_help">X/Y/B = light, medium and heavy punch\nA neutral/forward/back = light, medium and heavy kick\n↓ ↘ → + X/Y/B = light, medium or heavy special</string>
     <string name="sf_exit_title">Leave the fight</string>
     <string name="sf_exit_message">Quit the fight and return to the main menu?</string>

@@ -69,5 +69,68 @@ class CollectibleRepository(
             )
             collectibleDao.insertInitialCollectibles(defaultList)
         }
+        ensureFighterCollectibles()
+    }
+
+    /**
+     * 🆕 (2026-07-21) COLECCIONABLES DE PELEADOR (recompensa del arcade en DIFÍCIL).
+     *
+     * Se identifican por el PREFIJO del id (`fighter_<SfFighterId>`), no por una columna
+     * nueva: así NO hace falta migrar la tabla de Room ni tocar las instalaciones ya
+     * existentes. Es idempotente y se ejecuta también en partidas viejas (donde el conteo
+     * ya no es 0), de modo que quien lleve tiempo jugando también los recibe.
+     *
+     * La HISTORIA de cada personaje es un placeholder: la pantalla muestra "Próximamente".
+     */
+    suspend fun ensureFighterCollectibles() {
+        val existing = collectibleDao.getAllCollectibles().map { it.id }.toSet()
+        val missing = FIGHTER_COLLECTIBLES.filter { it.id !in existing }
+        if (missing.isNotEmpty()) collectibleDao.insertInitialCollectibles(missing)
+    }
+
+    /** Marca como obtenido el coleccionable de un peleador (id del enum SfFighterId). */
+    suspend fun unlockFighterCollectible(fighterName: String) {
+        collectibleDao.markAsCollected(fighterCollectibleId(fighterName))
+    }
+
+    companion object {
+        /** Prefijo que distingue a los coleccionables de PELEADOR del resto. */
+        const val FIGHTER_PREFIX = "fighter_"
+
+        fun fighterCollectibleId(fighterName: String): String =
+            FIGHTER_PREFIX + fighterName.lowercase()
+
+        /**
+         * Un coleccionable por peleador con arte dedicado. `assetPath` apunta a su ATLAS:
+         * la pantalla recorta su cuadro de idle, así que no hace falta arte extra.
+         */
+        private val FIGHTER_COLLECTIBLES: List<CollectibleEntity> = listOf(
+            "PRANKEDY" to ("Prankedy" to "STREETFIGHTER/IMAGES/Prankedy.webp"),
+            "SENOR_TIENDA" to ("El Señor de la Tienda" to "STREETFIGHTER/IMAGES/SenorTienda.webp"),
+            "PAPARAZZI_1" to ("Paparazzi 1" to "STREETFIGHTER/IMAGES/Paparazzi1.webp"),
+            "PAPARAZZI_5" to ("Paparazzi 5" to "STREETFIGHTER/IMAGES/Paparazzi5.webp"),
+            "REY_GRUPERO" to ("Rey Grupero" to "STREETFIGHTER/IMAGES/ReyGrupero.webp"),
+            "POLICIA_CDMX" to ("Policía CDMX" to "STREETFIGHTER/IMAGES/PoliciaCDMX.webp"),
+            "POLICIA_CDMX_HOMBRE" to ("Policía CDMX (Hombre)" to "STREETFIGHTER/IMAGES/PoliciaCDMXHombre.webp"),
+            "POLICIA_GRANADERO_HOMBRE" to ("Granadero" to "STREETFIGHTER/IMAGES/PoliciaGranaderoHombre.webp"),
+            "POLICIA_GRANADERO_MUJER" to ("Granadera" to "STREETFIGHTER/IMAGES/PoliciaGranaderoMujer.webp"),
+            "PARAMEDICO_CRUZ_ROJA" to ("Paramédico Cruz Roja" to "STREETFIGHTER/IMAGES/ParamedicoCruzRoja.webp"),
+            "ESCOMBOY" to ("Escomboy" to "STREETFIGHTER/IMAGES/EscomBoy.webp"),
+            "ESCOMGIRL" to ("Escomgirl" to "STREETFIGHTER/IMAGES/EscomGirl.webp"),
+            "ROBOT" to ("Escomrobot" to "STREETFIGHTER/IMAGES/Robot.webp"),
+            "CHARRO_NEGRO" to ("Charro Negro" to "STREETFIGHTER/IMAGES/CharroNegro.webp"),
+            "LA_LLORONA" to ("La Llorona" to "STREETFIGHTER/IMAGES/LaLlorona.webp"),
+            "LA_TZITZIMIME" to ("La Tzitzimime" to "STREETFIGHTER/IMAGES/LaTzitzimime.webp"),
+            "YOALLI_EHECATL" to ("Yoalli Ehécatl" to "STREETFIGHTER/IMAGES/YoalliEhecatl.webp"),
+            "LA_PRESIDENTA" to ("La Presidenta" to "STREETFIGHTER/IMAGES/LaPresidenta.webp"),
+        ).map { (enumName, info) ->
+            CollectibleEntity(
+                id = fighterCollectibleId(enumName),
+                name = info.first,
+                description = "Vence a este peleador en ARCADE (Difícil) para conocer su historia.",
+                assetPath = info.second,
+                isCollected = false,
+            )
+        }
     }
 }

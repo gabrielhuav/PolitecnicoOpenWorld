@@ -59,6 +59,10 @@ object SfConstants {
     const val PARRY_ADVANTAGE_MS = 320L
     /** Alcance del agarre (px entre peleadores). */
     const val GRAB_RANGE = 62f
+    /** Daño del FATALITY (poder súper especial). Consume el medidor entero. */
+    const val FATALITY_DAMAGE = 70
+    /** Distancia a la que el atacante reaparece tras CRUZAR al otro lado en el fatality. */
+    const val FATALITY_CROSS_OFFSET = 54f
 
     // battle.js
     const val HEALTH_MAX_HIT_POINTS = 200
@@ -132,18 +136,18 @@ enum class SfFighterId(
     // Sus assets quedan en el source set debug pero YA NO hay ids en el enum: si un cliente viejo
     // manda "RYU"/"KEN" por red, SfFighterId.valueOf falla y cae a PRANKEDY (parse defensivo).
     // 🆕 Peleadores PROPIOS de POW. Prankedy trae frames proj-* propios (broma del tanque).
-    PRANKEDY("Prankedy", "PRANKEDY", "STREETFIGHTER/DATA/prankedy.json", "STREETFIGHTER/IMAGES/Prankedy.png"),
+    PRANKEDY("Prankedy", "PRANKEDY", "STREETFIGHTER/DATA/prankedy.json", "STREETFIGHTER/IMAGES/Prankedy.webp"),
     SENOR_TIENDA(
         "El Señor de la Tienda", "TIENDA",
-        "STREETFIGHTER/DATA/senortienda.json", "STREETFIGHTER/IMAGES/SenorTienda.png",
+        "STREETFIGHTER/DATA/senortienda.json", "STREETFIGHTER/IMAGES/SenorTienda.webp",
     ),
     PAPARAZZI_1(
         "Paparazzi 1", "PAPZ 1",
-        "STREETFIGHTER/DATA/paparazzi1.json", "STREETFIGHTER/IMAGES/Paparazzi1.png",
+        "STREETFIGHTER/DATA/paparazzi1.json", "STREETFIGHTER/IMAGES/Paparazzi1.webp",
     ),
     REY_GRUPERO(
         "Rey Grupero", "GRUPERO",
-        "STREETFIGHTER/DATA/reygrupero.json", "STREETFIGHTER/IMAGES/ReyGrupero.png",
+        "STREETFIGHTER/DATA/reygrupero.json", "STREETFIGHTER/IMAGES/ReyGrupero.webp",
     ),
     // ── 🆕 (2026-07-15) PELEADORES COMPARTIDOS: usan los MISMOS assets del mundo abierto
     //    (SPRITES/PLAYER/ y SPRITES/NPC/) — NO tienen sheet/JSON propio en el APK. La hoja se
@@ -153,7 +157,7 @@ enum class SfFighterId(
     //    Prankedy, Señor Tienda, ambos Paparazzi, Rey Grupero, policías y estudiantes ESCOM ya tienen arte dedicado.
     PAPARAZZI_5(
         "Paparazzi 5", "PAPZ 5",
-        "STREETFIGHTER/DATA/paparazzi5.json", "STREETFIGHTER/IMAGES/Paparazzi5.png",
+        "STREETFIGHTER/DATA/paparazzi5.json", "STREETFIGHTER/IMAGES/Paparazzi5.webp",
     ),
     LAZARO(
         "Lázaro", "LAZARO", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Lazaro.png",
@@ -161,58 +165,58 @@ enum class SfFighterId(
     ),
     ESCOMBOY(
         "Estudiante", "ESCOMBOY",
-        "STREETFIGHTER/DATA/escomboy.json", "STREETFIGHTER/IMAGES/EscomBoy.png",
+        "STREETFIGHTER/DATA/escomboy.json", "STREETFIGHTER/IMAGES/EscomBoy.webp",
     ),
     ESCOMGIRL(
         "Estudianta", "ESCOMGIRL",
-        "STREETFIGHTER/DATA/escomgirl.json", "STREETFIGHTER/IMAGES/EscomGirl.png",
+        "STREETFIGHTER/DATA/escomgirl.json", "STREETFIGHTER/IMAGES/EscomGirl.webp",
     ),
     ROBOT(
         "Robot Estudiantx", "ROBOT",
-        "STREETFIGHTER/DATA/robot.json", "STREETFIGHTER/IMAGES/Robot.png",
+        "STREETFIGHTER/DATA/robot.json", "STREETFIGHTER/IMAGES/Robot.webp",
     ),
     YOALLI_EHECATL(
         "Yoalli Ehécatl", "YOALLI",
-        "STREETFIGHTER/DATA/yoalliehecatl.json", "STREETFIGHTER/IMAGES/YoalliEhecatl.png",
+        "STREETFIGHTER/DATA/yoalliehecatl.json", "STREETFIGHTER/IMAGES/YoalliEhecatl.webp",
         bonusPowerCount = 10,
     ),
     CHARRO_NEGRO(
         "El Charro Negro", "CHARRO",
-        "STREETFIGHTER/DATA/charronegro.json", "STREETFIGHTER/IMAGES/CharroNegro.png",
+        "STREETFIGHTER/DATA/charronegro.json", "STREETFIGHTER/IMAGES/CharroNegro.webp",
     ),
     LA_LLORONA(
         "La Llorona", "LLORONA",
-        "STREETFIGHTER/DATA/lallorona.json", "STREETFIGHTER/IMAGES/LaLlorona.png",
+        "STREETFIGHTER/DATA/lallorona.json", "STREETFIGHTER/IMAGES/LaLlorona.webp",
     ),
     LA_TZITZIMIME(
         "La Tzitzimime", "TZITZIMIME",
-        "STREETFIGHTER/DATA/latzitzimime.json", "STREETFIGHTER/IMAGES/LaTzitzimime.png",
+        "STREETFIGHTER/DATA/latzitzimime.json", "STREETFIGHTER/IMAGES/LaTzitzimime.webp",
         bonusPowerCount = 5,
     ),
     LA_PRESIDENTA(
         "La Presidenta", "PRESIDENTA",
-        "STREETFIGHTER/DATA/lapresidenta.json", "STREETFIGHTER/IMAGES/LaPresidenta.png",
+        "STREETFIGHTER/DATA/lapresidenta.json", "STREETFIGHTER/IMAGES/LaPresidenta.webp",
         bonusPowerCount = 11,
     ),
     POLICIA_CDMX(
         "Policía CDMX", "POLICIA",
-        "STREETFIGHTER/DATA/policiacdmx.json", "STREETFIGHTER/IMAGES/PoliciaCDMX.png",
+        "STREETFIGHTER/DATA/policiacdmx.json", "STREETFIGHTER/IMAGES/PoliciaCDMX.webp",
     ),
     POLICIA_CDMX_HOMBRE(
         "Policía CDMX (Hombre)", "POLICIA H",
-        "STREETFIGHTER/DATA/policiacdmxhombre.json", "STREETFIGHTER/IMAGES/PoliciaCDMXHombre.png",
+        "STREETFIGHTER/DATA/policiacdmxhombre.json", "STREETFIGHTER/IMAGES/PoliciaCDMXHombre.webp",
     ),
     PARAMEDICO_CRUZ_ROJA(
         "Paramédico Cruz Roja", "PARAMED CR",
-        "STREETFIGHTER/DATA/paramedicocruzroja.json", "STREETFIGHTER/IMAGES/ParamedicoCruzRoja.png",
+        "STREETFIGHTER/DATA/paramedicocruzroja.json", "STREETFIGHTER/IMAGES/ParamedicoCruzRoja.webp",
     ),
     POLICIA_GRANADERO_HOMBRE(
         "Policía Granadero CDMX (Hombre)", "GRANADERO H",
-        "STREETFIGHTER/DATA/policiagranaderohombre.json", "STREETFIGHTER/IMAGES/PoliciaGranaderoHombre.png",
+        "STREETFIGHTER/DATA/policiagranaderohombre.json", "STREETFIGHTER/IMAGES/PoliciaGranaderoHombre.webp",
     ),
     POLICIA_GRANADERO_MUJER(
         "Policía Granadero CDMX (Mujer)", "GRANADERA",
-        "STREETFIGHTER/DATA/policiagranaderomujer.json", "STREETFIGHTER/IMAGES/PoliciaGranaderoMujer.png",
+        "STREETFIGHTER/DATA/policiagranaderomujer.json", "STREETFIGHTER/IMAGES/PoliciaGranaderoMujer.webp",
     ),
     GRANADERO(
         "Granadero", "GRANADERO", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Granadero.png",
@@ -338,6 +342,14 @@ enum class SfFighterState(val jsKey: String) {
     IDLE_RELAXED("idleRelaxed"),
     /** 🆕 Gesticulando (hoja 18): variante de burla y presentación de ronda. */
     TALK("talk"),
+    /**
+     * 🆕 (2026-07-21) FATALITY / "poder súper especial": el ataque más devastador del
+     * peleador. Tiene COMANDO PROPIO (medidor lleno + secuencia) y se puede lanzar en
+     * cualquier momento, no es un remate de fin de ronda. Se REPRODUCE encadenando arte
+     * que YA existe (súper + poder propio + proyectil), así que no espera hojas nuevas:
+     * la animación se orquesta en el VM (`fatalityStep`), no es una animación única.
+     */
+    FATALITY("fatality"),
 }
 
 /**
@@ -356,6 +368,7 @@ val SF_NEW_MOVE_STATES: Set<SfFighterState> = setOf(
     SfFighterState.THROWN, SfFighterState.GET_UP,
     SfFighterState.SUPER_ART, SfFighterState.HURT_CROUCH,
     SfFighterState.RUN, SfFighterState.IDLE_RELAXED, SfFighterState.TALK,
+    SfFighterState.FATALITY,
 )
 
 /** 🆕 Estados de ATAQUE nuevos (los que pueden conectar un golpe). */
@@ -365,6 +378,7 @@ val SF_NEW_ATTACK_STATES: Set<SfFighterState> = setOf(
     SfFighterState.AIR_PUNCH, SfFighterState.AIR_KICK,
     SfFighterState.LONG_KICK, SfFighterState.OVERHEAD,
     SfFighterState.GRAB, SfFighterState.SUPER_ART,
+    SfFighterState.FATALITY,
 )
 
 /** 🆕 Estados de BLOQUEO (absorben el golpe con daño reducido y sin pose de daño). */
@@ -412,6 +426,7 @@ val SF_HURT_STATES: Set<SfFighterState> = setOf(
     SfFighterState.GRAB, SfFighterState.THROW, SfFighterState.TAUNT,
     SfFighterState.SUPER_ART, SfFighterState.HURT_CROUCH,
     SfFighterState.RUN, SfFighterState.IDLE_RELAXED, SfFighterState.TALK,
+    SfFighterState.FATALITY,
 ) + SF_BONUS_POWER_STATES
 
 /** Caja alineada a ejes relativa al ancla (pies) del peleador. */

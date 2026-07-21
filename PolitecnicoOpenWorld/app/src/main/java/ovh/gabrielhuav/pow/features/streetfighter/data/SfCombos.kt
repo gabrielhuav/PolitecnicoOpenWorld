@@ -29,6 +29,8 @@ enum class SfComboAction {
     JUMP, CROUCH,
     // 🆕 (2026-07-21) Acciones BÁSICAS que enseña el tutorial paso a paso.
     WALK_FORWARD, RUN, BLOCK_HIGH,
+    /** 🆕 FATALITY / poder súper especial: súper EN CARRERA con el medidor lleno. */
+    FATALITY,
     ;
 
     companion object {

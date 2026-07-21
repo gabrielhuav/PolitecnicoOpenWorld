@@ -7,6 +7,102 @@
 > CRLF, Read para verificar). Los BUGS del modo (stun-lock, revancha, servidor LAN) viven en
 > `PENDIENTES_SF_2026-07-16.md` y NO dependen de esto.
 
+## Cambios 2026-07-21e (Fable) — repaso de cierre: 4 huecos detectados y tapados
+
+Repaso de la lista completa del dueño contra lo implementado. Cuatro cosas NO estaban:
+
+1. **El tutorial nunca enseñaba la SÚPER.** `canPerform` exigía el medidor lleno y el
+   currículum se filtraba con él al ARRANCAR (medidor a 0), así que la lección `b_super`,
+   el combo `super_remate` y **5 combos de firma** que rematan con súper se caían de la
+   lista sin avisar. Separado en `hasArtFor` (solo arte, lo que usa el tutorial) y
+   `canPerform` (arte + recurso, lo que usa la IA). El medidor se llena durante la propia
+   lección pegándole al muñeco.
+2. **El FATALITY no salía en la hoja de combos.** Estaba en `basics` y la hoja lista
+   `universal + signature`. Movido a `universal` → ahora aparece en la hoja Y en el
+   tutorial (el currículum es `basics + universal + signature`).
+3. **Faltaba el combo épico explícito.** Añadido `epico_carrera`
+   (dash → correr → patada larga → especial), además del fatality que ya cruzaba de lado.
+4. **Coleccionables no usaba las letras del SF** (requisito literal del dueño). Nuevo
+   `SfBitmapText` (`features/streetfighter/ui/SfBitmapText.kt`): pinta con la fuente ARCADE
+   del HUD (`sf_hud_pow.png`) fuera del Canvas de combate. No es un `Typeface` sino un
+   atlas de recortes por carácter, así que se dibuja glifo a glifo; `sfFontSanitize` quita
+   acentos/signos porque la fuente solo tiene A-Z, 0-9 y espacio.
+
+**MP completado:** el `superMeter` que quedaba pendiente ya se sincroniza (`meter` en
+`SfNetMsg` + las 3 implementaciones del transporte: interfaz, WS y BT/LAN). Es OPCIONAL en
+el protocolo: un cliente viejo no lo manda y el receptor conserva el valor que ya tenía.
+
+## Cambios 2026-07-21d (Fable) — FATALITY, coleccionables de peleador, WebP y audit MP
+
+### 💀 FATALITY / "poder súper especial" (18/18 peleadores)
+
+**No espera arte nueva:** es una SECUENCIA CINEMÁTICA compuesta con cuadros que cada
+peleador YA tiene (`fatality_animation` en el packer): concentración (`super-1..3`) →
+ejecución (`super-4..6`) → su poder propio (`bonus-1-*` o `special-*`) → remate
+(`super-7/8`) → pose (`victory-*`), con ritmo lento-rápido-sostenido. Se puede AUDITAR sin
+abrir el juego en `tools/_audit_sheets/_FATALITIES.png`.
+
+- **Comando propio, en cualquier momento** (decisión del dueño): **súper EN CARRERA** con
+  el medidor lleno → doble toque adelante (dash) + seguir adelante (run) + botón S. De ahí
+  el "correr + golpe + poder".
+- **Daño 70**, consume el medidor entero y **DERRIBA** (entra en `knockdownStates`).
+- **Remate espectacular:** al terminar, el atacante **CRUZA al otro lado del rival**
+  (`crossToOtherSide`) y ambos quedan encarándose — el giro lo da la propia cinemática.
+- **IA:** lo prepara en dos tiempos (arranca a correr y, ya corriendo, lo suelta), solo en
+  dificultades altas. **Tutorial:** lección `b_fatality` con su receta.
+
+### 🏆 Coleccionable de PELEADOR = recompensa del arcade en DIFÍCIL
+
+Antes Difícil **no daba nada**. Ahora, además del peleador y su mapa, otorga el
+**coleccionable del rival vencido** (Menú principal → Coleccionables → pestaña
+**PELEADORES**).
+
+- Se identifican por PREFIJO de id (`fighter_<ID>`) → **sin migración de Room**.
+- `ensureFighterCollectibles()` es idempotente y corre también en partidas viejas, así que
+  quien ya lleve tiempo jugando también los recibe.
+- El retrato se recorta del ATLAS de combate con `BitmapRegionDecoder` (solo la celda
+  256×256 del idle): **cero arte extra en el APK y barato en gama baja** — no carga el
+  atlas entero, que llega a 2560×7680.
+- "VER HISTORIA" → **"Próximamente"** (placeholder acordado).
+
+### 📦 WebP lossless: −13.4 MB
+
+Los 18 atlas de peleador pasaron de PNG a **WebP lossless** (`tools/atlas_to_webp.py`).
+IMAGES: **102 → 88.6 MB**. La verificación compara el **alfa exacto + el RGB de los píxeles
+visibles**: WebP normaliza el RGB bajo los píxeles transparentes, así que un hash del buffer
+RGBA crudo daba falso negativo (la primera pasada abortó por eso, y bien). `SfFighterId
+.spriteAsset` y el packer ya apuntan a `.webp`.
+
+### 🌐 Auditoría de MULTIJUGADOR — 2 bugs REALES corregidos
+
+Lo bueno: los estados nuevos **ya viajaban** (van como `enum.name` y el receptor usa
+`runCatching { valueOf() }.getOrNull() ?: estadoAnterior`, así que un cliente viejo que
+reciba `FATALITY` no crashea). Lo que estaba MAL:
+
+1. **El daño de los movimientos nuevos no viajaba bien.** `sendDamage` mandaba siempre
+   `strength.damage`, así que EN LÍNEA un fatality pegaba 28 (fuerte normal) en vez de 70,
+   y un agarre 12 en vez de 26. Se extrajo `damageForAttack(attacker, strength)` y ahora lo
+   usan tanto el cálculo local como el aviso por red.
+2. Mismo problema con la SÚPER (45 → se enviaba 28).
+
+⚠️ **Pendiente de MP:** el `superMeter` NO se sincroniza, así que la barra dorada del rival
+se ve vacía en línea (cosmético; el daño ya es correcto). Requiere ampliar `SfNetMsg`.
+
+### 🔎 Repaso de los spreadsheets originales
+
+Todo lo de las hojas 01-29 está implementado salvo las poses de ARMA (handgun/rifle, 22
+cuadros en `_extra/`), que son del mundo abierto. **Hallazgo pendiente:** La Tzitzimime
+tiene **5 bonus powers** implementados pero **3 hojas grok** (hasta 9) y Yoalli **10 con 5
+hojas** → puede haber poderes sin recortar. Requiere inspeccionar el layout de filas de cada
+hoja grok a mano; no lo toqué para no romper los que ya funcionan.
+
+### 🗂️ Hojas de AUDITORÍA (`tools/sf_audit_sheets.py` → `tools/_audit_sheets/`)
+
+- `<char>_TODO.png` (×18): TODAS las animaciones del peleador, una fila cada una, con el
+  nombre de cada cuadro. Es el inventario REAL: sale de los atlas y JSON del juego.
+- `_FATALITIES.png`: la secuencia del fatality de los 18, para juzgar si "sale bien".
+- `_RESUMEN.png`: el roster completo de un vistazo.
+
 ## Cambios 2026-07-21c (Fable) — tutorial paso a paso, poses recuperadas y GAMA BAJA
 
 ### ⚡ GAMA BAJA — regresión de RAM que introdujeron las hojas nuevas (CRÍTICO)
