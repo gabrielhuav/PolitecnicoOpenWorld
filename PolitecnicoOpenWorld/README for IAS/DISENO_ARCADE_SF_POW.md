@@ -7,6 +7,60 @@
 > CRLF, Read para verificar). Los BUGS del modo (stun-lock, revancha, servidor LAN) viven en
 > `PENDIENTES_SF_2026-07-16.md` y NO dependen de esto.
 
+## Cambios 2026-07-21b (Fable) — COMBOS data-driven, TUTORIAL interactivo y fix del menú
+
+### 🥊 Catálogo de COMBOS (`assets/STREETFIGHTER/DATA/combos.json`)
+
+Data-driven: ampliar combos NO exige tocar código. **10 universales** (todos comparten el
+moveset) + **1 de FIRMA por personaje** (18; rematan con su especial o su súper). Los 3 sin
+firma (GRANADERO, LAZARO, PARAMEDICO) son los de hoja compartida y usan los universales.
+Loader: `features/streetfighter/data/SfCombos.kt` (`SfCombo`, `SfComboAction`).
+
+Cada combo trae `steps` (acciones), `level` 1-4 (dificultad), y nombre/pista ES+EN. Lo leen
+**dos** consumidores, con la MISMA traducción acción→input (`inputForAction` en el VM), que
+es la única fuente de verdad de "cómo se hace" cada movimiento:
+
+- **La IA** encola la ruta y la ejecuta en orden (`queueCombo`/`nextComboInput`). Elige el
+  combo de FIRMA o uno universal de su nivel según `cpuIntensity` (fácil = hasta nivel 2,
+  difícil = hasta 4), y solo rutas que el peleador PUEDE ejecutar (`canPerform` comprueba
+  arte y medidor). La ruta caduca a los 2.2 s (`COMBO_ROUTE_TIMEOUT_MS`) para no insistir
+  con pasos que ya no aplican.
+- **El tutorial** valida cada paso con `stateForAction`.
+
+### 🎓 TUTORIAL INTERACTIVO + hoja de combos
+
+Entrada nueva **"COMBOS Y TUTORIAL"** en `SfModeMenuOverlay`, al mismo nivel que Práctica e
+IA vs IA y **siempre visible** (no es herramienta de QA: es cómo se aprende el modo).
+
+1. **Elegir peleador** entre los DESBLOQUEADOS (reusa `CharacterSelectOverlay`).
+2. **Hoja de combos** (`SfComboSheetOverlay.kt`): tabla de TODOS los controles de combate
+   (mover, puños, patadas, bloqueo alto/bajo, dash, parry, agarre, barrida, overhead,
+   especial, súper) + la lista de combos con su receta paso a paso y su pista.
+3. **PROBAR → tutorial guiado** (`SfTutorialOverlay.kt` + estado `tutorial*` en
+   `StreetFighterState`): lecciones **con validación** — la pantalla pide un movimiento y
+   solo avanza cuando el jugador lo ejecuta de verdad (se compara el ESTADO real del
+   peleador). Marca los pasos acertados (✓), muestra "¡BIEN!"/"¡COMBO COMPLETO!", el
+   progreso "LECCIÓN n/N", y tiene REPETIR / SALTAR / volver.
+
+**Muñeco inerte** (decisión del dueño): en tutorial la CPU no recibe input (`buildCpuInput`
+devuelve vacío), **el muñeco no pierde vida** y **el reloj no corre** — una lección no se
+puede perder por KO ni por tiempo. El jugador SÍ carga medidor al pegarle, para poder
+practicar la súper del catálogo.
+
+### 🐞 Fix del menú principal (etiquetas ALPHA/BETA descolocadas, reportado en S24)
+
+`WithCornerBadge` sacaba la etiqueta con `offset(x = 8, y = -8)`: ese desplazamiento
+**vertical negativo** la mandaba por ARRIBA del botón, invadiendo la fila anterior — con la
+fuente del sistema en grande la etiqueta crece y aparecía pegada al botón de arriba (el
+"otro renglón" del reporte). Además ni el rótulo del botón ni la etiqueta limitaban líneas,
+así que podían partirse en dos dentro de un botón de ALTO FIJO (56/76 dp) y recortarse.
+Ahora: la etiqueta solo se desplaza en **horizontal** (hacia el margen lateral que siempre
+existe porque los botones ocupan 85-92 % del ancho), el `Box` fija su ancho con
+`fillMaxWidth()` para tener una esquina de referencia estable, y todos los textos llevan
+`maxLines = 1` + `softWrap = false`. ⚠️ No pude reproducirlo en un S24 real: el arreglo es
+estructural (no depende de la densidad ni del tamaño de fuente), **falta confirmarlo en el
+dispositivo del dueño**.
+
 ## Cambios 2026-07-21 (Fable) — MOVESET 3rd Strike COMPLETO + arreglos de assets
 
 **Assets (hojas 20-29, tandas 5-8):** 179/180 hojas recortadas y empacadas para los 18

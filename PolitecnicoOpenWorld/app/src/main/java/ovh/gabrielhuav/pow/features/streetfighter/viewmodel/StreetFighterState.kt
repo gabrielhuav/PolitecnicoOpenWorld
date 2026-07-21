@@ -53,6 +53,24 @@ data class StreetFighterState(
     val displayHp0: Float = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat(),
     val displayHp1: Float = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat(),
 
+    // ─── 🆕 TUTORIAL INTERACTIVO (2026-07-21) ───
+    // Modo entrenamiento guiado: el rival es un MUÑECO inerte y la pantalla pide un
+    // movimiento concreto; solo se avanza cuando el jugador lo ejecuta de verdad.
+    val tutorialActive: Boolean = false,
+    /** Índice de la lección en curso (0-based) y total, para el progreso "3/11". */
+    val tutorialLesson: Int = 0,
+    val tutorialTotal: Int = 0,
+    /** Nombre y pista de la lección (ya resueltos al idioma del juego). */
+    val tutorialTitle: String = "",
+    val tutorialHint: String = "",
+    /** Pasos del combo y cuántos lleva acertados (para pintar "✓ ✓ ○"). */
+    val tutorialSteps: List<String> = emptyList(),
+    val tutorialStepIndex: Int = 0,
+    /** Mensaje efímero de acierto/fallo ("¡BIEN!"). */
+    val tutorialFlash: String = "",
+    /** El jugador completó TODAS las lecciones. */
+    val tutorialCompleted: Boolean = false,
+
     // ─── 🆕 COMBO estilo SF III 3rd Strike (2026-07-20) ───
     // Golpes CONECTADOS encadenados del combo en curso. El VM lo llena/expira (ventana
     // RAPID_HIT_WINDOW_MS); la View SOLO lo pinta ("N GOLPES") cuando comboCount >= 2.

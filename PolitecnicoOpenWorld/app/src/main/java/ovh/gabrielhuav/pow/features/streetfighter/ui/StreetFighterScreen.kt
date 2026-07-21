@@ -556,7 +556,26 @@ fun StreetFighterScreen(
                     onSuper = viewModel::onSuperArtPressed,
                 )
             }
-            if (!state.isPaused && !state.showEndMenu) {
+            // 🆕 (2026-07-21) TUTORIAL: HUD guía encima de la pelea (el jugador usa los
+            // controles normales; el rival es un muñeco inerte).
+            if (state.tutorialActive) {
+                SfTutorialOverlay(
+                    lesson = state.tutorialLesson,
+                    total = state.tutorialTotal,
+                    title = state.tutorialTitle,
+                    hint = state.tutorialHint,
+                    steps = state.tutorialSteps,
+                    stepIndex = state.tutorialStepIndex,
+                    flash = state.tutorialFlash,
+                    completed = state.tutorialCompleted,
+                    onSkip = viewModel::tutorialSkipLesson,
+                    onRestart = viewModel::tutorialRestartLesson,
+                    // `exitTutorial` devuelve el estado a selección de personaje; el
+                    // LaunchedEffect(inCharacterSelect) reabre el flujo normal del modo.
+                    onExit = viewModel::exitTutorial,
+                )
+            }
+            if (!state.isPaused && !state.showEndMenu && !state.tutorialActive) {
                 Text(
                     // 🆕 (2026-07-21) Con moveset nuevo se explica ESE (dash/parry/agarre/
                     // súper/barrida): es lo que el jugador no puede adivinar.
@@ -685,6 +704,9 @@ fun StreetFighterScreen(
         var sfMenu by remember { mutableStateOf(false) }
         // 🆕 Flujo IA vs IA: elige peleador A → peleaador B → startAiVsAi (PESADILLA, sin mapa).
         var aiVsAiSetup by remember { mutableStateOf(false) }
+        // 🆕 (2026-07-21) HOJA DE COMBOS: lista de controles y combos + "PROBAR" (tutorial).
+        var showComboSheet by remember { mutableStateOf(false) }
+        var comboFighter by remember { mutableStateOf<SfFighterId?>(null) }
         LaunchedEffect(state.inCharacterSelect) {
             if (state.inCharacterSelect) {
                 arcadeSetup = true
@@ -769,6 +791,31 @@ fun StreetFighterScreen(
                     val rival = pendingRival
                     val difficulty = pendingDifficulty
                     when {
+                        // 🆕 (2026-07-21) HOJA DE COMBOS + TUTORIAL. Si aún no hay peleador
+                        // elegido, primero se elige de entre los DESBLOQUEADOS.
+                        showComboSheet && comboFighter == null -> CharacterSelectOverlay(
+                            fighters = viewModel.selectableFighters(),
+                            subtitle = stringResource(R.string.sf_combos_pick_fighter),
+                            lockedFighters = viewModel.lockedFighters(),
+                            isActuallyUnlocked = { viewModel.isFighterActuallyUnlocked(it) },
+                            lowEnd = lowEnd,
+                            onSelect = { comboFighter = it },
+                            onBack = { showComboSheet = false; sfMenu = true },
+                        )
+                        showComboSheet -> SfComboSheetOverlay(
+                            fighterId = comboFighter!!,
+                            combos = remember(comboFighter) { viewModel.comboSheet(comboFighter!!) },
+                            onTry = {
+                                showComboSheet = false
+                                viewModel.startTutorial(comboFighter!!)
+                            },
+                            onChangeFighter = { comboFighter = null },
+                            onBack = {
+                                showComboSheet = false
+                                comboFighter = null
+                                sfMenu = true
+                            },
+                        )
                         // 🆕 MENÚ DE MODOS (estilo POW): ARCADE principal, PRÁCTICA, IA VS IA, MULTIJUGADOR
                         sfMenu -> SfModeMenuOverlay(
                             devMode = viewModel.devUnlockAll(),
@@ -803,6 +850,10 @@ fun StreetFighterScreen(
                                 pendingFighter = null
                                 pendingRival = null
                                 pendingDifficulty = null
+                            },
+                            onCombos = {
+                                viewModel.stopAudioShowcase()
+                                showComboSheet = true
                             },
                             onMultiplayer = {
                                 viewModel.stopAudioShowcase()
@@ -1301,6 +1352,7 @@ private fun SfModeMenuOverlay(
     onArcade: () -> Unit,
     onPractice: () -> Unit,
     onAiVsAi: () -> Unit,
+    onCombos: () -> Unit, // 🆕 (2026-07-21) hoja de combos + tutorial interactivo
     onMultiplayer: () -> Unit,
     onGauntletAll: () -> Unit,
     onGauntletArcade: () -> Unit,
@@ -1351,6 +1403,22 @@ private fun SfModeMenuOverlay(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = stringResource(R.string.sf_mode_ai_vs_ai_desc),
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+            )
+            // 🆕 (2026-07-21) HOJA DE COMBOS + TUTORIAL interactivo. Visible SIEMPRE (no es
+            // una herramienta de QA: es como se aprende a jugar el modo).
+            Spacer(modifier = Modifier.height(10.dp))
+            PowButton(
+                text = stringResource(R.string.sf_mode_combos),
+                onClick = onCombos,
+                color = Color(0xFF1C6B4A),
+                modifier = Modifier.fillMaxWidth(0.68f),
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.sf_mode_combos_desc),
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,

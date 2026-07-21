@@ -562,6 +562,44 @@
     <string name="sf_controls_hint">X/Y/B: PUNCH  •  A: KICK  •  ↓↘→ + X/Y/B: SPECIAL  •  P: EXTRA POWER</string>
     <!-- 🆕 3rd Strike moveset (2026-07-21): only shown when the fighter has those sheets -->
     <string name="sf_controls_hint_new">DOUBLE TAP: DASH  •  P: PARRY  •  G: THROW  •  S: SUPER  •  ↓+B: SWEEP</string>
+    <!-- 🆕 (2026-07-21) COMBO SHEET + INTERACTIVE TUTORIAL -->
+    <string name="sf_mode_combos">COMBOS &amp; TUTORIAL</string>
+    <string name="sf_mode_combos_desc">Learn every control and combo, then practise them</string>
+    <string name="sf_combos_title">COMBO SHEET</string>
+    <string name="sf_combos_with_fighter">With %1$s</string>
+    <string name="sf_combos_pick_fighter">PICK WHO TO PRACTISE WITH</string>
+    <string name="sf_combos_controls">COMBAT CONTROLS</string>
+    <string name="sf_combos_list">COMBOS</string>
+    <string name="sf_combos_try">TRY IT (GUIDED TUTORIAL)</string>
+    <string name="sf_combos_change_fighter">CHANGE FIGHTER</string>
+    <string name="sf_ctl_move">Move / jump / crouch</string>
+    <string name="sf_ctl_move_v">Joystick</string>
+    <string name="sf_ctl_punch">Punches (light / medium / heavy)</string>
+    <string name="sf_ctl_punch_v">X / Y / B</string>
+    <string name="sf_ctl_kick">Kick (strength from the joystick)</string>
+    <string name="sf_ctl_kick_v">A</string>
+    <string name="sf_ctl_block">Block high / low</string>
+    <string name="sf_ctl_block_v">Back  ·  Back + Down</string>
+    <string name="sf_ctl_dash">Dash forward / back</string>
+    <string name="sf_ctl_dash_v">Double tap → / ←</string>
+    <string name="sf_ctl_parry">Parry (nullifies the hit)</string>
+    <string name="sf_ctl_parry_v">P button</string>
+    <string name="sf_ctl_grab">Throw (goes through blocking)</string>
+    <string name="sf_ctl_grab_v">G button, up close</string>
+    <string name="sf_ctl_sweep">Sweep (knocks down)</string>
+    <string name="sf_ctl_sweep_v">Down + heavy kick</string>
+    <string name="sf_ctl_overhead">Overhead (breaks low guard)</string>
+    <string name="sf_ctl_overhead_v">Forward + medium punch</string>
+    <string name="sf_ctl_special">Special</string>
+    <string name="sf_ctl_special_v">↓ ↘ → + punch</string>
+    <string name="sf_ctl_super">Super Art (full meter)</string>
+    <string name="sf_ctl_super_v">S button</string>
+    <string name="sf_tutorial_progress">LESSON %1$d / %2$d</string>
+    <string name="sf_tutorial_step_ok">NICE!</string>
+    <string name="sf_tutorial_combo_ok">COMBO COMPLETE!</string>
+    <string name="sf_tutorial_done">TUTORIAL COMPLETE!</string>
+    <string name="sf_tutorial_repeat">REPEAT</string>
+    <string name="sf_tutorial_skip">SKIP</string>
     <string name="sf_controls_help">X/Y/B = light, medium and heavy punch\nA neutral/forward/back = light, medium and heavy kick\n↓ ↘ → + X/Y/B = light, medium or heavy special</string>
     <string name="sf_exit_title">Leave the fight</string>
     <string name="sf_exit_message">Quit the fight and return to the main menu?</string>

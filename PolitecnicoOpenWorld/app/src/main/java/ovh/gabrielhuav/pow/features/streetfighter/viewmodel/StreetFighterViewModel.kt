@@ -27,6 +27,9 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_DOWNED_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_NEW_ATTACK_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_NEW_MOVE_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_PARRY_STATES
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfCombo
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfComboAction
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfCombos
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfArcadeLadder
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackType
@@ -780,6 +783,12 @@ class StreetFighterViewModel @Inject constructor(
         // 🆕 Combos (3rd Strike): el HUD muestra el contador desde 2 golpes; cada golpe
         // encadenado hace -10% de daño (piso 50%) para que el combo no sea letal gratis.
         const val COMBO_DISPLAY_MIN = 2
+        // 🆕 (2026-07-21) Tope de vida de una RUTA de combo encolada por la IA: si no la
+        // completa a tiempo (el rival se soltó, la interrumpieron), se descarta en vez de
+        // quedarse insistiendo con pasos que ya no aplican.
+        const val COMBO_ROUTE_TIMEOUT_MS = 2200L
+        /** Cuánto dura en pantalla el "¡OK!" de un paso acertado del tutorial. */
+        const val TUTORIAL_FLASH_MS = 700L
         const val COMBO_DAMAGE_SCALE_STEP = 0.10f
         const val COMBO_DAMAGE_SCALE_MIN = 0.5f
         const val MAX_ACTIVE_FIREBALLS_PER_FIGHTER = 1
@@ -1122,6 +1131,9 @@ class StreetFighterViewModel @Inject constructor(
         // así el reset de ronda/revancha rellena la barra solo, sin tocar los resets)
         dispHp0 = rollUpHp(dispHp0, sim.p0.hitPoints, dt)
         dispHp1 = rollUpHp(dispHp1, sim.p1.hitPoints, dt)
+
+        // 🆕 (2026-07-21) TUTORIAL: valida el paso en curso con el estado REAL del jugador.
+        tickTutorial(sim, now)
 
         // El menú de fin SOLO con el COMBATE decidido (2 rondas); entre rondas solo se congela
         val showEnd = sim.battleEnded && matchOver && now >= endMenuAtMs
@@ -2286,6 +2298,26 @@ class StreetFighterViewModel @Inject constructor(
             return
         }
 
+        // 🆕 (2026-07-21) TUTORIAL: el muñeco NO pierde vida (la lección no debe acabarse por
+        // KO) pero sí reacciona y suena, para que se vea que el golpe conectó.
+        if (inTutorial && defenderIdx == 1) {
+            _soundEvents.tryEmit("${strength.name.lowercase()}-${type.name.lowercase()}-hit")
+            sim.setFighter(attackerIdx, attacker.copy(attackStruck = true))
+            hitPos?.let { (x, y) ->
+                sim.splashes.add(
+                    SfHitSplash(x = x, y = y, playerId = attackerIdx, strength = strength, animationTimerMs = now),
+                )
+            }
+            // El jugador sí carga medidor: así puede practicar la SÚPER del catálogo.
+            sim.setFighter(
+                attackerIdx,
+                sim.fighter(attackerIdx)
+                    .copy(superMeter = chargeSuper(sim.fighter(attackerIdx), SfConstants.SUPER_METER_ON_HIT)),
+            )
+            hurtFreezeUntilMs = now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong() / 2
+            return
+        }
+
         // 🆕 (2026-07-21) DERRIBADO = INVULNERABLE (como en el arcade): no se puede seguir
         // golpeando a quien está en el suelo o levantándose.
         if (defender.state in SF_DOWNED_STATES) {
@@ -2614,6 +2646,8 @@ class StreetFighterViewModel @Inject constructor(
     // ------------------------------------------------------------------
 
     private fun updateTimer(sim: Sim, now: Long) {
+        // 🆕 (2026-07-21) TUTORIAL: sin reloj. Una lección no se puede "perder por tiempo".
+        if (inTutorial) return
         if (now > timeTimerMs + SfConstants.TIME_DELAY_MS) {
             time -= 1
             timeTimerMs = now
@@ -2822,6 +2856,9 @@ class StreetFighterViewModel @Inject constructor(
      */
     private fun buildCpuInput(now: Long, sim: Sim, selfIndex: Int): SfInput {
         if (sim.battleEnded) return SfInput()
+        // 🆕 (2026-07-21) TUTORIAL: el rival es un MUÑECO inerte — no ataca ni se mueve, para
+        // que el jugador practique la ejecución sin interrupciones.
+        if (inTutorial) return SfInput()
         val i = selfIndex.coerceIn(0, 1)
         repairCpuFacing(sim, i, now)
         if (now < cpuNextDecisionMs[i]) return cpuHold[i]
@@ -3192,6 +3229,16 @@ class StreetFighterViewModel @Inject constructor(
             }
         }
 
+        // 🆕 (2026-07-21) RUTA DE COMBO en curso: sigue encadenando los pasos pendientes.
+        nextComboInput(selfIndex, now)?.let { return it }
+        // Si el rival está a tiro y en desventaja, ARRANCA una ruta del catálogo.
+        if (dist < CPU_MELEE_DIST && !me.isAirborne &&
+            roll < (if (nightmare) 0.45f else 0.22f + 0.20f * cpuIntensity) &&
+            queueCombo(selfIndex, me, now)
+        ) {
+            nextComboInput(selfIndex, now)?.let { return it }
+        }
+
         // 🆕 (2026-07-21) La CPU usa el MOVESET nuevo cuando el peleador lo tiene.
         cpuNewMove(sim, selfIndex, me, foe, dist, now, roll, nightmare)?.let { return it }
 
@@ -3316,6 +3363,117 @@ class StreetFighterViewModel @Inject constructor(
             return SfInput(dashForward = true)
         }
         return null
+    }
+
+    // ── 🆕 (2026-07-21) COMBOS del catálogo (assets/DATA/combos.json) ──
+    // La IA encola los pasos de una ruta y los ejecuta EN ORDEN; el tutorial usa la misma
+    // traducción acción→input para validar lo que hace el jugador.
+
+    private val comboCatalog by lazy { SfCombos.universal(appContext) }
+    private fun signatureCombo(id: SfFighterId) = SfCombos.signature(appContext, id)
+
+    /** Cola de acciones pendientes por índice (la IA ejecuta una por decisión). */
+    private val cpuComboQueue = Array(2) { ArrayDeque<SfComboAction>() }
+    private val cpuComboUntilMs = LongArray(2)
+
+    /**
+     * Traduce una acción del catálogo al `SfInput` que la dispara. Es la ÚNICA fuente de
+     * verdad de "cómo se hace" cada movimiento: la usan la IA y el tutorial.
+     */
+    private fun inputForAction(action: SfComboAction): SfInput = when (action) {
+        SfComboAction.LIGHT_PUNCH -> SfInput(lightPunch = true)
+        SfComboAction.MEDIUM_PUNCH -> SfInput(mediumPunch = true)
+        SfComboAction.HEAVY_PUNCH -> SfInput(heavyPunch = true)
+        SfComboAction.LIGHT_KICK -> SfInput(lightKick = true)
+        SfComboAction.MEDIUM_KICK -> SfInput(mediumKick = true)
+        SfComboAction.HEAVY_KICK -> SfInput(heavyKick = true)
+        SfComboAction.CROUCH_PUNCH -> SfInput(down = true, lightPunch = true)
+        SfComboAction.CROUCH_KICK -> SfInput(down = true, lightKick = true)
+        SfComboAction.CROUCH_HEAVY_PUNCH -> SfInput(down = true, heavyPunch = true)
+        SfComboAction.SWEEP -> SfInput(down = true, heavyKick = true)
+        SfComboAction.LONG_KICK -> SfInput(forward = true, heavyKick = true)
+        SfComboAction.OVERHEAD -> SfInput(forward = true, mediumPunch = true)
+        SfComboAction.AIR_PUNCH -> SfInput(mediumPunch = true)
+        SfComboAction.AIR_KICK -> SfInput(mediumKick = true)
+        SfComboAction.DASH_FORWARD -> SfInput(dashForward = true)
+        SfComboAction.DASH_BACKWARD -> SfInput(dashBackward = true)
+        SfComboAction.PARRY -> SfInput(parry = true)
+        SfComboAction.GRAB -> SfInput(grab = true)
+        SfComboAction.TAUNT -> SfInput(taunt = true)
+        SfComboAction.SPECIAL -> SfInput(special = SfAttackStrength.MEDIUM)
+        SfComboAction.SUPER_ART -> SfInput(superArt = true)
+        SfComboAction.JUMP -> SfInput(up = true)
+        SfComboAction.CROUCH -> SfInput(down = true)
+    }
+
+    /** Estado en el que DEBE entrar el peleador si la acción salió bien (validación). */
+    private fun stateForAction(action: SfComboAction): Set<SfFighterState> = when (action) {
+        SfComboAction.LIGHT_PUNCH -> setOf(SfFighterState.LIGHT_PUNCH)
+        SfComboAction.MEDIUM_PUNCH -> setOf(SfFighterState.MEDIUM_PUNCH)
+        SfComboAction.HEAVY_PUNCH -> setOf(SfFighterState.HEAVY_PUNCH)
+        SfComboAction.LIGHT_KICK -> setOf(SfFighterState.LIGHT_KICK)
+        SfComboAction.MEDIUM_KICK -> setOf(SfFighterState.MEDIUM_KICK)
+        SfComboAction.HEAVY_KICK -> setOf(SfFighterState.HEAVY_KICK)
+        SfComboAction.CROUCH_PUNCH -> setOf(SfFighterState.CROUCH_PUNCH)
+        SfComboAction.CROUCH_KICK -> setOf(SfFighterState.CROUCH_KICK)
+        SfComboAction.CROUCH_HEAVY_PUNCH -> setOf(SfFighterState.CROUCH_HEAVY_PUNCH)
+        SfComboAction.SWEEP -> setOf(SfFighterState.SWEEP)
+        SfComboAction.LONG_KICK -> setOf(SfFighterState.LONG_KICK)
+        SfComboAction.OVERHEAD -> setOf(SfFighterState.OVERHEAD)
+        SfComboAction.AIR_PUNCH -> setOf(SfFighterState.AIR_PUNCH)
+        SfComboAction.AIR_KICK -> setOf(SfFighterState.AIR_KICK)
+        SfComboAction.DASH_FORWARD -> setOf(SfFighterState.DASH_FORWARD)
+        SfComboAction.DASH_BACKWARD -> setOf(SfFighterState.DASH_BACKWARD)
+        SfComboAction.PARRY -> SF_PARRY_STATES
+        SfComboAction.GRAB -> setOf(SfFighterState.GRAB, SfFighterState.THROW)
+        SfComboAction.TAUNT -> setOf(SfFighterState.TAUNT)
+        SfComboAction.SPECIAL -> setOf(
+            SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM,
+            SfFighterState.SPECIAL_1_HEAVY,
+        )
+        SfComboAction.SUPER_ART -> setOf(SfFighterState.SUPER_ART)
+        SfComboAction.JUMP -> setOf(
+            SfFighterState.JUMP_START, SfFighterState.JUMP_UP,
+            SfFighterState.JUMP_FORWARD, SfFighterState.JUMP_BACKWARD,
+        )
+        SfComboAction.CROUCH -> setOf(SfFighterState.CROUCH, SfFighterState.CROUCH_DOWN)
+    }
+
+    /** ¿El peleador puede ejecutar esta acción (tiene el arte y, si aplica, el recurso)? */
+    private fun canPerform(f: SfFighter, action: SfComboAction): Boolean {
+        if (action == SfComboAction.SUPER_ART && !f.superReady) return false
+        val states = stateForAction(action)
+        return states.none { it in SF_NEW_MOVE_STATES } || states.any { hasAnim(f, it) }
+    }
+
+    /**
+     * 🆕 Elige una RUTA de combo ejecutable y la encola. La IA prefiere el combo de FIRMA
+     * del peleador y, si no puede, uno universal de su nivel de dificultad hacia abajo.
+     */
+    private fun queueCombo(selfIndex: Int, me: SfFighter, now: Long): Boolean {
+        val i = selfIndex.coerceIn(0, 1)
+        if (cpuComboQueue[i].isNotEmpty()) return false
+        val maxLevel = when {
+            cpuIntensity > 0.66f -> 4
+            cpuIntensity > 0.33f -> 3
+            else -> 2
+        }
+        val options = buildList {
+            signatureCombo(me.id)?.let { add(it) }
+            addAll(comboCatalog.filter { it.level <= maxLevel })
+        }.filter { combo -> combo.steps.all { canPerform(me, it) } }
+        val chosen = options.randomOrNull() ?: return false
+        cpuComboQueue[i].addAll(chosen.steps)
+        cpuComboUntilMs[i] = now + COMBO_ROUTE_TIMEOUT_MS
+        return true
+    }
+
+    /** Siguiente paso de la ruta encolada (null si no hay o si expiró). */
+    private fun nextComboInput(selfIndex: Int, now: Long): SfInput? {
+        val i = selfIndex.coerceIn(0, 1)
+        if (cpuComboQueue[i].isEmpty()) return null
+        if (now > cpuComboUntilMs[i]) { cpuComboQueue[i].clear(); return null }
+        return inputForAction(cpuComboQueue[i].removeFirst())
     }
 
     /** Arma un SfInput de golpe (puño o patada) de la fuerza pedida. */
@@ -3531,6 +3689,144 @@ class StreetFighterViewModel @Inject constructor(
             arcadeOutcome = SfArcadeOutcome.NONE,
         )
         return true
+    }
+
+    // ------------------------------------------------------------------
+    // 🆕 (2026-07-21) TUTORIAL INTERACTIVO (hoja de combos "PROBAR")
+    // Lecciones GUIADAS con validación: la pantalla pide un movimiento y solo se avanza
+    // cuando el jugador lo ejecuta. El rival es un MUÑECO inerte (no ataca ni se mueve),
+    // que es el estándar de los modos entrenamiento: deja concentrarse en la ejecución.
+    // ------------------------------------------------------------------
+
+    /** Lecciones de la sesión (universales + la de firma del peleador elegido). */
+    private var tutorialCombos: List<SfCombo> = emptyList()
+    private var tutorialFlashUntilMs = 0L
+
+    /** ¿Este combate es el tutorial? (lo consultan el tick y la IA para inhibir al muñeco). */
+    private val inTutorial: Boolean get() = _state.value.tutorialActive
+
+    /**
+     * Arranca el tutorial con el peleador elegido (de los DESBLOQUEADOS). El rival es el
+     * muñeco: se usa el mismo peleador para no depender de otro set de assets.
+     */
+    fun startTutorial(playerId: SfFighterId) {
+        val lang = java.util.Locale.getDefault().language
+        tutorialCombos = SfCombos.forFighter(appContext, playerId)
+            .filter { combo -> combo.steps.all { canPerform(_state.value.player.copy(id = playerId), it) } }
+            .ifEmpty { SfCombos.universal(appContext) }
+        resetInternals()
+        val base = StreetFighterState()
+        _state.value = base.copy(
+            player = base.player.copy(id = playerId),
+            cpu = base.cpu.copy(id = playerId),
+            inCharacterSelect = false,
+            tutorialActive = true,
+            tutorialTotal = tutorialCombos.size,
+            // El muñeco no debe morir: la vida no baja en tutorial (ver applyAttackHit)
+            displayTime = SfConstants.BATTLE_TIME,
+        )
+        loadTutorialLesson(0, lang)
+    }
+
+    /** Carga la lección `index` (o marca completado si se acabaron). */
+    private fun loadTutorialLesson(index: Int, langTag: String) {
+        val combo = tutorialCombos.getOrNull(index)
+        if (combo == null) {
+            _state.update { it.copy(tutorialCompleted = true, tutorialFlash = "") }
+            return
+        }
+        _state.update {
+            it.copy(
+                tutorialLesson = index,
+                tutorialTitle = combo.name(langTag),
+                tutorialHint = combo.hint(langTag),
+                tutorialSteps = combo.steps.map(::actionLabel),
+                tutorialStepIndex = 0,
+                tutorialFlash = "",
+                tutorialCompleted = false,
+            )
+        }
+    }
+
+    /** Etiqueta corta y legible de cada acción (la pinta la hoja de combos y el tutorial). */
+    private fun actionLabel(action: SfComboAction): String = when (action) {
+        SfComboAction.LIGHT_PUNCH -> "PUÑO LIGERO"
+        SfComboAction.MEDIUM_PUNCH -> "PUÑO MEDIO"
+        SfComboAction.HEAVY_PUNCH -> "PUÑO FUERTE"
+        SfComboAction.LIGHT_KICK -> "PATADA LIGERA"
+        SfComboAction.MEDIUM_KICK -> "PATADA MEDIA"
+        SfComboAction.HEAVY_KICK -> "PATADA FUERTE"
+        SfComboAction.CROUCH_PUNCH -> "↓ + PUÑO"
+        SfComboAction.CROUCH_KICK -> "↓ + PATADA"
+        SfComboAction.CROUCH_HEAVY_PUNCH -> "↓ + PUÑO FUERTE"
+        SfComboAction.SWEEP -> "↓ + PATADA FUERTE (BARRIDA)"
+        SfComboAction.LONG_KICK -> "→ + PATADA FUERTE"
+        SfComboAction.OVERHEAD -> "→ + PUÑO MEDIO"
+        SfComboAction.AIR_PUNCH -> "PUÑO EN EL AIRE"
+        SfComboAction.AIR_KICK -> "PATADA EN EL AIRE"
+        SfComboAction.DASH_FORWARD -> "DOBLE TOQUE →"
+        SfComboAction.DASH_BACKWARD -> "DOBLE TOQUE ←"
+        SfComboAction.PARRY -> "BOTÓN P (PARRY)"
+        SfComboAction.GRAB -> "BOTÓN G (AGARRE)"
+        SfComboAction.TAUNT -> "BOTÓN T (BURLA)"
+        SfComboAction.SPECIAL -> "↓ ↘ → + PUÑO"
+        SfComboAction.SUPER_ART -> "BOTÓN S (SÚPER)"
+        SfComboAction.JUMP -> "SALTAR"
+        SfComboAction.CROUCH -> "AGACHARSE"
+    }
+
+    /**
+     * Valida el paso en curso: se llama cada tick con el estado real del jugador. Si entró
+     * al estado que pedía la lección, avanza; al completar los pasos, pasa a la siguiente.
+     */
+    private fun tickTutorial(sim: Sim, now: Long) {
+        val s = _state.value
+        if (!s.tutorialActive || s.tutorialCompleted) return
+        if (s.tutorialFlash.isNotEmpty() && now > tutorialFlashUntilMs) {
+            _state.update { it.copy(tutorialFlash = "") }
+        }
+        val combo = tutorialCombos.getOrNull(s.tutorialLesson) ?: return
+        val expected = combo.steps.getOrNull(s.tutorialStepIndex) ?: return
+        if (sim.p0.state !in stateForAction(expected)) return
+        // Paso acertado
+        val nextStep = s.tutorialStepIndex + 1
+        tutorialFlashUntilMs = now + TUTORIAL_FLASH_MS
+        if (nextStep < combo.steps.size) {
+            _state.update { it.copy(tutorialStepIndex = nextStep, tutorialFlash = "OK") }
+        } else {
+            _state.update { it.copy(tutorialStepIndex = nextStep, tutorialFlash = "COMPLETO") }
+            loadTutorialLesson(s.tutorialLesson + 1, java.util.Locale.getDefault().language)
+        }
+    }
+
+    /** Saltar a la siguiente lección sin completarla. */
+    fun tutorialSkipLesson() {
+        if (!_state.value.tutorialActive) return
+        loadTutorialLesson(
+            _state.value.tutorialLesson + 1,
+            java.util.Locale.getDefault().language,
+        )
+    }
+
+    /** Repetir la lección en curso desde el primer paso. */
+    fun tutorialRestartLesson() {
+        if (!_state.value.tutorialActive) return
+        loadTutorialLesson(_state.value.tutorialLesson, java.util.Locale.getDefault().language)
+    }
+
+    /** Salir del tutorial al menú de modos. */
+    fun exitTutorial() {
+        tutorialCombos = emptyList()
+        resetInternals()
+        _state.value = StreetFighterState()
+    }
+
+    /** Combos que se listan en la HOJA (para la View; ya resueltos al idioma). */
+    fun comboSheet(id: SfFighterId): List<Triple<String, String, List<String>>> {
+        val lang = java.util.Locale.getDefault().language
+        return SfCombos.forFighter(appContext, id).map { combo ->
+            Triple(combo.name(lang), combo.hint(lang), combo.steps.map(::actionLabel))
+        }
     }
 
     /** Descarta la pelea a medias (el usuario elige "Nueva partida"). */

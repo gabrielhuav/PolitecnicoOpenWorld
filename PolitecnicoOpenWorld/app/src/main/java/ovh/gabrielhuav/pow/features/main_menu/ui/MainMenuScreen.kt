@@ -60,6 +60,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
@@ -435,13 +436,19 @@ private fun FeaturedStreetFighterButton(text: String, tag: String, onClick: () -
                     )
                 },
         )
+        // 🆕 (2026-07-21) FIX S24: el botón tiene alto FIJO (76.dp); si el rótulo o el tag se
+        // parten en dos líneas con la fuente del sistema grande, el contenido se recorta y la
+        // etiqueta de estado parece descolgada. Una línea cada uno, siempre.
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = "★ $text ★",
                 color = Color.White,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Black,
-                letterSpacing = 2.sp,
+                letterSpacing = 1.sp,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(2.dp))
             Text(
@@ -449,13 +456,23 @@ private fun FeaturedStreetFighterButton(text: String, tag: String, onClick: () -
                 color = gold,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 4.sp,
+                letterSpacing = 2.sp,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
 }
 
-/** 🆕 Etiqueta de estado (ALPHA / BETA). Se monta en la ESQUINA SUPERIOR DERECHA del botón. */
+/**
+ * 🆕 Etiqueta de estado (ALPHA / BETA). Se monta en la esquina superior derecha del botón.
+ *
+ * ⚠️ (2026-07-21) Reportado en Galaxy S24: la etiqueta "se iba a otro renglón". El texto
+ * NUNCA debe partirse ni escalar sin límite — con la fuente del sistema en grande, 9.sp +
+ * letterSpacing crecía y la etiqueta se envolvía en dos líneas, que es lo que se veía como
+ * un renglón extra. `maxLines = 1` + `softWrap = false` lo impiden en cualquier densidad.
+ */
 @Composable
 private fun StageBadge(text: String, color: Color, modifier: Modifier = Modifier) {
     Text(
@@ -463,26 +480,40 @@ private fun StageBadge(text: String, color: Color, modifier: Modifier = Modifier
         color = Color.White,
         fontSize = 9.sp,
         fontWeight = FontWeight.Black,
-        letterSpacing = 1.5.sp,
+        letterSpacing = 1.sp,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Visible,
         modifier = modifier
             .clip(CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp))
             .background(color)
-            .padding(horizontal = 8.dp, vertical = 2.dp),
+            .padding(horizontal = 6.dp, vertical = 2.dp),
     )
 }
 
 /**
  * 🆕 Envuelve un botón y le pega la etiqueta a CABALLO de su esquina superior derecha
  * (ni totalmente fuera ni totalmente dentro), sin ocupar un renglón extra del menú.
+ *
+ * ⚠️ (2026-07-21) FIX S24: antes la etiqueta salía con `offset(x = 8, y = -8)`. Ese
+ * desplazamiento VERTICAL negativo la sacaba por ARRIBA del botón, invadiendo el espacio
+ * del botón anterior — con fuentes grandes la etiqueta crece y aparecía pegada a la fila
+ * de arriba (el "otro renglón" del reporte). Ahora solo se desplaza en HORIZONTAL, hacia
+ * el margen lateral que siempre existe (los botones ocupan 85-92 % del ancho), así que no
+ * puede colisionar con nada por mucho que crezca la fuente del sistema.
+ * El `Box` fija su ancho con `fillMaxWidth()` para que la esquina de referencia sea
+ * estable y no dependa de cómo se midió el botón de dentro.
  */
 @Composable
 private fun WithCornerBadge(text: String, color: Color, button: @Composable () -> Unit) {
-    Box {
+    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         button()
         StageBadge(
             text = text,
             color = color,
-            modifier = Modifier.align(Alignment.TopEnd).offset(x = 8.dp, y = (-8).dp),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 2.dp, end = 12.dp),
         )
     }
 }
@@ -494,7 +525,19 @@ fun MenuButton(text: String, onClick: () -> Unit, enabled: Boolean = true, color
         onClick = onClick, enabled = enabled, shape = shape,
         colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = Color.White, disabledContainerColor = Color(0xFF2A1C21), disabledContentColor = Color.Gray),
         modifier = Modifier.fillMaxWidth(0.85f).height(56.dp).shadow(elevation = if (enabled) 8.dp else 0.dp, shape = shape)
-    ) { Text(text, fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp) }
+        // 🆕 (2026-07-21) FIX S24: el rótulo NO debe partirse en dos líneas con la fuente del
+        // sistema en grande (el botón tiene alto fijo de 56.dp y la 2ª línea se recortaba).
+    ) {
+        Text(
+            text,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
 
 /**

@@ -53,7 +53,21 @@
 | 08 | `08_SERVERS.md` | Servidores Node.js (open world v3 + zombi) + protocolo de red |
 | 09 | `09_CONVENTIONS_GOTCHAS.md` | Convenciones, reglas de gama baja, protocolo de actualización de docs |
 
-### Estado vigente (2026-07-21) — LÉEME PRIMERO
+### Estado vigente (2026-07-21b) — LÉEME PRIMERO
+
+> **🆕 2026-07-21b (Fable) — COMBOS + TUTORIAL + fix del menú:**
+> - **Catálogo de combos data-driven:** `assets/STREETFIGHTER/DATA/combos.json` (10
+>   universales + 1 de firma por personaje) → `SfCombos.kt`. Lo usan la **IA** (encola y
+>   ejecuta rutas completas) y el **tutorial** (valida paso a paso).
+> - **"COMBOS Y TUTORIAL"** en el menú del modo (junto a Práctica / IA vs IA, siempre
+>   visible): hoja con TODOS los controles y combos + **tutorial guiado con validación**
+>   contra un **muñeco inerte** (sin reloj y sin que el muñeco pierda vida).
+> - **Fix menú principal:** las etiquetas ALPHA/BETA ya no pueden saltar de renglón
+>   (se quitó el offset vertical negativo + `maxLines=1` en los rótulos). Falta confirmarlo
+>   en un S24 real.
+> - Verificado: compila, tests en verde, detekt 0 smells, strings ES+EN con paridad.
+
+### Estado 2026-07-21
 
 > **🆕 2026-07-21 (Fable) — MOVESET 3rd Strike COMPLETO (assets + motor):**
 > - **179/180 hojas nuevas (20-29) recortadas y empacadas** para los 18 peleadores.

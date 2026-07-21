@@ -942,6 +942,19 @@ ligeros por peleador sesgan presión o poderes sin duplicar la IA. Hay memoria d
 cooldowns separados para especiales/poderes, defensa reactiva y escape anti-hit-stun. El auditor
 considera fallo cualquier estancamiento o ronda por tiempo y reporta los totales KO/timeout.
 
+### HUELUM VS. GOYA — 🎓 COMBOS data-driven + TUTORIAL interactivo (2026-07-21b)
+
+Catálogo en `assets/STREETFIGHTER/DATA/combos.json` (10 universales + 1 de firma por
+peleador) cargado por `features/streetfighter/data/SfCombos.kt`. La **IA** encola rutas y
+las ejecuta en orden (`queueCombo`/`nextComboInput`, filtradas por `canPerform` y por
+`cpuIntensity`); el **tutorial** valida cada paso con `stateForAction`. Ambos comparten
+`inputForAction` como única fuente de verdad de cómo se ejecuta cada movimiento.
+
+Entrada **"COMBOS Y TUTORIAL"** en `SfModeMenuOverlay` (siempre visible): elegir peleador
+desbloqueado → `SfComboSheetOverlay` (controles + recetas) → **PROBAR** →
+`SfTutorialOverlay` + campos `tutorial*` de `StreetFighterState`. Muñeco inerte, sin reloj
+y sin daño al muñeco. Detalle: `DISENO_ARCADE_SF_POW.md` §2026-07-21b.
+
 ### HUELUM VS. GOYA — 🥊 MOVESET completo estilo 3rd Strike (2026-07-21)
 
 21 estados nuevos en `SfFighterState` (hojas 20-29), todos con guarda `hasAnim`: dash y

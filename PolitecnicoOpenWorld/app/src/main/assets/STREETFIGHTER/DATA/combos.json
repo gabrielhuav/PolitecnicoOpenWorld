@@ -1,0 +1,223 @@
+{
+  "_readme": "Catalogo de COMBOS de HUELUM VS. GOYA (2026-07-21). 'universal' aplica a TODOS los peleadores (comparten moveset); 'signature' es el combo propio de cada uno, que remata con su especial o su super. Lo leen el TUTORIAL (lecciones guiadas) y la IA (rutas que encadena). Cada paso es una ACCION del motor; el tutorial la valida por el estado al que entra el peleador. Acciones validas: lightPunch, mediumPunch, heavyPunch, lightKick, mediumKick, heavyKick, crouchPunch, crouchKick, crouchHeavyPunch, sweep, longKick, overhead, airPunch, airKick, dashForward, dashBackward, parry, grab, taunt, special, superArt, jump, crouch.",
+  "universal": [
+    {
+      "id": "basico_jab_directo",
+      "es": "Jab en cadena",
+      "en": "Chain jab",
+      "hintEs": "Golpea ligero y, EN CUANTO CONECTE, encadena el medio. Solo se puede cancelar si el primero toca.",
+      "hintEn": "Hit light and, AS SOON AS IT CONNECTS, chain the medium. You can only cancel if the first one lands.",
+      "level": 1,
+      "steps": ["lightPunch", "mediumPunch"]
+    },
+    {
+      "id": "cadena_completa",
+      "es": "Cadena completa",
+      "en": "Full chain",
+      "hintEs": "Ligero, medio y fuerte, cada uno al conectar el anterior. El dano baja un poco por golpe.",
+      "hintEn": "Light, medium and heavy, each as the previous one lands. Damage scales down per hit.",
+      "level": 2,
+      "steps": ["lightPunch", "mediumPunch", "heavyPunch"]
+    },
+    {
+      "id": "cancel_especial",
+      "es": "Cancel al especial",
+      "en": "Special cancel",
+      "hintEs": "Cualquier golpe que conecte se puede cancelar en tu ESPECIAL (abajo, diagonal, adelante + punio).",
+      "hintEn": "Any connected normal can be cancelled into your SPECIAL (down, diagonal, forward + punch).",
+      "level": 2,
+      "steps": ["mediumPunch", "special"]
+    },
+    {
+      "id": "bajo_barrida",
+      "es": "Presion baja y barrida",
+      "en": "Low pressure into sweep",
+      "hintEs": "Agachado: patada baja y remata con BARRIDA (abajo + patada fuerte). La barrida DERRIBA.",
+      "hintEn": "Crouching: low kick then finish with the SWEEP (down + heavy kick). The sweep knocks down.",
+      "level": 2,
+      "steps": ["crouchKick", "sweep"]
+    },
+    {
+      "id": "salto_aterrizaje",
+      "es": "Entrada aerea",
+      "en": "Jump-in",
+      "hintEs": "Salta, patea en el aire y al caer encadena en el suelo. Es la forma clasica de abrir la guardia.",
+      "hintEn": "Jump, kick in the air and chain on the ground when you land. The classic way to open a guard.",
+      "level": 3,
+      "steps": ["jump", "airKick", "lightPunch", "mediumPunch"]
+    },
+    {
+      "id": "overhead_castigo",
+      "es": "Overhead contra guardia baja",
+      "en": "Overhead vs low guard",
+      "hintEs": "Si el rival se cubre AGACHADO, el OVERHEAD (adelante + punio medio) le rompe la guardia.",
+      "hintEn": "If the rival blocks LOW, the OVERHEAD (forward + medium punch) breaks their guard.",
+      "level": 3,
+      "steps": ["overhead", "mediumPunch"]
+    },
+    {
+      "id": "dash_agarre",
+      "es": "Dash y agarre",
+      "en": "Dash into throw",
+      "hintEs": "Doble toque adelante para acercarte de golpe y AGARRA: el lanzamiento atraviesa el bloqueo.",
+      "hintEn": "Double tap forward to close in and THROW: the grab goes straight through blocking.",
+      "level": 3,
+      "steps": ["dashForward", "grab"]
+    },
+    {
+      "id": "antiaereo",
+      "es": "Antiaereo",
+      "en": "Anti-air",
+      "hintEs": "Cuando salte hacia ti, agachate y mete PUNIO FUERTE: cubre el aire.",
+      "hintEn": "When they jump at you, crouch and use HEAVY PUNCH: it covers the air.",
+      "level": 3,
+      "steps": ["crouchHeavyPunch"]
+    },
+    {
+      "id": "patada_larga_footsies",
+      "es": "Patada larga",
+      "en": "Long roundhouse",
+      "hintEs": "Adelante + patada fuerte: tu golpe de mayor alcance, para pelear a media distancia.",
+      "hintEn": "Forward + heavy kick: your longest-reaching normal, for mid-range footsies.",
+      "level": 2,
+      "steps": ["longKick"]
+    },
+    {
+      "id": "super_remate",
+      "es": "Remate con Super Art",
+      "en": "Super Art finisher",
+      "hintEs": "Con el medidor LLENO: conecta un golpe y remata con la SUPER. Derriba y pega durisimo.",
+      "hintEn": "With a FULL meter: land a normal and finish with the SUPER. It knocks down and hits hard.",
+      "level": 4,
+      "steps": ["mediumPunch", "superArt"]
+    }
+  ],
+  "signature": {
+    "PRANKEDY": {
+      "es": "Broma pesada",
+      "en": "Nasty prank",
+      "hintEs": "Cadena alta y cancela en su especial de confeti.",
+      "hintEn": "High chain cancelled into his confetti special.",
+      "steps": ["lightPunch", "mediumPunch", "special"]
+    },
+    "SENOR_TIENDA": {
+      "es": "Cierro la tienda",
+      "en": "Closing time",
+      "hintEs": "Presion baja y barrida para sacarlo del mostrador.",
+      "hintEn": "Low pressure and a sweep to clear the counter.",
+      "steps": ["crouchPunch", "crouchKick", "sweep"]
+    },
+    "REY_GRUPERO": {
+      "es": "Palenque",
+      "en": "Palenque",
+      "hintEs": "Entrada aerea y remate con su especial.",
+      "hintEn": "Jump-in finished with his special.",
+      "steps": ["jump", "airKick", "mediumPunch", "special"]
+    },
+    "PAPARAZZI_1": {
+      "es": "Exclusiva",
+      "en": "Scoop",
+      "hintEs": "Overhead para romper la guardia y flashazo.",
+      "hintEn": "Overhead to break the guard, then the flash.",
+      "steps": ["overhead", "special"]
+    },
+    "PAPARAZZI_5": {
+      "es": "Primera plana",
+      "en": "Front page",
+      "hintEs": "Patada larga y especial a distancia.",
+      "hintEn": "Long kick into a ranged special.",
+      "steps": ["longKick", "special"]
+    },
+    "POLICIA_CDMX": {
+      "es": "Detencion",
+      "en": "Arrest",
+      "hintEs": "Dash, agarre y a la patrulla.",
+      "hintEn": "Dash, throw, straight to the patrol car.",
+      "steps": ["dashForward", "grab"]
+    },
+    "POLICIA_CDMX_HOMBRE": {
+      "es": "Infraccion",
+      "en": "Citation",
+      "hintEs": "Cadena completa rematada con su especial.",
+      "hintEn": "Full chain finished with his special.",
+      "steps": ["lightPunch", "mediumPunch", "heavyPunch", "special"]
+    },
+    "POLICIA_GRANADERO_HOMBRE": {
+      "es": "Formacion",
+      "en": "Riot line",
+      "hintEs": "Escudo arriba y barrida al que se acerque.",
+      "hintEn": "Shield up and a sweep for whoever steps in.",
+      "steps": ["crouchKick", "sweep"]
+    },
+    "POLICIA_GRANADERO_MUJER": {
+      "es": "Contencion",
+      "en": "Containment",
+      "hintEs": "Antiaereo y castigo con super.",
+      "hintEn": "Anti-air punished with the super.",
+      "steps": ["crouchHeavyPunch", "superArt"]
+    },
+    "PARAMEDICO_CRUZ_ROJA": {
+      "es": "Primeros auxilios",
+      "en": "First aid",
+      "hintEs": "Cadena media y descarga electrica.",
+      "hintEn": "Mid chain into the electric discharge.",
+      "steps": ["mediumPunch", "heavyPunch", "special"]
+    },
+    "ESCOMBOY": {
+      "es": "Compila y corre",
+      "en": "Compile and run",
+      "hintEs": "Jab rapido cancelado en su descarga.",
+      "hintEn": "Fast jab cancelled into his discharge.",
+      "steps": ["lightPunch", "mediumPunch", "special"]
+    },
+    "ESCOMGIRL": {
+      "es": "Kernel panic",
+      "en": "Kernel panic",
+      "hintEs": "Entrada aerea, cadena y super.",
+      "hintEn": "Jump-in, chain and super.",
+      "steps": ["jump", "airPunch", "mediumPunch", "superArt"]
+    },
+    "ROBOT": {
+      "es": "Protocolo de combate",
+      "en": "Combat protocol",
+      "hintEs": "Patada larga y remate mecanico.",
+      "hintEn": "Long kick into a mechanical finisher.",
+      "steps": ["longKick", "special"]
+    },
+    "CHARRO_NEGRO": {
+      "es": "Trato con el diablo",
+      "en": "Devil's bargain",
+      "hintEs": "Barrida y super para cobrar el alma.",
+      "hintEn": "Sweep and super to collect the soul.",
+      "steps": ["crouchKick", "sweep", "superArt"]
+    },
+    "LA_LLORONA": {
+      "es": "Ay mis hijos",
+      "en": "Oh my children",
+      "hintEs": "Cadena alta y cadena espectral.",
+      "hintEn": "High chain into the spectral chain.",
+      "steps": ["lightPunch", "mediumPunch", "special"]
+    },
+    "LA_TZITZIMIME": {
+      "es": "Eclipse",
+      "en": "Eclipse",
+      "hintEs": "Antiaereo, cadena y super.",
+      "hintEn": "Anti-air, chain and super.",
+      "steps": ["crouchHeavyPunch", "mediumPunch", "superArt"]
+    },
+    "YOALLI_EHECATL": {
+      "es": "Viento nocturno",
+      "en": "Night wind",
+      "hintEs": "Entrada aerea con remate de viento.",
+      "hintEn": "Jump-in with a wind finisher.",
+      "steps": ["jump", "airKick", "special"]
+    },
+    "LA_PRESIDENTA": {
+      "es": "Decreto",
+      "en": "Decree",
+      "hintEs": "Cadena completa y decreto final.",
+      "hintEn": "Full chain and the final decree.",
+      "steps": ["mediumPunch", "heavyPunch", "superArt"]
+    }
+  }
+}
