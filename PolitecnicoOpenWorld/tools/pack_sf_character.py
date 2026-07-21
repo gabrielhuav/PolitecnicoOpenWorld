@@ -231,6 +231,19 @@ BONUS_PROJECTILE_POWERS = {
     "lapresidenta": {1, 2, 3, 4, 5, 6},
 }
 
+# 🆕 (2026-07-21) PODERES BONUS "RÁPIDOS": el dueño audita la hoja y decide que solo unos
+# cuadros concretos sirven. Caso real: la hoja de bonus 3/4/5 de La Tzitzimime trae los
+# primeros cuadros dibujados con OTRO personaje (Yoalli), aunque estén bien recortados.
+# En vez de tirar el poder entero o esperar arte nueva, se anima solo la parte válida y
+# queda como un poder corto y seco.
+# Formato: {personaje: {nº de poder: [nº de cuadro válido, ...]}}
+BONUS_FAST_POWERS = {
+    "latzitzimime": {
+        4: [5],       # 1-4 son Yoalli; solo la pose final es de La Tzitzimime
+        5: [4, 5],
+    },
+}
+
 
 def derived_bonus_path(char_name, key, gen_root):
     match = re.fullmatch(r"bonus-(\d+)-(\d+)", key)
@@ -252,8 +265,9 @@ def frame_source_path(char_name, key, char_gen_dir, gen_root):
 
 def dedicated_animations(template, bonus_powers=0, unique_hurt_frames=False,
                          projectile_powers=frozenset(), available_keys=frozenset(),
-                         all_frame_keys=frozenset()):
+                         all_frame_keys=frozenset(), fast_powers=None):
     """Animaciones completas para arte croma; conserva estados/timings del motor."""
+    fast_powers = fast_powers or {}
     out = json.loads(json.dumps(template))
     out["lightPunch"] = animation_with_transition(
         [f"light-punch-{i}" for i in range(1, 5)], [2, 2, 4, 3])
@@ -301,7 +315,14 @@ def dedicated_animations(template, bonus_powers=0, unique_hurt_frames=False,
         out["hurtBodyMedium"] = animation_with_transition(
             [f"hit-stomach-{i}" for i in range(1, 5)], [8, 7, 7, 9])
     for power in range(1, bonus_powers + 1):
-        if power in projectile_powers:
+        fast = fast_powers.get(power)
+        if fast:
+            # Poder corto: solo los cuadros que el dueño validó. Se sostienen para que el
+            # poder siga durando lo suficiente como para leerse en pantalla.
+            keys = [f"bonus-{power}-{i}" for i in fast]
+            out[f"bonusPower{power}"] = animation_with_transition(
+                keys, [34 // len(keys)] * len(keys))
+        elif power in projectile_powers:
             # Solo las 2 poses del personaje (1 = lanza, 5 = seguimiento), sostenidas para
             # conservar la duración total del poder. Los cuadros 2-4 son el proyectil.
             out[f"bonusPower{power}"] = animation_with_transition(
@@ -668,6 +689,7 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
             projectile_powers=BONUS_PROJECTILE_POWERS.get(char_name, frozenset()),
             available_keys=frozenset(new_move_keys),
             all_frame_keys=frozenset(all_keys),
+            fast_powers=BONUS_FAST_POWERS.get(char_name, {}),
         ),
         "events": {"projectile": PROJECTILE_PROFILES.get(char_name, {})},
     }
