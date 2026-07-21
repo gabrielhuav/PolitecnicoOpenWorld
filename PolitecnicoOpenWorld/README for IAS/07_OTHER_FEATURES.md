@@ -581,9 +581,12 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
     peleador y frase española, y espera la duración real del OGG mediante
     `MediaMetadataRetriever`; detener libera los `MediaPlayer` activos.
   - **La Llorona:** la hoja 09 entregaba 14 HURT HEAD pegados como siete componentes; dos
-    `hit-face-*` contenían dos personajes. `maybe_split` usa ahora el paso horizontal esperado,
-    separa 14/14 y el pack elige cuatro poses completas. El validador rechaza un cuerpo HURT
-    anormalmente ancho. Resultado: 123 frames/30 animaciones y contrato croma OK.
+    `hit-face-*` contenían dos personajes. `maybe_split` usa ahora el paso horizontal esperado
+    y el pack elige cuatro poses completas. El validador rechaza un cuerpo HURT anormalmente
+    ancho. Resultado: 123 frames/30 animaciones y contrato croma OK.
+    ⚠️ **CORREGIDO el 2026-07-21f:** ese "separa 14/14" **nunca llegó a cumplirse**. La hoja
+    09 vieja seguía fundiendo las 14 poses en 8 blobs (uno de 478 px = 4 figuras en
+    `hit-face-1`) y el arreglo se revirtió. Se cerró de verdad regenerando la hoja; ver abajo.
   - **Peso final:** AAB 438.52 MiB; `base` comprimido 459.16 MB; 40.84 MB de margen Play.
 - **🆕 Botón CONFIRMAR en el selector (2026-07-18h, Claude):** `CharacterSelectOverlay` ahora
   muestra un botón explícito para confirmar el peleador resaltado (antes solo el 2.º toque).

@@ -53,7 +53,27 @@
 | 08 | `08_SERVERS.md` | Servidores Node.js (open world v3 + zombi) + protocolo de red |
 | 09 | `09_CONVENTIONS_GOTCHAS.md` | Convenciones, reglas de gama baja, protocolo de actualización de docs |
 
-### Estado vigente (2026-07-21d) — LÉEME PRIMERO
+### Estado vigente (2026-07-21f) — LÉEME PRIMERO
+
+> **🆕 2026-07-21f (Opus 4.8) — La Llorona: cerrados los 3 recortes malos que quedaban:**
+> - **`crouchTurn`**: era ESPEJO, no recorte. `{"flipX": true}` en `crouch-turn-1/2/3` del
+>   `_frame_meta.json` de la staging → packer → `SfFrameCatalog` → `StreetFighterScreen`.
+>   **Cero Kotlin nuevo**: mecanismo genérico que ya usaban 4 peleadores.
+> - **`hurtHead` / `hit-face-1`**: la hoja 09 vieja tenía 14 poses SOLAPADAS y el slicer metía
+>   **4 figuras en un solo cuadro**. Hoja regenerada (vieja en `.BAK.png`) → `HURT HEAD 3/3 OK`.
+> - **`superArt` `super-4/5/6`**: ya estaba bien en la staging; solo faltaba **empaquetar**.
+> - ⚠️ **Trampa del slicer**: `SHEETS` lo comparten los 18 peleadores. La hoja 09 nueva de
+>   La Llorona trae **3** poses de HURT HEAD (no 14), así que se añadió `SHEET_OVERRIDES`
+>   por `(personaje, hoja)` en vez de tocar la tabla global. **Deuda asumida:** con 3 poses
+>   para 4 cuadros, `hit-face-2` y `hit-face-3` son el mismo pixel; si se regenera la hoja
+>   con 4+ poses separadas, actualizar el override y quitar la duplicación.
+> - **Tarea 2 resuelta**: `super-7` como efecto puro **solo en ESCOMBOY** (Policía CDMX
+>   Hombre y Rey Grupero SÍ llevan personaje). No es fallo de recorte, es el arte.
+> - ⚠️ **detekt no está a 0**: 5 smells PREEXISTENTES (`CachingWebViewClient`, `NpcAiManager`,
+>   `RoadRouter`, `CatSpriteManager` ×2), ajenos a este cambio. Corregir el "0 smells" del
+>   traspaso anterior.
+
+### Estado 2026-07-21d
 
 > **🆕 2026-07-21d (Fable) — FATALITY, coleccionables de peleador, WebP y audit MP:**
 > - **💀 FATALITY 18/18**: secuencia cinemática compuesta con arte EXISTENTE (súper → su

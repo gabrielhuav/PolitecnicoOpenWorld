@@ -7,6 +7,85 @@
 > CRLF, Read para verificar). Los BUGS del modo (stun-lock, revancha, servidor LAN) viven en
 > `PENDIENTES_SF_2026-07-16.md` y NO dependen de esto.
 
+## Cambios 2026-07-21f (Opus 4.8) — La Llorona: crouchTurn con `flipX`, hoja 09 regenerada, re-pack
+
+Cierra los tres recortes malos que quedaban de La Llorona (auditados por el dueño en
+`tools/_audit_sheets/lallorona_TODO.png`). **Solo se re-recortaron las hojas 09 y 29**; los
+otros 17 peleadores no se tocaron (`git diff --stat` lo confirma: nada fuera de La Llorona).
+
+### 1. `crouchTurn` — no era recorte, era ESPEJO
+
+Los tres cuadros salían con la orientación invertida. No hace falta re-recortar la hoja 02:
+se marcan a mano en el `_frame_meta.json` de la staging y la cadena ya existente los espeja:
+
+```
+GEN/lallorona/_frame_meta.json  {"crouch-turn-1|2|3": {"flipX": true}}
+  → tools/pack_sf_character.py:624        (copia flipX al entry del JSON)
+  → DATA/lallorona.json                   ("flipX": true en los 3 cuadros)
+  → SfFrameCatalog.kt:87                  (lo lee al construir SfFrameDef)
+  → StreetFighterScreen.kt:3336           (drawDirection = direction.opposite())
+```
+
+Es el mismo mecanismo genérico que ya usan Señor Tienda, Paramédico, Charro Negro y
+Prankedy; **no se tocó ni una línea de Kotlin**. Revertirlo es borrar 3 claves del JSON.
+
+### 2. `hurtHead` / `hit-face-1` — hoja 09 regenerada (⚠️ ojo con el conteo)
+
+La hoja 09 anterior traía **14 poses de HURT HEAD SOLAPADAS**. El slicer las fundía en 8
+blobs y uno medía **478 px = 4 figuras metidas en `hit-face-1`** (el PNG de la staging pesaba
+54 KB frente a los ~15 KB de sus vecinos: ese peso es el síntoma barato de detectar).
+
+La hoja regenerada (`newSFAssets/LaLlorona9 New.png` → instalada como
+`LaLlorona_09_HeavyKick_HurtHead.png`, con la vieja guardada en `.BAK.png`) trae la fila
+HURT HEAD **bien separada, pero con solo 3 poses** en vez de 14.
+
+> ⚠️ **Trampa:** `SHEETS` en `slice_sf_chroma_sheets.py` describe el formato que comparten
+> los 18 peleadores. Bajar ahí el `14` a `3` habría roto la hoja 09 de los otros 17. Y
+> dejarlo en 14 con solo 3 figuras es igual de malo: `maybe_split` persigue los 14 blobs y
+> **trocea cada figura en rebanadas verticales** (daba `HURT HEAD 11/14`).
+>
+> Por eso se añadió `SHEET_OVERRIDES = {("lallorona", 9): {"HURT HEAD": 3}}`: excepción por
+> `(personaje, hoja)` que no toca la tabla global. Con ella: `HEAVY KICK 6/6 + HURT HEAD 3/3 OK`.
+
+**Consecuencia asumida (decisión del dueño):** la animación consume 4 cuadros y el arte da 3,
+así que `pick()` repite el central → **`hit-face-2` y `hit-face-3` son el mismo pixel** (rects
+distintos en el atlas, contenido idéntico). Lee bien como animación de daño (impacto → pico →
+pico sostenido → recuperación) y es muchísimo mejor que el `hit-face-1` con 4 figuras, pero
+**si algún día se regenera la hoja 09 con 4+ poses separadas, actualizar el override y
+quitar la duplicación.** La fila HEAVY KICK de esa misma hoja sí trae arte nueva y sale 6/6.
+
+### 3. `superArt` `super-4/5/6` — ya estaba arreglado en la staging, faltaba empaquetar
+
+La hoja 29 corta limpia con el slicer actual (`SUPER ART 8/8 + DANO AGACHADO 4/4 OK`).
+Re-recortarla dio salida **byte-idéntica** a lo que ya había en la staging: el arreglo vivía
+ahí desde antes y lo único que faltaba era el `pack_sf_character.py`. El atlas commiteado era
+la versión BUENA revertida, por eso el fix no se veía en el juego.
+
+### 4. Tarea 2 — `super-7` (blob 06 de la hoja 29) en otros peleadores: NO es fallo de recorte
+
+Verificado abriendo las hojas 29 fuente. El artista dibujó ese cuadro distinto según el
+personaje; el recorte es correcto en los tres casos:
+
+| Peleador | `super-7` | Veredicto |
+|---|---|---|
+| **ESCOMBOY** | **EFECTO PURO** — explosión sin personaje | El arte viene así; el personaje reaparece en `super-8`. No tocar. |
+| **PoliciaMasculinoCDMX** | CON personaje (puño en alto en el estallido azul) | Correcto. |
+| **ReyGrupero** | CON personaje (brazos abiertos en el estallido dorado) | Correcto. |
+
+Mismo caso que los `bonusPower` de La Presidenta: un cuadro de efecto puro es arte válido,
+no un recorte roto.
+
+### Verificación hecha
+
+- `HEAVY KICK 6/6 + HURT HEAD 3/3 OK` y `SUPER ART 8/8 + DANO AGACHADO 4/4 OK` (dry-run `--list`).
+- Revisión visual cuadro a cuadro del atlas YA empaquetado (recortando por `src` del JSON y
+  aplicando `flipX`), no solo de los PNG intermedios.
+- `DATA/lallorona.json`: `crouch-turn-1/2/3` con `"flipX": true`; `hit-face-1..4` con rects
+  distintos; 228 cuadros; `proj-*` intactos (**la hoja 12 no se tocó**, así que no hizo falta
+  re-aplicar `tools/fix_llorona_projectile.py`).
+- `git diff --stat`: solo `LaLlorona.webp`, `lallorona.json`, `slice_sf_chroma_sheets.py`,
+  la staging de La Llorona y la hoja 09. Ningún otro peleador.
+
 ## Cambios 2026-07-21e (Fable) — repaso de cierre: 4 huecos detectados y tapados
 
 Repaso de la lista completa del dueño contra lo implementado. Cuatro cosas NO estaban:

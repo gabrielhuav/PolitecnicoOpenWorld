@@ -1,1 +1,11 @@
-{}
+{
+  "crouch-turn-1": {
+    "flipX": true
+  },
+  "crouch-turn-2": {
+    "flipX": true
+  },
+  "crouch-turn-3": {
+    "flipX": true
+  }
+}

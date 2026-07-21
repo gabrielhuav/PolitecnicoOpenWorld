@@ -145,6 +145,17 @@ SHEETS = {
 # Grupos con targets SF None se guardan en GEN/<char>/_extra/ (capas de armas,
 # jump land, specials L/M, talk...): nada se tira.
 
+# Excepciones (personaje, hoja) -> {rotulo: cuadros reales}. SHEETS describe el formato
+# que comparten los 18 peleadores; cuando UNA hoja concreta se regenera con otra cantidad
+# de poses, se anota aqui en vez de tocar la tabla global (eso romperia a los demas).
+#
+# 🆕 (2026-07-21) La hoja 09 de La Llorona se regeneró con la fila HURT HEAD de 3 poses
+# BIEN SEPARADAS, en lugar de las 14 apretadas del resto. Sin esta excepcion, maybe_split
+# persigue 14 blobs y trocea cada figura en rebanadas verticales (11/14 en vez de 3/3).
+SHEET_OVERRIDES = {
+    ("lallorona", 9): {"HURT HEAD": 3},
+}
+
 def detect(path, close=5):
     im = Image.open(path).convert("RGB")
     a = np.asarray(im).astype(int)
@@ -510,7 +521,10 @@ def main():
     num = args.sheet_num or (int(m.group(1)) if m else None)
     if num not in SHEETS:
         sys.exit("No se qué hoja es (usa --sheet-num 1..29). Detectado: %s" % num)
-    (nameA, nA, sfA, wA), (nameB, nB, sfB, wB) = SHEETS[num]
+    override = SHEET_OVERRIDES.get((args.char, num), {})
+    sheet_spec = [(label, override.get(label, count), sf, world)
+                  for label, count, sf, world in SHEETS[num]]
+    (nameA, nA, sfA, wA), (nameB, nB, sfB, wB) = sheet_spec
 
     # cierre 5 normal; si el conteo no cuadra (efectos dispersos), reintenta con 25
     im, lbl, raw, bands = detect(args.sheet, close=5)
@@ -576,7 +590,7 @@ def main():
     else:
         sys.exit("Falta %s: procesa primero la hoja 01 (fija la escala)." % scale_file)
 
-    for (label, expected_count, (targets, mode), world), group in ((SHEETS[num][0], framesA), (SHEETS[num][1], framesB)):
+    for (label, expected_count, (targets, mode), world), group in ((sheet_spec[0], framesA), (sheet_spec[1], framesB)):
         sf_target_h = SF_POSE_TARGET_H.get(label, TARGET_H)
         if targets:
             if label == "PROJECTILE" and len(group) == 4 and len(targets) == 5:
