@@ -1003,7 +1003,11 @@ backdash (doble toque), bloqueo alto/bajo con pose propia, **parry** alto/bajo (
 antiaéreo, **barrida** (derriba → `THROWN`/`GET_UP`, invulnerable en el suelo), aéreos (uno
 por salto), **patada larga**, **overhead** (rompe guardia baja), **agarre→lanzamiento**
 (atraviesa el bloqueo), burla y **Super Art** con medidor (`SfFighter.superMeter`, barra en
-el HUD). La IA los usa vía `cpuNewMove`. Si a un peleador le falta una hoja, el movimiento
+el HUD). La IA los usa vía `cpuNewMove`. 🆕 (2026-07-22b) **MAREO/STUN clásico**: `dizzyMeter`
+(sube al recibir, decae tras 1.5 s) → `SfFighterState.STUN` ~2 s con pose `stun-3` (anim
+"stun" SINTETIZADA en `SfFrameCatalog`), estrellitas procedurales y barra de mareo; el súper
+BRILLA al llenarse y decae lento si no conectas (lleno no decae). Todo en `applyMeterDecay`
+(VM), todos los modos; detalle en `SF/DISENO_ARCADE_SF_POW.md` §2026-07-22b. Si a un peleador le falta una hoja, el movimiento
 igual se juega con **placeholder ALPHA** (silueta del estudiante de su género + rótulo).
 Detalle y tabla de controles: `DISENO_ARCADE_SF_POW.md` §2026-07-21. Pipeline de los
 assets: `FLUJO_ASSETS_SF.md`.

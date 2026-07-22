@@ -115,22 +115,12 @@ fun SfTutorialOverlay(
                     textAlign = TextAlign.Center,
                 )
             } else {
-                Text(
-                    text = stringResource(R.string.sf_tutorial_progress, lesson + 1, total),
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = title,
-                    color = Color(0xFF7BE0A8),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center,
-                )
-                Spacer(Modifier.height(4.dp))
-                // 🆕 Receta con IDENTIFICADORES VISUALES: cada paso es un chip del COLOR
-                // del botón real que hay que pulsar (X azul, Y amarillo, B rojo, A verde,
+                // 🆕 (2026-07-22, pedido del dueño) LAYOUT INVERTIDO: los BOTONES (la receta
+                // de chips = lo que hay que presionar) van ARRIBA — es lo primero que se ve —
+                // y la "hoja" (título de la lección + pista) queda ABAJO. Antes nadie leía
+                // la receta por estar debajo del texto.
+                // Receta con IDENTIFICADORES VISUALES: cada paso es un chip del COLOR del
+                // botón real que hay que pulsar (X azul, Y amarillo, B rojo, A verde,
                 // P cian, G naranja, S dorado) para que se reconozca de un vistazo.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -153,6 +143,20 @@ fun SfTutorialOverlay(
                         }
                     }
                 }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.sf_tutorial_progress, lesson + 1, total),
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = title,
+                    color = Color(0xFF7BE0A8),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                )
                 if (hint.isNotBlank()) {
                     Spacer(Modifier.height(3.dp))
                     Text(

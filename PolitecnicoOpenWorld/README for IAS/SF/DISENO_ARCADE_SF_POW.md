@@ -852,3 +852,48 @@ llaves y CRLF. Listo para Rebuild.
   FATALITY ya existía (universal `fatality`, level 4) — el plan que la daba por faltante
   estaba desactualizado. **Pendiente (requiere motor):** bloqueo BAJO y parry BAJO no tienen
   `SfComboAction` ni mapeo en `stateForAction` → sin lección posible solo con datos.
+
+## Cambios 2026-07-22b (Fable 5) — crash Llorona, carga en IO, STUN, metamorfosis, intro, tutorial
+
+Plan ejecutado: `PROMPT_FABLE5_stun_crash_optimizacion.md`. **Sin compilar en la sesión**
+(pendiente Rebuild + 6 modos, checklist en `_SESION_ACTUAL.md` §🧪).
+
+- **Crash La Llorona (P0, blindaje estático):** su JSON no trae `longKick`/`overhead` (única
+  peleadora ALPHA) → su pelea sumaba un **3er atlas a resolución completa** (~63 MB, EscomGirl)
+  con `SfSharedSheets.sheetFor` lanzando `error()`/OOM SIN runCatching en la composición.
+  Ahora: cada atlas va en `runCatching` (si falla se omite y `drawFighter` degrada a la primera
+  hoja) y el ALPHA se decodifica SIEMPRE a media resolución con escala propia
+  (`AlphaFallback.sheetScale`; es silueta negra — pérdida visual nula). Atlas/JSON verificados:
+  228 frames, rects en rango, fondos islamunecas presentes. Falta logcat que confirme.
+- **Carga de pelea a Dispatchers.IO (`SfFightAssets`):** atlas de peleadores + ALPHA + escaneo
+  de alturas salen del hilo de UI y corren bajo el overlay CARGANDO (el Canvas no dibuja hasta
+  tenerlos). La clave del `LaunchedEffect` es **`fightIds`, un Set con ambas identidades de la
+  metamorfosis** → transformarse a media pelea ya NO recompone/redecodifica nada (antes el
+  remember con `cpuId` re-decodificaba TODO al cambiar el id: la "trabada" al transformarse).
+- **MAREO/STUN (dureza moderada, todos los modos):** `SfFighterState.STUN("stun")` — **al
+  FINAL del enum** (viaja como `enum.name` con parse defensivo → retro-compatible) —,
+  `SfFighter.dizzyMeter` (sube al RECIBIR con tope `DIZZY_HIT_CAP=25`, decae tras 1.5 s
+  vía `applyMeterDecay`), lleno → STUN 2 s: congelado (`runStateHandler` ignora inputs),
+  pose `stun-3` con la anim **"stun" SINTETIZADA en `SfFrameCatalog.parse`** (los 18 JSON +
+  template traen frames stun-1/2/3 pero ninguna anim), estrellitas procedurales (Canvas,
+  órbita elíptica 3×120°) y barra naranja/roja bajo la de súper. Golpear al mareado lo saca
+  (STUN ∈ SF_HURT_STATES); al entrar el medidor se vacía (sin bucles). Online: solo el
+  peleador LOCAL calcula mareo (el remoto se pisa por snapshot; su STUN llega por `state`;
+  su `dizzyMeter` no viaja — deuda cosmética documentada).
+- **Medidor de súper:** halo dorado + relleno pulsante (~8 Hz) al llenarse; decaimiento LENTO
+  (4/s tras 4 s sin conectar, `superKeepMs` se refresca al conectar golpe/agarre/parry) —
+  **la barra LLENA no decae** (la súper cargada no se pierde sola).
+- **Metamorfosis entre rondas (decisión del dueño):** SOLO round 1 (`roundNumber == 1` en
+  `tryPresidentaMetamorphosis`), al transformarse **VIDA LLENA** (antes 50%), y PERSISTE
+  (`resetRound` copia `metamorphosed` y conserva el id — antes volvía a Presidenta con el
+  flag perdido).
+- **Intro del policía hombre:** `playSfSpecial` ya no permite que otra voz del mismo peleador
+  corte un clip `_intro`, y mientras la intro suena las voces nuevas de ese peleador se saltan.
+- **Navegación:** `lastLaunchedMode` en la Screen — al volver de una pelea se restaura el
+  selector del MISMO modo (arcade/práctica/IA vs IA/hoja de combos; gauntlet/showcase → menú).
+  Antes el `LaunchedEffect(inCharacterSelect)` forzaba SIEMPRE el selector de Arcade.
+- **Tutorial:** etiquetas de `actionLabel` referidas a los CONTROLES ACTUALES (nombran botón
+  X/Y/B/A/P/G/T/S y gesto de joystick; ⚠️ chipColor y sfButtonForLabel dependen de sus
+  substrings), el botón del paso actual PULSA con aro amarillo (`SfTutorialButtonGlow` en
+  `FighterXboxButtons`/`FighterNewMoveButtons`, deducido de la etiqueta con
+  `sfButtonForLabel`), y el panel se INVIRTIÓ: chips de botones ARRIBA, título/pista ABAJO.

@@ -96,6 +96,17 @@ object SfFrameCatalog {
             }
         }
 
+        // 🆕 (2026-07-22) MAREO: los 18 JSON (y el template) traen los CUADROS stun-1/2/3
+        // pero NINGUNO trae la ANIMACIÓN "stun" → se SINTETIZA aquí para el estado STUN
+        // sin re-empacar nada. (Hoy los 3 cuadros son la misma pose inclinada; si algún día
+        // el packer emite "stun" propia, esta síntesis se salta sola.)
+        if ("stun" !in animations) {
+            val stunFrames = listOf("stun-1", "stun-2", "stun-3")
+                .filter { frames.containsKey(it) }
+                .map { SfAnimFrame(frameKey = it, delay = 8) }
+            if (stunFrames.isNotEmpty()) animations["stun"] = stunFrames
+        }
+
         val projectileEvents = mutableMapOf<SfAttackStrength, SfProjectileEvent>()
         val projectileRoot = root.getAsJsonObject("events")?.getAsJsonObject("projectile")
         if (projectileRoot != null) {

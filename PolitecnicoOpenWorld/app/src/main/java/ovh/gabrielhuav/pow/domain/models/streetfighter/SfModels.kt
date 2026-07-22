@@ -64,6 +64,22 @@ object SfConstants {
     /** Distancia a la que el atacante reaparece tras CRUZAR al otro lado en el fatality. */
     const val FATALITY_CROSS_OFFSET = 54f
 
+    // ── 🆕 (2026-07-22) MAREO/STUN (dureza MODERADA, pedida por el dueño) ──
+    /** Medidor de mareo: sube al RECIBIR golpes (proporcional al daño) y decae sin castigo. */
+    const val DIZZY_METER_MAX = 100
+    /** Tope de mareo que aporta UN golpe (un fatality no marea de un solo golpe). */
+    const val DIZZY_HIT_CAP = 25
+    /** Gracia sin recibir golpes antes de que el mareo empiece a decaer. */
+    const val DIZZY_DECAY_GRACE_MS = 1500L
+    /** Velocidad de decaimiento del mareo (puntos por segundo). */
+    const val DIZZY_DECAY_PER_SEC = 35f
+    /** Duración del aturdimiento (congelado con estrellitas). */
+    const val STUN_DURATION_MS = 2000L
+    /** Gracia sin CONECTAR golpes antes de que el medidor de súper decaiga (lento). */
+    const val SUPER_DECAY_GRACE_MS = 4000L
+    /** Decaimiento lento del súper (puntos por segundo). La barra LLENA no decae. */
+    const val SUPER_DECAY_PER_SEC = 4f
+
     // battle.js
     const val HEALTH_MAX_HIT_POINTS = 200
     const val BATTLE_TIME = 99
@@ -350,6 +366,15 @@ enum class SfFighterState(val jsKey: String) {
      * la animación se orquesta en el VM (`fatalityStep`), no es una animación única.
      */
     FATALITY("fatality"),
+
+    /**
+     * 🆕 (2026-07-22) MAREO clásico de SF (estrellitas): se entra al LLENARSE el medidor
+     * de mareo (`SfFighter.dizzyMeter`, sube al RECIBIR golpes) y congela ~2 s. La pose es
+     * `stun-3` (los 18 la tienen; la animación "stun" se SINTETIZA en SfFrameCatalog porque
+     * los JSON empacados no la traen). ⚠️ Va AL FINAL del enum: el estado viaja por red
+     * como `enum.name` con parse defensivo (un cliente viejo simplemente lo ignora).
+     */
+    STUN("stun"),
 }
 
 /**
@@ -427,6 +452,8 @@ val SF_HURT_STATES: Set<SfFighterState> = setOf(
     SfFighterState.SUPER_ART, SfFighterState.HURT_CROUCH,
     SfFighterState.RUN, SfFighterState.IDLE_RELAXED, SfFighterState.TALK,
     SfFighterState.FATALITY,
+    // 🆕 (2026-07-22) El MAREADO es golpeable (así el rival lo castiga y lo saca del stun).
+    SfFighterState.STUN,
 ) + SF_BONUS_POWER_STATES
 
 /** Caja alineada a ejes relativa al ancla (pies) del peleador. */
@@ -509,6 +536,13 @@ data class SfFighter(
      * ataque máximo no se pueda repetir sin ganárselo, como en 3rd Strike.
      */
     val superMeter: Int = 0,
+    /**
+     * 🆕 (2026-07-22) MEDIDOR DE MAREO (0..[SfConstants.DIZZY_METER_MAX]): sube al RECIBIR
+     * golpes y decae tras ~1.5 s sin recibir. Al llenarse → estado STUN (congelado ~2 s con
+     * estrellitas) y el medidor se vacía. Cada peer lo calcula LOCALMENTE (online, el estado
+     * STUN del rival llega por el `state` del snapshot; este campo no viaja).
+     */
+    val dizzyMeter: Int = 0,
     /** 🆕 Ya usó su levantada tras el derribo actual (evita re-encadenar GET_UP). */
     val downed: Boolean = false,
 ) {

@@ -80,7 +80,26 @@
 Índice propio en **`SF/00_SF_INDEX.md`** (diseño, assets gráficos, audio, herramientas y las
 reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `street_fighter`/`Sf*`.
 
-### Estado vigente (2026-07-22) — LÉEME PRIMERO
+### Estado vigente (2026-07-22b) — LÉEME PRIMERO
+
+> **🆕 2026-07-22b (Fable 5, PM) — crash Llorona blindado, carga en IO, STUN, metamorfosis:**
+> - **🔴 Crash La Llorona (P0):** camino ALPHA blindado — `sheetFor` en `runCatching` y el
+>   3er atlas (silueta) SIEMPRE a media res (~63→16 MB). Falta confirmar en dispositivo.
+> - **🟠 Carga de pelea en IO:** atlas + escaneo de alturas bajo el overlay CARGANDO
+>   (`SfFightAssets`); la metamorfosis ya no re-decodifica nada (`fightIds` = Set estable).
+> - **🟡 MAREO/STUN moderado en todos los modos:** `dizzyMeter` + `SfFighterState.STUN`
+>   (al FINAL del enum, retro-compatible online), anim "stun" sintetizada, estrellitas
+>   procedurales + barra de mareo; súper con brillo al llenarse y decaimiento lento (llena
+>   no decae).
+> - **🟢 Metamorfosis (decisión del dueño):** SOLO round 1, con VIDA LLENA, y persiste
+>   entre rondas.
+> - **🔵 Intro del policía** ya no se corta; **🟣 navegación** vuelve al selector del MISMO
+>   modo; **tutorial**: etiquetas con los controles reales, botón del paso PULSANDO y chips
+>   arriba / hoja abajo.
+> - ⚠️ **SIN COMPILAR** (sesión sin AS): Rebuild + tests + detekt + 6 modos → checklist en
+>   `_SESION_ACTUAL.md` §🧪. Detalle completo: `SF/DISENO_ARCADE_SF_POW.md` §2026-07-22b.
+
+### Estado 2026-07-22a
 
 > **🆕 2026-07-22 (Fable 5) — SUBTÍTULOS DE VOZ ENCENDIDOS + tutorial ampliado:**
 > - **🗣️ Subtítulos ON:** `voiceSubtitlesEnabled = true`. `voice_phrases.json` es la verdad

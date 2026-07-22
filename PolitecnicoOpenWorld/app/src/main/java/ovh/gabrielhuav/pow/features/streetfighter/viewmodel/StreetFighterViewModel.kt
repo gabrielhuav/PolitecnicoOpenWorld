@@ -664,6 +664,13 @@ class StreetFighterViewModel @Inject constructor(
     // control del "un ataque aéreo por salto" y detección del doble toque para el dash.
     private val parryActiveUntilMs = LongArray(2)
     private val parryStunUntilMs = LongArray(2)
+    // 🆕 (2026-07-22) MAREO/STUN + decaimientos de medidores (molde de parryStunUntilMs):
+    // fin del aturdimiento, último golpe CONECTADO (gracia del decaimiento del súper) y
+    // acumuladores fraccionales del decaimiento por tick (los medidores son Int).
+    private val stunUntilMs = LongArray(2)
+    private val superKeepMs = LongArray(2)
+    private val dizzyDecayAcc = FloatArray(2)
+    private val superDecayAcc = FloatArray(2)
     private val airAttackUsed = BooleanArray(2)
     private val lastForwardTapMs = LongArray(2)
     private val lastBackwardTapMs = LongArray(2)
@@ -927,6 +934,7 @@ class StreetFighterViewModel @Inject constructor(
             SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_HEAD_MEDIUM, SfFighterState.HURT_HEAD_HEAVY,
             SfFighterState.HURT_BODY_LIGHT, SfFighterState.HURT_BODY_MEDIUM, SfFighterState.HURT_BODY_HEAVY,
             SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY,
+            SfFighterState.STUN, // 🆕 (2026-07-22) al terminar el mareo se vuelve a IDLE
             // 🆕 Tras poderes Grok / metamorfosis Presidenta→Yoalli se vuelve a IDLE
         ) + SF_BONUS_POWER_STATES.toSet(),
         SfFighterState.WALK_FORWARD to setOf(
@@ -971,6 +979,9 @@ class StreetFighterViewModel @Inject constructor(
         SfFighterState.SPECIAL_1_HEAVY to specialValidFrom,
         SfFighterState.VICTORY to SfFighterState.entries.toSet(),
         SfFighterState.KO to SfFighterState.entries.toSet(),
+        // 🆕 (2026-07-22) MAREO: lo fuerza el medidor lleno (llega desde cualquier estado;
+        // los guards de aire/suelo/metamorfosis van en applyMeterDecay).
+        SfFighterState.STUN to SfFighterState.entries.toSet(),
         // ── 🆕 (2026-07-21) MOVESET 3rd Strike ──
         // Movilidad: solo desde neutro de pie (no cancela golpes ni saltos).
         SfFighterState.DASH_FORWARD to neutralGround,
@@ -1393,6 +1404,13 @@ class StreetFighterViewModel @Inject constructor(
             SfFighterState.PARRY_HIGH, SfFighterState.PARRY_LOW,
             SfFighterState.TAUNT, SfFighterState.HURT_CROUCH,
             -> nf = nf.copy(velocityX = 0f, velocityY = 0f)
+            // 🆕 (2026-07-22) MAREO: congelado ~2 s y el medidor de mareo se VACÍA al entrar
+            // (si no, otro golpe lo re-aturdía en bucle). Sale a IDLE en runStateHandler.
+            SfFighterState.STUN -> {
+                nf = nf.copy(velocityX = 0f, velocityY = 0f, dizzyMeter = 0)
+                stunUntilMs[idx.coerceIn(0, 1)] = now + SfConstants.STUN_DURATION_MS
+                _soundEvents.tryEmit("land") // golpe seco al caer mareado
+            }
             else -> Unit // CROUCH / CROUCH_UP / IDLE_TURN / CROUCH_TURN: sin init
         }
         // 🆕 El parry abre su ventana ACTIVA al entrar (fuera de ella no protege).
@@ -1456,7 +1474,60 @@ class StreetFighterViewModel @Inject constructor(
         // Doble seguro: tras anim/empuje, NUNCA fuera de pantalla (IA vs IA)
         sim.setFighter(idx, clampFighterToStage(sim.fighter(idx)))
         watchStuck(sim, idx, now) // 🆕 red de seguridad: desatasca animaciones que no terminan
+        applyMeterDecay(sim, idx, now, dt) // 🆕 (2026-07-22) mareo/stun + decaimientos
         updateAttackBoxCollided(sim, idx, now)
+    }
+
+    /**
+     * 🆕 (2026-07-22) MAREO/STUN + decaimiento de medidores (corre cada tick, TODOS los modos).
+     * - Mareo lleno → estado STUN (~2 s congelado, estrellitas en la Screen) y el medidor se
+     *   vacía al entrar (changeState). Un golpe durante el stun lo saca por HURT_*.
+     * - El mareo DECAE tras ~1.5 s sin recibir; el súper decae LENTO tras ~4 s sin conectar
+     *   (la barra ya LLENA no decae: la súper cargada no se pierde sola).
+     * - ONLINE: el peleador REMOTO (idx 1) se pisa por snapshot → solo se procesa el LOCAL;
+     *   su STUN llega por el `state` del snapshot (enum.name, parse defensivo).
+     */
+    private fun applyMeterDecay(sim: Sim, idx: Int, now: Long, dt: Float) {
+        val i = idx.coerceIn(0, 1)
+        if (i == 1 && _state.value.onlineStatus != SfOnlineStatus.OFF) return
+        if (sim.battleEnded) return
+        var f = sim.fighter(idx)
+        if (f.state == SfFighterState.KO || f.state == SfFighterState.VICTORY) return
+        // Disparo del STUN (dureza MODERADA): solo en piso, no derribado ni transformándose.
+        if (f.dizzyMeter >= SfConstants.DIZZY_METER_MAX &&
+            f.state != SfFighterState.STUN &&
+            !f.downed && !f.isAirborne && !isMetamorphosing(f)
+        ) {
+            changeState(sim, idx, SfFighterState.STUN, now)
+            f = sim.fighter(idx)
+        }
+        // Decaimiento del MAREO (acumulador fraccional: el medidor es Int).
+        if (f.state != SfFighterState.STUN &&
+            f.dizzyMeter in 1 until SfConstants.DIZZY_METER_MAX &&
+            now - lastHitTakenMs[i] > SfConstants.DIZZY_DECAY_GRACE_MS
+        ) {
+            dizzyDecayAcc[i] += SfConstants.DIZZY_DECAY_PER_SEC * dt
+            val drop = dizzyDecayAcc[i].toInt()
+            if (drop > 0) {
+                dizzyDecayAcc[i] -= drop
+                sim.setFighter(
+                    idx,
+                    sim.fighter(idx).copy(dizzyMeter = (f.dizzyMeter - drop).coerceAtLeast(0)),
+                )
+            }
+        }
+        // Decaimiento LENTO del súper si dejas de acertar.
+        val g = sim.fighter(idx)
+        if (g.superMeter in 1 until SfConstants.SUPER_METER_MAX &&
+            now - superKeepMs[i] > SfConstants.SUPER_DECAY_GRACE_MS
+        ) {
+            superDecayAcc[i] += SfConstants.SUPER_DECAY_PER_SEC * dt
+            val drop = superDecayAcc[i].toInt()
+            if (drop > 0) {
+                superDecayAcc[i] -= drop
+                sim.setFighter(idx, g.copy(superMeter = (g.superMeter - drop).coerceAtLeast(0)))
+            }
+        }
     }
 
     /**
@@ -1877,6 +1948,13 @@ class StreetFighterViewModel @Inject constructor(
                     }
                 }
             }
+            // 🆕 (2026-07-22) MAREADO: ignora TODOS los inputs; sale solo (o antes, si un
+            // golpe lo mete a HURT_*: STUN está en SF_HURT_STATES).
+            SfFighterState.STUN -> {
+                if (now >= stunUntilMs[idx.coerceIn(0, 1)]) {
+                    forceState(sim, idx, SfFighterState.IDLE, now)
+                }
+            }
             SfFighterState.VICTORY -> Unit
         }
     }
@@ -2122,8 +2200,9 @@ class StreetFighterViewModel @Inject constructor(
             changeState(sim, idx, SfFighterState.IDLE, now)
             return
         }
-        val halfHp = SfConstants.HEALTH_MAX_HIT_POINTS / 2
-        completeMetamorphosis(sim, idx, SfFighterId.YOALLI_EHECATL, halfHp, now)
+        // 🆕 (2026-07-22, decisión del dueño) Al completar la metamorfosis arranca con la
+        // VIDA LLENA otra vez (antes 50%): es su "segunda vida" del round 1.
+        completeMetamorphosis(sim, idx, SfFighterId.YOALLI_EHECATL, SfConstants.HEALTH_MAX_HIT_POINTS, now)
     }
 
     /** Fin de BONUS_POWER_10 de Yoalli: regresa a La Presidenta conservando su vida. */
@@ -2349,6 +2428,7 @@ class StreetFighterViewModel @Inject constructor(
             attackerIdx,
             attacker.copy(superMeter = chargeSuper(attacker, SfConstants.SUPER_METER_ON_HIT)),
         )
+        superKeepMs[attackerIdx] = now // 🆕 conectó el agarre: su súper no decae aún
         if (attackerIdx == 0) sim.score0 += SfAttackStrength.HEAVY.score
         else sim.score1 += SfAttackStrength.HEAVY.score
         // El atacante pasa a la animación de lanzar (si la tiene)
@@ -2440,6 +2520,7 @@ class StreetFighterViewModel @Inject constructor(
                 sim.fighter(attackerIdx)
                     .copy(superMeter = chargeSuper(sim.fighter(attackerIdx), SfConstants.SUPER_METER_ON_HIT)),
             )
+            superKeepMs[attackerIdx] = now // 🆕 en tutorial también refresca la gracia
             hurtFreezeUntilMs = now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong() / 2
             return
         }
@@ -2462,6 +2543,7 @@ class StreetFighterViewModel @Inject constructor(
                 defenderIdx,
                 defender.copy(superMeter = chargeSuper(defender, SfConstants.SUPER_METER_ON_HIT)),
             )
+            superKeepMs[defenderIdx] = now // 🆕 el parry exitoso también "acierta"
             hurtFreezeUntilMs = now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong() / 2
             return
         }
@@ -2515,6 +2597,7 @@ class StreetFighterViewModel @Inject constructor(
                 if (blocked) SfConstants.SUPER_METER_ON_BLOCK else SfConstants.SUPER_METER_ON_HIT,
             ),
         )
+        superKeepMs[attackerIdx] = now // 🆕 (2026-07-22) conectó: su súper no decae aún
         defender = defender.copy(
             slideVelocity = strength.slideVelocity * (if (blocked) 0.5f else 1f),
             slideFriction = strength.slideFriction,
@@ -2524,6 +2607,14 @@ class StreetFighterViewModel @Inject constructor(
                 defender,
                 if (blocked) SfConstants.SUPER_METER_ON_BLOCK else SfConstants.SUPER_METER_ON_TAKE,
             ),
+            // 🆕 (2026-07-22) MAREO: sube al RECIBIR (proporcional al daño, con tope por
+            // golpe). Bloqueado NO marea. Al llenarse, applyMeterDecay dispara el STUN.
+            dizzyMeter = if (blocked) {
+                defender.dizzyMeter
+            } else {
+                (defender.dizzyMeter + minOf(damage, SfConstants.DIZZY_HIT_CAP))
+                    .coerceAtMost(SfConstants.DIZZY_METER_MAX)
+            },
         )
         if (!blocked) {
             rapidHitsTaken[defenderIdx] = if (chainHit) rapidHitsTaken[defenderIdx] + 1 else 1
@@ -2623,6 +2714,9 @@ class StreetFighterViewModel @Inject constructor(
     ): Boolean {
         val d = sim.fighter(defenderIdx)
         if (d.id != SfFighterId.LA_PRESIDENTA || d.metamorphosed || d.metamorphosing) return false
+        // 🆕 (2026-07-22, decisión del dueño) La metamorfosis automática SOLO ocurre en el
+        // ROUND 1. Si sobrevivió el round 1 sin transformarse, ya no se transforma.
+        if (_state.value.roundNumber != 1) return false
         val maxHp = SfConstants.HEALTH_MAX_HIT_POINTS
         val threshold = maxHp / 4 // 50 de 200
         if (d.hitPoints > threshold) return false
@@ -3969,34 +4063,39 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     /** Etiqueta corta y legible de cada acción (la pinta la hoja de combos y el tutorial). */
+    // 🆕 (2026-07-22, pedido del dueño) Etiquetas referidas a los CONTROLES ACTUALES:
+    // cada paso nombra el BOTÓN físico (X/Y/B/A/P/G/T/S) y/o el gesto de joystick exacto.
+    // ⚠️ Los substrings "PUÑO LIGERO/MEDIO/FUERTE", "PATADA", "PARRY", "AGARRE", "SÚPER",
+    // "BURLA" y "FATALITY" los usan chipColor (color del chip) y sfButtonForLabel (glow
+    // del botón) — no los rompas al reformular.
     private fun actionLabel(action: SfComboAction): String = when (action) {
-        SfComboAction.LIGHT_PUNCH -> "PUÑO LIGERO"
-        SfComboAction.MEDIUM_PUNCH -> "PUÑO MEDIO"
-        SfComboAction.HEAVY_PUNCH -> "PUÑO FUERTE"
-        SfComboAction.LIGHT_KICK -> "PATADA LIGERA"
-        SfComboAction.MEDIUM_KICK -> "PATADA MEDIA"
-        SfComboAction.HEAVY_KICK -> "PATADA FUERTE"
-        SfComboAction.CROUCH_PUNCH -> "↓ + PUÑO"
-        SfComboAction.CROUCH_KICK -> "↓ + PATADA"
-        SfComboAction.CROUCH_HEAVY_PUNCH -> "↓ + PUÑO FUERTE"
-        SfComboAction.SWEEP -> "↓ + PATADA FUERTE (BARRIDA)"
+        SfComboAction.LIGHT_PUNCH -> "PUÑO LIGERO (X)"
+        SfComboAction.MEDIUM_PUNCH -> "PUÑO MEDIO (Y)"
+        SfComboAction.HEAVY_PUNCH -> "PUÑO FUERTE (B)"
+        SfComboAction.LIGHT_KICK -> "PATADA LIGERA (A)"
+        SfComboAction.MEDIUM_KICK -> "PATADA MEDIA (→ + A)"
+        SfComboAction.HEAVY_KICK -> "PATADA FUERTE (← + A)"
+        SfComboAction.CROUCH_PUNCH -> "↓ + PUÑO (X)"
+        SfComboAction.CROUCH_KICK -> "↓ + PATADA (A)"
+        SfComboAction.CROUCH_HEAVY_PUNCH -> "↓ + PUÑO FUERTE (B)"
+        SfComboAction.SWEEP -> "BARRIDA: ↓ + PATADA FUERTE"
         SfComboAction.LONG_KICK -> "→ + PATADA FUERTE"
-        SfComboAction.OVERHEAD -> "→ + PUÑO MEDIO"
-        SfComboAction.AIR_PUNCH -> "PUÑO EN EL AIRE"
-        SfComboAction.AIR_KICK -> "PATADA EN EL AIRE"
+        SfComboAction.OVERHEAD -> "→ + PUÑO MEDIO (Y)"
+        SfComboAction.AIR_PUNCH -> "SALTA Y PUÑO (X)"
+        SfComboAction.AIR_KICK -> "SALTA Y PATADA (A)"
         SfComboAction.DASH_FORWARD -> "DOBLE TOQUE →"
         SfComboAction.DASH_BACKWARD -> "DOBLE TOQUE ←"
-        SfComboAction.PARRY -> "BOTÓN P (PARRY)"
-        SfComboAction.GRAB -> "BOTÓN G (AGARRE)"
-        SfComboAction.TAUNT -> "BOTÓN T (BURLA)"
+        SfComboAction.PARRY -> "PARRY (P)"
+        SfComboAction.GRAB -> "AGARRE (G, PEGADO)"
+        SfComboAction.TAUNT -> "BURLA (T)"
         SfComboAction.SPECIAL -> "↓ ↘ → + PUÑO"
-        SfComboAction.SUPER_ART -> "BOTÓN S (SÚPER)"
-        SfComboAction.JUMP -> "SALTAR"
-        SfComboAction.CROUCH -> "AGACHARSE"
-        SfComboAction.WALK_FORWARD -> "CAMINAR ADELANTE"
-        SfComboAction.RUN -> "SEGUIR ADELANTE (CORRER)"
-        SfComboAction.BLOCK_HIGH -> "MANTENER ATRÁS"
-        SfComboAction.FATALITY -> "BOTÓN S CORRIENDO (FATALITY)"
+        SfComboAction.SUPER_ART -> "SÚPER (S, MEDIDOR LLENO)"
+        SfComboAction.JUMP -> "SALTAR (JOYSTICK ↑)"
+        SfComboAction.CROUCH -> "AGACHARSE (JOYSTICK ↓)"
+        SfComboAction.WALK_FORWARD -> "CAMINAR ADELANTE (JOYSTICK →)"
+        SfComboAction.RUN -> "TRAS EL DASH, SOSTÉN → (CORRER)"
+        SfComboAction.BLOCK_HIGH -> "MANTENER ATRÁS (CUBRIRSE)"
+        SfComboAction.FATALITY -> "FATALITY: CORRE Y PULSA S"
     }
 
     /**
@@ -4865,6 +4964,11 @@ class StreetFighterViewModel @Inject constructor(
         // 🆕 (2026-07-21) moveset nuevo
         parryActiveUntilMs.fill(0L)
         parryStunUntilMs.fill(0L)
+        // 🆕 (2026-07-22) mareo/stun + decaimientos
+        stunUntilMs.fill(0L)
+        superKeepMs.fill(0L)
+        dizzyDecayAcc.fill(0f)
+        superDecayAcc.fill(0f)
         airAttackUsed.fill(false)
         lastForwardTapMs.fill(0L)
         lastBackwardTapMs.fill(0L)
@@ -5557,13 +5661,19 @@ class StreetFighterViewModel @Inject constructor(
         val rightX = base.cpu.x
         // Mismo acomodo que al arrancar: offline jugador a la izquierda; online el HOST
         val playerLeft = !onlineFight || s.isHost
+        // 🆕 (2026-07-22, decisión del dueño) La METAMORFOSIS PERSISTE entre rondas: si La
+        // Presidenta ya se transformó en Yoalli, la ronda siguiente ARRANCA como Yoalli y NO
+        // se re-transforma (antes `metamorphosed` volvía al false del base con el id nuevo →
+        // estado inconsistente: "en la segunda regresa a ser La Presidenta").
         val p0 = base.player.copy(
             id = s.player.id,
+            metamorphosed = s.player.metamorphosed,
             x = if (playerLeft) leftX else rightX,
             direction = if (playerLeft) SfDirection.RIGHT else SfDirection.LEFT,
         )
         val p1 = base.cpu.copy(
             id = s.cpu.id,
+            metamorphosed = s.cpu.metamorphosed,
             x = if (playerLeft) rightX else leftX,
             direction = if (playerLeft) SfDirection.LEFT else SfDirection.RIGHT,
         )
@@ -5591,6 +5701,11 @@ class StreetFighterViewModel @Inject constructor(
         // 🆕 (2026-07-21) moveset nuevo (la ronda nueva arranca sin ventanas abiertas)
         parryActiveUntilMs.fill(0L)
         parryStunUntilMs.fill(0L)
+        // 🆕 (2026-07-22) mareo/stun + decaimientos
+        stunUntilMs.fill(0L)
+        superKeepMs.fill(0L)
+        dizzyDecayAcc.fill(0f)
+        superDecayAcc.fill(0f)
         airAttackUsed.fill(false)
         defenderBlockingLow.fill(false)
         dirHeldPrev[0] = false to false

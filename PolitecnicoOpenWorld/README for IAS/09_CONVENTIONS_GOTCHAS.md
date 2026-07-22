@@ -396,6 +396,18 @@ matrices por defecto son **border-only** hasta reemplazarse.
 
 ## 12. Otros / Misc
 
+- **🆕 GOTCHA SF — `SfFighterState` viaja por red como `enum.name` (2026-07-22):** los
+  estados nuevos se añaden **AL FINAL del enum** y el parse remoto es defensivo
+  (`valueOf` en runCatching → un cliente viejo conserva el estado anterior). Regla hermana:
+  `runStateHandler` tiene un `when` EXHAUSTIVO sin else → todo estado nuevo necesita rama
+  ahí, en `validFrom` (y en los sets de SfModels que apliquen) o no compila/no se juega.
+- **🆕 GOTCHA SF — assets PESADOS de pelea SOLO vía `SfFightAssets` (2026-07-22):** los
+  atlas de peleador/ALPHA y el escaneo de alturas se decodifican en `Dispatchers.IO` bajo
+  el overlay CARGANDO, con clave **`fightIds` (Set con AMBAS identidades de la
+  metamorfosis)**. NO volver a decodificar hojas en `remember{}` del hilo de UI (era el
+  "se traba al cargar") ni cambiar la clave a `playerId/cpuId` sueltos (la metamorfosis
+  re-decodificaría todo a media pelea). Todo decode de atlas va en `runCatching`
+  (crash P0 de La Llorona: OOM/`error()` sin atrapar con el 3er atlas ALPHA).
 - **🆕 GOTCHA BLUETOOTH — `cancelDiscovery()` EXIGE BLUETOOTH_SCAN (2026-07-16):** en Android
   12+ hasta CANCELAR el discovery pide el permiso SCAN; el flujo de ANFITRIÓN solo pide
   CONNECT+ADVERTISE → crasheaba con SecurityException al abrir. **Regla:** en `SfBtClient`

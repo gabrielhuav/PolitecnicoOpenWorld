@@ -179,12 +179,24 @@ private fun playSfSpecial(
     // el contraataque tras recuperarse cortaba su propio quejido → "el hurt no suena"). Solo otro
     // HURT lo reinicia (= te pegaron otra vez).
     // 🆕 (2026-07-19c) Un ataque especial en curso (isSpecialPowerAudio) NUNCA se detiene por otras acciones.
+    // 🆕 (2026-07-22) La INTRO ("Está prohibido beber en vía pública", ~15 s) DEBE terminar:
+    // (a) nunca la corta otra voz del mismo peleadór, y (b) mientras suena, las voces nuevas
+    // de ESE peleadór se SALTAN (no se encima el grito de ataque). Otro clip de intro sí la
+    // reemplaza (re-disparo de ronda nueva).
     val newName = assetPath.substringAfterLast('/')
     val newPrefix = getFighterPrefix(newName)
     val newIsHurt = newName.contains("_hurt")
+    val newIsIntro = newName.contains("_intro")
+    if (!newIsIntro) {
+        val introPlaying = activePlayers.keys.any { key ->
+            val kf = key.substringAfterLast('/')
+            kf.contains("_intro") && getFighterPrefix(kf) == newPrefix
+        }
+        if (introPlaying) return false
+    }
     val keysToStop = activePlayers.keys.filter { key ->
         val kf = key.substringAfterLast('/')
-        !isSpecialPowerAudio(kf) &&
+        !isSpecialPowerAudio(kf) && !kf.contains("_intro") &&
         getFighterPrefix(kf) == newPrefix && (newIsHurt || !kf.contains("_hurt"))
     }
     keysToStop.forEach { key ->
@@ -260,8 +272,9 @@ fun StreetFighterScreen(
     val sheetSampleScale = remember(sheetSample) { 1f / sheetSample }
     // 🆕 Hojas pesadas SOLO en pelea (no en selector → menos RAM/lag al abrir el modo).
     // En selector solo se usan thumbs de region-decoder por card.
-    val images = remember(theme, playerId, cpuId, state.inCharacterSelect) {
-        val m = theme.imageFiles.associateWith { name ->
+    // Tema (HUD/sombra/splash): livianos, se decodifican una vez en composición.
+    val themeImages = remember(theme) {
+        theme.imageFiles.associateWith { name ->
             // HUD/sombra: siempre; kenstage puede faltar
             val opts = BitmapFactory.Options().apply {
                 inPreferredConfig = Bitmap.Config.RGB_565
@@ -271,71 +284,98 @@ fun StreetFighterScreen(
                     BitmapFactory.decodeStream(it, null, opts)
                 }?.asImageBitmap()
             }.getOrNull()
-        }.filterValues { it != null }.mapValues { it.value!! }.toMutableMap()
-        if (!state.inCharacterSelect) {
-            // Precargar ambas identidades si una puede metamorfosearse durante la pelea.
-            val ids = buildList {
-                add(playerId)
-                add(cpuId)
-                if (playerId == SfFighterId.LA_PRESIDENTA || cpuId == SfFighterId.LA_PRESIDENTA) {
-                    add(SfFighterId.YOALLI_EHECATL)
-                }
-                if (playerId == SfFighterId.YOALLI_EHECATL || cpuId == SfFighterId.YOALLI_EHECATL) {
-                    add(SfFighterId.LA_PRESIDENTA)
-                }
-            }.distinct()
-            // 🆕 (2026-07-21) GAMA BAJA: los atlas dedicados se decodifican a 1/2 de
-            // resolución (73 MB → 18 MB de RAM por peleador). Ver `sheetSample` abajo.
-            ids.forEach { id ->
-                m[id.spriteAsset.substringAfterLast('/')] =
-                    SfSharedSheets.sheetFor(context, id, sheetSample).asImageBitmap()
-            }
-        }
-        m
+        }.filterValues { it != null }.mapValues { it.value!! }
     }
     val playerData = remember(playerId) { SfFrameCatalog.load(context, playerId) }
     val cpuData = remember(cpuId) { SfFrameCatalog.load(context, cpuId) }
-    // 🆕 (2026-07-21) PLACEHOLDER ALPHA: hoja del estudiante del mismo género, cargada SOLO
-    // si alguno de los dos peleadores tiene movimientos sin arte propia (hoy: La Llorona,
-    // que no trae PATADA LARGA / OVERHEAD). Se dibuja en silueta con el rótulo "ALPHA".
-    val alphaFallback = remember(playerId, cpuId, state.inCharacterSelect, sheetSample) {
-        if (state.inCharacterSelect) return@remember null
-        val needy = listOf(playerId to playerData, cpuId to cpuData).firstOrNull { (_, d) ->
-            SF_NEW_MOVE_STATES.any { d.animations[it.jsKey].isNullOrEmpty() }
-        } ?: return@remember null
-        val fallbackId = viewModel.alphaFallbackId(needy.first)
-        runCatching {
-            AlphaFallback(
-                data = SfFrameCatalog.load(context, fallbackId),
-                sheetKey = fallbackId.spriteAsset.substringAfterLast('/'),
-                // 🆕 Es un TERCER atlas en RAM: en gama baja va submuestreado como los otros.
-                bitmap = context.assets.open(fallbackId.spriteAsset).use {
-                    BitmapFactory.decodeStream(
-                        it,
-                        null,
-                        BitmapFactory.Options().apply { inSampleSize = sheetSample },
-                    )
-                }?.asImageBitmap(),
-            )
-        }.getOrNull()?.takeIf { it.bitmap != null }
-    }
     val lowEnd = remember { viewModel.isLowEndDevice() }
-    // 🆕 Alturas de CONTENIDO opaco: en GAMA BAJA se OMITEN (scan caro de cada frame del
-    // sheet al entrar a pelea → lag de carga). En media/alta se miden para forzar tamaño.
-    val playerContentH = remember(playerId, images, lowEnd) {
-        if (lowEnd) emptyMap()
-        else {
-            val sheet = images[playerId.spriteAsset.substringAfterLast('/')]
-            if (sheet != null) measureFrameContentHeights(sheet, playerData.frames) else emptyMap()
+    // 🆕 (2026-07-22, Bloque B) IDs de la pelea INCLUYENDO ambas identidades de una posible
+    // metamorfosis. Es un SET (igualdad por contenido): cuando La Presidenta se transforma
+    // a media pelea el set NO cambia → NO se re-decodifica nada (antes el remember se
+    // recomputaba con el id nuevo y el juego "se trababa unos segundos" al transformarse).
+    val fightIds = remember(playerId, cpuId) {
+        buildSet {
+            add(playerId)
+            add(cpuId)
+            if (playerId == SfFighterId.LA_PRESIDENTA || cpuId == SfFighterId.LA_PRESIDENTA) {
+                add(SfFighterId.YOALLI_EHECATL)
+            }
+            if (playerId == SfFighterId.YOALLI_EHECATL || cpuId == SfFighterId.YOALLI_EHECATL) {
+                add(SfFighterId.LA_PRESIDENTA)
+            }
         }
     }
-    val cpuContentH = remember(cpuId, images, lowEnd) {
-        if (lowEnd) emptyMap()
-        else {
-            val sheet = images[cpuId.spriteAsset.substringAfterLast('/')]
-            if (sheet != null) measureFrameContentHeights(sheet, cpuData.frames) else emptyMap()
+    // 🆕 (2026-07-22, Bloque B) TODO lo PESADO de la pelea (atlas de peleadores a
+    // `sheetSample`, atlas ALPHA y el escaneo de alturas de contenido) se decodifica en
+    // Dispatchers.IO bajo el overlay CARGANDO. Antes iba en remember{} EN EL HILO DE UI
+    // (el "se traba unos segundos al cargar") y sheetFor podía lanzar error()/OOM SIN
+    // atrapar (crash P0 de La Llorona: su pelea es la ÚNICA que suma un 3er atlas ALPHA).
+    var fightAssets by remember { mutableStateOf<SfFightAssets?>(null) }
+    LaunchedEffect(fightIds, state.inCharacterSelect, sheetSample, lowEnd) {
+        if (state.inCharacterSelect) {
+            fightAssets = null
+            return@LaunchedEffect
+        }
+        fightAssets = null
+        fightAssets = withContext(kotlinx.coroutines.Dispatchers.IO) {
+            // BLINDAJE P0: un atlas que no decodifica (OOM/IO) NO tumba el juego — se
+            // omite y drawFighter cae a la primera hoja disponible (feo pero jugable).
+            val sheets = buildMap {
+                fightIds.forEach { id ->
+                    runCatching { SfSharedSheets.sheetFor(context, id, sheetSample).asImageBitmap() }
+                        .getOrNull()
+                        ?.let { put(id.spriteAsset.substringAfterLast('/'), it) }
+                }
+            }
+            // PLACEHOLDER ALPHA (hoy solo La Llorona: sin PATADA LARGA/OVERHEAD). Se pinta
+            // como SILUETA NEGRA → media resolución NO se nota y evita el pico de RAM del
+            // 3er atlas (~63 → ~16 MB en gama alta, ~4 MB en baja): principal sospechoso
+            // del crash por OOM de sus peleas. Lleva SU escala en sheetScale.
+            val needyId = fightIds.firstOrNull { id ->
+                val d = SfFrameCatalog.load(context, id)
+                SF_NEW_MOVE_STATES.any { d.animations[it.jsKey].isNullOrEmpty() }
+            }
+            val alpha = needyId?.let { needy ->
+                val fallbackId = viewModel.alphaFallbackId(needy)
+                val alphaSample = if (sheetSample > 1) sheetSample * 2 else 2
+                runCatching {
+                    AlphaFallback(
+                        data = SfFrameCatalog.load(context, fallbackId),
+                        sheetKey = fallbackId.spriteAsset.substringAfterLast('/'),
+                        bitmap = context.assets.open(fallbackId.spriteAsset).use {
+                            BitmapFactory.decodeStream(
+                                it,
+                                null,
+                                BitmapFactory.Options().apply { inSampleSize = alphaSample },
+                            )
+                        }?.asImageBitmap(),
+                        sheetScale = 1f / alphaSample,
+                    )
+                }.getOrNull()?.takeIf { it.bitmap != null }
+            }
+            // Alturas de CONTENIDO opaco POR IDENTIDAD: en GAMA BAJA se OMITEN (scan caro);
+            // en media/alta se miden AQUÍ (IO), ya no en el hilo de UI.
+            val contentH = if (lowEnd) {
+                emptyMap()
+            } else {
+                fightIds.associateWith { id ->
+                    val sheet = sheets[id.spriteAsset.substringAfterLast('/')]
+                    if (sheet != null) {
+                        measureFrameContentHeights(sheet, SfFrameCatalog.load(context, id).frames)
+                    } else {
+                        emptyMap()
+                    }
+                }
+            }
+            SfFightAssets(sheets, alpha, contentH)
         }
     }
+    val images = remember(themeImages, fightAssets) {
+        themeImages + (fightAssets?.sheets ?: emptyMap())
+    }
+    val alphaFallback = fightAssets?.alpha
+    val playerContentH = fightAssets?.contentH?.get(playerId) ?: emptyMap()
+    val cpuContentH = fightAssets?.contentH?.get(cpuId) ?: emptyMap()
 
     // ---- Selección offline en 4 pasos: PELEADOR → RIVAL → DIFICULTAD → MAPA ----
     var pendingFighter by remember { mutableStateOf<SfFighterId?>(null) }
@@ -521,7 +561,9 @@ fun StreetFighterScreen(
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         // ---- Escena completa (mundo + HUD) en un Canvas ----
         // En selector no hace falta el Canvas de pelea (ahorra GPU en gama baja).
-        if (!state.inCharacterSelect) {
+        // 🆕 (2026-07-22) Y tampoco se dibuja hasta tener los atlas de peleador (fightAssets):
+        // sin ellos drawFighter caería a la hoja del HUD (basura visual bajo el overlay).
+        if (!state.inCharacterSelect && fightAssets != null) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 drawScene(
                     theme, state, images, playerData, cpuData, stageBg,
@@ -534,13 +576,22 @@ fun StreetFighterScreen(
             }
         }
         // 🆕 Pantalla CARGANDO (fuente POW del HUD) mientras se decodifican atlas/hojas
-        if (!state.inCharacterSelect && (assetsLoading || stageBg == null && effectiveBgFile != null)) {
+        // (fondo Y ahora también los atlas de peleador, ver fightAssets arriba).
+        if (!state.inCharacterSelect &&
+            (assetsLoading || fightAssets == null || stageBg == null && effectiveBgFile != null)
+        ) {
             SfLoadingOverlay(theme = theme)
         }
 
         // ---- Controles de POW: joystick + diamante Xbox (ocultos en selección y en IA vs IA) ----
         // IA vs IA: ambos los controla la CPU → solo botón "Salir" al menú (sin joystick/botones).
         if (!state.inCharacterSelect && !state.aiVsAi) {
+            // 🆕 (2026-07-22) TUTORIAL: botón físico que pide el PASO ACTUAL (para el glow).
+            val tutorialButton = if (state.tutorialActive && !state.tutorialCompleted) {
+                state.tutorialSteps.getOrNull(state.tutorialStepIndex)?.let(::sfButtonForLabel)
+            } else {
+                null
+            }
             JoystickController(
                 modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
                 onMove = viewModel::onJoystickMove,
@@ -555,6 +606,7 @@ fun StreetFighterScreen(
                 onKick = viewModel::onKickPressed,
                 bonusPowerCount = state.player.id.bonusPowerCount,
                 onBonusPower = viewModel::onBonusPowerPressed,
+                highlight = tutorialButton,
             )
             // 🆕 (2026-07-21) Botones del moveset 3rd Strike. Solo se muestran si el
             // peleador TIENE ese arte (los compartidos/ALPHA no los tienen).
@@ -568,6 +620,7 @@ fun StreetFighterScreen(
                     onGrab = viewModel::onGrabPressed,
                     onTaunt = viewModel::onTauntPressed,
                     onSuper = viewModel::onSuperArtPressed,
+                    highlight = tutorialButton,
                 )
             }
             // 🆕 (2026-07-21) TUTORIAL: HUD guía encima de la pelea (el jugador usa los
@@ -722,11 +775,22 @@ fun StreetFighterScreen(
         // 🆕 (2026-07-21) HOJA DE COMBOS: lista de controles y combos + "PROBAR" (tutorial).
         var showComboSheet by remember { mutableStateOf(false) }
         var comboFighter by remember { mutableStateOf<SfFighterId?>(null) }
+        // 🆕 (2026-07-22) MEMORIA DEL MODO: al salir de una pelea se vuelve al selector DEL
+        // MISMO modo (antes SIEMPRE forzaba el selector de Arcade). Se registra al LANZAR
+        // cada modo; "menu" = gauntlet/showcase (no tienen selector propio) → menú de modos.
+        var lastLaunchedMode by remember { mutableStateOf("arcade") }
         LaunchedEffect(state.inCharacterSelect) {
             if (state.inCharacterSelect) {
-                arcadeSetup = true
+                arcadeSetup = false
                 sfMenu = false
                 aiVsAiSetup = false
+                when (lastLaunchedMode) {
+                    "arcade" -> arcadeSetup = true
+                    "aivsai" -> aiVsAiSetup = true
+                    "practice" -> Unit // el selector de práctica es la rama default
+                    "combos" -> showComboSheet = true // vuelve a la hoja del peleador probado
+                    else -> sfMenu = true
+                }
             }
         }
         if (state.inCharacterSelect) {
@@ -822,6 +886,7 @@ fun StreetFighterScreen(
                             combos = remember(comboFighter) { viewModel.comboSheet(comboFighter!!) },
                             onTry = {
                                 showComboSheet = false
+                                lastLaunchedMode = "combos" // 🆕 al salir del tutorial: la hoja
                                 viewModel.startTutorial(comboFighter!!)
                             },
                             onChangeFighter = { comboFighter = null },
@@ -877,16 +942,19 @@ fun StreetFighterScreen(
                             onGauntletAll = {
                                 viewModel.stopAudioShowcase()
                                 sfMenu = false
+                                lastLaunchedMode = "menu" // 🆕 sin selector propio → menú
                                 viewModel.startGauntletRoundRobin()
                             },
                             onGauntletArcade = {
                                 viewModel.stopAudioShowcase()
                                 sfMenu = false
+                                lastLaunchedMode = "menu"
                                 viewModel.startGauntletArcade()
                             },
                             onGauntletShowcase = {
                                 viewModel.stopAudioShowcase()
                                 sfMenu = false
+                                lastLaunchedMode = "menu"
                                 viewModel.startShowcase()
                             },
                             onAudioShowcaseStop = viewModel::stopAudioShowcase,
@@ -906,6 +974,7 @@ fun StreetFighterScreen(
                         arcadeSetup && difficulty == null -> ArcadeDifficultyOverlay(
                             onSelect = { d ->
                                 val p = fighter ?: return@ArcadeDifficultyOverlay
+                                lastLaunchedMode = "arcade" // 🆕 volver = selector de Arcade
                                 viewModel.startArcade(p, d)
                                 pendingFighter = null
                                 pendingDifficulty = null
@@ -943,6 +1012,7 @@ fun StreetFighterScreen(
                                     chosenBgFile = pool.randomOrNull()
                                         ?: theme.fullBackgrounds.firstOrNull()?.file
                                 }
+                                lastLaunchedMode = "aivsai" // 🆕 volver = selector de IA vs IA
                                 viewModel.startAiVsAi(a, b)
                                 pendingFighter = null
                                 pendingRival = null
@@ -990,6 +1060,7 @@ fun StreetFighterScreen(
                                 chosenBgFile = file
                                     ?: pool.randomOrNull()
                                     ?: theme.fullBackgrounds.firstOrNull()?.file
+                                lastLaunchedMode = "practice" // 🆕 volver = selector de práctica
                                 viewModel.selectCharacter(fighter, rival, difficulty)
                             },
                             onBack = { pendingFighter = null; pendingRival = null; pendingDifficulty = null },
@@ -2578,6 +2649,8 @@ private fun FighterXboxButtons(
     onKick: () -> Unit,
     bonusPowerCount: Int,
     onBonusPower: () -> Unit,
+    // 🆕 (2026-07-22) TUTORIAL: letra del botón que TOCA presionar (brilla/pulsa) o null.
+    highlight: String? = null,
 ) {
     Box(
         modifier = modifier
@@ -2588,24 +2661,32 @@ private fun FighterXboxButtons(
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             // Y arriba — PUÑO MEDIO (amarillo)
-            ActionButton(text = "Y", color = Color(0xFFF1C40F), onHoldEvent = { pressed ->
-                if (pressed) onPunch(SfAttackStrength.MEDIUM)
-            })
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // X izquierda — PUÑO LIGERO (azul)
-                ActionButton(text = "X", color = Color(0xFF3498DB), onHoldEvent = { pressed ->
-                    if (pressed) onPunch(SfAttackStrength.LIGHT)
-                })
-                Spacer(modifier = Modifier.size(48.dp))
-                // B derecha — PUÑO FUERTE (rojo)
-                ActionButton(text = "B", color = Color(0xFFE74C3C), onHoldEvent = { pressed ->
-                    if (pressed) onPunch(SfAttackStrength.HEAVY)
+            SfTutorialButtonGlow(active = highlight == "Y") {
+                ActionButton(text = "Y", color = Color(0xFFF1C40F), onHoldEvent = { pressed ->
+                    if (pressed) onPunch(SfAttackStrength.MEDIUM)
                 })
             }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // X izquierda — PUÑO LIGERO (azul)
+                SfTutorialButtonGlow(active = highlight == "X") {
+                    ActionButton(text = "X", color = Color(0xFF3498DB), onHoldEvent = { pressed ->
+                        if (pressed) onPunch(SfAttackStrength.LIGHT)
+                    })
+                }
+                Spacer(modifier = Modifier.size(48.dp))
+                // B derecha — PUÑO FUERTE (rojo)
+                SfTutorialButtonGlow(active = highlight == "B") {
+                    ActionButton(text = "B", color = Color(0xFFE74C3C), onHoldEvent = { pressed ->
+                        if (pressed) onPunch(SfAttackStrength.HEAVY)
+                    })
+                }
+            }
             // A abajo — PATADA (verde; fuerza según joystick: neutro/adelante/atrás)
-            ActionButton(text = "A", color = Color(0xFF2ECC71), onHoldEvent = { pressed ->
-                if (pressed) onKick()
-            })
+            SfTutorialButtonGlow(active = highlight == "A") {
+                ActionButton(text = "A", color = Color(0xFF2ECC71), onHoldEvent = { pressed ->
+                    if (pressed) onKick()
+                })
+            }
         }
         if (bonusPowerCount > 0) {
             // Centro del diamante: recorre P1..PN. El siguiente toque avanza al poder
@@ -2615,6 +2696,47 @@ private fun FighterXboxButtons(
             })
         }
     }
+}
+
+/**
+ * 🆕 (2026-07-22) RESALTADO del botón que pide el paso ACTUAL del tutorial: pulsa de tamaño
+ * y lleva un aro amarillo. Con active=false es transparente (no cambia el layout del botón).
+ */
+@Composable
+private fun SfTutorialButtonGlow(active: Boolean, content: @Composable () -> Unit) {
+    if (!active) {
+        content()
+        return
+    }
+    val pulse by rememberInfiniteTransition(label = "sfTutorialPulse").animateFloat(
+        initialValue = 0.92f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(tween(340), RepeatMode.Reverse),
+        label = "sfTutorialPulseF",
+    )
+    Box(
+        modifier = Modifier
+            .graphicsLayer { scaleX = pulse; scaleY = pulse }
+            .border(3.dp, Color(0xFFFFF176), CircleShape),
+        contentAlignment = Alignment.Center,
+    ) { content() }
+}
+
+/**
+ * 🆕 (2026-07-22) Botón físico que corresponde a la etiqueta de un paso del tutorial
+ * (mismo truco de substring que chipColor en SfTutorialOverlay). null = va con el joystick.
+ */
+private fun sfButtonForLabel(label: String): String? = when {
+    label.contains("FATALITY") || label.contains("SÚPER") -> "S"
+    label.contains("PARRY") -> "P"
+    label.contains("AGARRE") -> "G"
+    label.contains("BURLA") -> "T"
+    label.contains("PUÑO LIGERO") -> "X"
+    label.contains("PUÑO MEDIO") -> "Y"
+    label.contains("PUÑO FUERTE") -> "B"
+    label.contains("PUÑO") -> "X" // ↓ + puño / puño en el aire / especial (remate con puño)
+    label.contains("PATADA") -> "A"
+    else -> null
 }
 
 // ------------------------------------------------------------------
@@ -2631,29 +2753,39 @@ private fun FighterNewMoveButtons(
     onGrab: () -> Unit,
     onTaunt: () -> Unit,
     onSuper: () -> Unit,
+    // 🆕 (2026-07-22) TUTORIAL: letra del botón que TOCA presionar (brilla/pulsa) o null.
+    highlight: String? = null,
 ) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         // Burla (gris, sin efecto en combate)
-        ActionButton(text = "T", color = Color(0xFF7F8C8D), onHoldEvent = { pressed ->
-            if (pressed) onTaunt()
-        })
+        SfTutorialButtonGlow(active = highlight == "T") {
+            ActionButton(text = "T", color = Color(0xFF7F8C8D), onHoldEvent = { pressed ->
+                if (pressed) onTaunt()
+            })
+        }
         Spacer(modifier = Modifier.size(6.dp))
         // Parry (cian): desvía el golpe si se aprieta a tiempo
-        ActionButton(text = "P", color = Color(0xFF1ABC9C), onHoldEvent = { pressed ->
-            if (pressed) onParry()
-        })
+        SfTutorialButtonGlow(active = highlight == "P") {
+            ActionButton(text = "P", color = Color(0xFF1ABC9C), onHoldEvent = { pressed ->
+                if (pressed) onParry()
+            })
+        }
         Spacer(modifier = Modifier.size(6.dp))
         // Agarre (naranja): lanza al rival pegado, atraviesa la guardia
-        ActionButton(text = "G", color = Color(0xFFE67E22), onHoldEvent = { pressed ->
-            if (pressed) onGrab()
-        })
+        SfTutorialButtonGlow(active = highlight == "G") {
+            ActionButton(text = "G", color = Color(0xFFE67E22), onHoldEvent = { pressed ->
+                if (pressed) onGrab()
+            })
+        }
         Spacer(modifier = Modifier.size(6.dp))
         // Súper (dorado si está cargada, apagado si no)
-        ActionButton(
-            text = "S",
-            color = if (superReady) Color(0xFFFFD700) else Color(0xFF555555),
-            onHoldEvent = { pressed -> if (pressed) onSuper() },
-        )
+        SfTutorialButtonGlow(active = highlight == "S") {
+            ActionButton(
+                text = "S",
+                color = if (superReady) Color(0xFFFFD700) else Color(0xFF555555),
+                onHoldEvent = { pressed -> if (pressed) onSuper() },
+            )
+        }
     }
 }
 
@@ -2670,6 +2802,19 @@ private class AlphaFallback(
     val data: SfFighterData,
     val sheetKey: String,
     val bitmap: ImageBitmap?,
+    /** 🆕 (2026-07-22) Submuestreo PROPIO del atlas ALPHA (silueta → media res gratis). */
+    val sheetScale: Float = 1f,
+)
+
+/**
+ * 🆕 (2026-07-22, Bloque B) Assets PESADOS de una pelea, decodificados en Dispatchers.IO
+ * bajo el overlay CARGANDO: atlas por identidad (incluye ambas caras de una metamorfosis),
+ * placeholder ALPHA y alturas de contenido opaco por identidad (vacío en gama baja).
+ */
+private class SfFightAssets(
+    val sheets: Map<String, ImageBitmap>,
+    val alpha: AlphaFallback?,
+    val contentH: Map<SfFighterId, Map<String, Int>>,
 )
 
 /** Rótulo del placeholder (fuente arcade del HUD: solo A-Z y 0-9). */
@@ -2768,7 +2913,8 @@ private fun DrawScope.drawScene(
             drawFighter(
                 ctx, images + (alpha.sheetKey to alpha.bitmap), alpha.data, fighter, t,
                 showHitboxes, emptyMap(), silhouette = true, sheetKeyOverride = alpha.sheetKey,
-                sheetScale = sheetScale,
+                // ⚠️ El atlas ALPHA lleva SU propio submuestreo (no el global).
+                sheetScale = alpha.sheetScale,
             )
             val hud = images.getValue(theme.hudImage)
             val w = ALPHA_TAG.length * 12f * 0.7f
@@ -2782,6 +2928,23 @@ private fun DrawScope.drawScene(
                 silhouette = side == 0 && playerSilhouette,
                 sheetScale = sheetScale,
             )
+        }
+    }
+
+    // ---- 🆕 (2026-07-22) MAREO: estrellitas PROCEDURALES orbitando la cabeza ----
+    // No hay sprite de estrellas: se dibujan en Canvas (círculos dorados + destello blanco)
+    // sobre la pose stun-3. Órbita elíptica ~1.6 s/vuelta, 3 estrellas desfasadas 120°.
+    listOf(state.player, state.cpu).forEach { f ->
+        if (f.state != SfFighterState.STUN) return@forEach
+        val headY = f.y - 104f
+        for (i in 0 until 3) {
+            val ang = t / 260f + i * 2.0944f // 2π/3 de desfase entre estrellas
+            val sx = f.x + kotlin.math.cos(ang) * 16f
+            val sy = headY + kotlin.math.sin(ang) * 5f
+            val cxPx = ctx.ox + (sx - ctx.camX) * ctx.scale
+            val cyPx = ctx.oy + (sy - ctx.camY) * ctx.scale
+            drawCircle(color = Color(0xFFFFD700), radius = 2.4f * ctx.scale, center = Offset(cxPx, cyPx))
+            drawCircle(color = Color(0xFFFFFDE7), radius = 1f * ctx.scale, center = Offset(cxPx, cyPx))
         }
     }
 
@@ -2859,16 +3022,46 @@ private fun DrawScope.drawScene(
         val w = 96f
         val x = if (side == 0) 32f else SfConstants.SCENE_WIDTH - 32f - w
         val y = 44f
+        val full = frac >= 1f
+        // 🆕 (2026-07-22) BRILLO al llenarse: halo dorado + pulso del relleno (~8 Hz).
+        if (full) {
+            drawRect(
+                color = Color(0x66FFD700),
+                topLeft = Offset(ctx.ox + (x - 2f) * ctx.scale, ctx.oy + (y - 2f) * ctx.scale),
+                size = Size((w + 4f) * ctx.scale, 9f * ctx.scale),
+            )
+        }
         drawRect( // marco
             color = Color(0xFF202020),
             topLeft = Offset(ctx.ox + x * ctx.scale, ctx.oy + y * ctx.scale),
             size = Size(w * ctx.scale, 5f * ctx.scale),
         )
-        drawRect( // relleno (dorado al llenarse = súper lista)
-            color = if (frac >= 1f) Color(0xFFFFD700) else Color(0xFF3AA6FF),
+        drawRect( // relleno (dorado PULSANTE al llenarse = súper lista)
+            color = when {
+                !full -> Color(0xFF3AA6FF)
+                (t / 120) % 2 == 0L -> Color(0xFFFFD700)
+                else -> Color(0xFFFFF59D)
+            },
             topLeft = Offset(ctx.ox + (x + 1f) * ctx.scale, ctx.oy + (y + 1f) * ctx.scale),
             size = Size((w - 2f) * frac * ctx.scale, 3f * ctx.scale),
         )
+        // 🆕 (2026-07-22) BARRA DE MAREO: debajo de la de súper, solo si hay mareo activo
+        // (naranja→roja al acercarse al stun). El estado STUN la pinta llena y roja.
+        val dFrac = (fighter.dizzyMeter / SfConstants.DIZZY_METER_MAX.toFloat()).coerceIn(0f, 1f)
+        val stunned = fighter.state == SfFighterState.STUN
+        if (dFrac > 0f || stunned) {
+            val dy = y + 7f
+            drawRect(
+                color = Color(0xFF202020),
+                topLeft = Offset(ctx.ox + x * ctx.scale, ctx.oy + dy * ctx.scale),
+                size = Size(w * ctx.scale, 4f * ctx.scale),
+            )
+            drawRect(
+                color = if (stunned || dFrac >= 0.8f) Color(0xFFE53935) else Color(0xFFFF9800),
+                topLeft = Offset(ctx.ox + (x + 1f) * ctx.scale, ctx.oy + (dy + 1f) * ctx.scale),
+                size = Size((w - 2f) * (if (stunned) 1f else dFrac) * ctx.scale, 2f * ctx.scale),
+            )
+        }
     }
 
     // ---- 🆕 (2026-07-20) Contador de COMBO (3rd Strike): "N GOLPES" del lado del atacante ----

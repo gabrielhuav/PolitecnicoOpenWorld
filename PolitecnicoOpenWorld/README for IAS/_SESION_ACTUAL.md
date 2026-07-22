@@ -40,53 +40,58 @@ Lo compartido (arquitectura, datos, convenciones) vive en la raíz.
 **Antes de delegar, escribe la tarea con:** rutas absolutas, el comando exacto, cómo se
 verifica que salió bien, y qué NO debe tocar. Sin eso, cualquier IA improvisa.
 
-## 3. Qué se hizo en esta sesión (2026-07-22, Fable 5 — plan `PROMPT_FABLE5_motor_pendiente.md`)
+## 3. Qué se hizo en esta sesión (2026-07-22 PM, Fable 5 — plan `PROMPT_FABLE5_stun_crash_optimizacion.md`)
 
-1. **🗣️ SUBTÍTULOS DE VOZ ENCENDIDOS** (`voiceSubtitlesEnabled = true`, VM). Fix del
-   delimitador `|`: `setVoiceSubtitle` sanea POR TRAMO y re-une con `|`. Detalle:
-   `SF/DISENO_ARCADE_SF_POW.md` §2026-07-22. **(El renderizado lo ajustó Opus después — ver §🔧.)**
-2. **🇬🇧 Track `en` de `voice_phrases.json` COMPLETO:** ~33 campos que seguían en español
-   traducidos (tramos `|` y censuras conservados; onomatopeyas intactas). Verificado:
-   64 `es` curados, 0 `en` con rasgos ES, 0 tramos desiguales, JSON válido, CRLF.
-3. **🎓 Tutorial (`combos.json`, SOLO datos):** +`b_crouchchain` (cadena baja) y +`b_meter`
-   (medidor: sube al conectar Y recibir; súper y FATALITY lo consumen entero — verificado en
-   VM). La lección FATALITY YA existía (universal `fatality`) — el plan estaba desactualizado ahí.
-4. **Bloques 2/3 del plan (azar de poderes + metamorfosis nuevas): NO se tocaron** — siguen
-   bloqueados por el pipeline de arte (ver TRABAJO FUTURO abajo). Guard de degradación
-   verificado intacto (`tryBonusPower` → `animations[jsKey].isNullOrEmpty()`).
-5. Docs sincronizados (00, 07, SF/QA, SF/AUDIT_VOCES banner, SF/AUDIO_INVENTARIO, traspaso,
-   README público EN+ES). ⚠️ **Sin compilar** (sesión sin Android Studio): falta
-   `gradlew compileDebugKotlin testDebugUnitTest` + Rebuild + dispositivo.
+*(La sesión AM del mismo día — subtítulos ON + track EN + lecciones — y el follow-up de Opus
+quedaron commiteados; detalle en `SF/DISENO_ARCADE_SF_POW.md` §2026-07-22 y 00_INDEX.)*
 
-### 🔧 Follow-up Opus 4.8 (2026-07-22, tras validar la compilación de Fable — compila OK)
+1. **🔴 Bloque A · Crash La Llorona (P0), análisis estático + blindaje.** Confirmado que a su
+   JSON le faltan SOLO `longKick`/`overhead` → es la ÚNICA que activa el camino ALPHA (3er
+   atlas completo en RAM). Sospechoso principal: pico de RAM (~186 MB de hojas) + `sheetFor`
+   lanzando `error()`/OOM SIN runCatching en la composición. Blindado: cada atlas en
+   `runCatching` (falla → se omite, drawFighter degrada), y el atlas ALPHA (silueta negra)
+   SIEMPRE a media resolución con escala propia (`AlphaFallback.sheetScale`, ~63→16 MB).
+   Fondos `islamunecas` verificados: existen los 3. **Falta confirmar con logcat/dispositivo.**
+2. **🟠 Bloque B · Gama baja/carga:** TODO lo pesado de una pelea (atlas de ambos peleadores,
+   ALPHA y el escaneo de alturas) se decodifica ahora en `Dispatchers.IO` bajo el overlay
+   CARGANDO (`SfFightAssets` + `fightIds`), no en el hilo de UI → adiós al "se traba unos
+   segundos". `fightIds` es un SET con ambas identidades de la metamorfosis: transformarse a
+   media pelea YA NO re-decodifica nada (esa era la trabada de La Presidenta). El `recycle()`
+   explícito entre peleas se DESCARTÓ sin medición (riesgo de dibujar bitmap reciclado).
+3. **🟡 Bloque C · MAREO/STUN + medidor:** nuevo `SfFighterState.STUN` (AL FINAL del enum:
+   viaja como `enum.name`, retro-compatible) + `dizzyMeter` en `SfFighter` (sube al RECIBIR,
+   tope 25/golpe, decae tras 1.5 s; lleno → STUN 2 s con pose `stun-3` + estrellitas
+   PROCEDURALES en Canvas + barra naranja/roja bajo la de súper). La animación "stun" se
+   SINTETIZA en `SfFrameCatalog` (los JSON traen frames pero no la anim). Súper: halo dorado
+   + pulso al llenarse y decaimiento LENTO tras 4 s sin conectar (la barra LLENA no decae).
+   Todo en `applyMeterDecay` (tick, TODOS los modos; online solo el peleador LOCAL — el STUN
+   remoto llega por el `state` del snapshot; el `dizzyMeter` remoto NO viaja: cosmético).
+4. **🟢 Bloque D · Metamorfosis (decisión del dueño):** SOLO en el ROUND 1; al transformarse
+   arranca con VIDA LLENA (antes 50%); y PERSISTE entre rondas (`resetRound` copia
+   `metamorphosed`; `tryPresidentaMetamorphosis` gateado a `roundNumber == 1`).
+5. **🔵 Bloque E · Intro del policía:** un clip `_intro` ya NO lo corta ninguna otra voz del
+   mismo peleador, y mientras suena las voces nuevas de ese peleador se SALTAN (playSfSpecial).
+6. **🟣 Bloque G · Navegación y tutorial:** al salir de una pelea se vuelve al selector del
+   MISMO modo (`lastLaunchedMode` en la Screen; antes el LaunchedEffect forzaba Arcade);
+   etiquetas del tutorial referidas a los CONTROLES actuales (X/Y/B/A/P/G/T/S + gesto);
+   el botón del paso actual BRILLA/PULSA (`SfTutorialButtonGlow` en FighterXboxButtons y
+   FighterNewMoveButtons); panel invertido: chips de botones ARRIBA, título/pista ABAJO.
+7. ⚠️ **Sin compilar** (sandbox sin SDK/Java 17): queda **Rebuild + testDebugUnitTest +
+   detekt (baseline 5) + prueba de los 6 modos** en Android Studio del dueño. Verificado
+   estáticamente: llaves balanceadas vs HEAD, CRLF 100%, `git status` solo los 5 .kt tocados
+   (SfModels, SfFrameCatalog, SfTutorialOverlay, StreetFighterScreen, StreetFighterViewModel).
 
-6. **Subtítulos SECUENCIADOS:** se muestra UN tramo `|` A LA VEZ, repartiendo la ventana
-   `[start,until]` entre los tramos (sincronía con la voz), en vez de todas las líneas juntas.
-   Nuevo campo `specialSubtitleStartMs` (VM `setVoiceSubtitle` + `update()` + Screen). Un
-   subtítulo nuevo **reemplaza** al anterior (un solo slot de estado: nunca se superponen).
-7. **IA usa FATALITY/SÚPER al llenar la barra:** `cpuNewMove` — probabilidad que **escala** con
-   `cpuIntensity` (fatality 0.45→0.95, súper 0.35→0.90; `nightmare` = tope), ya no gateada por el
-   binario `aggressive`. El fatality sigue siendo dos tiempos (dash→RUN→soltar) pero ahora se
-   inicia mucho más seguido.
-8. **IA vs IA pelea en el mapa correcto:** `startAiVsAi` ahora setea `arcadeMapFile =
-   mapForRival(peleador con la IA más avanzada)`; la Screen considera `aiVsAi` además de
-   `arcadeActive`. Antes caía a ESCOM por default.
-9. **Arcade: retroceso solo tras 3 DERROTAS SEGUIDAS** (`arcadeLossStreak`): ganar reinicia la
-   racha; `arcadeRetry` y el checkpoint de `handleArcadeMatchEnd` solo bajan un escalón a la 3ª.
-   Antes se retrocedía en cada derrota.
+### 🧪 QUÉ PROBAR EN DISPOSITIVO (checklist del dueño)
 
-**Todo lo anterior COMPILA (`compileDebugKotlin` OK) y está commiteado.**
-
-### ➡️ SIGUIENTE SESIÓN → Fable 5: `PROMPT_FABLE5_stun_crash_optimizacion.md`
-
-Plan autocontenido y priorizado con TODO lo que sigue. Resumen:
-- 🔴 **CRASH de La Llorona** (P0, con pistas: camino ALPHA + fondo `islamunecas`; repro con logcat).
-- 🟠 **Optimización GAMA BAJA** (el encargo grande: se traba al cargar; gama baja es el riesgo).
-- 🟡 **Mareo/STUN + brillo y decaimiento del medidor de súper** (todos los modos, dureza moderada).
-- 🟢 **Metamorfosis Presidenta entre rondas** (necesita DECISIÓN del dueño: ¿reinicia o persiste?).
-- 🔵 **Intro del Policía hombre se corta** ("...vía pública" debe terminar).
-- 🟣 **Navegación** (volver al selector del MISMO modo) + **Tutorial** (mensaje "ESO NO ERA"
-  desactualizado, resaltar el botón a presionar, invertir layout: botones↑ / hoja de combos↓).
+- **La Llorona:** seleccionarla, pelear contra ella e IA vs IA con ella en ambos lados (si
+  aún crashea, el logcat dirá el punto exacto — ya no debería ser el camino ALPHA).
+- **STUN:** recibir ~5-6 golpes seguidos sin bloquear → mareo (estrellitas, congelado 2 s);
+  pegarle al mareado lo despierta. En MULTIPLAYER: que P1 y P2 vean al MISMO aturdido.
+- **Metamorfosis:** round 1 al 25% → Yoalli con vida llena; rounds 2+ sigue Yoalli y sin
+  re-transformación. Sin trabada al transformarse.
+- **Intro policía hombre:** "Está prohibido beber…" completa aunque empiece la pelea.
+- **Navegación:** salir de Práctica/IA vs IA/Arcade → selector del MISMO modo; tutorial → hoja.
+- **Súper:** brillo al llenarse; sin conectar ~4 s decae (si no está llena).
 
 ### 🙋 ITEMS QUE REQUIEREN AL DUEÑO (no los toca ninguna IA sin ti)
 - **Paparazzi 5** tiene un audio que es de **Paparazzi 1** → rastrear en mp3 + ogg + subtítulo.
@@ -140,15 +145,17 @@ margen y `special_rey_grupero` con 1.3 de los 2.4 dB que necesita). Detalle en e
 
 ### 🟢 P2 · Animaciones congeladas (el arte está bien, el cuadro se repite)
 
-`stun-1==stun-2==stun-3` en **los 18**; `bonus-7/8/9/10` estáticos en `lapresidenta`;
+`stun-1==stun-2==stun-3` en **los 18** (⚠️ desde 2026-07-22 el estado STUN USA esos cuadros
+vía la anim "stun" sintetizada — si llega arte nuevo de mareo, se verá solo);
+`bonus-7/8/9/10` estáticos en `lapresidenta`;
 `run-4==run-5` en 4; `forwards-3==forwards-4` en 3; `throw-2==throw-3` en 3;
 `super-4==super-5` en `charronegro` y `senortienda`.
 → Hay que mirar la hoja fuente de cada uno: si solo trae una pose, no hay arreglo sin arte nuevo.
 
 ### 🔵 P2b · Motor compartido entre modos (PLANIFICADO, no empezado)
 
-Medido (2026-07-22): `StreetFighterViewModel.kt` tiene **5 633 líneas** (crece; verifícalo antes
-de citar). Los modos YA comparten un solo motor (no hay duplicación que borrar), pero lo hacen con
+Medido (2026-07-22 PM): `StreetFighterViewModel.kt` tiene **~5 790 líneas** (crece; verifícalo
+antes de citar). Los modos YA comparten un solo motor (no hay duplicación que borrar), pero lo hacen con
 `if (showcaseMode)` esparcidos, así que añadir un modo obliga a tocar el archivo entero. **El motor
 de pelea no tiene tests propios** — el único test SF (`SfArcadeCampaignAuditTest`) audita la
 campaña, no el motor.
