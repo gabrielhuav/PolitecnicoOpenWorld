@@ -139,18 +139,20 @@ Para escuchar cada clip: `tools/_audio_review/<clip>.mp3`.
 
 ## PRANKEDY
 
-| clip (.mp3) | evento | dur | LUFS | draft Whisper | `es` actual | acción propuesta |
-|---|---|---|---|---|---|---|
-| `special_prankedy_attack_1` | attack | 6.91s | -16.7 | a ver volteate volteate volteate volteate | — | **RECORTAR** (6.91s); CURAR `es` (hay draft) |
-| `special_prankedy_attack_2` | attack | 3.76s | -15.3 | ¿Y qué, si me paso a pegar o nada más te vas a decir? | — | **RECORTAR** (3.76s); CURAR `es` (hay draft) |
-| `special_prankedy_attack_3` | attack | 4.10s | -17.0 | ¿Qué pasó? ¿Eh? | — | **RECORTAR** (4.10s); CURAR `es` (hay draft) |
-| `special_prankedy_attack_4` | attack | 5.30s | -15.6 | ¿Que va a ser? ¿Qué va a haber? Se agarramos aquí a putas so | — | **RECORTAR** (5.30s); CURAR `es` (hay draft) |
-| `special_prankedy_hurt_1` | hurt | 1.00s | -16.1 | ¡Pac! ¡Pacama! | — | CURAR `es` (hay draft) |
-| `special_prankedy_hurt_2` | hurt | 1.00s | -16.0 | ¡Bruh! | — | CURAR `es` (hay draft) |
-| `special_prankedy_loss` | loss | 8.50s | -16.5 | la broma pues terminó mal tengo fracturado un ojo aquí tengo | — | CURAR `es` (hay draft) |
-| `special_prankedy_lowhp` | lowHp | 8.60s | -15.6 | ¡Uke! ¡Uke, pendejo! ¡Te pones al pedo, guay, todavía! | — | **RECORTAR** (8.60s); CURAR `es` (hay draft) |
-| `special_prankedy_power` | power | 4.10s | -14.3 | no se sienta un culo de mi perro que ahorita lo aterrizo | — | CURAR `es` (hay draft) |
-| `special_prankedy_win` | win | 6.00s | -16.3 | es que yo podré ser ciego pero si me doy cuenta cuando algui | — | CURAR `es` (hay draft) |
+| clip (.mp3) | evento | dur | LUFS | `es` actual | estado |
+|---|---|---|---|---|---|
+| `special_prankedy_attack_1` | attack | 2.71s | -16.0 | A ver... \| voltéate, voltéate... \| voltéate... Hazme c... | **COMPLETADO** |
+| `special_prankedy_attack_2` | attack | 4.90s | -16.0 | ¿Y qué, me vas a pegar o solo te vas a desvestir? | **COMPLETADO** |
+| `special_prankedy_attack_3` | attack | 3.53s | -16.0 | ¿Qué pasó...? \| ¿Eh...? | **COMPLETADO** |
+| `special_prankedy_attack_4` | attack | 4.77s | -16.0 | ¿Y cómo o qué? \| ¿Qué va a hacer o qué órale? \| Nos agarramos aquí a putazos \| órale de una vez. | **COMPLETADO** |
+| `special_prankedy_hurt_1` | hurt | 1.54s | -16.0 | Ya, hermano, ya... \| Cálmate, ya. | **COMPLETADO** |
+| `special_prankedy_hurt_2` | hurt | 2.28s | -16.0 | Hermano, ya cálmate \| Ya cálmate, ya. | **COMPLETADO** |
+| `special_prankedy_hurt_3` | hurt | 3.03s | -16.0 | Cálmate, ya \| Cálmate, ya, hermano | **COMPLETADO** |
+| `special_prankedy_hurt_4` | hurt | 1.34s | -16.0 | ¡Me vas a dejar inválido! | **COMPLETADO** |
+| `special_prankedy_loss` | loss | 7.65s | -16.0 | ¡Aaaah! \| La broma, pues, terminó mal... \|¡Ummhh! \| Tengo... fracturado un ojo... \| aquí tengo también una marca del golpe... | **COMPLETADO** |
+| `special_prankedy_lowhp` | lowHp | 6.97s | -16.0 | -Uuuu.. \| -¿U qué? \| ¿U qué pend....? \| Te pones al pedo todavía... | **COMPLETADO** |
+| `special_prankedy_power` | power | 3.62s | -16.0 | No se sienta un c... eh mi perro, \| que ahorita lo... \| ahorita lo aterrizo, eh. | **COMPLETADO** |
+| `special_prankedy_win` | win | 5.40s | -16.0 | Esque yo podré ser ciego, pero... \| sí me doy cuenta cuando alguien es miserable, eh. | **COMPLETADO** |
 
 ## REY_GRUPERO
 

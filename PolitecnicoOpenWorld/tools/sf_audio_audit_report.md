@@ -1,4 +1,4 @@
-# AUDIT MP3→OGG de voces SF — generado 2026-07-21 por `tools/sf_audio_audit.py`
+# AUDIT MP3→OGG de voces SF — generado 2026-07-22 por `tools/sf_audio_audit.py`
 
 > Escucha los `.mp3` de `tools/_audio_review/` (mismo nombre base). `F0` mediano orienta el género de la voz (♂ ~80-160 Hz, ♀ ~160-300+; gritos suben). La transcripción Whisper (modelo small) es BORRADOR: curar a oído antes de usarla de subtítulo.
 
@@ -6,9 +6,9 @@
 
 | Archivo | Dur | F0 | Uso | Nota |
 |---|---|---|---|---|
-| `special_escomboy_attack.ogg` | 10.70s | 372 Hz | ESCOMBOY:attack | GRITO/EXCLAMACION |
-| `special_escomgirl_attack.ogg` | 3.15s | 256 Hz | ESCOMGIRL:attack | GRITO/EXCLAMACION |
-| `special_escomgirl_hurt.ogg` | 3.01s | 327 Hz | ESCOMGIRL:hurt | GRITO/EXCLAMACION |
+| `special_escomboy_attack.ogg` | 2.50s | 174 Hz | ESCOMBOY:attack | SFX |
+| `special_escomgirl_attack.ogg` | 2.56s | 219 Hz | ESCOMGIRL:attack | GRITO/EXCLAMACION |
+| `special_escomgirl_hurt.ogg` | 2.48s | 283 Hz | ESCOMGIRL:hurt | GRITO/EXCLAMACION |
 | `special_escomgirl_loss.ogg` | 3.70s | 258 Hz | ESCOMGIRL:loss | GRITO/EXCLAMACION |
 
 ## Tabla completa
@@ -26,21 +26,21 @@
 | `medium-attack.ogg` | 0.53 | 314 | 6 | SFX GLOBAL | fallback/global | — | — |
 | `medium-kick-hit.ogg` | 0.57 | 93 | 50 | SFX GLOBAL | fallback/global | — | — |
 | `medium-punch-hit.ogg` | 0.57 | 267 | 11 | SFX GLOBAL | fallback/global | — | — |
-| `special_charro_attack_1.ogg` | 4.00 | 140 | 62 | GRITO/EXCLAMACION | CHARRO_NEGRO:attack | — | — |
-| `special_charro_attack_2.ogg` | 4.00 | 138 | 73 | GRITO/EXCLAMACION | CHARRO_NEGRO:attack | — | — |
+| `special_charro_attack_1.ogg` | 4.00 | 140 | 65 | GRITO/EXCLAMACION | CHARRO_NEGRO:attack | — | — |
+| `special_charro_attack_2.ogg` | 4.00 | 137 | 72 | GRITO/EXCLAMACION | CHARRO_NEGRO:attack | — | — |
 | `special_charro_attack_3.ogg` | 5.10 | 327 | 69 | GRITO/EXCLAMACION | CHARRO_NEGRO:attack | — | — |
 | `special_charro_hurt_1.ogg` | 3.00 | 348 | 63 | GRITO/EXCLAMACION | CHARRO_NEGRO:hurt | — | — |
 | `special_charro_hurt_2.ogg` | 3.00 | 364 | 78 | GRITO/EXCLAMACION | CHARRO_NEGRO:hurt | — | — |
 | `special_charro_hurt_3.ogg` | 2.99 | 377 | 39 | GRITO/EXCLAMACION | CHARRO_NEGRO:hurt | — | — |
 | `special_charro_negro.ogg` | 2.80 | 113 | 95 | GRITO/EXCLAMACION | fallback/global | — | — |
-| `special_escomboy_attack.ogg` | 10.70 | 372 | 18 | GRITO/EXCLAMACION | ESCOMBOY:attack | — | — |
-| `special_escomgirl_attack.ogg` | 3.15 | 256 | 41 | GRITO/EXCLAMACION | ESCOMGIRL:attack | — | — |
-| `special_escomgirl_hurt.ogg` | 3.01 | 327 | 40 | GRITO/EXCLAMACION | ESCOMGIRL:hurt | — | — |
+| `special_escomboy_attack.ogg` | 2.50 | 174 | 7 | SFX | ESCOMBOY:attack | — | — |
+| `special_escomgirl_attack.ogg` | 2.56 | 219 | 37 | GRITO/EXCLAMACION | ESCOMGIRL:attack | — | — |
+| `special_escomgirl_hurt.ogg` | 2.48 | 283 | 31 | GRITO/EXCLAMACION | ESCOMGIRL:hurt | — | — |
 | `special_escomgirl_loss.ogg` | 3.70 | 258 | 68 | GRITO/EXCLAMACION | ESCOMGIRL:loss | — | — |
 | `special_granadero_win.ogg` | 27.57 | 242 | 53 | GRITO/EXCLAMACION | POLICIA_GRANADERO_HOMBRE:win; GRANADERO:win; POLICIA_GRANADERO_MUJER:win | — | — |
 | `special_la_presidenta_attack.ogg` | 3.19 | 189 | 40 | GRITO/EXCLAMACION | LA_PRESIDENTA:attack | — | — |
 | `special_la_presidenta_hurt.ogg` | 2.22 | 203 | 73 | GRITO/EXCLAMACION | LA_PRESIDENTA:hurt | — | — |
-| `special_la_presidenta_power.ogg` | 4.90 | 195 | 86 | GRITO/EXCLAMACION | LA_PRESIDENTA:power | — | — |
+| `special_la_presidenta_power.ogg` | 3.82 | 190 | 88 | GRITO/EXCLAMACION | LA_PRESIDENTA:power | — | — |
 | `special_la_presidenta_win.ogg` | 3.84 | 196 | 66 | GRITO/EXCLAMACION | LA_PRESIDENTA:win | Porque patria se escribe con A de mujer | — |
 | `special_la_tzitzimime_attack.ogg` | 3.16 | 184 | 62 | GRITO/EXCLAMACION | LA_TZITZIMIME:attack | — | — |
 | `special_la_tzitzimime_hurt.ogg` | 3.34 | 186 | 33 | GRITO/EXCLAMACION | LA_TZITZIMIME:hurt | — | — |
@@ -52,7 +52,7 @@
 | `special_male_attack_grunt.ogg` | 2.00 | 381 | 49 | GRITO/EXCLAMACION | fallback/global | — | — |
 | `special_paparazzi_5.ogg` | 5.70 | 137 | 64 | GRITO/EXCLAMACION | PAPARAZZI_1:power | — | — |
 | `special_paparazzi_5_attack.ogg` | 3.54 | 216 | 48 | GRITO/EXCLAMACION | PAPARAZZI_5:attack | — | — |
-| `special_paparazzi_5_hurt.ogg` | 2.50 | 117 | 37 | GRITO/EXCLAMACION | PAPARAZZI_5:hurt | — | — |
+| `special_paparazzi_5_hurt.ogg` | 0.87 | 190 | 73 | GRITO/EXCLAMACION | PAPARAZZI_5:hurt | — | — |
 | `special_papz1_hurt_1.ogg` | 7.00 | 188 | 44 | GRITO/EXCLAMACION | PAPARAZZI_1:hurt | — | — |
 | `special_papz1_hurt_2.ogg` | 2.97 | 159 | 57 | GRITO/EXCLAMACION | PAPARAZZI_1:hurt | — | — |
 | `special_papz1_hurt_3.ogg` | 2.97 | 167 | 51 | GRITO/EXCLAMACION | PAPARAZZI_1:hurt | — | — |
@@ -66,17 +66,19 @@
 | `special_policia_cdmx_hombre_power.ogg` | 4.00 | 205 | 78 | GRITO/EXCLAMACION | POLICIA_CDMX_HOMBRE:power | — | — |
 | `special_policia_cdmx_mujer_win.ogg` | 13.86 | 194 | 85 | GRITO/EXCLAMACION | POLICIA_CDMX:win | Si dices policía, me comprometí como mujer a que la ciudadanía sintiera una mejor seguridad | — |
 | `special_power_electricity.ogg` | 3.22 | 400 | 25 | GRITO/EXCLAMACION | PARAMEDICO_CRUZ_ROJA:power; ESCOMBOY:power; ESCOMGIRL:power | — | — |
-| `special_prankedy_attack_1.ogg` | 6.91 | 211 | 29 | GRITO/EXCLAMACION | PRANKEDY:attack | — | — |
-| `special_prankedy_attack_2.ogg` | 3.76 | 177 | 44 | GRITO/EXCLAMACION | PRANKEDY:attack | — | — |
-| `special_prankedy_attack_3.ogg` | 4.10 | 219 | 34 | GRITO/EXCLAMACION | PRANKEDY:attack | — | — |
-| `special_prankedy_attack_4.ogg` | 5.30 | 142 | 64 | GRITO/EXCLAMACION | PRANKEDY:attack | — | — |
-| `special_prankedy_hurt_1.ogg` | 1.00 | 239 | 63 | GRITO/EXCLAMACION | PRANKEDY:hurt | — | — |
-| `special_prankedy_hurt_2.ogg` | 1.00 | 242 | 86 | GRITO/EXCLAMACION | PRANKEDY:hurt | — | — |
-| `special_prankedy_loss.ogg` | 8.50 | 129 | 59 | GRITO/EXCLAMACION | PRANKEDY:loss | — | — |
-| `special_prankedy_lowhp.ogg` | 8.60 | 314 | 48 | GRITO/EXCLAMACION | PRANKEDY:lowHp | — | — |
-| `special_prankedy_power.ogg` | 4.10 | 302 | 80 | GRITO/EXCLAMACION | PRANKEDY:power | — | — |
-| `special_prankedy_win.ogg` | 6.00 | 296 | 85 | GRITO/EXCLAMACION | PRANKEDY:win | — | — |
-| `special_rey_grupero.ogg` | 4.50 | 225 | 73 | GRITO/EXCLAMACION | REY_GRUPERO:intro | — | — |
+| `special_prankedy_attack_1.ogg` | 0.61 | 213 | 94 | GRITO/EXCLAMACION | PRANKEDY:attack | — | — |
+| `special_prankedy_attack_2.ogg` | 4.90 | 176 | 30 | GRITO/EXCLAMACION | PRANKEDY:attack | — | — |
+| `special_prankedy_attack_3.ogg` | 3.53 | 219 | 44 | GRITO/EXCLAMACION | PRANKEDY:attack | — | — |
+| `special_prankedy_attack_4.ogg` | 4.77 | 152 | 72 | GRITO/EXCLAMACION | PRANKEDY:attack | — | — |
+| `special_prankedy_hurt_1.ogg` | 1.54 | 333 | 91 | GRITO/EXCLAMACION | PRANKEDY:hurt; PRANKEDY:hurt | — | — |
+| `special_prankedy_hurt_2.ogg` | 2.28 | 296 | 52 | GRITO/EXCLAMACION | PRANKEDY:hurt; PRANKEDY:hurt | — | — |
+| `special_prankedy_hurt_3.ogg` | 3.03 | 254 | 50 | GRITO/EXCLAMACION | PRANKEDY:hurt | — | — |
+| `special_prankedy_hurt_4.ogg` | 1.34 | 235 | 72 | GRITO/EXCLAMACION | PRANKEDY:hurt; PRANKEDY:hurt | — | — |
+| `special_prankedy_loss.ogg` | 7.65 | 129 | 64 | GRITO/EXCLAMACION | PRANKEDY:loss | — | — |
+| `special_prankedy_lowhp.ogg` | 6.97 | 314 | 60 | GRITO/EXCLAMACION | PRANKEDY:lowHp | — | — |
+| `special_prankedy_power.ogg` | 3.62 | 302 | 91 | GRITO/EXCLAMACION | PRANKEDY:power | — | — |
+| `special_prankedy_win.ogg` | 5.40 | 291 | 93 | GRITO/EXCLAMACION | PRANKEDY:win | — | — |
+| `special_rey_grupero.ogg` | 4.10 | 400 | 85 | GRITO/EXCLAMACION | REY_GRUPERO:intro | — | — |
 | `special_rey_grupero_attack.ogg` | 2.11 | 216 | 60 | GRITO/EXCLAMACION | REY_GRUPERO:attack | — | — |
 | `special_rey_grupero_hurt.ogg` | 2.23 | 340 | 69 | GRITO/EXCLAMACION | REY_GRUPERO:hurt | — | — |
 | `special_rey_grupero_power.ogg` | 4.10 | 400 | 85 | GRITO/EXCLAMACION | REY_GRUPERO:power | — | — |

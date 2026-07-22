@@ -275,7 +275,12 @@ class StreetFighterViewModel @Inject constructor(
                 ),
                 hurt = listOf(
                     SfVoiceLine("special_prankedy_hurt_1"),
-                    SfVoiceLine("special_prankedy_hurt_2")
+                    SfVoiceLine("special_prankedy_hurt_1"),
+                    SfVoiceLine("special_prankedy_hurt_2"),
+                    SfVoiceLine("special_prankedy_hurt_2"),
+                    SfVoiceLine("special_prankedy_hurt_4"),
+                    SfVoiceLine("special_prankedy_hurt_4"),
+                    SfVoiceLine("special_prankedy_hurt_3")
                 ),
                 power = listOf(SfVoiceLine("special_prankedy_power")),
                 win = listOf(SfVoiceLine("special_prankedy_win")),

@@ -2,13 +2,13 @@
   "_readme": "FRASES por clip de voz de HUELUM VS. GOYA. Escribe/valida 'es' (y 'en' para paridad) escuchando tools/_audio_review/<clip>.mp3; 'draft' es Whisper (solo referencia). 'es' vacia = sin subtitulo. Al terminar de curar: poner voiceSubtitlesEnabled = true en StreetFighterViewModel. Regenerable con tools/build_voice_phrases_catalog.py (conserva lo curado).",
   "clips": {
     "special_charro_attack_1": {
-      "es": "",
-      "en": "",
+      "es": "Grrr",
+      "en": "Grrr",
       "draft": ""
     },
     "special_charro_attack_2": {
-      "es": "",
-      "en": "",
+      "es": "¡Arrrg!",
+      "en": "Arrrg!",
       "draft": "Rrrrr. Rrrrrrr."
     },
     "special_charro_attack_3": {
@@ -17,23 +17,23 @@
       "draft": ""
     },
     "special_charro_hurt_1": {
-      "es": "",
-      "en": "",
+      "es": "Auuuuuu...",
+      "en": "Auuuuuu...",
       "draft": "¡Cri, cri, cri, cri, cri!"
     },
     "special_charro_hurt_2": {
-      "es": "",
-      "en": "",
+      "es": "Uuu, uuu...",
+      "en": "Ooo, ooo...",
       "draft": "Ssssssssssssssss"
     },
     "special_charro_hurt_3": {
-      "es": "",
-      "en": "",
+      "es": "¡Yip, yip!",
+      "en": "Yip, yip!",
       "draft": ""
     },
     "special_charro_negro": {
-      "es": "",
-      "en": "",
+      "es": "Aauuuggg...",
+      "en": "Aauuuggg...",
       "draft": "Aaaaaaaaaaaaaaaaaaaaa"
     },
     "special_escomboy_attack": {
@@ -42,18 +42,18 @@
       "draft": ""
     },
     "special_escomgirl_attack": {
-      "es": "",
-      "en": "",
+      "es": "¡Kiaa!",
+      "en": "Kiaa",
       "draft": ""
     },
     "special_escomgirl_hurt": {
-      "es": "",
-      "en": "",
+      "es": "¡Agh!",
+      "en": "Agh",
       "draft": ""
     },
     "special_escomgirl_loss": {
-      "es": "",
-      "en": "",
+      "es": "¡Aaaah...agh!",
+      "en": "Aaaah...agh",
       "draft": ""
     },
     "special_granadero_win": {
@@ -62,8 +62,8 @@
       "draft": ""
     },
     "special_la_presidenta_attack": {
-      "es": "",
-      "en": "",
+      "es": "¡Jajaja!",
+      "en": "Jajaja",
       "draft": "jajajajajaja"
     },
     "special_la_presidenta_hurt": {
@@ -72,128 +72,128 @@
       "draft": "Una decisión soberana."
     },
     "special_la_presidenta_power": {
-      "es": "",
-      "en": "",
+      "es": "¡Hoy estamos hablando de Box!",
+      "en": "Hoy estamos hablando de Box",
       "draft": "y algunos de los. Hoy estamos"
     },
     "special_la_presidenta_win": {
-      "es": "Porque patria se escribe con A de mujer",
-      "en": "Because 'homeland' is spelled with an A - the A of woman",
+      "es": "Porque patria se escribe con A ...|... de Mujer.",
+      "en": "Porque patria se escribe con A ...|... de Mujer.",
       "draft": "porque patria se escribe con a de mujer"
     },
     "special_la_tzitzimime_attack": {
-      "es": "",
-      "en": "",
+      "es": "¡Jjjjjrrr...Jjjjjrrr...Jjjj",
+      "en": "Jjjjjrrr...Jjjjjrrr...Jjjj",
       "draft": ""
     },
     "special_la_tzitzimime_hurt": {
-      "es": "",
-      "en": "",
+      "es": "¡Aggggh!",
+      "en": "Aggggh",
       "draft": ""
     },
     "special_la_tzitzimime_power": {
-      "es": "",
-      "en": "",
+      "es": "¡Ahhh-aggh!",
+      "en": "Ahhh-aggh",
       "draft": ""
     },
     "special_la_tzitzimime_win": {
-      "es": "",
-      "en": "",
+      "es": "¡Auhhhhh-aggggh!",
+      "en": "Auhhhhh-aggggh",
       "draft": ""
     },
     "special_llorona_attack": {
-      "es": "",
-      "en": "",
+      "es": "¿Dóndeee eestán mis hijooos?",
+      "en": "¿Dóndeee eestán mis hijooos?",
       "draft": "¡Dónde está mi tío!"
     },
     "special_llorona_hurt": {
-      "es": "",
-      "en": "",
+      "es": "Ayyyyy",
+      "en": "Ayyyyy",
       "draft": ""
     },
     "special_llorona_power": {
-      "es": "",
-      "en": "",
+      "es": "¡Ayyyyyy mis hiiijooos!",
+      "en": "Ayyyyyy mis hiiijooos",
       "draft": "¡Ay, sí, oh!"
     },
     "special_male_attack_grunt": {
-      "es": "",
-      "en": "",
+      "es": "¡ZA-ZA!",
+      "en": "ZA-ZA",
       "draft": "SAC! SAC!"
     },
     "special_paparazzi_5": {
-      "es": "",
-      "en": "",
+      "es": "¿Pero para qué o qué? | Pus dime de que se trata | ¿Eh? | ¡Contéstame por favor.!",
+      "en": "¿Pero para qué o qué? | Pus dime de que se trata | ¿Eh? | Contéstame por favor.",
       "draft": "Pero, ¿para qué, o qué? Dime, ¿de qué se trata? Contésame, por favor."
     },
     "special_paparazzi_5_attack": {
-      "es": "",
-      "en": "",
+      "es": "O ¿Quieres que te de en tu madre wey? | Dímelo",
+      "en": "O ¿Quieres que te de en tu madre wey? | Dímelo",
       "draft": "¿Quieres que estén en tu madre, huy? ¡Dímelo!"
     },
     "special_paparazzi_5_hurt": {
-      "es": "",
-      "en": "",
+      "es": "¿Qué te pasa?",
+      "en": "¿Qué te pasa?",
       "draft": "¿Qué te pasa?"
     },
     "special_papz1_hurt_1": {
-      "es": "",
-      "en": "",
+      "es": "Hijo de la c... Ya te dije que no me estés molestando | ¿Eh? | Bueno... ¿Me vas a dejar de molestar o qué?",
+      "en": "Hijo de la c... Ya te dije que no me estés molestando | ¿Eh? | Bueno... ¿Me vas a dejar de molestar o qué?",
       "draft": "de la chingada que no me estés molestando, ¿eh? Bueno, me vas a dejar de molestarlo, ¿eh?"
     },
     "special_papz1_hurt_2": {
-      "es": "",
-      "en": "",
+      "es": "Cabrón... Ya te dije que me dejes de estar chingando ¿No?",
+      "en": "Cabrón... Ya te dije que me dejes de estar chingando ¿No?",
       "draft": "Gabron, ya te dije que me dejes de estar chingando ¿no?"
     },
     "special_papz1_hurt_3": {
-      "es": "",
-      "en": "",
+      "es": "Que te calmaras ya… Párale a tu desmadre.",
+      "en": "Que te calmaras ya… Párale a tu desmadre.",
       "draft": "Que te calman así... Parale..."
     },
     "special_paramedico_cruz_roja_win": {
-      "es": "No olvides que saber primeros auxilios marca la diferencia y salva vidas.",
-      "en": "Don't forget: knowing first aid makes the difference and saves lives.",
+      "es": "No olvides que saber primeros auxilios | marca la diferencia y salva vidas",
+      "en": "No olvides que saber primeros auxilios | marca la diferencia y salva vidas",
       "draft": "No olvides que saber primeros auxilios, marca la diferencia y salva vidas."
     },
     "special_pol_h_attack": {
-      "es": "Buenas joven, ¿si sabe porque lo detuvimos?",
-      "en": "Afternoon, kid. Do you know why we pulled you over?",
+      "es": "Buenas... joven...  | ¿Sí sabe por qué lo detuvimos",
+      "en": "Buenas... joven...  | ¿Sí sabe por qué lo detuvimos",
       "draft": "Bueno, solo ven si sabe por qué lo detuvimos"
     },
     "special_pol_h_intro": {
-      "es": "¡Está prohibido beber en la vía pública!",
-      "en": "Drinking in public is prohibited!",
+      "es": "Está...|  prohibido... | beber... | en vía | púuuublicaaa",
+      "en": "Está...|  prohibido... | beber... | en vía | púuuublicaaa",
       "draft": "¡Está prohibido beber en vía divina!"
     },
     "special_pol_h_win": {
-      "es": "¿Se cree más chingón que nosotros o qué joven?",
-      "en": "You think you're tougher than us or what, kid?",
+      "es": "Uyyy... ¿Se cree más chingón que nosotros o qué joven?",
+      "en": "Uyyy... ¿Se cree más chingón que nosotros o qué joven?",
       "draft": "Se crea más chingón que nosotros, o qué por eso?"
     },
     "special_pol_m_attack_1": {
-      "es": "",
-      "en": "",
+      "es": "¡AGGGGh!",
+      "en": "AGGGGh",
       "draft": "¡Ahhh!"
     },
     "special_pol_m_attack_2": {
-      "es": "",
-      "en": "",
+      "es": "¡Ya estáte, | ya estátee!",
+      "en": "Ya estáte, | ya estátee",
       "draft": "Ya, ya, ya, ya, ya."
     },
     "special_pol_m_hurt": {
-      "es": "",
-      "en": "",
+      "es": "Por eso cálmate, | ¡relájate!, | ¡ya…!",
+      "en": "Por eso cálmate, | relájate, | ya…",
       "draft": "¡Pone jocada! ¡Te regalas!"
     },
     "special_policia_cdmx_hombre_power": {
-      "es": "",
-      "en": "",
+      "es": "Trabajamos permanentemente | en estrategias de seguridad vial.",
+      "en": "Trabajamos permanentemente | en estrategias de seguridad vial.",
       "draft": "trabajamos permanentemente en estrategias de seguridad vial."
     },
     "special_policia_cdmx_mujer_win": {
-      "es": "Si dices policía, me comprometí como mujer a que la ciudadanía sintiera una mejor seguridad",
-      "en": "If you say police - as a woman I committed to making citizens feel safer",
+      "es": "Al decidir ser policía, |  me comprometí, como mujer, | a que la ciudadaníaaa |  sintiera una mayor seguridad,  | que me tuviera confianza |  y que ellos se quedaran o obtuviera de mí una mayor tranquilidad.",
+      "en": "Al decidir ser policía, |  me comprometí, como mujer, | a que la ciudadaníaaa |  sintiera una mayor seguridad,  | que me tuviera confianza |  y que ellos se quedaran o obtuviera de mí una mayor tranquilidad.",
       "draft": "Si le hice el policía me comprometí como mujer a que la ciudadanía sintiera una mejor seguridad, que me tuvieran confianza y que ellos se quedaran o obtuvieran de mí una mejor tranquilidad."
     },
     "special_power_electricity": {
@@ -202,78 +202,78 @@
       "draft": ""
     },
     "special_prankedy_attack_1": {
-      "es": "",
-      "en": "",
+      "es": "A ver... | voltéate, voltéate... | voltéate... Hazme c...",
+      "en": "A ver... | voltéate, voltéate... | voltéate... Hazme c...",
       "draft": "a ver volteate volteate volteate volteate"
     },
     "special_prankedy_attack_2": {
-      "es": "",
-      "en": "",
+      "es": "¿Y qué, me vas a pegar o solo te vas a desvestir?",
+      "en": "¿Y qué, me vas a pegar o solo te vas a desvestir?",
       "draft": "¿Y qué, si me paso a pegar o nada más te vas a decir?"
     },
     "special_prankedy_attack_3": {
-      "es": "",
-      "en": "",
+      "es": "¿Qué pasó...? | ¿Eh...?",
+      "en": "¿Qué pasó...? | ¿Eh...?",
       "draft": "¿Qué pasó? ¿Eh?"
     },
     "special_prankedy_attack_4": {
-      "es": "",
-      "en": "",
+      "es": "¿Y cómo o qué? | ¿Qué va a hacer o qué órale? | Nos agarramos aquí a putazos | órale de una vez.",
+      "en": "¿Y cómo o qué? | ¿Qué va a hacer o qué órale? | Nos agarramos aquí a putazos | órale de una vez.",
       "draft": "¿Que va a ser? ¿Qué va a haber? Se agarramos aquí a putas solo el día de una vez"
     },
     "special_prankedy_hurt_1": {
-      "es": "",
-      "en": "",
+      "es": "Ya, hermano, ya... | Cálmate, ya.",
+      "en": "Ya, hermano, ya... | Cálmate, ya.",
       "draft": "¡Pac! ¡Pacama!"
     },
     "special_prankedy_hurt_2": {
-      "es": "",
-      "en": "",
+      "es": "Hermano, ya cálmate | Ya cálmate, ya.",
+      "en": "Hermano, ya cálmate | Ya cálmate, ya.",
       "draft": "¡Bruh!"
     },
     "special_prankedy_loss": {
-      "es": "",
-      "en": "",
+      "es": "¡Aaaah! | La broma, pues, terminó mal... |¡Ummhh! | Tengo... fracturado un ojo... | aquí tengo también una marca del golpe...",
+      "en": "Aaaah | La broma, pues, terminó mal... |Ummhh | Tengo... fracturado un ojo... | aquí tengo también una marca del golpe...",
       "draft": "la broma pues terminó mal tengo fracturado un ojo aquí tengo también una marca del golpe"
     },
     "special_prankedy_lowhp": {
-      "es": "",
-      "en": "",
+      "es": "-Uuuu.. | -¿U qué? | ¿U qué pend....? | Te pones al pedo todavía...",
+      "en": "-Uuuu.. | -¿U qué? | ¿U qué pend....? | Te pones al pedo todavía...",
       "draft": "¡Uke! ¡Uke, pendejo! ¡Te pones al pedo, guay, todavía!"
     },
     "special_prankedy_power": {
-      "es": "",
-      "en": "",
+      "es": "No se sienta un c... eh mi perro, | que ahorita lo... | ahorita lo aterrizo, eh.",
+      "en": "No se sienta un c... eh mi perro, | que ahorita lo... | ahorita lo aterrizo, eh.",
       "draft": "no se sienta un culo de mi perro que ahorita lo aterrizo"
     },
     "special_prankedy_win": {
-      "es": "",
-      "en": "",
+      "es": "Esque yo podré ser ciego, pero... |  sí me doy cuenta cuando alguien es miserable, eh.",
+      "en": "Esque yo podré ser ciego, pero... |  sí me doy cuenta cuando alguien es miserable, eh.",
       "draft": "es que yo podré ser ciego pero si me doy cuenta cuando alguien es miserable"
     },
     "special_rey_grupero": {
-      "es": "",
-      "en": "",
+      "es": "Oye hermano... |  ¿Me regalas una selfie?",
+      "en": "Oye hermano... |  ¿Me regalas una selfie?",
       "draft": "¿Fue el hermano Mergaras en la selfie? Claro, claro. ¿Y a ti te conozco de algo, no?"
     },
     "special_rey_grupero_attack": {
-      "es": "",
-      "en": "",
+      "es": "Oye hermano... |  ¿Me regalas una selfie?",
+      "en": "Oye hermano... |  ¿Me regalas una selfie?",
       "draft": "Fue ir hermano me regalas una selfie"
     },
     "special_rey_grupero_hurt": {
-      "es": "",
-      "en": "",
+      "es": "Nmms... C...  | Corre bien rápido este wey...",
+      "en": "Nmms... C...  | Corre bien rápido este wey...",
       "draft": "¡Vamos! ¡Vamos! ¡Vamos!"
     },
     "special_rey_grupero_power": {
-      "es": "",
-      "en": "",
+      "es": "¡Vámonos alv, wey, vámonos alv!",
+      "en": "Vámonos alv, wey, vámonos alv",
       "draft": "Estos son los de la verga, güey, son los de la verga, güey."
     },
     "special_robot": {
-      "es": "",
-      "en": "",
+      "es": "Sistema activado, objetivo localizado.",
+      "en": "Sistema activado, objetivo localizado.",
       "draft": "Sistema activado. Objetivo localizado."
     },
     "special_robot_attack": {
@@ -287,64 +287,74 @@
       "draft": "Eeeeeeeeeeeeeeeeeee"
     },
     "special_robot_win": {
-      "es": "",
-      "en": "",
+      "es": "La base de datos de virus... |  ha sido actualizada.",
+      "en": "La base de datos de virus... |  ha sido actualizada.",
       "draft": "La base de datos de virus ha sido actualizada."
     },
     "special_senor_tienda": {
-      "es": "",
-      "en": "",
+      "es": "Sí, ¿sabes qué? | Retírate, wey, o te rompo tu madre... | así derecho... | Retírate, cabrón.",
+      "en": "Sí, ¿sabes qué? | Retírate, wey, o te rompo tu madre... | así derecho... | Retírate, cabrón.",
       "draft": "Si el salis que retira te voy, te rompo tu madre y así derecho. Retira te cabrón."
     },
     "special_senor_tienda_attack_1": {
-      "es": "",
-      "en": "",
+      "es": "Ora... | hasta exigente te pones pen...",
+      "en": "Ora... | hasta exigente te pones pen...",
       "draft": "Ahora, hasta exigentes de por mis pendejos."
     },
     "special_senor_tienda_attack_2": {
-      "es": "",
-      "en": "",
+      "es": "¿Otra vez vienes a chingar la madre c...?  | ¡Ya dejar de chingar!",
+      "en": "¿Otra vez vienes a chingar la madre c...?  | Ya dejar de chingar",
       "draft": "Otra vez tienes a chingar la madre cabrón. A ver, ¿podre que ha de chingar?"
     },
     "special_senor_tienda_hurt_1": {
-      "es": "",
-      "en": "",
+      "es": "Ya estoy hasta la ptm...",
+      "en": "Ya estoy hasta la ptm...",
       "draft": "¡Ya estoy en la ventana!"
     },
     "special_senor_tienda_hurt_2": {
-      "es": "¡Ya me agarraste de tu puerquito!",
-      "en": "You've made me your punching bag!",
+      "es": "¿Ya me agarraste de tu puerquito, verdaa?",
+      "en": "¿Ya me agarraste de tu puerquito, verdaa?",
       "draft": "¡Sera, este es el Big Wanker!"
     },
     "special_senor_tienda_win": {
-      "es": "",
-      "en": "",
+      "es": "Llégale, | Ya estuvo, cabrón, |  ahora sí. Vente para acá, | vamos a rompernos la madre. | ¿O vas a salir otra vez como pinche mariquita, | wey, que sales corriendo, | cabrón?",
+      "en": "Llégale, | Ya estuvo, cabrón, |  ahora sí. Vente para acá, | vamos a rompernos la madre. | ¿O vas a salir otra vez como pinche mariquita, | wey, que sales corriendo, | cabrón?",
       "draft": "Ya estuvo cabrón, ahora si vete para acá, vamos a rompernos la madre, voy, yo vas a salir otra vez como pinche mariquita, que sales corriendo cabrón."
     },
     "special_yoalli_ehecatl": {
-      "es": "",
-      "en": "",
+      "es": "Fshhh...",
+      "en": "Fshhh...",
       "draft": "Música"
     },
     "special_yoalli_ehecatl_attack_1": {
-      "es": "",
-      "en": "",
+      "es": "¡Graaah!",
+      "en": "Graaah",
       "draft": "¡Aaaaaaah!"
     },
     "special_yoalli_ehecatl_attack_2": {
-      "es": "",
-      "en": "",
+      "es": "¡Hraaah!",
+      "en": "Hraaah",
       "draft": ""
     },
     "special_yoalli_ehecatl_hurt_1": {
-      "es": "",
-      "en": "",
+      "es": "¡Gaaah!",
+      "en": "Gaaah",
       "draft": "¡Aaaaaaah!"
     },
     "special_yoalli_ehecatl_hurt_2": {
-      "es": "",
-      "en": "",
+      "es": "¡Gah!",
+      "en": "Gah",
       "draft": "¡Aaaaaah!"
+    },
+    "special_prankedy_hurt_3": {
+      "es": "Cálmate, ya | Cálmate, ya, hermano",
+      "en": "Cálmate, ya | Cálmate, ya, hermano",
+      "draft": ""
+    },
+    "special_prankedy_hurt_4": {
+      "es": "¡Me vas a dejar inválido!",
+      "en": "Me vas a dejar inválido",
+      "draft": ""
     }
   }
 }
