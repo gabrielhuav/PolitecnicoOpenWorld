@@ -322,24 +322,35 @@ class StreetFighterViewModel @Inject constructor(
         .replace(Regex("[^A-Z0-9 ]"), " ").replace(Regex("\\s+"), " ").trim()
 
     /** Fija el subtítulo (frase) por un tiempo proporcional a su longitud. */
-    // 🆕 (2026-07-19) SUBTÍTULOS DE FRASES **DESACTIVADOS**: los audios de voz se reemplazaron y
-    // las frases del catálogo ya no corresponden a lo que se escucha. El pipeline queda INTACTO
-    // (catálogo + estado + dibujo en la Screen); basta poner este flag en true cuando se
-    // re-sincronice el texto con los audios nuevos. Ver README for IAS §TRABAJO FUTURO
-    // (requiere intervención HUMANA: volver a transcribir/curar la frase de cada peleador).
-    private val voiceSubtitlesEnabled = false
+    // 🆕 (2026-07-22) SUBTÍTULOS ACTIVOS: voice_phrases.json ya está curado (64 `es` + track `en`).
+    // El delimitador '|' del catálogo separa tramos sincronizados con la voz; ver setVoiceSubtitle.
+    private val voiceSubtitlesEnabled = true
 
     private fun setVoiceSubtitle(phrase: String, now: Long) {
         if (!voiceSubtitlesEnabled) return
-        val hud = sfHudSanitize(phrase)
-        if (hud.isBlank()) return
-        val until = now + (1600L + hud.length * 70L).coerceIn(2000L, 6000L)
-        _state.update { it.copy(specialSubtitleHud = hud, specialSubtitleUntilMs = until) }
+        // 🆕 (2026-07-22) TRAMOS '|' SECUENCIADOS: se sanea CADA tramo por separado (sfHudSanitize
+        // borraría el '|') y se re-une con '|'. La Screen muestra UN tramo A LA VEZ, avanzando con
+        // el tiempo: la ventana [start,until] se reparte por igual entre los tramos (sincronía con
+        // la voz). La duración total ~ largo del texto, con un mínimo legible por tramo.
+        val segments = phrase.split('|')
+            .map { sfHudSanitize(it) }
+            .filter { it.isNotBlank() }
+        if (segments.isEmpty()) return
+        val hud = segments.joinToString("|")
+        val perSegment = 900L // mínimo legible por tramo (ms)
+        val total = maxOf(1600L + hud.length * 70L, segments.size * perSegment).coerceIn(2000L, 9000L)
+        _state.update {
+            it.copy(
+                specialSubtitleHud = hud,
+                specialSubtitleStartMs = now,
+                specialSubtitleUntilMs = now + total,
+            )
+        }
     }
 
     // 🆕 (2026-07-20) Catálogo de frases POR CLIP (voice_phrases.json): el "lugar único"
     // donde el dueño cura la frase de cada audio. Si un clip tiene frase curada, MANDA
-    // sobre la inline de SfVoiceLine. Sigue sin mostrarse nada (voiceSubtitlesEnabled).
+    // sobre la inline de SfVoiceLine. Se muestra en el HUD desde el 2026-07-22.
     private val voicePhrases by lazy {
         ovh.gabrielhuav.pow.features.streetfighter.data.SfVoicePhrases.load(appContext)
     }
@@ -1205,6 +1216,7 @@ class StreetFighterViewModel @Inject constructor(
             // limpiar subtítulo del special al expirar
             specialSubtitleHud = if (subActive) value.specialSubtitleHud else null,
             specialSubtitleUntilMs = if (subActive) value.specialSubtitleUntilMs else 0L,
+            specialSubtitleStartMs = if (subActive) value.specialSubtitleStartMs else 0L,
         )
     }
 
@@ -3458,22 +3470,25 @@ class StreetFighterViewModel @Inject constructor(
         if (!hasAnim(me, SfFighterState.PARRY_HIGH)) return null // sin moveset nuevo
         val aggressive = nightmare || cpuIntensity > 0.5f
 
-        // 🆕 FATALITY: su comando es SÚPER EN CARRERA, así que la IA lo prepara en dos
-        // tiempos — primero arranca a correr y, ya corriendo, lo suelta.
+        // 🆕 (2026-07-22) FATALITY/SÚPER con el medidor lleno: probabilidad ALTA que ESCALA con
+        // la dificultad (cpuIntensity 0→1; nightmare = tope). "Bastante probable" ya de base.
+        // El comando del FATALITY es SÚPER EN CARRERA: se prepara en dos tiempos (arranca con un
+        // dash y, ya en RUN, lo suelta).
+        val diff = if (nightmare) 1f else cpuIntensity
+        val fatalityChance = (0.45f + 0.45f * diff).coerceIn(0.45f, 0.95f)
+        val superChance = (0.35f + 0.40f * diff).coerceIn(0.35f, 0.90f)
         val canFatality = me.superReady && hasAnim(me, SfFighterState.FATALITY)
         if (canFatality && me.state == SfFighterState.RUN) {
-            if (roll < (if (aggressive) 0.7f else 0.35f)) {
-                return SfInput(forward = true, superArt = true)
-            }
-        } else if (canFatality && aggressive && roll < 0.35f) {
-            val inRange = dist in 90f..CPU_MID_DIST
-            if (inRange && hasAnim(me, SfFighterState.DASH_FORWARD)) {
+            if (roll < fatalityChance) return SfInput(forward = true, superArt = true)
+        } else if (canFatality && roll < fatalityChance) {
+            // arrancar el fatality: dash a media distancia (al terminar entra en RUN y lo suelta)
+            if (dist in 70f..CPU_MID_DIST && hasAnim(me, SfFighterState.DASH_FORWARD)) {
                 return SfInput(dashForward = true, forward = true)
             }
         }
-        // SÚPER: se guarda para cuando de verdad conecta (rango de golpe)
+        // SÚPER a rango de golpe: consume el medidor cuando de verdad conecta
         if (me.superReady && dist < CPU_MELEE_DIST && hasAnim(me, SfFighterState.SUPER_ART) &&
-            roll < (if (aggressive) 0.55f else 0.30f)
+            roll < superChance
         ) {
             return SfInput(superArt = true)
         }

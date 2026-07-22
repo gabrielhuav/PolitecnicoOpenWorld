@@ -24,9 +24,9 @@ Hallazgos 2026-07-20 (detalle en el reporte):
   "Sí. Siempre…"). Verificada con Whisper.
 - Las demás frases inline (policías, paramédico, puerquito) coinciden razonablemente con el
   audio (las "discrepancias" del reporte en esos casos son mis-oídas de Whisper).
-- El reporte trae TRANSCRIPCIONES BORRADOR de las ~70 voces → es el insumo para re-activar
-  los subtítulos (`voiceSubtitlesEnabled`): curar a oído, poner frases en `SfVoiceLine` y
-  encender el flag (ver `SF_SPECIAL_VOICES_SFX.md` caja inicial).
+- El reporte trae TRANSCRIPCIONES BORRADOR de las ~70 voces → fue el insumo para re-activar
+  los subtítulos. ✅ **HECHO (2026-07-22):** frases curadas en `voice_phrases.json` (64 `es` +
+  `en` completo) y `voiceSubtitlesEnabled = true`.
 
 ## ⚠️ El peso del AAB NO era el audio — eran los FONDOS (resuelto)
 

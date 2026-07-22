@@ -983,8 +983,9 @@ Detalle completo: `DISENO_ARCADE_SF_POW.md` §2026-07-21f.
 
 ### HUELUM VS. GOYA — 🎓 COMBOS data-driven + TUTORIAL interactivo (2026-07-21b)
 
-Catálogo en `assets/STREETFIGHTER/DATA/combos.json` (10 universales + 1 de firma por
-peleador) cargado por `features/streetfighter/data/SfCombos.kt`. La **IA** encola rutas y
+Catálogo en `assets/STREETFIGHTER/DATA/combos.json` (**23 básicos + 12 universales**
+— incluye `fatality`, `b_meter` (medidor) y `b_crouchchain` (cadena baja), 2026-07-22 —
++ 1 de firma por peleador) cargado por `features/streetfighter/data/SfCombos.kt`. La **IA** encola rutas y
 las ejecuta en orden (`queueCombo`/`nextComboInput`, filtradas por `canPerform` y por
 `cpuIntensity`); el **tutorial** valida cada paso con `stateForAction`. Ambos comparten
 `inputForAction` como única fuente de verdad de cómo se ejecuta cada movimiento.

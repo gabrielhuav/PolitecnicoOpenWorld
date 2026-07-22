@@ -2900,30 +2900,41 @@ private fun DrawScope.drawScene(
         state.gameTimeMs < state.specialSubtitleUntilMs
     ) {
         val hud = images.getValue(theme.hudImage)
-        // 🆕 (2026-07-18q) Subtítulo MULTILÍNEA (máx 3) + fuente MENOR, anclado abajo, para que
-        // las frases largas (policías) no se salgan de pantalla. Word-wrap a ~24 chars/línea.
         val sizeMul = 0.6f
         val maxChars = 24
-        val words = sub.split(' ').filter { it.isNotBlank() }
-        val lines = ArrayList<String>(3)
-        val cur = StringBuilder()
-        for (w in words) {
-            when {
-                cur.isEmpty() -> cur.append(w)
-                cur.length + 1 + w.length <= maxChars -> cur.append(' ').append(w)
-                else -> { lines.add(cur.toString()); cur.setLength(0); cur.append(w) }
+        val maxLines = 3
+        // 🆕 (2026-07-22) UN tramo '|' A LA VEZ, sincronizado con la voz: la ventana
+        // [start,until] se reparte por igual entre los tramos y se pinta el tramo ACTUAL
+        // (envuelto a ~24 chars si es largo). Ya NO se muestran todos a la vez.
+        val segments = sub.split('|').filter { it.isNotBlank() }
+        if (segments.isNotEmpty()) {
+            val start = state.specialSubtitleStartMs
+            val total = (state.specialSubtitleUntilMs - start).coerceAtLeast(1L)
+            val elapsed = (state.gameTimeMs - start).coerceIn(0L, total - 1L)
+            val segIndex = (elapsed * segments.size / total).toInt().coerceIn(0, segments.lastIndex)
+            val words = segments[segIndex].split(' ').filter { it.isNotBlank() }
+            val lines = ArrayList<String>(maxLines)
+            val cur = StringBuilder()
+            for (w in words) {
+                when {
+                    cur.isEmpty() -> cur.append(w)
+                    cur.length + 1 + w.length <= maxChars -> cur.append(' ').append(w)
+                    else -> {
+                        lines.add(cur.toString()); cur.setLength(0); cur.append(w)
+                        if (lines.size >= maxLines) break
+                    }
+                }
             }
-            if (lines.size >= 3) break
-        }
-        if (cur.isNotEmpty() && lines.size < 3) lines.add(cur.toString())
-        val lineH = 12f * sizeMul + 3f
-        val bottomBaseline = SfConstants.SCENE_HEIGHT - 10f
-        lines.reversed().forEachIndexed { i, ln ->
-            val w = ln.length * 12f * sizeMul
-            val x = (SfConstants.SCENE_WIDTH - w) / 2f
-            val y = bottomBaseline - i * lineH - 12f * sizeMul
-            drawFontText(ctx, theme, hud, ln, x + 1f, y + 1f, sizeMul) // sombra
-            drawFontText(ctx, theme, hud, ln, x, y, sizeMul)
+            if (cur.isNotEmpty() && lines.size < maxLines) lines.add(cur.toString())
+            val lineH = 12f * sizeMul + 3f
+            val bottomBaseline = SfConstants.SCENE_HEIGHT - 10f
+            lines.reversed().forEachIndexed { i, ln ->
+                val w = ln.length * 12f * sizeMul
+                val x = (SfConstants.SCENE_WIDTH - w) / 2f
+                val y = bottomBaseline - i * lineH - 12f * sizeMul
+                drawFontText(ctx, theme, hud, ln, x + 1f, y + 1f, sizeMul) // sombra
+                drawFontText(ctx, theme, hud, ln, x, y, sizeMul)
+            }
         }
     }
 }

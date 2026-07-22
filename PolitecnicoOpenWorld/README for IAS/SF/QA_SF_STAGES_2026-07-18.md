@@ -51,11 +51,11 @@ FES Acatlán · UAM Azcapotzalco · Isla de las Muñecas · Mictlán · Campos d
 
 ## Subtítulos de frases (se salen de pantalla) — ✅ CORREGIDO 2026-07-18q
 
-Resuelto: subtítulo **multilínea (máx 3)** con word-wrap ~24 chars, fuente `sizeMul` 0.6,
+Resuelto: subtítulo **multilínea** con word-wrap ~24 chars, fuente `sizeMul` 0.6,
 anclado abajo (ver `StreetFighterScreen.kt` bloque "Subtítulo del special" + DISENO §18q).
-⚠️ OJO: los subtítulos de FRASES están APAGADOS (`voiceSubtitlesEnabled=false`) hasta
-re-transcribir las frases — ver `SF_SPECIAL_VOICES_SFX.md` (caja inicial) y
-`tools/sf_audio_audit_report.md` (transcripciones borrador 2026-07-20).
+✅ **2026-07-22:** los subtítulos de FRASES ya están **ENCENDIDOS** (`voiceSubtitlesEnabled=true`):
+`voice_phrases.json` quedó curado (64 `es` + `en` completo) y el delimitador `|` del catálogo
+dibuja **una línea por tramo** (encadenado al word-wrap, techo 9 líneas). Falta verlo en dispositivo.
 
 ## 🆕 MATERIAL NUEVO PROCESADO (2026-07-18k, Fable) — `nuevoMaterial18JUL/`
 

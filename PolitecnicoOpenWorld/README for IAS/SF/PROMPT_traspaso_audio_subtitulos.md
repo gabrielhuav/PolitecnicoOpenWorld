@@ -1,5 +1,9 @@
 # TRASPASO · Audio y subtítulos de HUELUM VS. GOYA (2026-07-21)
 
+> ⚠️ **PARCIALMENTE SUPERADO (2026-07-22):** la parte de SUBTÍTULOS ya se hizo (64 `es`
+> curados + `en` traducido + `voiceSubtitlesEnabled=true` + render por tramos `|`). Sigue
+> vigente SOLO lo de AUDIO (recortes de clips largos y normalización).
+
 > Pégale esto completo a la sesión nueva. Trabaja **LOCALMENTE** en Windows/PowerShell,
 > con acceso de escritura a git. Nada de nube ni contenedores.
 

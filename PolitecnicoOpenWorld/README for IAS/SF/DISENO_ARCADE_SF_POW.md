@@ -833,3 +833,22 @@ llaves y CRLF. Listo para Rebuild.
 - Auditoría: cada estancamiento y ronda decidida por tiempo es un problema explícito; el `.txt`
   incluye rondas por KO y por tiempo. Validación principal: **Autoplay everyone vs everyone**
   (18×17 = 306 combates) en emulador, seguida por las 9 campañas por dificultad.
+
+## Cambios 2026-07-22 (Fable 5) — SUBTÍTULOS ENCENDIDOS + track EN + tutorial
+
+- **Subtítulos de voz ACTIVOS** (`voiceSubtitlesEnabled = true`, VM). Fix del delimitador `|`:
+  `sfHudSanitize` lo convertía en espacio y la Screen partía solo por palabras. Ahora
+  `setVoiceSubtitle` sanea CADA tramo y re-une con `|`; el bloque "Subtítulo del special" de
+  `StreetFighterScreen` dibuja **una línea por tramo** y ENCADENA el word-wrap ~24 chars dentro
+  del tramo (techo de seguridad 9 líneas — la frase más larga, win de Policía CDMX Mujer, produce 9).
+- **Track `en` de `voice_phrases.json` COMPLETO:** ~33 campos que seguían en español se
+  tradujeron conservando tramos `|` y censuras (`c...`→`b...`); gritos/onomatopeyas
+  (`Grrr`, `Kiaa`, `Jajaja`, `ZA-ZA`…) se quedan igual. Los `es` y `draft` NO se tocaron.
+  Verificado: 64 `es` curados, 0 `en` con rasgos ES, 0 tramos desiguales, CRLF intacto.
+- **Tutorial (`combos.json`, solo datos):** +`b_crouchchain` (puño bajo→patada baja; crouchPunch
+  no se enseñaba en ningún básico) y +`b_meter` (el medidor sube al conectar Y al recibir;
+  súper y FATALITY lo consumen ENTERO — verificado en el VM, rama SUPER_ART/FATALITY de
+  changeState). El `_readme` ahora lista walkForward/run/blockHigh/fatality. La lección
+  FATALITY ya existía (universal `fatality`, level 4) — el plan que la daba por faltante
+  estaba desactualizado. **Pendiente (requiere motor):** bloqueo BAJO y parry BAJO no tienen
+  `SfComboAction` ni mapeo en `stateForAction` → sin lección posible solo con datos.

@@ -1,5 +1,9 @@
 # AUDIT de VOCES y SUBTITULOS — HUELUM VS. GOYA
 
+> ⚠️ **DESACTUALIZADO (2026-07-22):** este reporte lee la fuente inline vieja. La verdad
+> vigente es `assets/STREETFIGHTER/DATA/voice_phrases.json`: **64 `es` curados, track `en`
+> traducido completo y `voiceSubtitlesEnabled = true`**. Re-ejecutar el audit para regenerarlo.
+
 > Generado por `tools/sf_voice_subtitle_audit.py`. **No editar a mano:** se regenera. Las correcciones se escriben en `tools/_audio_review/_SUBTITULOS_AUDIT.csv` (columnas `ES_CORREGIDO` / `EN_CORREGIDO` / `NOTAS`) y se aplican con `tools/sf_apply_subtitle_fixes.py`.
 
 Para escuchar cada clip: `tools/_audio_review/<clip>.mp3`.

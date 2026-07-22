@@ -142,6 +142,7 @@ data class StreetFighterState(
     // Se muestra un momento al lanzar special/bonus; se limpia cuando specialSubtitleUntilMs <= gameTimeMs.
     val specialSubtitleHud: String? = null,            // A-Z 0-9 para drawFontText
     val specialSubtitleUntilMs: Long = 0L,             // gameTimeMs límite (0 = oculto)
+    val specialSubtitleStartMs: Long = 0L,             // 🆕 (2026-07-22) inicio: reparte los tramos '|' en [start,until]
 
     // ─── 🆕 MULTIJUGADOR 1v1 (servidor MultiplayerSF/ en Render, relay puro) ───
     val onlineStatus: SfOnlineStatus = SfOnlineStatus.OFF,

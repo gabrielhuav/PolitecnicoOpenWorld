@@ -80,7 +80,24 @@
 Índice propio en **`SF/00_SF_INDEX.md`** (diseño, assets gráficos, audio, herramientas y las
 reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `street_fighter`/`Sf*`.
 
-### Estado vigente (2026-07-21f) — LÉEME PRIMERO
+### Estado vigente (2026-07-22) — LÉEME PRIMERO
+
+> **🆕 2026-07-22 (Fable 5) — SUBTÍTULOS DE VOZ ENCENDIDOS + tutorial ampliado:**
+> - **🗣️ Subtítulos ON:** `voiceSubtitlesEnabled = true`. `voice_phrases.json` es la verdad
+>   (64 `es` curados). El delimitador `|` ya NO se pierde: el VM sanea POR TRAMO y la Screen
+>   dibuja **una línea por tramo** encadenada al word-wrap ~24 chars (techo 9 líneas).
+> - **🇬🇧 Track `en` completo:** se tradujeron los ~33 campos `en` que seguían en español
+>   (gritos/onomatopeyas se conservan). 0 clips con rasgos ES, 0 tramos `|` desiguales.
+> - **🎓 Tutorial:** +2 básicas en `combos.json` (`b_crouchchain` puño/patada bajos y
+>   `b_meter` cómo se llena/consume el medidor — verificado en VM: súper y fatality lo
+>   consumen entero). La lección FATALITY YA existía (universal `fatality`, level 4).
+> - **⛔ Trabajo futuro (bloqueado por pipeline de arte, NO forzar):** azar de poderes de
+>   La Presidenta (fatality V2 `suoerFatV2_*`, `fat_*`, proyectil V2) y las 2 metamorfosis
+>   nuevas (`SPEC_metamorfosis_lapresidenta.md`) requieren importar croma + extender packer +
+>   re-empacar. El motor degrada bien sin ellos (guard `animations[jsKey]` en `tryBonusPower`).
+> - Verificado: JSONs válidos, CRLF, llaves balanceadas. **Falta Rebuild + dispositivo.**
+
+### Estado 2026-07-21f
 
 > **🆕 2026-07-21f (Opus 4.8) — La Llorona: cerrados los 3 recortes malos que quedaban:**
 > - **`crouchTurn`**: era ESPEJO, no recorte. `{"flipX": true}` en `crouch-turn-1/2/3` del
@@ -248,7 +265,7 @@ reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `stree
 | **`PROMPT_panoramico_todos_los_mapas.md`** | **Trabajo FINAL diferido: aplicar el encuadre panorámico + salto a los 16 mapas, uno por uno. Prompt autónomo con todo lo necesario.** |
 | `AUDIT_SF_MULTIPLAYER.md` | Multijugador 1v1: protocolo, server `MultiplayerSF/`, BT/LAN. |
 | `ASSETS_STREETFIGHTER_MIGRACION.md` | Pipeline assets pelea (JSON, pack, migración SF→POW). |
-| **`SF_SPECIAL_VOICES_SFX.md`** | Voces/SFX v3: 21/21 español, cortes locales, Whisper, hashes, `MediaPlayer`; v1/v2 queda histórico. **⚠️ TRABAJO FUTURO (humano): subtítulos de frases DESACTIVADOS** (`voiceSubtitlesEnabled=false`) porque los audios nuevos ya no coinciden con el texto — re-transcribir las 21 frases y reactivar. Ver la caja al inicio de ese doc. |
+| **`SF_SPECIAL_VOICES_SFX.md`** | Voces/SFX v3: 21/21 español, cortes locales, Whisper, hashes, `MediaPlayer`; v1/v2 queda histórico. ✅ **2026-07-22: subtítulos de frases ACTIVOS** (`voiceSubtitlesEnabled=true`; frases curadas en `voice_phrases.json`, 64 `es` + `en` completo). |
 | `GUIA_regeneracion_sprites_croma.md` | Regenerar sprites croma pelea+mundo (proceso VIGENTE de recorte). |
 | **`PROMPT_SOL56_TANDAS_NUEVAS.md`** | **⭐ Prompt de las 10 hojas NUEVAS (20–29, moveset 3rd Strike) por personaje + rutas de assets + estándar de calidad.** |
 | `NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |
