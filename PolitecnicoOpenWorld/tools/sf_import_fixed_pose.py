@@ -63,6 +63,20 @@ def cut_chroma(path: str, despill: bool = True) -> Image.Image:
     a = np.asarray(im).astype(int)
     r, g, b = a[..., 0], a[..., 1], a[..., 2]
 
+    # 🆕 (2026-07-21) ROTULOS del generador ("SPECIAL ULTIMATE", "SPECIAL FIRE"...) escritos
+    # en AMARILLO sobre el croma. No son croma (r alto), asi que la mascara los tomaria como
+    # figura y acabarian dentro del cuadro. El amarillo puro (r y g altos, b bajo) no aparece
+    # en estos personajes salvo en los rotulos, y solo se borra en la BANDA SUPERIOR, que es
+    # donde el generador los pone: asi un detalle dorado del cuerpo nunca se toca.
+    amarillo = (r > 170) & (g > 150) & (b < 110) & (np.abs(r - g) < 90)
+    banda = np.zeros_like(amarillo)
+    banda[: int(amarillo.shape[0] * 0.30)] = True
+    rotulo = amarillo & banda
+    if rotulo.any():
+        rotulo = ndimage.binary_dilation(rotulo, iterations=3)
+        a[rotulo] = [0, 255, 0]          # se repinta de croma y desaparece
+        r, g, b = a[..., 0], a[..., 1], a[..., 2]
+
     # 1) mascara: croma con tolerancia amplia para no dejar el halo del antialias
     croma = (g > 150) & (g > r + 45) & (g > b + 45)
     mask = ~croma
@@ -81,6 +95,7 @@ def cut_chroma(path: str, despill: bool = True) -> Image.Image:
         tenido = mask & (g > techo)
         rgb[..., 1] = np.where(tenido, techo, g).astype(np.uint8)
 
+    rgb[rotulo] = [0, 0, 0] if rotulo.any() else rgb[rotulo]
     out = Image.fromarray(np.dstack([rgb, (mask * 255).astype(np.uint8)]), "RGBA")
     bb = out.getbbox()
     return out.crop(bb) if bb else out

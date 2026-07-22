@@ -228,7 +228,10 @@ DERIVED_BONUS_POWERS = {
 # como el PROYECTIL de ese poder (SfFireball.bonusPower).
 # Los poderes NO listados animan sus 5 cuadros (el personaje sale en todos: aura/rayo).
 BONUS_PROJECTILE_POWERS = {
-    "lapresidenta": {1, 2, 3, 4, 5, 6},
+    # 🆕 (2026-07-21) El 1 sale de la lista: su arte nueva trae al personaje en los CINCO
+    # cuadros (pose, pose, carrera, mazazo, haz), asi que ya no desaparece 3 cuadros y se
+    # anima completo. Los demas siguen siendo guiones con el proyectil suelto.
+    "lapresidenta": {2, 3, 4, 5, 6},
 }
 
 # 🆕 (2026-07-21) PODERES BONUS "RÁPIDOS": el dueño audita la hoja y decide que solo unos
@@ -242,13 +245,10 @@ BONUS_FAST_POWERS = {
         4: [5],       # 1-4 son Yoalli; solo la pose final es de La Tzitzimime
         5: [4, 5],
     },
-    # 🆕 (2026-07-21) La Presidenta P1 = "SPECIAL ULTIMATE", su golpe mas fuerte. El dueno
-    # recorto a mano solo DOS poses utiles (preparacion y haz completo); el 3er paso repite
-    # la preparacion para cerrar el movimiento. Va por FAST y no por proyectil: aqui el haz
-    # forma parte del cuadro, no es un proyectil que viaje solo.
-    "lapresidenta": {
-        1: [1, 2, 3],   # bonus-1-3 es una copia de bonus-1-1 (retorno)
-    },
+    # 🆕 (2026-07-21) La Presidenta P1 = "SPECIAL ULTIMATE". El dueno acabo recortando las
+    # CINCO poses (pose, pose, carrera, mazazo, haz), asi que ya NO necesita recorte: se
+    # anima entera. Tampoco va por el camino de proyectil, porque el haz forma parte del
+    # cuadro y no viaja solo.
 }
 
 # 🆕 (2026-07-21) PODERES BONUS RETIRADOS: la hoja trae arte de OTRO personaje y no hay
