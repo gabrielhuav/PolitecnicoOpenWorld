@@ -57,17 +57,25 @@ verifica que salió bien, y qué NO debe tocar. Sin eso, cualquier IA improvisa.
 
 ## 4. PENDIENTE — por prioridad
 
-### 🔴 P0 · Bug visible en juego
+### ✅ ASSETS CERRADOS (2026-07-21, auditados por el dueño)
 
-**`hit-face-1..4` con dos figuras apiladas** en `senortienda`, `escomboy`, `escomgirl`,
-`yoalliehecatl`. Al recibir un golpe a la cara sale un duplicado fantasma.
+El dueño revisó las hojas y **dio los assets por buenos**. El audit automático queda en
+`VACIO 0 · MULTI_FIGURA 0 · ESCALA 0 · BORDE 1`. El único BORDE es `lapresidenta/fatality-4`
+y no es un fallo: el haz del súper es más ancho que los 256 px del lienzo.
 
-- El fix del slicer YA está commiteado y verificado, pero **está inerte**: falta re-recortar
-  y re-empaquetar. `escomboy` y `yoalliehecatl` ya dan `HURT HEAD 14/14 OK`.
-  → **Delegar a: Opus 4.8** (re-slice + re-pack + verificación visual de esos dos).
-- `senortienda` y `escomgirl` siguen mal (15/14): sus hojas 09 traen **16 poses, no 14**, con
-  un par pegado. **Necesitan hoja regenerada** o ajustar `SHEET_OVERRIDES` a 16.
-  → **Decisión del dueño.**
+Quedan detalles menores que el dueño considera **no bloqueantes**: unos pocos cuadros de
+La Presidenta y algún hitbox afinable.
+
+### 🔴 P0 · AUDIO Y SUBTÍTULOS — es el trabajo activo
+
+**62 de 69 clips sin subtítulo.** Requiere el OÍDO del dueño; el flujo está montado.
+Traspaso listo para pegar: `SF/PROMPT_traspaso_audio_subtitulos.md`.
+→ **Gemini 3.6** una vez el dueño dicte los textos.
+
+⚠️ **No repitas el resumen que dice "100 % normalizados a −16 LUFS y sin faltantes".** Está
+medido y es falso: de los 80 `.ogg` solo **69 son voz** (11 son SFX globales), y hay **2
+clips que NO pueden normalizarse** sin comprimir (`special_charro_attack_2` con 0.0 dB de
+margen y `special_rey_grupero` con 1.3 de los 2.4 dB que necesita). Detalle en el traspaso.
 
 ### 🟡 P1 · Audio y subtítulos
 

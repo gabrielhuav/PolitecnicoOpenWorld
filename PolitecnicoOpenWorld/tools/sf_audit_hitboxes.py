@@ -33,6 +33,9 @@ import sys
 import numpy as np
 from PIL import Image, ImageDraw
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from sf_body_detect import body_box as detectar_cuerpo  # noqa: E402
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SF = os.path.join(ROOT, "app", "src", "main", "assets", "STREETFIGHTER")
 DATA, IMAGES = os.path.join(SF, "DATA"), os.path.join(SF, "IMAGES")
@@ -42,30 +45,17 @@ CX, FEET_Y = 128, 224
 
 
 def body_box(alpha: np.ndarray):
-    """Caja del CUERPO: primer grupo de columnas densas (ignora el efecto)."""
-    vis = alpha > 8
-    if not vis.any():
+    """Caja del CUERPO. Delega en el detector compartido `sf_body_detect`.
+
+    Antes usaba "primer grupo de columnas densas" y en los cuadros de poder se quedaba con
+    el EFECTO: la caja verde envolvia el haz en vez de la figura. El detector nuevo se apoya
+    en que el personaje PISA EL SUELO y los efectos flotan.
+    """
+    if not (alpha > 8).any():
         return None
-    counts = vis.sum(axis=0)
-    dense = counts >= max(3.0, float(counts.max()) * 0.45)
-    grupos, ini = [], None
-    for x, on in enumerate(dense):
-        if on and ini is None:
-            ini = x
-        if ini is not None and (not on or x == len(dense) - 1):
-            fin = x if not on else x + 1
-            if fin - ini >= 2:
-                grupos.append((ini, fin))
-            ini = None
-    if not grupos:
-        xs = np.where(vis.any(axis=0))[0]
-        grupos = [(int(xs[0]), int(xs[-1]) + 1)]
-    x0, x1 = grupos[0]
-    franja = vis[:, x0:x1]
-    ys = np.where(franja.any(axis=1))[0]
-    if not len(ys):
-        return None
-    return x0, int(ys[0]), x1, int(ys[-1]) + 1
+    lienzo = Image.fromarray(
+        np.dstack([np.zeros_like(alpha)] * 3 + [alpha]).astype(np.uint8), "RGBA")
+    return detectar_cuerpo(lienzo)
 
 
 def head_box(alpha: np.ndarray, body):

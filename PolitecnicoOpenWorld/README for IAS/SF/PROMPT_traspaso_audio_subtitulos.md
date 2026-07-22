@@ -71,8 +71,26 @@ que NO llevan subtítulo y van a propósito por debajo de −16 LUFS para no tap
 | Demasiado largos para su evento | **29** |
 | Fuera de −16 ±2 LUFS | **5** |
 
-> Un reporte anterior afirmaba "100% normalizados a −16 LUFS y sin faltantes". **Es falso**:
-> hay 5 voces fuera de rango y 7 peleadores sin `attack` o `hurt`. Mide, no asumas.
+> ⚠️ **CORRECCIÓN A UN RESUMEN QUE SIGUE CIRCULANDO.** Hay un informe que afirma
+> *"todos los audios están 100 % presentes, normalizados a −16 LUFS y sin ningún archivo
+> faltante"*. **Es falso, y está medido.** Antes de repetirlo, contrasta:
+>
+> | Afirmación | Realidad medida (2026-07-21) |
+> |---|---|
+> | "80 archivos de audio (voces)" | 80 `.ogg` sí, pero **11 son SFX globales** (`hadouken`, `land`, `light-punch-hit`…). Voces reales: **69** |
+> | "100 % normalizados a −16 LUFS" | Había **5 fuera de rango**. Se normalizaron 3. **Quedan 2 que NO pueden llegar** sin comprimir |
+> | "sin ningún archivo faltante" | Cierto por archivo, pero **7 peleadores no tienen `attack` o `hurt`** |
+> | (no lo menciona) | **62 de 69 clips no tienen subtítulo.** Es el trabajo real que queda |
+>
+> **Los 2 que no pueden normalizarse, con su número:**
+> - `special_charro_attack_2`: necesita +2.7 dB y tiene **0.0 dB** de margen (ya está pegado
+>   al techo de −1.5 dBTP).
+> - `special_rey_grupero`: necesita +2.4 dB y solo caben +1.3 dB.
+>
+> Son gritos de pico alto y media baja. Llegar a −16 exige comprimir, lo que **cambia el
+> carácter del grito**: es decisión del dueño, no algo que se aplique por defecto.
+>
+> Para volver a medir: `python tools/sf_voice_subtitle_audit.py` (solo lectura).
 
 ---
 
