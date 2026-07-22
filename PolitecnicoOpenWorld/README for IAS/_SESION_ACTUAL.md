@@ -83,8 +83,11 @@ quedaron commiteados; detalle en `SF/DISENO_ARCADE_SF_POW.md` §2026-07-22 y 00_
 
 ### 🧪 QUÉ PROBAR EN DISPOSITIVO (checklist del dueño)
 
-- **La Llorona:** seleccionarla, pelear contra ella e IA vs IA con ella en ambos lados (si
-  aún crashea, el logcat dirá el punto exacto — ya no debería ser el camino ALPHA).
+- **La Llorona:** 🆕 (2026-07-22, Opus) se importó su arte de **PATADA LARGA + OVERHEAD** (el
+  dueño la entregó en chroma), así que **ya NO carga el atlas ALPHA** (0 movimientos sin arte) →
+  crash resuelto de raíz + menos RAM. Ver `SF/IMPORT_lallorona_patada-overhead_2026-07-22.md`.
+  Probar: seleccionarla, pelear contra ella e IA vs IA, y ver que su patada larga/overhead se
+  vean bien. (El blindaje de Fable —decode en runCatching— se queda como red.)
 - **STUN:** recibir ~5-6 golpes seguidos sin bloquear → mareo (estrellitas, congelado 2 s);
   pegarle al mareado lo despierta. En MULTIPLAYER: que P1 y P2 vean al MISMO aturdido.
 - **Metamorfosis:** round 1 al 25% → Yoalli con vida llena; rounds 2+ sigue Yoalli y sin

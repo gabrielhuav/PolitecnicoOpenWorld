@@ -328,10 +328,11 @@ fun StreetFighterScreen(
                         ?.let { put(id.spriteAsset.substringAfterLast('/'), it) }
                 }
             }
-            // PLACEHOLDER ALPHA (hoy solo La Llorona: sin PATADA LARGA/OVERHEAD). Se pinta
-            // como SILUETA NEGRA → media resolución NO se nota y evita el pico de RAM del
-            // 3er atlas (~63 → ~16 MB en gama alta, ~4 MB en baja): principal sospechoso
-            // del crash por OOM de sus peleas. Lleva SU escala en sheetScale.
+            // PLACEHOLDER ALPHA (2026-07-22: La Llorona YA trae PATADA LARGA/OVERHEAD propios, así
+            // que hoy NINGÚN peleador dispara este 3er atlas; la red se queda por si acaso). Se pinta
+            // como SILUETA NEGRA → media resolución NO se nota y evitaba el pico de RAM del 3er atlas
+            // (~63 → ~16 MB en gama alta, ~4 MB en baja), que era el sospechoso del crash por OOM.
+            // Lleva SU escala en sheetScale.
             val needyId = fightIds.firstOrNull { id ->
                 val d = SfFrameCatalog.load(context, id)
                 SF_NEW_MOVE_STATES.any { d.animations[it.jsKey].isNullOrEmpty() }
