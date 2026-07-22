@@ -4171,17 +4171,22 @@ class StreetFighterViewModel @Inject constructor(
         // 🆕 (2026-07-18n) DESNIVEL ALEATORIO: dos peleadores iguales se esquivan sin fin y nadie
         // gana. Se le baja la dificultad a UNO al azar (1–2 escalones) → el otro conecta y gana.
         // Se re-aleatoriza en cada pelea (revancha/gauntlet) para que el ganador varíe.
+        val strongIndex: Int
         if (gauntletCampaignMode) {
             // Auditoría de campañas: P0 (Jugador) gana SIEMPRE para avanzar la escalera.
             cpuDiffOverride[0] = SfCpuDifficulty.PESADILLA
             cpuDiffOverride[1] = SfCpuDifficulty.BASICA
+            strongIndex = 0
         } else {
             val weak = Random.nextInt(2)
             val steps = 1 + Random.nextInt(2)
             val weakDiff = SfCpuDifficulty.entries[(difficulty.ordinal - steps).coerceAtLeast(0)]
             cpuDiffOverride[weak] = weakDiff
             cpuDiffOverride[1 - weak] = difficulty
+            strongIndex = 1 - weak
         }
+        // 🆕 (2026-07-22) El escenario es el HOGAR del peleador con la IA MÁS avanzada (no ESCOM).
+        val strongFighter = if (strongIndex == 0) a else b
         roundIntroUntilMs = ROUND_INTRO_MS // banner "RONDA 1 / PELEA" (gameNow arranca en 0)
         val base = StreetFighterState()
         _state.value = base.copy(
@@ -4191,6 +4196,7 @@ class StreetFighterViewModel @Inject constructor(
             showRoundIntro = true,
             cpuDifficulty = difficulty,
             aiVsAi = true,
+            arcadeMapFile = SfStageCatalog.mapForRival(strongFighter, difficulty),
         )
     }
 

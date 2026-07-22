@@ -349,7 +349,7 @@ fun StreetFighterScreen(
     // mapa (ligado al rival); ONLINE el del ANFITRIÓN; si no, el elegido offline en el selector.
     val effectiveBgFile = when {
         state.gauntletRunning && state.gauntletMapFile != null -> state.gauntletMapFile
-        state.arcadeActive && state.arcadeMapFile != null -> state.arcadeMapFile
+        (state.arcadeActive || state.aiVsAi) && state.arcadeMapFile != null -> state.arcadeMapFile
         state.onlineStatus != SfOnlineStatus.OFF && state.onlineMapFile != null -> state.onlineMapFile
         else -> chosenBgFile
     }
