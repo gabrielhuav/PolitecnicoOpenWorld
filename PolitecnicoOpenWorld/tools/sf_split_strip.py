@@ -31,16 +31,20 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_BASE = os.path.join(ROOT, "tools", "_para_corregir")
 
 
-def sin_rotulos(a: np.ndarray, banda: float = 0.22) -> np.ndarray:
+def sin_rotulos(a: np.ndarray, banda: float = 0.42) -> np.ndarray:
     """Repinta de croma el texto amarillo del generador.
 
-    ⚠️ SOLO en la banda superior. El primer intento lo aplicaba a toda la imagen y comia
-    la PIEL DE LA CARA: un tono de piel claro cumple (r alto, g medio-alto, b bajo) igual
-    que el amarillo del rotulo. Ademas se exige que el amarillo sea SATURADO (b muy por
-    debajo de g), cosa que la piel no cumple.
+    ⚠️ SOLO en la banda superior. Aplicarlo a toda la imagen se comia la PIEL DE LA CARA.
+
+    Umbral MEDIDO sobre las tiras reales, no estimado:
+        rotulo -> g-b mediana 99, b mediana  13
+        piel   -> g-b mediana  9, b mediana 171
+    `g-b` los separa por un factor de 10. NO se puede exigir `r` alto: el rotulo lleva
+    contorno oscuro y su r va de 0 a 253 (mediana 31), que fue justo por lo que el primer
+    intento dejaba los rotulos puestos.
     """
     r, g, b = a[..., 0].astype(int), a[..., 1].astype(int), a[..., 2].astype(int)
-    amarillo = (r > 180) & (g > 165) & (b < 90) & (g - b > 110) & (np.abs(r - g) < 60)
+    amarillo = (g - b > 60) & (b < 120) & (g > 90)
     alto = np.zeros(amarillo.shape, dtype=bool)
     alto[: int(amarillo.shape[0] * banda)] = True
     amarillo &= alto
