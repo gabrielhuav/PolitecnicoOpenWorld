@@ -51,18 +51,19 @@ REPORTES = [
     ("latzitzimime", ["bonus-4-5"], "CORREGIDO", "bonusPower4 = solo este cuadro"),
     ("latzitzimime", ["bonus-5-4", "bonus-5-5"], "CORREGIDO", "bonusPower5 = solo estos dos"),
     ("latzitzimime", ["bonus-3-1"], "CORREGIDO", "bonusPower3 ELIMINADO (era arte de Yoalli)"),
-    # ── C2 aplicado: el corte ahora busca un hueco REAL antes de inventarlo ──
-    ("policiacdmxhombre", ["super-4", "super-5", "super-6", "super-7"], "CORREGIDO",
-     "C2 aplicado: 4 cuadros re-recortados"),
+    # ── UNIDOS: la pose era UNA y el slicer la partia en dos. SUPER ART = 7, no 8 ──
     ("reygrupero", ["super-6", "super-7"], "CORREGIDO",
-     "C2 aplicado: re-recortados los 2"),
-    # ── C2 NO les cambio nada: no hay hueco real entre las poses ──
+     "UNIDOS: super-7 ya es el circulo dorado entero"),
+    ("policiacdmxhombre", ["super-5", "super-6", "super-7"], "CORREGIDO",
+     "UNIDOS: super-6 ya trae el haz azul completo"),
+    # ── Siguen mal: ni partir mejor ni unir los arregla ──
     ("lallorona", ["super-4", "super-5", "super-6"], "PENDIENTE",
-     "C2 no basto: sin hueco, la hoja 29 los trae PEGADOS"),
+     "sin hueco entre poses; unir no aplica (son 3 distintas)"),
     ("lapresidenta", ["super-4", "super-5"], "PENDIENTE",
-     "C2 no basto: sin hueco entre poses"),
-    ("paparazzi1", ["super-6"], "PENDIENTE", "C2 no basto: falta recorte DERECHA"),
-    ("paparazzi5", ["super-6"], "PENDIENTE", "C2 no basto: falta recorte ANTES"),
+     "sin hueco entre poses"),
+    ("paparazzi1", ["super-6"], "PENDIENTE", "falta recorte DERECHA; sin hueco"),
+    ("paparazzi5", ["super-6"], "PENDIENTE",
+     "unir se PROBO y sale PEOR (2 personajes en 1 cuadro)"),
     ("paramedicocruzroja", ["special-4", "super-6"], "REVISAR",
      "super-6 es onda pura; encimar con el anterior"),
     # ── C3: el poder se sale del lienzo por la derecha. PENDIENTE ──

@@ -154,6 +154,14 @@ SHEETS = {
 # persigue 14 blobs y trocea cada figura en rebanadas verticales (11/14 en vez de 3/3).
 SHEET_OVERRIDES = {
     ("lallorona", 9): {"HURT HEAD": 3},
+    # 🆕 (2026-07-21) SUPER ART con 7 poses, no 8. El dueno lo detecto a ojo: "super-6 y
+    # super-7 completan UN solo asset". La fila trae una pose ANCHA (el estallido del
+    # super) y maybe_split, obligado a llegar a 8, la parte en dos mitades. Declarando 7
+    # se queda entera. `pick` sigue rellenando los 8 destinos repitiendo una (one_short_ok).
+    ("reygrupero", 29): {"SUPER ART": 7},
+    ("policiacdmxhombre", 29): {"SUPER ART": 7},
+    # ⚠️ paparazzi5 NO lleva override: se probo con 7 y sale PEOR (junta dos poses
+    # distintas y el cuadro queda con DOS personajes). Su fila si trae las 8 poses.
 }
 
 def detect(path, close=5):
