@@ -75,29 +75,8 @@ fun SfComboSheetOverlay(
                 textAlign = TextAlign.Center,
             )
 
-            // ── Controles básicos ──
-            Spacer(Modifier.height(14.dp))
-            SectionTitle(stringResource(R.string.sf_combos_controls))
-            ControlRow(stringResource(R.string.sf_ctl_move), stringResource(R.string.sf_ctl_move_v))
-            ControlRow(stringResource(R.string.sf_ctl_punch), stringResource(R.string.sf_ctl_punch_v))
-            ControlRow(stringResource(R.string.sf_ctl_kick), stringResource(R.string.sf_ctl_kick_v))
-            ControlRow(stringResource(R.string.sf_ctl_block), stringResource(R.string.sf_ctl_block_v))
-            ControlRow(stringResource(R.string.sf_ctl_dash), stringResource(R.string.sf_ctl_dash_v))
-            ControlRow(stringResource(R.string.sf_ctl_parry), stringResource(R.string.sf_ctl_parry_v))
-            ControlRow(stringResource(R.string.sf_ctl_grab), stringResource(R.string.sf_ctl_grab_v))
-            ControlRow(stringResource(R.string.sf_ctl_sweep), stringResource(R.string.sf_ctl_sweep_v))
-            ControlRow(stringResource(R.string.sf_ctl_overhead), stringResource(R.string.sf_ctl_overhead_v))
-            ControlRow(stringResource(R.string.sf_ctl_special), stringResource(R.string.sf_ctl_special_v))
-            ControlRow(stringResource(R.string.sf_ctl_super), stringResource(R.string.sf_ctl_super_v))
-
-            // ── Combos ──
+            // 🆕 (2026-07-22) Botones ARRIBA de la hoja (antes iban al final y nadie leía la hoja).
             Spacer(Modifier.height(16.dp))
-            SectionTitle(stringResource(R.string.sf_combos_list))
-            combos.forEachIndexed { index, (name, hint, steps) ->
-                ComboCard(index + 1, name, hint, steps)
-            }
-
-            Spacer(Modifier.height(20.dp))
             PowButton(
                 text = stringResource(R.string.sf_combos_try),
                 onClick = onTry,
@@ -118,6 +97,29 @@ fun SfComboSheetOverlay(
                 color = Color(0xFF3A3A44),
                 modifier = Modifier.fillMaxWidth(0.8f),
             )
+
+            // ── Controles básicos (la HOJA queda debajo de los botones) ──
+            Spacer(Modifier.height(18.dp))
+            SectionTitle(stringResource(R.string.sf_combos_controls))
+            ControlRow(stringResource(R.string.sf_ctl_move), stringResource(R.string.sf_ctl_move_v))
+            ControlRow(stringResource(R.string.sf_ctl_punch), stringResource(R.string.sf_ctl_punch_v))
+            ControlRow(stringResource(R.string.sf_ctl_kick), stringResource(R.string.sf_ctl_kick_v))
+            ControlRow(stringResource(R.string.sf_ctl_block), stringResource(R.string.sf_ctl_block_v))
+            ControlRow(stringResource(R.string.sf_ctl_dash), stringResource(R.string.sf_ctl_dash_v))
+            ControlRow(stringResource(R.string.sf_ctl_parry), stringResource(R.string.sf_ctl_parry_v))
+            ControlRow(stringResource(R.string.sf_ctl_grab), stringResource(R.string.sf_ctl_grab_v))
+            ControlRow(stringResource(R.string.sf_ctl_sweep), stringResource(R.string.sf_ctl_sweep_v))
+            ControlRow(stringResource(R.string.sf_ctl_overhead), stringResource(R.string.sf_ctl_overhead_v))
+            ControlRow(stringResource(R.string.sf_ctl_special), stringResource(R.string.sf_ctl_special_v))
+            ControlRow(stringResource(R.string.sf_ctl_super), stringResource(R.string.sf_ctl_super_v))
+
+            // ── Combos ──
+            Spacer(Modifier.height(16.dp))
+            SectionTitle(stringResource(R.string.sf_combos_list))
+            combos.forEachIndexed { index, (name, hint, steps) ->
+                ComboCard(index + 1, name, hint, steps)
+            }
+
             Spacer(Modifier.height(16.dp))
         }
     }

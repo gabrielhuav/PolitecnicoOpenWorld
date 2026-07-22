@@ -475,6 +475,13 @@ private fun FeaturedStreetFighterButton(text: String, tag: String, onClick: () -
  */
 @Composable
 private fun StageBadge(text: String, color: Color, modifier: Modifier = Modifier) {
+    // 🆕 (2026-07-22) El letrero "respira": transparencia pulsante entre 50 % y 75 %.
+    val badgeAlpha by rememberInfiniteTransition(label = "stageBadge").animateFloat(
+        initialValue = 0.5f,
+        targetValue = 0.75f,
+        animationSpec = infiniteRepeatable(tween(1100), RepeatMode.Reverse),
+        label = "stageBadgeAlpha",
+    )
     Text(
         text = text,
         color = Color.White,
@@ -485,6 +492,7 @@ private fun StageBadge(text: String, color: Color, modifier: Modifier = Modifier
         softWrap = false,
         overflow = TextOverflow.Visible,
         modifier = modifier
+            .graphicsLayer { alpha = badgeAlpha }
             .clip(CutCornerShape(topStart = 6.dp, bottomEnd = 6.dp))
             .background(color)
             .padding(horizontal = 6.dp, vertical = 2.dp),

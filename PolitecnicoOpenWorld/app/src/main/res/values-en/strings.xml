@@ -8,7 +8,7 @@
     <string name="exit_dialog_dismiss">Exit</string>
 
     <!-- ─── Main menu ─── -->
-    <string name="menu_version">ALPHA - v%1$s</string>
+    <string name="menu_version">PRE-ALPHA - v%1$s</string>
     <string name="menu_start_game">FREE ROAM</string>
     <string name="menu_load_game">STORY MODE</string>
     <string name="menu_multiplayer">MULTIPLAYER</string>
@@ -16,7 +16,7 @@
     <string name="menu_collectibles">COLLECTIBLES</string>
     <string name="menu_street_fighter">HUELUM VS. GOYA</string>
     <string name="menu_featured_tag">◆ COMBAT MODE ◆</string>
-    <string name="badge_alpha">ALPHA</string>
+    <string name="badge_alpha">PRE-ALPHA</string>
     <string name="badge_beta">BETA</string>
     <string name="menu_mp_dialog_title">Connect to Server</string>
     <string name="menu_mp_username_label">Username</string>

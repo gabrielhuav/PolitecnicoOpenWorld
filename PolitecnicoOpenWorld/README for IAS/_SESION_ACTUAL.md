@@ -95,6 +95,11 @@ quedaron commiteados; detalle en `SF/DISENO_ARCADE_SF_POW.md` §2026-07-22 y 00_
 - **Intro policía hombre:** "Está prohibido beber…" completa aunque empiece la pelea.
 - **Navegación:** salir de Práctica/IA vs IA/Arcade → selector del MISMO modo; tutorial → hoja.
 - **Súper:** brillo al llenarse; sin conectar ~4 s decae (si no está llena).
+- 🆕 (2026-07-22, Opus) **UI:** (1) hoja de combos → los 3 botones (PROBAR/CAMBIAR/VOLVER) ahora
+  ARRIBA de la hoja; (2) "CARGANDO" centrado + **cuenta 3-2-1 → PELEA** antes de cada round
+  (`ROUND_INTRO_MS` 1800→3600); (3) **cuenta 3-2-1 entre lecciones** del tutorial (ya no salta el
+  "ESE NO ERA"); (4) menú: **ALPHA→PRE-ALPHA** (ES+EN) + badges con transparencia pulsante 50-75 %.
+  (5) controles rediseñados "Neón Arcade" (L1/L2 · R1/R2) y (6) pausa con logo POW. TODO compila.
 
 ### 🙋 ITEMS QUE REQUIEREN AL DUEÑO (no los toca ninguna IA sin ti)
 - **Paparazzi 5** tiene un audio que es de **Paparazzi 1** → rastrear en mp3 + ogg + subtítulo.

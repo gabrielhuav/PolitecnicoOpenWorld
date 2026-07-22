@@ -3126,9 +3126,17 @@ private fun DrawScope.drawScene(
     if (state.showRoundIntro) {
         val hud = images.getValue(theme.hudImage)
         val rw = roundBannerText.length * 12f * 2f
-        drawFontText(ctx, theme, hud, roundBannerText, (SfConstants.SCENE_WIDTH - rw) / 2f, 76f, 2f)
-        val fw = fightBannerText.length * 12f * 1.2f
-        drawFontText(ctx, theme, hud, fightBannerText, (SfConstants.SCENE_WIDTH - fw) / 2f, 104f, 1.2f)
+        drawFontText(ctx, theme, hud, roundBannerText, (SfConstants.SCENE_WIDTH - rw) / 2f, 60f, 2f)
+        // 🆕 (2026-07-22) Cuenta 3-2-1 GRANDE; al llegar a 0 se muestra "PELEA".
+        val cd = state.roundIntroCountdown
+        if (cd > 0) {
+            val txt = cd.toString()
+            val cw = txt.length * 12f * 4f
+            drawFontText(ctx, theme, hud, txt, (SfConstants.SCENE_WIDTH - cw) / 2f, 92f, 4f)
+        } else {
+            val fw = fightBannerText.length * 12f * 1.8f
+            drawFontText(ctx, theme, hud, fightBannerText, (SfConstants.SCENE_WIDTH - fw) / 2f, 100f, 1.8f)
+        }
     }
 
     // ---- 🆕 Subtítulo del special (frase del personaje, fuente arcade POW, pequeño) ----
@@ -3320,8 +3328,10 @@ private fun SfLoadingOverlay(theme: SfTheme) {
                     val scale = minOf(size.width / SfConstants.SCENE_WIDTH, size.height / 40f)
                     val ctx = SceneCtx(scale, (size.width - SfConstants.SCENE_WIDTH * scale) / 2f, 0f, 0f, 0f)
                     val text = "CARGANDO"
+                    // 🆕 (2026-07-22) tw ya está en unidades de escena (12·sizeMul); centrar sin
+                    // dividir entre scale (ese /scale era el que lo descuadraba).
                     val tw = text.length * 12f * 2.2f
-                    drawFontText(ctx, theme, hud, text, (SfConstants.SCENE_WIDTH - tw / scale) / 2f, 8f, 2.2f)
+                    drawFontText(ctx, theme, hud, text, (SfConstants.SCENE_WIDTH - tw) / 2f, 8f, 2.2f)
                 }
             } else {
                 Text(

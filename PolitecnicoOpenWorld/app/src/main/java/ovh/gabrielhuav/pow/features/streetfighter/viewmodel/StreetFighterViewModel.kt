@@ -798,7 +798,7 @@ class StreetFighterViewModel @Inject constructor(
         // 🆕 Rondas (mejor de 3, dinámica original de SF)
         const val ROUNDS_TO_WIN = 2
         const val ROUND_RESET_DELAY_MS = 3500L   // "X WINS" en pantalla antes de la ronda nueva
-        const val ROUND_INTRO_MS = 1800L         // banner "RONDA N / PELEA" con input congelado
+        const val ROUND_INTRO_MS = 3600L         // 🆕 (2026-07-22) 3-2-1 + PELEA con input congelado
         const val ROUND_GRACE_MS = 1200L         // ignora estado/daño del rival en vuelo tras el reset
         // 🆕 Especiales: cooldown + tope de proyectiles (PESADILLA spameaba y no se contrarrestaba)
         // Cooldowns de special: cortos para que la pelea se sienta viva (sin muro de proyectiles:
@@ -821,6 +821,8 @@ class StreetFighterViewModel @Inject constructor(
         const val TUTORIAL_FLASH_MS = 700L
         /** Espaciado entre avisos de error del tutorial (no saturar de mensajes). */
         const val TUTORIAL_ERROR_COOLDOWN_MS = 1500L
+        // 🆕 (2026-07-22) Cuenta 3-2-1 entre lecciones (no se revisa input mientras corre).
+        const val TUTORIAL_LESSON_COUNTDOWN_MS = 3000L
         const val COMBO_DAMAGE_SCALE_STEP = 0.10f
         const val COMBO_DAMAGE_SCALE_MIN = 0.5f
         const val MAX_ACTIVE_FIREBALLS_PER_FIGHTER = 1
@@ -1225,6 +1227,10 @@ class StreetFighterViewModel @Inject constructor(
             koFlash = koFrame == 1,
             gameTimeMs = now,
             showRoundIntro = now < roundIntroUntilMs,
+            // 🆕 (2026-07-22) 3-2-1: los últimos 600 ms del intro son "PELEA" (countdown 0).
+            roundIntroCountdown = (roundIntroUntilMs - now - 600L).let {
+                if (it > 0L) ((it + 999L) / 1000L).toInt() else 0
+            },
             displayHp0 = dispHp0,
             displayHp1 = dispHp1,
             // limpiar subtítulo del special al expirar
@@ -4010,6 +4016,8 @@ class StreetFighterViewModel @Inject constructor(
     private var tutorialCombos: List<SfCombo> = emptyList()
     private var tutorialFlashUntilMs = 0L
     private var tutorialErrorUntilMs = 0L
+    // 🆕 (2026-07-22) Hasta cuándo corre la cuenta 3-2-1 de la lección recién cargada.
+    private var tutorialLessonReadyMs = 0L
 
     /** ¿Este combate es el tutorial? (lo consultan el tick y la IA para inhibir al muñeco). */
     private val inTutorial: Boolean get() = _state.value.tutorialActive
@@ -4105,6 +4113,13 @@ class StreetFighterViewModel @Inject constructor(
     private fun tickTutorial(sim: Sim, now: Long) {
         val s = _state.value
         if (!s.tutorialActive || s.tutorialCompleted) return
+        // 🆕 (2026-07-22) Cuenta 3-2-1 entre lecciones: NO se revisa input (evita el "ESE NO ERA"
+        // por seguir apretando del paso anterior). El número se muestra en tutorialFlash.
+        if (now < tutorialLessonReadyMs) {
+            val n = (((tutorialLessonReadyMs - now) + 999L) / 1000L).toInt()
+            _state.update { it.copy(tutorialFlash = n.toString(), tutorialError = "") }
+            return
+        }
         if (s.tutorialFlash.isNotEmpty() && now > tutorialFlashUntilMs) {
             _state.update { it.copy(tutorialFlash = "", tutorialError = "") }
         }
@@ -4129,6 +4144,7 @@ class StreetFighterViewModel @Inject constructor(
                 it.copy(tutorialStepIndex = nextStep, tutorialFlash = "COMPLETO", tutorialError = "")
             }
             loadTutorialLesson(s.tutorialLesson + 1, java.util.Locale.getDefault().language)
+            tutorialLessonReadyMs = now + TUTORIAL_LESSON_COUNTDOWN_MS // 🆕 pausa 3-2-1 antes de la nueva
         }
     }
 

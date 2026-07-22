@@ -89,6 +89,7 @@ data class StreetFighterState(
     val cpuRoundWins: Int = 0,
     val roundNumber: Int = 1,                        // 1..3
     val showRoundIntro: Boolean = false,             // banner "RONDA N / PELEA" (input congelado)
+    val roundIntroCountdown: Int = 0,                // 🆕 (2026-07-22) 3→2→1 del banner (0 = "PELEA")
 
     // Reloj de juego virtual (ms); la View lo usa para animaciones del escenario
     val gameTimeMs: Long = 0L,
