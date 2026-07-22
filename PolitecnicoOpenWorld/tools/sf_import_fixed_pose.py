@@ -86,6 +86,35 @@ def cut_chroma(path: str, despill: bool = True) -> Image.Image:
     return out.crop(bb) if bb else out
 
 
+def body_height(img: Image.Image) -> int:
+    """Alto del CUERPO (sin contar el efecto), para poder escalar por el personaje.
+
+    Escalar por la caja completa descuadra las poses con poder: en un cuadro donde el haz
+    ocupa el doble de alto que la figura, el personaje sale diminuto; en el cuadro vecino
+    sin efecto, enorme. Al lanzar se veria "crecer". Se mide la misma franja de columnas
+    densas que usa `dense_body_center_x`.
+    """
+    a = np.asarray(img.convert("RGBA"))[..., 3] > 8
+    if not a.any():
+        return img.height
+    counts = a.sum(axis=0)
+    dense = counts >= max(3.0, float(counts.max()) * 0.45)
+    grupos, ini = [], None
+    for x, on in enumerate(dense):
+        if on and ini is None:
+            ini = x
+        if ini is not None and (not on or x == len(dense) - 1):
+            fin = x if not on else x + 1
+            if fin - ini >= 2:
+                grupos.append((ini, fin))
+            ini = None
+    if not grupos:
+        return img.height
+    x0, x1 = grupos[0]
+    ys = np.where(a[:, x0:x1].any(axis=1))[0]
+    return int(ys[-1] - ys[0] + 1) if len(ys) else img.height
+
+
 def place(img: Image.Image, scale: float, anchor_body: bool = True) -> Image.Image:
     """Coloca la pose en el lienzo estandar.
 
@@ -111,6 +140,9 @@ def main() -> None:
     ap.add_argument("imagen")
     ap.add_argument("claves", nargs="+")
     ap.add_argument("--gen", default=GEN)
+    ap.add_argument("--alto-cuerpo", type=float, default=None,
+                    help="escala para que el CUERPO mida estos px (p.ej. 100). Sin esto "
+                         "usa la escala global de _scale.json, que mide la caja entera.")
     args = ap.parse_args()
 
     gen_dir = os.path.join(args.gen, args.char)
@@ -120,6 +152,9 @@ def main() -> None:
     scale = json.load(open(scale_file, encoding="utf-8"))["scale"]
 
     fig = cut_chroma(args.imagen)
+    bh = body_height(fig)
+    if args.alto_cuerpo:
+        scale = args.alto_cuerpo / max(bh, 1)
     frame = place(fig, scale)
     alto_visible = frame.getchannel("A").getbbox()
     alto = alto_visible[3] - alto_visible[1] if alto_visible else 0
@@ -128,8 +163,8 @@ def main() -> None:
         dest = os.path.join(gen_dir, k + ".png")
         frame.save(dest)
         print("  %-12s -> %s" % (k, os.path.relpath(dest, os.path.dirname(ROOT))))
-    print("  figura recortada %dx%d  ->  lienzo 256x256, alto visible %d px"
-          % (fig.width, fig.height, alto))
+    print("  recorte %dx%d (cuerpo %d px)  ->  256x256, cuerpo final %d px, caja %d px"
+          % (fig.width, fig.height, bh, round(bh * scale), alto))
 
 
 if __name__ == "__main__":

@@ -242,6 +242,13 @@ BONUS_FAST_POWERS = {
         4: [5],       # 1-4 son Yoalli; solo la pose final es de La Tzitzimime
         5: [4, 5],
     },
+    # 🆕 (2026-07-21) La Presidenta P1 = "SPECIAL ULTIMATE", su golpe mas fuerte. El dueno
+    # recorto a mano solo DOS poses utiles (preparacion y haz completo); el 3er paso repite
+    # la preparacion para cerrar el movimiento. Va por FAST y no por proyectil: aqui el haz
+    # forma parte del cuadro, no es un proyectil que viaje solo.
+    "lapresidenta": {
+        1: [1, 2, 3],   # bonus-1-3 es una copia de bonus-1-1 (retorno)
+    },
 }
 
 # 🆕 (2026-07-21) PODERES BONUS RETIRADOS: la hoja trae arte de OTRO personaje y no hay
