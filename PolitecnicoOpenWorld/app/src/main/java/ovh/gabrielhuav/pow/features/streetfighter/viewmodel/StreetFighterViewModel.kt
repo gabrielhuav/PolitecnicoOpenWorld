@@ -4106,7 +4106,7 @@ class StreetFighterViewModel @Inject constructor(
         SfComboAction.CROUCH_PUNCH -> "↓ + PUÑO (X)"
         SfComboAction.CROUCH_KICK -> "↓ + PATADA (A)"
         SfComboAction.CROUCH_HEAVY_PUNCH -> "↓ + PUÑO FUERTE (B)"
-        SfComboAction.SWEEP -> "BARRIDA: ↓ + PATADA FUERTE"
+        SfComboAction.SWEEP -> "BARRIDA: ↓ ← + PATADA (A)"
         SfComboAction.LONG_KICK -> "→ + PATADA FUERTE"
         SfComboAction.OVERHEAD -> "→ + PUÑO MEDIO (Y)"
         SfComboAction.AIR_PUNCH -> "SALTA Y PUÑO (X)"

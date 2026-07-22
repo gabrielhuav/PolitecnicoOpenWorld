@@ -592,16 +592,28 @@ fun StreetFighterScreen(
         // ---- Controles de POW: joystick + diamante Xbox (ocultos en selección y en IA vs IA) ----
         // IA vs IA: ambos los controla la CPU → solo botón "Salir" al menú (sin joystick/botones).
         if (!state.inCharacterSelect && !state.aiVsAi) {
-            // 🆕 (2026-07-22) TUTORIAL: botón físico que pide el PASO ACTUAL (para el glow).
-            val tutorialButton = if (state.tutorialActive && !state.tutorialCompleted) {
-                state.tutorialSteps.getOrNull(state.tutorialStepIndex)?.let(::sfButtonForLabel)
+            // 🆕 (2026-07-22) TUTORIAL: botón físico que pide el PASO ACTUAL (para el glow) y,
+            // si el paso lleva JOYSTICK, la dirección/gesto a marcar (para explicar el combo).
+            val tutorialStepLabel = if (state.tutorialActive && !state.tutorialCompleted) {
+                state.tutorialSteps.getOrNull(state.tutorialStepIndex)
             } else {
                 null
             }
+            val tutorialButton = tutorialStepLabel?.let(::sfButtonForLabel)
+            val tutorialJoystick = tutorialStepLabel?.let(::sfJoystickHintForLabel)
             JoystickController(
                 modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
                 onMove = viewModel::onJoystickMove,
             )
+            // 🆕 (2026-07-22) Guía de JOYSTICK del tutorial: gesto/dirección a marcar (↓, →, dash,
+            // hadouken…), pulsando ENCIMA del joystick para que se sepa qué mover (p.ej. la Barrida
+            // = ↓ + patada: antes solo brillaba el botón y el ↓ no se explicaba).
+            if (tutorialJoystick != null) {
+                SfJoystickHint(
+                    text = tutorialJoystick,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(start = 30.dp, bottom = 150.dp),
+                )
+            }
             // OJO: padding-end grande a propósito — en landscape la barra de navegación/gestos
             // del sistema vive en el borde DERECHO y se comía los toques del botón B (los combos
             // "no salían" porque esos taps nunca llegaban a la app). Separado del borde, todos
@@ -2772,6 +2784,70 @@ private fun sfButtonForLabel(label: String): String? = when {
     label.contains("PUÑO") -> "X" // ↓ + puño / puño en el aire / especial (remate con puño)
     label.contains("PATADA") -> "A"
     else -> null
+}
+
+/**
+ * 🆕 (2026-07-22) Gesto de JOYSTICK del paso del tutorial (para EXPLICAR el combo, no solo el
+ * botón). null = el paso no lleva joystick. Se deduce de la etiqueta (que ya trae las flechas).
+ */
+private fun sfJoystickHintForLabel(label: String): String? {
+    // Gestos completos primero.
+    when {
+        label.contains("↓ ↘ →") -> return "↓ ↘ →"                            // especial (hadouken)
+        label.contains("DOBLE TOQUE →") -> return "→ →"                        // dash
+        label.contains("DOBLE TOQUE ←") -> return "← ←"                        // backdash
+        label.contains("SOSTÉN →") || label.contains("CORRE") -> return "→ →"  // correr / fatality
+        label.contains("SALTA") || label.contains("SALTAR") -> return "↑"
+    }
+    val down = label.contains("↓")
+    // Dirección horizontal: la EXPLÍCITA de la etiqueta manda. Si no hay flecha, la fuerza de la
+    // PATADA la da el joystick (fuerte = ATRÁS ←, media = ADELANTE →), porque el botón es uno solo
+    // → así la BARRIDA (↓ + patada fuerte) se muestra como ↓ ← y no como un simple ↓.
+    val horiz = when {
+        label.contains("→") -> "→"
+        label.contains("←") || label.contains("ATRÁS") -> "←"
+        label.contains("PATADA FUERTE") -> "←"
+        label.contains("PATADA MEDIA") -> "→"
+        else -> null
+    }
+    return when {
+        down && horiz != null -> "↓ $horiz"
+        down -> "↓"
+        label.contains("↑") -> "↑"
+        else -> horiz
+    }
+}
+
+/**
+ * 🆕 (2026-07-22) Indicador de JOYSTICK del tutorial: la dirección/gesto a marcar, en una burbuja
+ * que pulsa, encima del joystick, para que se sepa QUÉ mover (p.ej. la Barrida = ↓ + patada).
+ */
+@Composable
+private fun SfJoystickHint(text: String, modifier: Modifier = Modifier) {
+    val pulse by rememberInfiniteTransition(label = "sfJoyHint").animateFloat(
+        initialValue = 0.86f,
+        targetValue = 1.14f,
+        animationSpec = infiniteRepeatable(tween(520), RepeatMode.Reverse),
+        label = "sfJoyHintF",
+    )
+    Row(
+        modifier = modifier
+            .graphicsLayer { scaleX = pulse; scaleY = pulse }
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xE6152A4A))
+            .border(2.dp, Color(0xFF5B6ACD), RoundedCornerShape(10.dp))
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = "🕹 ", fontSize = 14.sp)
+        Text(
+            text = text,
+            color = Color.White,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 2.sp,
+        )
+    }
 }
 
 // ------------------------------------------------------------------
