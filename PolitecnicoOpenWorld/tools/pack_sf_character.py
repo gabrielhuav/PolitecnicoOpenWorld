@@ -359,9 +359,17 @@ def dedicated_animations(template, bonus_powers=0, unique_hurt_frames=False,
     # cuadros que el personaje YA tiene. Guion: concentración → ejecución de la súper →
     # desata su poder propio → remate → pose de victoria. Solo se genera si existen las
     # piezas; si falta alguna, el peleador simplemente no tiene fatality.
-    fatality = fatality_animation(available_keys, all_frame_keys)
-    if fatality:
-        out["fatality"] = fatality
+    # 🆕 (2026-07-21) FATALITY DEDICADO: si el peleador tiene arte PROPIA de fatality
+    # (`fatality-1..N`, dibujada a mano para eso), manda sobre la secuencia compuesta.
+    # La compuesta sigue siendo el camino por defecto para los 17 que no la tienen.
+    propios = [f"fatality-{i}" for i in range(1, 9)]
+    propios = [k for k in propios if k in all_frame_keys]
+    if len(propios) >= 3:
+        out["fatality"] = animation_with_transition(propios, [10] * len(propios))
+    else:
+        fatality = fatality_animation(available_keys, all_frame_keys)
+        if fatality:
+            out["fatality"] = fatality
     return out
 
 
@@ -535,7 +543,15 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
             sys.exit(1)
         else:
             break
-    all_keys = frame_keys + extra_keys + existing_proj + bonus_keys + new_move_keys
+    # 🆕 (2026-07-21) Arte PROPIA de fatality (`fatality-1..8`) y destellos reutilizables
+    # (`fx-*`). Opcionales: solo entran los que existan en el GEN de este peleador.
+    fatality_keys = [f"fatality-{i}" for i in range(1, 9)]
+    fatality_keys = [k for k in fatality_keys
+                     if os.path.exists(os.path.join(char_gen_dir, filename_for_key(k)))]
+    fx_keys = [k for k in ("fx-energy-1",)
+               if os.path.exists(os.path.join(char_gen_dir, filename_for_key(k)))]
+    all_keys = (frame_keys + extra_keys + existing_proj + bonus_keys + new_move_keys
+                + fatality_keys + fx_keys)
     num_frames = len(all_keys)
 
     # Algunas hojas de LIGHT PUNCH traen dos cuadros casi identicos a la guardia: el
