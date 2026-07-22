@@ -36,6 +36,9 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from slice_sf_chroma_sheets import dense_body_center_x  # noqa: E402
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GEN = os.path.join(os.path.dirname(ROOT), "newSFAssets",
                    "GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio")
@@ -60,12 +63,21 @@ def cut_chroma(path: str) -> Image.Image:
     return out.crop(bb) if bb else out
 
 
-def place(img: Image.Image, scale: float) -> Image.Image:
+def place(img: Image.Image, scale: float, anchor_body: bool = True) -> Image.Image:
+    """Coloca la pose en el lienzo estandar.
+
+    ⚠️ `anchor_body` es lo que evita el fallo clasico de las poses con poder: centrar la
+    CAJA ENTERA (cuerpo + haz) deja al personaje descolocado hacia el lado contrario al
+    efecto, y en el motor se ve que "salta" al lanzar. `dense_body_center_x` se queda con
+    el primer grupo denso de columnas — el cuerpo — e ignora el efecto que sale de el.
+    """
+    body_cx = dense_body_center_x(img) * scale if anchor_body else None
     w = max(1, int(round(img.width * scale)))
     h = max(1, int(round(img.height * scale)))
     img = img.resize((w, h), Image.Resampling.LANCZOS)
     cv = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
-    cv.paste(img, (CX - w // 2, FEET_Y - h), img)
+    x = int(round(CX - body_cx)) if body_cx is not None else (CX - w // 2)
+    cv.paste(img, (x, FEET_Y - h), img)
     return cv
 
 
