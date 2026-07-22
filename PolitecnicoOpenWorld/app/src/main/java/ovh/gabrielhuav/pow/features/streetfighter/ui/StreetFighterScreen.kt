@@ -19,6 +19,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -1304,14 +1305,27 @@ fun StreetFighterScreen(
                         fontWeight = FontWeight.Black,
                         letterSpacing = 4.sp,
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = stringResource(R.string.sf_controls_help),
-                        color = Color.White.copy(alpha = 0.82f),
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center,
+                    // 🆕 (2026-07-22) En vez de los controles (desactualizados): logo + título.
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Image(
+                        painter = painterResource(id = R.drawable.logo_pow),
+                        contentDescription = null,
+                        modifier = Modifier.size(128.dp),
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Huelum vs. Goya",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "Politécnico Open World",
+                        color = Color.White.copy(alpha = 0.75f),
+                        fontSize = 12.sp,
+                        letterSpacing = 2.sp,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
                     PowButton(text = stringResource(R.string.sf_continue), onClick = viewModel::togglePause)
                 }
             }
