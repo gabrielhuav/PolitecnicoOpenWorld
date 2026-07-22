@@ -158,6 +158,10 @@ SHEET_OVERRIDES = {
     # super-7 completan UN solo asset". La fila trae una pose ANCHA (el estallido del
     # super) y maybe_split, obligado a llegar a 8, la parte en dos mitades. Declarando 7
     # se queda entera. `pick` sigue rellenando los 8 destinos repitiendo una (one_short_ok).
+    # ⚠️ escomboy: su super-5+6+7 son UN asset partido en tres, o sea 6 poses reales.
+    # NO se puede declarar 6: `pick` necesita llenar los 8 destinos super-1..8 y el
+    # contrato solo tolera que falte UNO (one_short_ok). Con 6 el slicer aborta sin
+    # escribir. Limite real del pipeline: el minimo declarable en la hoja 29 es 7.
     ("reygrupero", 29): {"SUPER ART": 7},
     ("policiacdmxhombre", 29): {"SUPER ART": 7},
     # ⚠️ paparazzi5 NO lleva override: se probo con 7 y sale PEOR (junta dos poses
