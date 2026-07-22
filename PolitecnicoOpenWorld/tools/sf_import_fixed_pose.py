@@ -37,7 +37,11 @@ from PIL import Image
 from scipy import ndimage
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from slice_sf_chroma_sheets import dense_body_center_x  # noqa: E402
+# 🆕 (2026-07-21) Detector NUEVO: el del slicer elegia "el primer grupo de columnas densas"
+# y en los cuadros de poder se quedaba con el EFECTO, que es mas grande y brillante que la
+# figura. El nuevo usa que el personaje PISA EL SUELO y los efectos flotan.
+from sf_body_detect import body_center_x as dense_body_center_x  # noqa: E402
+from sf_body_detect import body_height as _body_height  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GEN = os.path.join(os.path.dirname(ROOT), "newSFAssets",
@@ -101,7 +105,11 @@ def cut_chroma(path: str, despill: bool = True) -> Image.Image:
     return out.crop(bb) if bb else out
 
 
-def body_height(img: Image.Image) -> int:
+def body_height(img: Image.Image) -> int:   # noqa: F811  (delega en sf_body_detect)
+    return _body_height(img)
+
+
+def _body_height_viejo(img: Image.Image) -> int:
     """Alto del CUERPO (sin contar el efecto), para poder escalar por el personaje.
 
     Escalar por la caja completa descuadra las poses con poder: en un cuadro donde el haz
