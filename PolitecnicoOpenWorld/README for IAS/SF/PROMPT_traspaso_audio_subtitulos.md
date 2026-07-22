@@ -135,6 +135,30 @@ Convención de nombre: `special_<peleador>_<evento>[_<n>].ogg` en `SOUNDS\`. Al 
 **hay que mapearlo** en `sfVoicePacks` (`StreetFighterViewModel.kt`, ~línea 130-285) o no
 sonará nunca.
 
+### C-bis. 🆕 AUDIOS NUEVOS que piden las poses nuevas
+
+El moveset creció mucho (hojas 20-29 + fatality con arte propia + metamorfosis) y esos
+movimientos **suenan hoy con el grito genérico o en silencio**. Ninguno tiene voz propia:
+
+| Movimiento | Estado del audio | Prioridad |
+|---|---|---|
+| **Fatality** (18 peleadores) | Sin voz propia | 🔴 Es el remate del combate |
+| **Super Art** (medidor lleno) | Sin voz propia | 🔴 |
+| **Metamorfosis** de La Presidenta (las 2) | Sin audio | 🔴 Es una cinemática |
+| Parry (ventana de 260 ms) | Sin SFX propio | 🟡 Necesita un "tin" seco que premie el acierto |
+| Dash / backdash | Sin SFX | 🟡 |
+| Agarre → lanzamiento | Sin voz | 🟡 |
+| Barrida, overhead, patada larga | Grito genérico | 🟢 |
+| Bloqueo alto/bajo | Sin SFX de impacto bloqueado | 🟢 |
+| Burla (taunt) | Sin voz | 🟢 Es donde más se luce una frase propia |
+
+**Convención de nombre:** `special_<peleador>_<evento>.ogg` en `SOUNDS/`.
+⚠️ Un audio nuevo **no suena solo**: hay que mapearlo en `sfVoicePacks`
+(`StreetFighterViewModel.kt`, ~línea 130-285) o se queda muerto en el disco.
+
+Para SFX no-vocales (parry, dash, bloqueo) el nombre va sin `special_`, como los globales
+que ya existen (`light-punch-hit`, `land`…), y se mapean por otra ruta.
+
 ### D. Curar los 62 subtítulos (requiere el OÍDO del dueño)
 
 Bucle de trabajo:
