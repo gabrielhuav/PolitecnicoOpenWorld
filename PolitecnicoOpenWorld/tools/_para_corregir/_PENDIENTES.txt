@@ -17,3 +17,19 @@ PEND_lapresidenta_bonus3         5 cuadros  -> solo anima el 1er cuadro
 PEND_lapresidenta_bonus5         5 cuadros  -> bien recortado pero el poder sale incompleto
 PEND_paramedicocruzroja          3 cuadros  -> super-6 es onda pura; encimar con el anterior
 PEND_paparazzi5_halo_verde       1 cuadros  -> halo VERDE: repintar el fondo con verde PLANO
+
+
+ORIGINALES COPIADOS (ORIGINALES_lapresidenta_bonus/)
+====================================================
+7 hojas grok, todas 1360x768 = rejilla 5 columnas x 3 filas, celda 272x256.
+Cada FILA es UN poder (5 cuadros). O sea 3 poderes por hoja.
+
+Los bonus rotos son 1, 3, 5, 7, 8, 9 y 10. NO tengo mapeado que hoja trae
+cada poder: identificalos a ojo (tu reconoces el martillo, el circulo, etc.).
+
+Al recortar una fila, dejala como una tira de 5 poses con HUECO de croma entre
+ellas, fondo verde PLANO #00FF00 sin degradado. Devuelvela aqui y se importa con:
+  python tools/sf_import_fixed_pose.py lapresidenta <archivo> bonus-N-1 ... bonus-N-5
+
+OJO: son JPG. El croma viene sucio por la compresion; el despill nuevo lo aguanta,
+pero si puedes exportar en PNG al recortar, mejor.

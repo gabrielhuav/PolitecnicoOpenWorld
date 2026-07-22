@@ -45,19 +45,42 @@ GEN = os.path.join(os.path.dirname(ROOT), "newSFAssets",
 CANVAS, FEET_Y, CX = 256, 224, 128
 
 
-def cut_chroma(path: str) -> Image.Image:
-    """Mismo criterio que detect()/cut() del slicer: figura = NO croma verde."""
+def cut_chroma(path: str, despill: bool = True) -> Image.Image:
+    """Figura = NO croma verde, con limpieza AGRESIVA del verde residual.
+
+    El slicer solo limpia 2 px de contorno, y eso basta para una silueta dura. Pero un
+    AURA CIRCULAR tiene el borde suavizado: esos pixeles quedan fuera del umbral del
+    croma (siguen siendo "figura") y sobreviven como HALO VERDE. Aqui se hacen dos pasadas:
+
+      1. Recorte del alfa: lo que es croma casi puro se descarta aunque el antialias lo
+         haya aclarado un poco (umbral mas permisivo que el del slicer).
+      2. DESPILL global sobre TODA la figura, no solo el borde: allí donde el verde
+         domina sobre rojo y azul se le baja al maximo de los otros dos canales. Es el
+         mismo truco del croma de video: quita el tinte sin tocar los colores legitimos
+         (un verde real del dibujo tiene g alto PERO tambien r o b altos).
+    """
     im = Image.open(path).convert("RGB")
     a = np.asarray(im).astype(int)
     r, g, b = a[..., 0], a[..., 1], a[..., 2]
-    mask = ~((g > 170) & (r < 140) & (b < 140))
+
+    # 1) mascara: croma con tolerancia amplia para no dejar el halo del antialias
+    croma = (g > 150) & (g > r + 45) & (g > b + 45)
+    mask = ~croma
     mask = ndimage.binary_fill_holes(
         ndimage.binary_closing(mask, structure=np.ones((5, 5))))
+    # descarta motas sueltas que quedan del fondo
+    lbl, n = ndimage.label(mask, structure=np.ones((3, 3)))
+    if n > 1:
+        tam = ndimage.sum(mask, lbl, range(1, n + 1))
+        mask = np.isin(lbl, [i + 1 for i, s in enumerate(tam) if s >= 0.02 * tam.max()])
+
     rgb = np.asarray(im).copy()
-    # limpia el derrame verde del contorno, como hace cut()
-    edge = mask & ~ndimage.binary_erosion(mask, iterations=2)
-    spill = edge & (g > r + 30) & (g > b + 30)
-    rgb[..., 1] = np.where(spill, (r + b) // 2, g).astype(np.uint8)
+    if despill:
+        # 2) despill: g no puede superar al mayor de r/b alli donde el verde tiñe
+        techo = np.maximum(r, b)
+        tenido = mask & (g > techo)
+        rgb[..., 1] = np.where(tenido, techo, g).astype(np.uint8)
+
     out = Image.fromarray(np.dstack([rgb, (mask * 255).astype(np.uint8)]), "RGBA")
     bb = out.getbbox()
     return out.crop(bb) if bb else out
