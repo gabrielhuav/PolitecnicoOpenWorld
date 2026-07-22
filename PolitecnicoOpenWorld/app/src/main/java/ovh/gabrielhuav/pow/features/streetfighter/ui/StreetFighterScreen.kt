@@ -3120,7 +3120,7 @@ private fun DrawScope.drawScene(
             }
             if (cur.isNotEmpty() && lines.size < maxLines) lines.add(cur.toString())
             val lineH = 12f * sizeMul + 3f
-            val bottomBaseline = SfConstants.SCENE_HEIGHT - 10f
+            val bottomBaseline = SfConstants.SCENE_HEIGHT - 18f // 🆕 (2026-07-22) subtítulo un poco más arriba
             lines.reversed().forEachIndexed { i, ln ->
                 val w = ln.length * 12f * sizeMul
                 val x = (SfConstants.SCENE_WIDTH - w) / 2f
