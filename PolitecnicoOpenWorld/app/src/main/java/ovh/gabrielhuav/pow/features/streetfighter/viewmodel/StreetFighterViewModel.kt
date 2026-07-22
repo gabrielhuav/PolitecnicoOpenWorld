@@ -3718,13 +3718,33 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     /** Recorre todos los poderes Grok disponibles; cada toque ejecuta el siguiente. */
+    /**
+     * 🆕 (2026-07-21) ¿Este poder tiene animación EMPAQUETADA? Un poder RETIRADO (su hoja
+     * traía arte de otro personaje, ver `BONUS_REMOVED_POWERS` en `pack_sf_character.py`)
+     * no la tiene, y `tryBonusPower` lo rechaza. Sin esta comprobación el selector se
+     * paraba igualmente en él y esa pulsación se perdía sin que el jugador supiera por qué.
+     */
+    private fun bonusPowerHasAnim(f: SfFighter, power: Int): Boolean {
+        val state = sfBonusPowerState(power) ?: return false
+        return !dataFor(f).animations[state.jsKey].isNullOrEmpty()
+    }
+
     fun onBonusPowerPressed() {
         val s = _state.value
         if (s.battleEnded || s.isPaused || s.showExitDialog) return
         val count = usableBonusPowerCount(s.player.id)
         if (count <= 0) return
-        bonusPowerCursor = bonusPowerCursor % count + 1
-        pendingBonusPower = bonusPowerCursor
+        // Avanza hasta el siguiente poder que SÍ se pueda lanzar; si ninguno lo tiene,
+        // deja el cursor como estaba en vez de girar en vacío.
+        var next = bonusPowerCursor
+        repeat(count) {
+            next = next % count + 1
+            if (bonusPowerHasAnim(s.player, next)) {
+                bonusPowerCursor = next
+                pendingBonusPower = next
+                return
+            }
+        }
     }
 
     fun requestExit() {

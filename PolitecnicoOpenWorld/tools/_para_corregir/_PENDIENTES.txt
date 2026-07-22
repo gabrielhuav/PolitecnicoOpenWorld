@@ -1,0 +1,19 @@
+PENDIENTES DE CORREGIR (2026-07-21)
+============================================================
+
+Cada carpeta PEND_* trae los PNG intermedios (256x256, transparente) tal
+como los empaqueta el juego, mas _VISTA.png para verlos de un vistazo.
+
+Los bonus de La Presidenta NO salen de las hojas numeradas: vienen de
+newSFAssets/LaPresidenta/grok-image-*.jpg (rejillas 5x3, croma sucio por
+ser JPG). Si hay que recuperar lo cortado, el original esta ahi.
+
+PEND_lapresidenta_bonus7         5 cuadros  -> cortados por la DERECHA; no cierra el circulo
+PEND_lapresidenta_bonus8         5 cuadros  -> cortados por la DERECHA; falta por delante
+PEND_lapresidenta_bonus9         5 cuadros  -> cortados por la DERECHA
+PEND_lapresidenta_bonus10        5 cuadros  -> el martillo no sale completo
+PEND_lapresidenta_bonus1         5 cuadros  -> solo anima el 1er cuadro; los demas pierden el poder
+PEND_lapresidenta_bonus3         5 cuadros  -> solo anima el 1er cuadro
+PEND_lapresidenta_bonus5         5 cuadros  -> bien recortado pero el poder sale incompleto
+PEND_paramedicocruzroja          3 cuadros  -> super-6 es onda pura; encimar con el anterior
+PEND_paparazzi5_halo_verde       1 cuadros  -> halo VERDE: repintar el fondo con verde PLANO
