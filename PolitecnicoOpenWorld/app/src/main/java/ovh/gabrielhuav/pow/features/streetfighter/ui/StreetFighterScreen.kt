@@ -603,6 +603,7 @@ fun StreetFighterScreen(
             val tutorialJoystick = tutorialStepLabel?.let(::sfJoystickHintForLabel)
             JoystickController(
                 modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+                onRelease = viewModel::onJoystickRelease,
                 onMove = viewModel::onJoystickMove,
             )
             // 🆕 (2026-07-22) Guía de JOYSTICK del tutorial: gesto/dirección a marcar (↓, →, dash,

@@ -61,6 +61,10 @@ private val ControllerBaseSize = 180.dp
 fun JoystickController(
     modifier: Modifier = Modifier,
     backgroundAlpha: Float = 0.4f,
+    // 🆕 (2026-07-22) Aviso de SOLTAR: sin esto, quien lee el joystick solo detecta la liberación
+    // por un timer de inactividad (~100 ms), lo que hacía sentir "pegado" (p.ej. quedarse
+    // agachado un instante tras soltar ↓). Opcional: los modos que no lo pasan no cambian.
+    onRelease: () -> Unit = {},
     onMove: (angleRad: Double) -> Unit
 ) {
     var offset by remember { mutableStateOf(Offset.Zero) }
@@ -92,8 +96,8 @@ fun JoystickController(
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { isDragging = true; feedback.tap() },
-                    onDragEnd = { isDragging = false; offset = Offset.Zero },
-                    onDragCancel = { isDragging = false; offset = Offset.Zero },
+                    onDragEnd = { isDragging = false; offset = Offset.Zero; onRelease() },
+                    onDragCancel = { isDragging = false; offset = Offset.Zero; onRelease() },
                     onDrag = { change, dragAmount ->
                         change.consume()
                         val newOffset = offset + dragAmount

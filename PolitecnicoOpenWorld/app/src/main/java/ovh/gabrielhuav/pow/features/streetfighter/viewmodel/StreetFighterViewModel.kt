@@ -2605,8 +2605,17 @@ class StreetFighterViewModel @Inject constructor(
             .coerceAtLeast(COMBO_DAMAGE_SCALE_MIN)
         // 🆕 (2026-07-21) La SUPER ART pega con su daño propio (no el de su fuerza base).
         val baseDamage = damageForAttack(attacker, strength)
-        val damage = if (blocked) maxOf(1, baseDamage / 4)
-        else maxOf(1, (baseDamage * comboScale).toInt())
+        // 🆕 (2026-07-22) BLOQUEO estilo SF: los golpes NORMALES bloqueados NO hacen daño (antes
+        // era /4 = "aún te pegaban mucho"); solo especial/súper/fatality hacen un chip pequeño.
+        val chipAttack = attacker.state in setOf(
+            SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM,
+            SfFighterState.SPECIAL_1_HEAVY, SfFighterState.SUPER_ART, SfFighterState.FATALITY,
+        )
+        val damage = when {
+            blocked && chipAttack -> maxOf(1, baseDamage / 6)
+            blocked -> 0
+            else -> maxOf(1, (baseDamage * comboScale).toInt())
+        }
 
         _soundEvents.tryEmit(
             if (blocked) "land" // golpe amortiguado (thud)
@@ -3838,6 +3847,13 @@ class StreetFighterViewModel @Inject constructor(
         joyLeft = cosA < -0.38
         joyUp = sinA > 0.5
         joyDown = sinA < -0.5
+        joyLastMs = SystemClock.elapsedRealtime()
+    }
+
+    /** 🆕 (2026-07-22) Al SOLTAR el joystick: limpia direcciones YA (sin esperar el timer idle),
+     *  para que agacharse/caminar se corten al instante (antes se sentía "pegado"). */
+    fun onJoystickRelease() {
+        joyLeft = false; joyRight = false; joyUp = false; joyDown = false
         joyLastMs = SystemClock.elapsedRealtime()
     }
 
