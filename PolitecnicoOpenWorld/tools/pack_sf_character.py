@@ -244,6 +244,16 @@ BONUS_FAST_POWERS = {
     },
 }
 
+# 🆕 (2026-07-21) PODERES BONUS RETIRADOS: la hoja trae arte de OTRO personaje y no hay
+# ningun cuadro aprovechable. Se deja de emitir su animacion.
+# Es SEGURO no emitirla: StreetFighterViewModel.kt:2077 comprueba
+# `animations[state.jsKey].isNullOrEmpty()` antes de entrar al estado, asi que el poder
+# simplemente no se dispara (no deja al personaje congelado). Los cuadros siguen en el
+# atlas; solo desaparece la animacion.
+BONUS_REMOVED_POWERS = {
+    "latzitzimime": {3},   # bonus-3-* esta dibujado con Yoalli, no con La Tzitzimime
+}
+
 
 def derived_bonus_path(char_name, key, gen_root):
     match = re.fullmatch(r"bonus-(\d+)-(\d+)", key)
@@ -265,7 +275,8 @@ def frame_source_path(char_name, key, char_gen_dir, gen_root):
 
 def dedicated_animations(template, bonus_powers=0, unique_hurt_frames=False,
                          projectile_powers=frozenset(), available_keys=frozenset(),
-                         all_frame_keys=frozenset(), fast_powers=None):
+                         all_frame_keys=frozenset(), fast_powers=None,
+                         removed_powers=frozenset()):
     """Animaciones completas para arte croma; conserva estados/timings del motor."""
     fast_powers = fast_powers or {}
     out = json.loads(json.dumps(template))
@@ -315,6 +326,8 @@ def dedicated_animations(template, bonus_powers=0, unique_hurt_frames=False,
         out["hurtBodyMedium"] = animation_with_transition(
             [f"hit-stomach-{i}" for i in range(1, 5)], [8, 7, 7, 9])
     for power in range(1, bonus_powers + 1):
+        if power in removed_powers:
+            continue
         fast = fast_powers.get(power)
         if fast:
             # Poder corto: solo los cuadros que el dueño validó. Se sostienen para que el
@@ -690,6 +703,7 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
             available_keys=frozenset(new_move_keys),
             all_frame_keys=frozenset(all_keys),
             fast_powers=BONUS_FAST_POWERS.get(char_name, {}),
+            removed_powers=BONUS_REMOVED_POWERS.get(char_name, frozenset()),
         ),
         "events": {"projectile": PROJECTILE_PROFILES.get(char_name, {})},
     }
