@@ -609,6 +609,10 @@ class StreetFighterViewModel @Inject constructor(
     private var loopJob: Job? = null
     private var lastRealMs = 0L
     private var gameNow = 0L            // ms de JUEGO (no avanza en pausa)
+    // 🆕 (2026-07-22) La Screen avisa si el overlay CARGANDO está visible: el reloj de JUEGO se
+    // CONGELA mientras carga. Si no, en gama baja el 3-2-1 y hasta el arranque se gastan OCULTOS
+    // tras el "CARGANDO" (la pelea "empieza antes de verla"). Al cargar, gameNow queda en 0.
+    private var uiAssetsLoading = false
 
     // ---- input táctil del jugador ----
     private var joyLeft = false
@@ -1039,6 +1043,11 @@ class StreetFighterViewModel @Inject constructor(
     // Game loop (reloj virtual)
     // ------------------------------------------------------------------
 
+    /** 🆕 (2026-07-22) La Screen avisa si el overlay CARGANDO está visible → congela el reloj. */
+    fun setAssetsLoadingUi(loading: Boolean) {
+        uiAssetsLoading = loading
+    }
+
     private fun startGameLoop() {
         if (loopJob?.isActive == true) return
         lastRealMs = SystemClock.elapsedRealtime()
@@ -1049,8 +1058,9 @@ class StreetFighterViewModel @Inject constructor(
                 val dtMs = (real - lastRealMs).coerceAtMost(100L)
                 lastRealMs = real
                 val s = _state.value
-                // El reloj de juego se detiene en pausa, diálogo de salida y selector de personaje
-                if (s.isPaused || s.showExitDialog || s.inCharacterSelect) continue
+                // El reloj de juego se detiene en pausa, diálogo de salida, selector de personaje
+                // y 🆕 mientras la Screen muestra CARGANDO (para que el 3-2-1 se vea al terminar).
+                if (s.isPaused || s.showExitDialog || s.inCharacterSelect || uiAssetsLoading) continue
                 // La auditoría de campaña es un bot de QA, no una modalidad de juego: simula
                 // varios ticks estables por frame para recorrer sus 135 peleas en tiempo útil.
                 // El showcase conserva velocidad real para que cada audio pueda oírse completo.
@@ -3580,18 +3590,22 @@ class StreetFighterViewModel @Inject constructor(
         val diff = if (nightmare) 1f else cpuIntensity
         val fatalityChance = (0.45f + 0.45f * diff).coerceIn(0.45f, 0.95f)
         val superChance = (0.35f + 0.40f * diff).coerceIn(0.35f, 0.90f)
+        // 🆕 (2026-07-22) Rival MAREADO (stun) + medidor lleno = castigo GARANTIZADO con el
+        // FATALITY: se salta el azar y se amplía el rango del dash (no se mueve, hay tiempo).
+        val foeStunned = foe.state == SfFighterState.STUN
         val canFatality = me.superReady && hasAnim(me, SfFighterState.FATALITY)
         if (canFatality && me.state == SfFighterState.RUN) {
-            if (roll < fatalityChance) return SfInput(forward = true, superArt = true)
-        } else if (canFatality && roll < fatalityChance) {
-            // arrancar el fatality: dash a media distancia (al terminar entra en RUN y lo suelta)
-            if (dist in 70f..CPU_MID_DIST && hasAnim(me, SfFighterState.DASH_FORWARD)) {
+            if (foeStunned || roll < fatalityChance) return SfInput(forward = true, superArt = true)
+        } else if (canFatality && (foeStunned || roll < fatalityChance)) {
+            // arrancar el fatality: dash (al terminar entra en RUN y lo suelta)
+            val dashRange = if (foeStunned) 40f..CPU_MID_DIST else 70f..CPU_MID_DIST
+            if (dist in dashRange && hasAnim(me, SfFighterState.DASH_FORWARD)) {
                 return SfInput(dashForward = true, forward = true)
             }
         }
-        // SÚPER a rango de golpe: consume el medidor cuando de verdad conecta
+        // SÚPER a rango de golpe (respaldo si no alcanzó a lanzar el fatality en carrera)
         if (me.superReady && dist < CPU_MELEE_DIST && hasAnim(me, SfFighterState.SUPER_ART) &&
-            roll < superChance
+            (foeStunned || roll < superChance)
         ) {
             return SfInput(superArt = true)
         }

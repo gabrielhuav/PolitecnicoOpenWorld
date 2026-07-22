@@ -579,9 +579,13 @@ fun StreetFighterScreen(
         }
         // 🆕 Pantalla CARGANDO (fuente POW del HUD) mientras se decodifican atlas/hojas
         // (fondo Y ahora también los atlas de peleador, ver fightAssets arriba).
-        if (!state.inCharacterSelect &&
+        val fightLoading = !state.inCharacterSelect &&
             (assetsLoading || fightAssets == null || stageBg == null && effectiveBgFile != null)
-        ) {
+        // 🆕 (2026-07-22) Avisa al VM para CONGELAR el reloj de juego mientras carga: así el
+        // 3-2-1 y el arranque se ven al terminar (antes se gastaban ocultos tras el CARGANDO,
+        // sobre todo en gama baja e IA vs IA que decodifica dos atlas).
+        LaunchedEffect(fightLoading) { viewModel.setAssetsLoadingUi(fightLoading) }
+        if (fightLoading) {
             SfLoadingOverlay(theme = theme)
         }
 
