@@ -596,6 +596,9 @@ class StreetFighterViewModel @Inject constructor(
     /** Dificultad elegida al iniciar arcade (Fácil/Medio/Difícil → mapas día/noche/apocalipsis). */
     private var arcadeChosenDifficulty: SfCpuDifficulty = SfCpuDifficulty.NORMAL
     private var arcadePlayer: SfFighterId = SfFighterId.ESCOMBOY
+    // 🆕 (2026-07-22) Derrotas SEGUIDAS en arcade: solo se retrocede un escalón a la 3ª (se
+    // reinicia al ganar y al empezar una campaña). Antes se retrocedía en CADA derrota.
+    private var arcadeLossStreak = 0
 
     // Frame data por peleador (cache perezoso por identidad; soporta CUALQUIER SfFighterId)
     private val dataCache = mutableMapOf<SfFighterId, SfFighterData>()
@@ -4675,6 +4678,7 @@ class StreetFighterViewModel @Inject constructor(
      */
     fun startArcade(playerId: SfFighterId, difficulty: SfCpuDifficulty = SfCpuDifficulty.NORMAL) {
         arcadePlayer = playerId
+        arcadeLossStreak = 0 // 🆕 campaña nueva: racha de derrotas a cero
         // PESADILLA del selector de práctica se trata como Difícil (apocalipsis + IA dura)
         arcadeChosenDifficulty = when (difficulty) {
             SfCpuDifficulty.PESADILLA -> SfCpuDifficulty.AVANZADA
@@ -4758,8 +4762,10 @@ class StreetFighterViewModel @Inject constructor(
                 }
             }
             arcadeRepo.setLadderStep(s.arcadeStep)
+            arcadeLossStreak = 0 // 🆕 ganar CORTA la racha de derrotas
             if (s.arcadeStep >= arcadeLadder.size) SfArcadeOutcome.COMPLETED else SfArcadeOutcome.WON
         } else {
+            arcadeLossStreak++ // 🆕 solo se retrocede a la 3ª derrota SEGUIDA (ver arcadeRetry)
             SfArcadeOutcome.LOST
         }
         // 🆕 (2026-07-20) La campaña SOBREVIVE el cierre de la app: checkpoint al siguiente
@@ -4767,7 +4773,10 @@ class StreetFighterViewModel @Inject constructor(
         when (outcome) {
             SfArcadeOutcome.COMPLETED -> arcadeRepo.clearSession()
             SfArcadeOutcome.WON -> persistArcadeCheckpoint(s.arcadeStep + 1)
-            else -> persistArcadeCheckpoint((s.arcadeStep - 1).coerceAtLeast(1))
+            // 🆕 (2026-07-22) Retrocede el checkpoint SOLO a la 3ª derrota seguida; si no, se queda.
+            else -> persistArcadeCheckpoint(
+                if (arcadeLossStreak >= 3) (s.arcadeStep - 1).coerceAtLeast(1) else s.arcadeStep,
+            )
         }
         _state.value = _state.value.copy(arcadeOutcome = outcome)
     }
@@ -4780,11 +4789,20 @@ class StreetFighterViewModel @Inject constructor(
         startArcadeStep(s.arcadeStep + 1)
     }
 
-    /** REINTENTAR tras perder → retrocede 1 pelea (repite la anterior; nunca antes de la 1ª). */
+    /**
+     * REINTENTAR tras perder. 🆕 (2026-07-22) Solo retrocede un escalón tras **3 derrotas
+     * SEGUIDAS**; si no, reintenta el MISMO rival. Ganar reinicia la racha.
+     */
     fun arcadeRetry() {
         val s = _state.value
         if (!s.arcadeActive) return
-        startArcadeStep((s.arcadeStep - 1).coerceAtLeast(1))
+        val target = if (arcadeLossStreak >= 3) {
+            arcadeLossStreak = 0
+            (s.arcadeStep - 1).coerceAtLeast(1)
+        } else {
+            s.arcadeStep
+        }
+        startArcadeStep(target)
     }
 
     /** Salir del arcade → volver al selector de personaje (fresco). */

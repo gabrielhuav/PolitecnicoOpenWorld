@@ -68,8 +68,31 @@ verifica que salió bien, y qué NO debe tocar. Sin eso, cualquier IA improvisa.
    `cpuIntensity` (fatality 0.45→0.95, súper 0.35→0.90; `nightmare` = tope), ya no gateada por el
    binario `aggressive`. El fatality sigue siendo dos tiempos (dash→RUN→soltar) pero ahora se
    inicia mucho más seguido.
-8. **PENDIENTE → Fable 5 (siguiente):** MAREO/STUN — barra de aturdimiento + estado STUN +
-   estrellas + TODOS los modos (con sync de red) + dureza moderada. Prompt autocontenido aparte.
+8. **IA vs IA pelea en el mapa correcto:** `startAiVsAi` ahora setea `arcadeMapFile =
+   mapForRival(peleador con la IA más avanzada)`; la Screen considera `aiVsAi` además de
+   `arcadeActive`. Antes caía a ESCOM por default.
+9. **Arcade: retroceso solo tras 3 DERROTAS SEGUIDAS** (`arcadeLossStreak`): ganar reinicia la
+   racha; `arcadeRetry` y el checkpoint de `handleArcadeMatchEnd` solo bajan un escalón a la 3ª.
+   Antes se retrocedía en cada derrota.
+
+**Todo lo anterior COMPILA (`compileDebugKotlin` OK) y está commiteado.**
+
+### ➡️ SIGUIENTE SESIÓN → Fable 5: `PROMPT_FABLE5_stun_crash_optimizacion.md`
+
+Plan autocontenido y priorizado con TODO lo que sigue. Resumen:
+- 🔴 **CRASH de La Llorona** (P0, con pistas: camino ALPHA + fondo `islamunecas`; repro con logcat).
+- 🟠 **Optimización GAMA BAJA** (el encargo grande: se traba al cargar; gama baja es el riesgo).
+- 🟡 **Mareo/STUN + brillo y decaimiento del medidor de súper** (todos los modos, dureza moderada).
+- 🟢 **Metamorfosis Presidenta entre rondas** (necesita DECISIÓN del dueño: ¿reinicia o persiste?).
+- 🔵 **Intro del Policía hombre se corta** ("...vía pública" debe terminar).
+- 🟣 **Navegación** (volver al selector del MISMO modo) + **Tutorial** (mensaje "ESO NO ERA"
+  desactualizado, resaltar el botón a presionar, invertir layout: botones↑ / hoja de combos↓).
+
+### 🙋 ITEMS QUE REQUIEREN AL DUEÑO (no los toca ninguna IA sin ti)
+- **Paparazzi 5** tiene un audio que es de **Paparazzi 1** → rastrear en mp3 + ogg + subtítulo.
+- **Señor de la tienda:** un audio donde sale brevemente la voz de **Prankedy** → recortar.
+- **La Tzitzimime** mal recortada + audios a destiempo → audit a su spreadsheet (tooling) + recorte
+  a mano del dueño.
 
 ### 📋 TRABAJO FUTURO anotado en esta sesión (NO forzar sin lo que falta)
 
@@ -124,10 +147,11 @@ margen y `special_rey_grupero` con 1.3 de los 2.4 dB que necesita). Detalle en e
 
 ### 🔵 P2b · Motor compartido entre modos (PLANIFICADO, no empezado)
 
-Medido: `StreetFighterViewModel.kt` tiene **5 271 líneas**, **65 funciones públicas** y
-**7 banderas de modo consultadas 104 veces**. Los modos YA comparten un solo motor (no hay
-duplicación que borrar), pero lo hacen con `if (showcaseMode)` esparcidos, así que añadir un
-modo obliga a tocar el archivo entero. Y **el motor de pelea tiene 0 tests**.
+Medido (2026-07-22): `StreetFighterViewModel.kt` tiene **5 633 líneas** (crece; verifícalo antes
+de citar). Los modos YA comparten un solo motor (no hay duplicación que borrar), pero lo hacen con
+`if (showcaseMode)` esparcidos, así que añadir un modo obliga a tocar el archivo entero. **El motor
+de pelea no tiene tests propios** — el único test SF (`SfArcadeCampaignAuditTest`) audita la
+campaña, no el motor.
 
 Plan por fases en `SF/PLAN_refactor_motor_compartido.md`. **No empezar por la fase 2 sin la
 fase 1**: extraer el motor sin pruebas es cómo se metió la última regresión grande.
