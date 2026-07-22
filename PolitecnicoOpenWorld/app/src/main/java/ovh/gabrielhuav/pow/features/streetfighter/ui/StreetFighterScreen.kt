@@ -611,10 +611,26 @@ fun StreetFighterScreen(
             // 🆕 (2026-07-21) Botones del moveset 3rd Strike. Solo se muestran si el
             // peleador TIENE ese arte (los compartidos/ALPHA no los tienen).
             if (hasNewMoves) {
-                FighterNewMoveButtons(
+                // 🆕 (2026-07-22) Rediseño "Neón Arcade": gatillos L (izquierda, encima del
+                // joystick) = L1 Parry · L2 Burla.
+                FighterShoulderButtons(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 16.dp, bottom = 185.dp),
+                    isLeft = true,
+                    superReady = state.player.superReady,
+                    onParry = viewModel::onParryPressed,
+                    onGrab = viewModel::onGrabPressed,
+                    onTaunt = viewModel::onTauntPressed,
+                    onSuper = viewModel::onSuperArtPressed,
+                    highlight = tutorialButton,
+                )
+                // Gatillos R (derecha, encima del diamante) = R1 Agarre · R2 Súper.
+                FighterShoulderButtons(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = 8.dp, bottom = 190.dp),
+                        .padding(end = 16.dp, bottom = 190.dp),
+                    isLeft = false,
                     superReady = state.player.superReady,
                     onParry = viewModel::onParryPressed,
                     onGrab = viewModel::onGrabPressed,
@@ -2740,14 +2756,19 @@ private fun sfButtonForLabel(label: String): String? = when {
 }
 
 // ------------------------------------------------------------------
-// 🆕 (2026-07-21) Botones del MOVESET 3rd Strike: parry, agarre, burla y súper.
-// Van en una columna aparte del diamante para no cambiar los controles de siempre.
-// La SÚPER solo se ve activa con el medidor lleno.
+// 🆕 (2026-07-22) MOVESET 3rd Strike como GATILLOS neón (rediseño "Alt 1 · Neón Arcade" del
+// dueño): IZQUIERDA L1 Parry · L2 Burla; DERECHA R1 Agarre · R2 Súper. El diamante Y/X/B/A no
+// cambia. La SÚPER solo se ve encendida con el medidor lleno.
+//
+// 🎨 RESERVA DE PALETA (NO borrar — para expansión futura, "Alt 3 · Gema/Elementos"):
+//   Esmeralda #2D6A4F (borde #1B4332) · Rubí #9B2226 (borde #641220)
+//   Zafiro    #003566 (borde #001D3D) · Amatista #5A189A (borde #3C096C)
 // ------------------------------------------------------------------
 
 @Composable
-private fun FighterNewMoveButtons(
+private fun FighterShoulderButtons(
     modifier: Modifier = Modifier,
+    isLeft: Boolean,
     superReady: Boolean,
     onParry: () -> Unit,
     onGrab: () -> Unit,
@@ -2757,34 +2778,43 @@ private fun FighterNewMoveButtons(
     highlight: String? = null,
 ) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        // Burla (gris, sin efecto en combate)
-        SfTutorialButtonGlow(active = highlight == "T") {
-            ActionButton(text = "T", color = Color(0xFF7F8C8D), onHoldEvent = { pressed ->
-                if (pressed) onTaunt()
-            })
-        }
-        Spacer(modifier = Modifier.size(6.dp))
-        // Parry (cian): desvía el golpe si se aprieta a tiempo
-        SfTutorialButtonGlow(active = highlight == "P") {
-            ActionButton(text = "P", color = Color(0xFF1ABC9C), onHoldEvent = { pressed ->
-                if (pressed) onParry()
-            })
-        }
-        Spacer(modifier = Modifier.size(6.dp))
-        // Agarre (naranja): lanza al rival pegado, atraviesa la guardia
-        SfTutorialButtonGlow(active = highlight == "G") {
-            ActionButton(text = "G", color = Color(0xFFE67E22), onHoldEvent = { pressed ->
-                if (pressed) onGrab()
-            })
-        }
-        Spacer(modifier = Modifier.size(6.dp))
-        // Súper (dorado si está cargada, apagado si no)
-        SfTutorialButtonGlow(active = highlight == "S") {
-            ActionButton(
-                text = "S",
-                color = if (superReady) Color(0xFFFFD700) else Color(0xFF555555),
-                onHoldEvent = { pressed -> if (pressed) onSuper() },
+        if (isLeft) {
+            // L1 · Parry (cian neón): desvía el golpe si se aprieta a tiempo
+            SfNeonButton("L1", Color(0xFF00F2FE), Color(0xFF00ADB5), highlight == "P", onParry)
+            Spacer(modifier = Modifier.size(6.dp))
+            // L2 · Burla (rosa neón, sin efecto en combate)
+            SfNeonButton("L2", Color(0xFFFF007F), Color(0xFFC5005E), highlight == "T", onTaunt)
+        } else {
+            // R1 · Agarre (violeta neón): lanza al rival pegado, atraviesa la guardia
+            SfNeonButton("R1", Color(0xFF7928CA), Color(0xFF56149F), highlight == "G", onGrab)
+            Spacer(modifier = Modifier.size(6.dp))
+            // R2 · Súper (naranja neón; apagado si el medidor no está lleno)
+            SfNeonButton(
+                label = "R2",
+                fill = if (superReady) Color(0xFFFF7B00) else Color(0xFF555555),
+                border = if (superReady) Color(0xFFC85A00) else Color(0xFF3A3A3A),
+                highlighted = highlight == "S",
+                onPress = onSuper,
             )
+        }
+    }
+}
+
+/** Botón SF con relleno neón + aro de borde, reutilizando ActionButton (hold + feedback). */
+@Composable
+private fun SfNeonButton(
+    label: String,
+    fill: Color,
+    border: Color,
+    highlighted: Boolean,
+    onPress: () -> Unit,
+) {
+    SfTutorialButtonGlow(active = highlighted) {
+        Box(
+            modifier = Modifier.border(2.dp, border, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            ActionButton(text = label, color = fill, onHoldEvent = { pressed -> if (pressed) onPress() })
         }
     }
 }

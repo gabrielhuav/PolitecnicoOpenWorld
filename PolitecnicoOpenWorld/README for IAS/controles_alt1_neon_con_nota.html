@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Controles Rediseñados · Huelum vs. Goya (Alternativa 1: Neón Arcade)</title>
+<!--
+  ================================================================================
+  NOTA DE DISEÑO Y RESERVA DE PALETA PARA EXPANSIÓN FUTURA:
+  Si en un futuro se necesitan más botones o una variante temática especial, se utilizará
+  la paleta de la "Alternativa 3: Gema / Elementos", inspirada en piedras preciosas:
+    - Esmeralda (Verde): #2d6a4f (Borde: #1b4332)
+    - Rubí (Rojo):        #9b2226 (Borde: #641220)
+    - Zafiro (Azul):      #003566 (Borde: #001d3d)
+    - Amatista (Violeta): #5a189a (Borde: #3c096c)
+  Mantener esta nota en el código para futuras implementaciones o expansiones de UI.
+  ================================================================================
+-->
+<style>
+  :root {
+    --y:#F1C40F; --x:#3498DB; --b:#E74C3C; --a:#2ECC71;
+    --t:#7F8C8D; --p:#1ABC9C; --g:#E67E22; --s:#FFD700; --s-off:#555;
+    
+    /* Paleta Activa: Alternativa 1 (Neón Arcade) */
+    --l1-bg: #00f2fe; --l1-border: #00adb5;
+    --l2-bg: #ff007f; --l2-border: #c5005e;
+    --r1-bg: #7928ca; --r1-border: #56149f;
+    --r2-bg: #ff7b00; --r2-border: #c85a00;
+
+    --ink:#fff; --panel:rgba(0,0,0,.40);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, Segoe UI, Roboto, sans-serif; color: var(--ink);
+    background: #20242c; display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 20px; }
+  h1 { font-size: 18px; margin: .2em 0; }
+  .sub { opacity: .7; font-size: 13px; margin: 0 0 6px; }
+  
+  .screen { position: relative; width: min(860px, 96vw); aspect-ratio: 16/9; border-radius: 16px;
+    background: linear-gradient(#2b3140, #171a20); border: 1px solid #3a4150; overflow: hidden; }
+  .hud { position: absolute; top: 10px; left: 0; right: 0; text-align: center; opacity: .5; font-size: 12px; letter-spacing: 2px; }
+
+  .l-cluster { position: absolute; left: 4%; bottom: 44%; display: flex; gap: 8px; z-index: 5; }
+  .l1-btn { background: var(--l1-bg); border-color: var(--l1-border); }
+  .l2-btn { background: var(--l2-bg); border-color: var(--l2-border); }
+
+  .stickWrap { position: absolute; left: 4%; bottom: 6%; width: 160px; height: 160px; border-radius: 50%;
+    background: var(--panel); display: flex; align-items: center; justify-content: center; }
+  .stick { width: 78px; height: 78px; border-radius: 50%; background: radial-gradient(#5b6472, #333a45);
+    border: 2px solid #7a8494; box-shadow: 0 4px 10px rgba(0,0,0,.5); }
+  .dir { position: absolute; font-size: 15px; opacity: .75; }
+  .dir.up { top: 8px; left: 50%; transform: translateX(-50%); }
+  .dir.down { bottom: 8px; left: 50%; transform: translateX(-50%); }
+  .dir.left { left: 10px; top: 50%; transform: translateY(-50%); }
+  .dir.right { right: 10px; top: 50%; transform: translateY(-50%); }
+
+  .r-cluster { position: absolute; right: 4%; bottom: 44%; display: flex; gap: 8px; z-index: 5; }
+  .r1-btn { background: var(--r1-bg); border-color: var(--r1-border); }
+  .r2-btn { background: var(--r2-bg); border-color: var(--r2-border); }
+
+  .diamond { position: absolute; right: 4%; bottom: 6%; width: 190px; height: 190px; border-radius: 50%;
+    background: var(--panel); display: grid; place-items: center; }
+  .diamond .row { display: flex; align-items: center; justify-content: center; }
+  .gap { width: 44px; }
+  .btn { width: 54px; height: 54px; border-radius: 50%; border: none; color: #111; font-weight: 800; font-size: 20px;
+    cursor: pointer; box-shadow: inset 0 -4px 8px rgba(0,0,0,.35), 0 3px 6px rgba(0,0,0,.4);
+    display: grid; place-items: center; transition: transform .08s; }
+  .btn:active { transform: scale(.92); }
+  .btn.small { width: 44px; height: 44px; font-size: 16px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+  .btn.center { position: absolute; }
+
+  .Y { background: var(--y); } .X { background: var(--x); } .B { background: var(--b); } .A { background: var(--a); }
+
+  .legend { width: min(860px, 96vw); display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px; font-size: 13px; }
+  .legend div { background: #262b34; border: 1px solid #333b46; border-radius: 8px; padding: 8px 10px; }
+  .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  @media (max-width: 560px) { .btn { width: 46px; height: 46px; font-size: 17px; } .stickWrap, .diamond { transform: scale(.85); } }
+</style>
+</head>
+<body>
+  <h1>Controles Rediseñados — Huelum vs. Goya (Alternativa 1: Neón Arcade)</h1>
+  <p class="sub">Paleta estilo arcade moderno con tonos brillantes y contrastantes.</p>
+
+  <div class="screen">
+    <div class="hud">— ZONA DE PELEA —</div>
+
+    <div class="l-cluster">
+      <button class="btn small l1-btn" title="L1 (Parry)">L1</button>
+      <button class="btn small l2-btn" title="L2 (Burla)">L2</button>
+    </div>
+
+    <div class="stickWrap">
+      <span class="dir up">↑ saltar</span>
+      <span class="dir down">↓ agachar</span>
+      <span class="dir left">←</span>
+      <span class="dir right">→</span>
+      <div class="stick"></div>
+    </div>
+
+    <div class="r-cluster">
+      <button class="btn small r1-btn" title="R1 (Agarre)">R1</button>
+      <button class="btn small r2-btn" title="R2 (Súper)">R2</button>
+    </div>
+
+    <div class="diamond">
+      <div style="display:flex;flex-direction:column;align-items:center;position:relative">
+        <button class="btn Y" title="Y (Puño Medio - Amarillo)">Y</button>
+        <div class="row">
+          <button class="btn X" title="X (Puño Ligero - Azul)">X</button>
+          <span class="gap"></span>
+          <button class="btn B" title="B (Puño Fuerte - Rojo)">B</button>
+        </div>
+        <button class="btn A" title="A (Patada - Verde)">A</button>
+        <button class="btn Y center" title="Y (Centro - Amarillo)">Y</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div><span class="dot" style="background:var(--x)"></span><b>X</b> — Puño ligero</div>
+    <div><span class="dot" style="background:var(--y)"></span><b>Y</b> — Puño medio</div>
+    <div><span class="dot" style="background:var(--b)"></span><b>B</b> — Puño fuerte</div>
+    <div><span class="dot" style="background:var(--a)"></span><b>A</b> — Patada</div>
+    <div><span class="dot" style="background:var(--l1-bg)"></span><b>L1</b> — Parry</div>
+    <div><span class="dot" style="background:var(--l2-bg)"></span><b>L2</b> — Burla</div>
+    <div><span class="dot" style="background:var(--r1-bg)"></span><b>R1</b> — Agarre</div>
+    <div><span class="dot" style="background:var(--r2-bg)"></span><b>R2</b> — Súper</div>
+    <div><span class="dot" style="background:#7a8494"></span><b>Joystick</b> — Movimiento</div>
+  </div>
+</body>
+</html>
