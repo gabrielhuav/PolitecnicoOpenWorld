@@ -65,6 +65,36 @@
 **Salida de las hojas:** `tools/_audit_sheets/`
 **MP3 para escuchar:** `tools/_audio_review/` (⚠️ en `.gitignore`, no viaja por git)
 
+## 📐 EL ESTÁNDAR DE UN CUADRO (contrato del pipeline)
+
+Todo cuadro que entra al atlas cumple esto, lo produzca el slicer o lo corrija alguien a
+mano. Romper cualquiera de estos puntos hace que el personaje cambie de tamaño o "flote"
+al pasar de una animación a otra.
+
+| Propiedad | Valor | Por qué |
+|---|---|---|
+| Lienzo | **256 × 256 px**, RGBA transparente | Celda fija del atlas |
+| Línea de pies | **y = 224** | Todos los peleadores pisan el mismo suelo |
+| Centro horizontal | **x = 128** | Sin esto el personaje "salta" de lado entre cuadros |
+| Altura de pie | **100 px** exactos | La fija la hoja 01 en `GEN/<char>/_scale.json`; el packer la verifica y avisa (`Tamano SF idle: rango 100-100px OK`) |
+| Origen | `[128, 224]` en el JSON | Proyectiles y efectos usan `[128, 128]` (centrados) |
+| Alfa | De la máscara **CRUDA** del croma | Evita verde atrapado dentro de la figura |
+
+**Hoja fuente:** PNG (nunca JPG) con croma **`#00FF00`**. El detector acepta
+`g > 170 && r < 140 && b < 140`, con tolerancia para el antialias.
+
+### ⚠️ Si corriges una pose a mano
+
+1. Trabaja sobre el recorte que da `tools/sf_extract_sheet_region.py` (trae el verde original).
+2. Separa las poses **en horizontal** y rellena el hueco con **ese mismo verde**.
+3. Reimporta con `tools/sf_import_fixed_pose.py <char> <archivo> <clave> [<clave>...]`:
+   aplica escala, centrado y línea de pies solo. Varias claves = la misma pose ocupa
+   varios cuadros (útil cuando dos "poses" eran en realidad un único asset).
+4. **Cuidado con las auras circulares y los degradados:** su borde suavizado se queda
+   FUERA del umbral del croma y sobrevive como halo verde. La limpieza automática solo
+   cubre 2 px de contorno. Si la pose tiene un aura grande, pinta el fondo con verde
+   PLANO (sin degradado) hasta tocar la figura.
+
 ## Las reglas que más caro han salido
 
 1. **NUNCA re-recortes hojas que ya están bien.** Una sesión re-recortó las 520 hojas de los
