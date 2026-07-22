@@ -15,7 +15,7 @@ Para escuchar cada clip: `tools/_audio_review/<clip>.mp3`.
 | hay draft de Whisper para curar | 53 |
 | sin draft (probable grito) | 16 |
 | a RECORTAR (largos) | 29 |
-| a NORMALIZAR | 5 |
+| a NORMALIZAR | 2 |
 
 ## (generico hombres)
 
@@ -27,8 +27,8 @@ Para escuchar cada clip: `tools/_audio_review/<clip>.mp3`.
 
 | clip (.mp3) | evento | dur | LUFS | draft Whisper | `es` actual | acción propuesta |
 |---|---|---|---|---|---|---|
-| `special_charro_attack_1` | attack | 4.00s | -13.2 | — | — | **RECORTAR** (4.00s); **NORMALIZAR** (-13.2 LUFS); ¿grito? -> poner `-` si no lleva subtitulo |
-| `special_charro_attack_2` | attack | 4.00s | -18.8 | Rrrrr. Rrrrrrr. | — | **RECORTAR** (4.00s); **NORMALIZAR** (-18.8 LUFS); CURAR `es` (hay draft) |
+| `special_charro_attack_1` | attack | 4.00s | -16.1 | — | — | **RECORTAR** (4.00s); ¿grito? -> poner `-` si no lleva subtitulo |
+| `special_charro_attack_2` | attack | 4.00s | -18.7 | Rrrrr. Rrrrrrr. | — | **RECORTAR** (4.00s); **NORMALIZAR** (-18.7 LUFS); CURAR `es` (hay draft) |
 | `special_charro_attack_3` | attack | 5.10s | -14.9 | — | — | **RECORTAR** (5.10s); ¿grito? -> poner `-` si no lleva subtitulo |
 | `special_charro_hurt_1` | hurt | 3.00s | -15.7 | ¡Cri, cri, cri, cri, cri! | — | **RECORTAR** (3.00s); CURAR `es` (hay draft) |
 | `special_charro_hurt_2` | hurt | 3.00s | -15.1 | Ssssssssssssssss | — | **RECORTAR** (3.00s); CURAR `es` (hay draft) |
@@ -52,7 +52,7 @@ Para escuchar cada clip: `tools/_audio_review/<clip>.mp3`.
 | clip (.mp3) | evento | dur | LUFS | draft Whisper | `es` actual | acción propuesta |
 |---|---|---|---|---|---|---|
 | `special_escomgirl_attack` | attack | 3.15s | -14.6 | — | — | **RECORTAR** (3.15s); ¿grito? -> poner `-` si no lleva subtitulo |
-| `special_escomgirl_hurt` | hurt | 3.01s | -13.8 | — | — | **RECORTAR** (3.01s); **NORMALIZAR** (-13.8 LUFS); ¿grito? -> poner `-` si no lleva subtitulo |
+| `special_escomgirl_hurt` | hurt | 3.00s | -16.0 | — | — | **RECORTAR** (3.00s); ¿grito? -> poner `-` si no lleva subtitulo |
 | `special_escomgirl_loss` | loss | 3.70s | -15.2 | — | — | ¿grito? -> poner `-` si no lleva subtitulo |
 
 ## GRANADERO|POLICIA_CDMX_HOMBRE|POLICIA_GRANADERO_HOMBRE
@@ -90,7 +90,7 @@ Para escuchar cada clip: `tools/_audio_review/<clip>.mp3`.
 | clip (.mp3) | evento | dur | LUFS | draft Whisper | `es` actual | acción propuesta |
 |---|---|---|---|---|---|---|
 | `special_la_tzitzimime_attack` | attack | 3.16s | -14.9 | — | — | **RECORTAR** (3.16s); ¿grito? -> poner `-` si no lleva subtitulo |
-| `special_la_tzitzimime_hurt` | hurt | 3.34s | -12.5 | — | — | **RECORTAR** (3.34s); **NORMALIZAR** (-12.5 LUFS); ¿grito? -> poner `-` si no lleva subtitulo |
+| `special_la_tzitzimime_hurt` | hurt | 3.34s | -16.0 | — | — | **RECORTAR** (3.34s); ¿grito? -> poner `-` si no lleva subtitulo |
 | `special_la_tzitzimime_power` | power | 6.80s | -17.6 | — | — | ¿grito? -> poner `-` si no lleva subtitulo |
 | `special_la_tzitzimime_win` | win | 2.83s | -16.1 | — | — | ¿grito? -> poner `-` si no lleva subtitulo |
 
@@ -156,7 +156,7 @@ Para escuchar cada clip: `tools/_audio_review/<clip>.mp3`.
 
 | clip (.mp3) | evento | dur | LUFS | draft Whisper | `es` actual | acción propuesta |
 |---|---|---|---|---|---|---|
-| `special_rey_grupero` | intro | 4.50s | -19.6 | ¿Fue el hermano Mergaras en la selfie? Claro, claro. ¿Y a ti | — | **NORMALIZAR** (-19.6 LUFS); CURAR `es` (hay draft) |
+| `special_rey_grupero` | intro | 4.50s | -18.4 | ¿Fue el hermano Mergaras en la selfie? Claro, claro. ¿Y a ti | — | **NORMALIZAR** (-18.4 LUFS); CURAR `es` (hay draft) |
 | `special_rey_grupero_attack` | attack | 2.11s | -16.0 | Fue ir hermano me regalas una selfie | — | CURAR `es` (hay draft) |
 | `special_rey_grupero_hurt` | hurt | 2.23s | -16.0 | ¡Vamos! ¡Vamos! ¡Vamos! | — | CURAR `es` (hay draft) |
 | `special_rey_grupero_power` | power | 4.10s | -16.4 | Estos son los de la verga, güey, son los de la verga, güey. | — | CURAR `es` (hay draft) |

@@ -100,6 +100,12 @@ fase 1**: extraer el motor sin pruebas es cómo se metió la última regresión 
 
 ⚠️ El `.aab` NO baja refactorizando código: el peso está en los atlas (88.6 MB de IMAGES).
 
+### ⚪ P3 · Bloqueado en el dueño (rescatado de `PENDIENTES_2026-07-20.md`, ya archivado)
+
+- **Mapas UAM Azcapotzalco y Cuajimalpa**: los 6 atlas actuales YA salen de los vídeos más
+  recientes en disco. **Faltan vídeos nuevos**; al llegar, `tools/build_map_backgrounds.py`.
+- **Voces**: 62 de 69 clips sin subtítulo. Requiere el oído del dueño.
+
 ### ⚪ P3 · Deuda conocida
 
 - `07_OTHER_FEATURES.md` (87 KB) mezcla menú/ajustes con el modo SF. Su parte de SF debería
