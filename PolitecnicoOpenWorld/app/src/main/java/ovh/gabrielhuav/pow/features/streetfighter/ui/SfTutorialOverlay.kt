@@ -14,6 +14,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,10 +41,10 @@ private fun chipColor(label: String): Color = when {
     label.contains("PUÑO MEDIO") -> Color(0xFFF1C40F)    // Y
     label.contains("PUÑO FUERTE") -> Color(0xFFE74C3C)   // B
     label.contains("PATADA") -> Color(0xFF2ECC71)        // A
-    label.contains("PARRY") -> Color(0xFF1ABC9C)         // P
-    label.contains("AGARRE") -> Color(0xFFE67E22)        // G
-    label.contains("SÚPER") -> Color(0xFFFFD700)         // S
-    label.contains("BURLA") -> Color(0xFF7F8C8D)         // T
+    label.contains("PARRY") -> Color(0xFF00F2FE)         // L1 (cian neón)
+    label.contains("AGARRE") -> Color(0xFF7928CA)        // R1 (violeta neón)
+    label.contains("SÚPER") || label.contains("FATALITY") -> Color(0xFFFF7B00) // R2 (naranja neón)
+    label.contains("BURLA") -> Color(0xFFFF007F)         // L2 (rosa neón)
     else -> Color(0xFF5B6ACD)                            // joystick / direcciones
 }
 
@@ -121,7 +127,7 @@ fun SfTutorialOverlay(
                 // la receta por estar debajo del texto.
                 // Receta con IDENTIFICADORES VISUALES: cada paso es un chip del COLOR del
                 // botón real que hay que pulsar (X azul, Y amarillo, B rojo, A verde,
-                // P cian, G naranja, S dorado) para que se reconozca de un vistazo.
+                // L1 cian, R1 violeta, R2 naranja, L2 rosa) para reconocerlo de un vistazo.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
@@ -209,29 +215,46 @@ fun SfTutorialOverlay(
             }
         }
 
-        // ── Controles del tutorial (abajo-izquierda, lejos del diamante de botones) ──
+        // ── Controles del tutorial: panel PLEGABLE (🆕 2026-07-22) para que NO estorbe los
+        // botones de pelea. Un botón chico "☰" abre REPETIR/SALTAR/VOLVER; se colapsa solo a
+        // los ~4 s si no interactúas.
+        var toolsOpen by remember { mutableStateOf(false) }
+        LaunchedEffect(toolsOpen) {
+            if (toolsOpen) {
+                delay(4000)
+                toolsOpen = false
+            }
+        }
         Column(
             modifier = Modifier.align(Alignment.TopStart).padding(start = 8.dp, top = 92.dp),
         ) {
-            if (!completed) {
-                PowButton(
-                    text = stringResource(R.string.sf_tutorial_repeat),
-                    onClick = onRestart,
-                    color = Color(0xFF3A3A44),
-                )
-                Spacer(Modifier.height(4.dp))
-                PowButton(
-                    text = stringResource(R.string.sf_tutorial_skip),
-                    onClick = onSkip,
-                    color = Color(0xFF3A3A44),
-                )
-                Spacer(Modifier.height(4.dp))
-            }
             PowButton(
-                text = stringResource(R.string.sf_back),
-                onClick = onExit,
-                color = Color(0xFF8B1538),
+                text = if (toolsOpen) "✕" else "☰",
+                onClick = { toolsOpen = !toolsOpen },
+                color = Color(0xFF2A2A33),
             )
+            if (toolsOpen) {
+                Spacer(Modifier.height(4.dp))
+                if (!completed) {
+                    PowButton(
+                        text = stringResource(R.string.sf_tutorial_repeat),
+                        onClick = { onRestart(); toolsOpen = false },
+                        color = Color(0xFF3A3A44),
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    PowButton(
+                        text = stringResource(R.string.sf_tutorial_skip),
+                        onClick = { onSkip(); toolsOpen = false },
+                        color = Color(0xFF3A3A44),
+                    )
+                    Spacer(Modifier.height(4.dp))
+                }
+                PowButton(
+                    text = stringResource(R.string.sf_back),
+                    onClick = onExit,
+                    color = Color(0xFF8B1538),
+                )
+            }
         }
     }
 }

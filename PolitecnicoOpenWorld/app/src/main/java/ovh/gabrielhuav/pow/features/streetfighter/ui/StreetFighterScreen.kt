@@ -2758,10 +2758,10 @@ private fun SfTutorialButtonGlow(active: Boolean, content: @Composable () -> Uni
  * (mismo truco de substring que chipColor en SfTutorialOverlay). null = va con el joystick.
  */
 private fun sfButtonForLabel(label: String): String? = when {
-    label.contains("FATALITY") || label.contains("SÚPER") -> "S"
-    label.contains("PARRY") -> "P"
-    label.contains("AGARRE") -> "G"
-    label.contains("BURLA") -> "T"
+    label.contains("FATALITY") || label.contains("SÚPER") -> "R2"
+    label.contains("PARRY") -> "L1"
+    label.contains("AGARRE") -> "R1"
+    label.contains("BURLA") -> "L2"
     label.contains("PUÑO LIGERO") -> "X"
     label.contains("PUÑO MEDIO") -> "Y"
     label.contains("PUÑO FUERTE") -> "B"
@@ -2795,20 +2795,20 @@ private fun FighterShoulderButtons(
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         if (isLeft) {
             // L1 · Parry (cian neón): desvía el golpe si se aprieta a tiempo
-            SfNeonButton("L1", Color(0xFF00F2FE), Color(0xFF00ADB5), highlight == "P", onParry)
+            SfNeonButton("L1", Color(0xFF00F2FE), Color(0xFF00ADB5), highlight == "L1", onParry)
             Spacer(modifier = Modifier.size(6.dp))
             // L2 · Burla (rosa neón, sin efecto en combate)
-            SfNeonButton("L2", Color(0xFFFF007F), Color(0xFFC5005E), highlight == "T", onTaunt)
+            SfNeonButton("L2", Color(0xFFFF007F), Color(0xFFC5005E), highlight == "L2", onTaunt)
         } else {
             // R1 · Agarre (violeta neón): lanza al rival pegado, atraviesa la guardia
-            SfNeonButton("R1", Color(0xFF7928CA), Color(0xFF56149F), highlight == "G", onGrab)
+            SfNeonButton("R1", Color(0xFF7928CA), Color(0xFF56149F), highlight == "R1", onGrab)
             Spacer(modifier = Modifier.size(6.dp))
             // R2 · Súper (naranja neón; apagado si el medidor no está lleno)
             SfNeonButton(
                 label = "R2",
                 fill = if (superReady) Color(0xFFFF7B00) else Color(0xFF555555),
                 border = if (superReady) Color(0xFFC85A00) else Color(0xFF3A3A3A),
-                highlighted = highlight == "S",
+                highlighted = highlight == "R2",
                 onPress = onSuper,
             )
         }

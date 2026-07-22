@@ -4093,17 +4093,17 @@ class StreetFighterViewModel @Inject constructor(
         SfComboAction.AIR_KICK -> "SALTA Y PATADA (A)"
         SfComboAction.DASH_FORWARD -> "DOBLE TOQUE →"
         SfComboAction.DASH_BACKWARD -> "DOBLE TOQUE ←"
-        SfComboAction.PARRY -> "PARRY (P)"
-        SfComboAction.GRAB -> "AGARRE (G, PEGADO)"
-        SfComboAction.TAUNT -> "BURLA (T)"
+        SfComboAction.PARRY -> "PARRY (L1)"
+        SfComboAction.GRAB -> "AGARRE (R1, PEGADO)"
+        SfComboAction.TAUNT -> "BURLA (L2)"
         SfComboAction.SPECIAL -> "↓ ↘ → + PUÑO"
-        SfComboAction.SUPER_ART -> "SÚPER (S, MEDIDOR LLENO)"
+        SfComboAction.SUPER_ART -> "SÚPER (R2, MEDIDOR LLENO)"
         SfComboAction.JUMP -> "SALTAR (JOYSTICK ↑)"
         SfComboAction.CROUCH -> "AGACHARSE (JOYSTICK ↓)"
         SfComboAction.WALK_FORWARD -> "CAMINAR ADELANTE (JOYSTICK →)"
         SfComboAction.RUN -> "TRAS EL DASH, SOSTÉN → (CORRER)"
         SfComboAction.BLOCK_HIGH -> "MANTENER ATRÁS (CUBRIRSE)"
-        SfComboAction.FATALITY -> "FATALITY: CORRE Y PULSA S"
+        SfComboAction.FATALITY -> "FATALITY: CORRE Y PULSA R2"
     }
 
     /**
@@ -4122,6 +4122,11 @@ class StreetFighterViewModel @Inject constructor(
         }
         if (s.tutorialFlash.isNotEmpty() && now > tutorialFlashUntilMs) {
             _state.update { it.copy(tutorialFlash = "", tutorialError = "") }
+        }
+        // 🆕 (2026-07-22) FIX: el "ESE NO ERA" (tutorialError) se pinta con flash VACÍO, así que la
+        // línea de arriba nunca lo limpiaba y se quedaba fijo. Se borra por su propio cooldown.
+        if (s.tutorialError.isNotEmpty() && now > tutorialErrorUntilMs) {
+            _state.update { it.copy(tutorialError = "") }
         }
         val combo = tutorialCombos.getOrNull(s.tutorialLesson) ?: return
         val expected = combo.steps.getOrNull(s.tutorialStepIndex) ?: return

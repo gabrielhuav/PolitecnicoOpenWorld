@@ -585,9 +585,9 @@
     <string name="sf_ctl_dash">Dash adelante / atrás</string>
     <string name="sf_ctl_dash_v">Doble toque → / ←</string>
     <string name="sf_ctl_parry">Parry (anula el golpe)</string>
-    <string name="sf_ctl_parry_v">Botón P</string>
+    <string name="sf_ctl_parry_v">Botón L1</string>
     <string name="sf_ctl_grab">Agarre (atraviesa el bloqueo)</string>
-    <string name="sf_ctl_grab_v">Botón G, pegado al rival</string>
+    <string name="sf_ctl_grab_v">Botón R1, pegado al rival</string>
     <string name="sf_ctl_sweep">Barrida (derriba)</string>
     <string name="sf_ctl_sweep_v">Abajo + patada fuerte</string>
     <string name="sf_ctl_overhead">Overhead (rompe guardia baja)</string>
@@ -595,7 +595,7 @@
     <string name="sf_ctl_special">Especial</string>
     <string name="sf_ctl_special_v">↓ ↘ → + puño</string>
     <string name="sf_ctl_super">Super Art (medidor lleno)</string>
-    <string name="sf_ctl_super_v">Botón S</string>
+    <string name="sf_ctl_super_v">Botón R2</string>
     <string name="sf_tutorial_progress">LECCIÓN %1$d / %2$d</string>
     <string name="sf_tutorial_step_ok">¡BIEN!</string>
     <string name="sf_tutorial_combo_ok">¡COMBO COMPLETO!</string>

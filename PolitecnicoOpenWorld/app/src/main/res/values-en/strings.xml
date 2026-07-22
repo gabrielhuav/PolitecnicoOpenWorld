@@ -583,9 +583,9 @@
     <string name="sf_ctl_dash">Dash forward / back</string>
     <string name="sf_ctl_dash_v">Double tap → / ←</string>
     <string name="sf_ctl_parry">Parry (nullifies the hit)</string>
-    <string name="sf_ctl_parry_v">P button</string>
+    <string name="sf_ctl_parry_v">L1 button</string>
     <string name="sf_ctl_grab">Throw (goes through blocking)</string>
-    <string name="sf_ctl_grab_v">G button, up close</string>
+    <string name="sf_ctl_grab_v">R1 button, up close</string>
     <string name="sf_ctl_sweep">Sweep (knocks down)</string>
     <string name="sf_ctl_sweep_v">Down + heavy kick</string>
     <string name="sf_ctl_overhead">Overhead (breaks low guard)</string>
@@ -593,7 +593,7 @@
     <string name="sf_ctl_special">Special</string>
     <string name="sf_ctl_special_v">↓ ↘ → + punch</string>
     <string name="sf_ctl_super">Super Art (full meter)</string>
-    <string name="sf_ctl_super_v">S button</string>
+    <string name="sf_ctl_super_v">R2 button</string>
     <string name="sf_tutorial_progress">LESSON %1$d / %2$d</string>
     <string name="sf_tutorial_step_ok">NICE!</string>
     <string name="sf_tutorial_combo_ok">COMBO COMPLETE!</string>
