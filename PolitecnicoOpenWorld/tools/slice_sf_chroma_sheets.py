@@ -277,6 +277,34 @@ def merge_fragments(grp, n_expected=0, split_rows=True):
     return [tuple(b) for b in out]
 
 
+def best_cut(cols, lo, hi, ideal):
+    """Donde partir dos poses pegadas, dentro de [lo, hi).
+
+    Prioridad:
+      1. El CENTRO del hueco real (columnas vacias) mas ancho de la ventana. Si dos poses
+         solo se rozan, entre ellas hay columnas a cero: ahi acaba una de verdad.
+      2. Si no hay hueco (las auras se solapan), el minimo de densidad, como antes.
+    """
+    if hi <= lo:
+        return ideal
+    band = cols[lo:hi]
+    empty = band == 0
+    if empty.any():
+        # racha de ceros mas larga
+        mejor_ini = mejor_len = act_ini = act_len = 0
+        for i, e in enumerate(empty):
+            if e:
+                if act_len == 0:
+                    act_ini = i
+                act_len += 1
+                if act_len > mejor_len:
+                    mejor_len, mejor_ini = act_len, act_ini
+            else:
+                act_len = 0
+        return lo + mejor_ini + mejor_len // 2
+    return lo + int(np.argmin(band))
+
+
 def maybe_split(grp, lbl, raw, n_expected):
     """Si el grupo trae MENOS blobs de los esperados y hay uno anormalmente ancho
     (cuadros fusionados por confeti/efectos), lo parte en el valle de densidad."""
@@ -308,13 +336,19 @@ def maybe_split(grp, lbl, raw, n_expected):
         # mas cercano, que es donde de verdad acaba una pose.
         k = int(round((x1 - x0) / expected_width))
         k = max(2, min(k, n_expected - len(grp) + 1))
-        window = max(4, int(expected_width * 0.25))
+        # 🆕 (2026-07-21) Ventana MAS ANCHA + preferir un HUECO REAL. El valle mas bajo no
+        # siempre esta donde acaba una pose: si el aura de una toca el borde de la otra, el
+        # minimo cae DENTRO del efecto y cada cuadro se lleva un trozo del vecino (sintoma
+        # del dueno: "le falta un poco de recorte a la derecha"). Cuando entre dos poses hay
+        # columnas COMPLETAMENTE vacias, ahi acaba una de verdad: se corta en medio de ese
+        # hueco. Solo si no existe hueco se recurre al minimo, como antes.
+        window = max(6, int(expected_width * 0.35))
         cuts = []
         for i in range(1, k):
             ideal = int(round((x1 - x0) * i / k))
             lo = max(1, ideal - window)
             hi = min(len(cols) - 1, ideal + window)
-            cuts.append(lo + int(np.argmin(cols[lo:hi])) if hi > lo else ideal)
+            cuts.append(best_cut(cols, lo, hi, ideal))
         bounds = [0] + cuts + [len(cols)]
 
         def tight(c0, c1):

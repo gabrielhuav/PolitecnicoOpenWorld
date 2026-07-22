@@ -31,18 +31,34 @@ de abajo. Por eso "los assets se ven bien" y el juego se ve mal a la vez.
 | **lallorona** | ⚠️ Parcial | `fatality` y `superArt`: **solo** `super-4`, `super-5`, `super-6`. El resto bien. | **C2**: los blobs 03/04/05 de la hoja 29 son los únicos SIN hueco entre ellos (601-823, 823-1037, 1037-1301). Salieron de un blob fusionado partido por `maybe_split`. **El arte está entero; los cortes están mal puestos.** |
 | **lapresidenta** | ❌ Mal (bonus powers) | `bonusPower1` (solo anima en `bonus-1-1`), `bonusPower2` mal, `bonusPower3` (solo `bonus-3-1`), `bonusPower4` mal por poco, `bonusPower5` bien recortado pero el poder sale incompleto, `bonusPower6` mal por poco, `bonusPower7` muy bien pero **no cierra el círculo del poder**, `bonusPower8` **le falta por delante**, `bonusPower9` mal, `bonusPower10` **todo mal, el martillo no sale completo**. `fatality`: `super-4`, `super-5`, `bonus-1-1`. `superArt` igual. | **C3** confirmado por medición: los 20 cuadros de `bonus-7/8/9/10` **tocan el borde DERECHO** del lienzo de 256 px. Además `bonus-7/8/9/10` son cuadros **idénticos entre sí** (estáticos). |
 | latzitzimime | *(pendiente)* | | |
-| paparazzi1 | *(pendiente)* | | |
-| paparazzi5 | *(pendiente)* | | |
-| paramedicocruzroja | *(pendiente)* | | |
-| policiacdmx | *(pendiente)* | | |
-| policiacdmxhombre | *(pendiente)* | | |
-| policiagranaderohombre | *(pendiente)* | | |
+| **latzitzimime** | ✅ **La mejor de todas** | `bonusPower3/4/5` traen arte de **Yoalli**, no suya (pero bien recortados). Todo lo demás muy bien. | ✅ **Resuelto**: `BONUS_FAST_POWERS` recorta `bonusPower4` a `bonus-4-5` y `bonusPower5` a `bonus-5-4/5-5`. `bonusPower3` **pendiente de decisión**. |
+| **paparazzi1** | ⚠️ Muy bien salvo 1 | `fatality` y `superArt`: solo `super-6`, "un poco más de recorte a la **derecha**", mínimo | **C2** |
+| **paparazzi5** | ⚠️ Muy bien salvo 1 | `fatality` y `superArt`: solo `super-6`, "falta recorte **antes**", muy leve | **C2** |
+| **paramedicocruzroja** | ⚠️ Bien salvo 1 | `super-6` es **onda de poder pura**, sin personaje. Propuesta del dueño: encimarlo con el anterior; desde `special-4` debería seguir su onda | **Decisión de arte**, no fallo de recorte |
+| **policiacdmx** (mujer) | ✅ **Bien** | — | — |
+| **policiacdmxhombre** | ⚠️ Bien salvo 1 | `fatality` y `superArt`: solo `super-6` | **C2** |
+| **policiagranaderohombre** | ✅ **Bien** | — | — |
 | policiagranaderomujer | *(pendiente)* | | |
-| prankedy | *(pendiente)* | | |
-| reygrupero | *(pendiente)* | | |
-| robot | *(pendiente)* | | |
-| senortienda | *(pendiente)* | | |
-| yoalliehecatl | *(pendiente)* | | |
+| **prankedy** | ✅ **Todo bien** | — | — |
+| **reygrupero** | ⚠️ Bien salvo 1 | `fatality` y `superArt`: `super-6` y `super-7` **completan UN mismo asset partido en dos** | **C2** en su forma más clara: el corte partió una sola pose |
+| **robot** (ESCOMROBOT) | ✅ **Todo bien** | — | — |
+| **senortienda** | ❌→✅ | `hurtHeadLight/Medium/Heavy` dobles, igual que escomboy | **C1** · ✅ **CORREGIDO** |
+| **yoalliehecatl** | ❌→✅ | `hurtHeadLight/Medium/Heavy` dobles, igual que escomboy | **C1** · ✅ **CORREGIDO** |
+
+> 🔑 **Observación del dueño sobre C1:** en esas tandas, "el último asset de la fila, o los
+> dos últimos, vienen bien". Encaja con la causa: la fusión vertical empareja cada pose con
+> la de la fila de abajo, y las últimas de la fila se quedan sin pareja.
+
+## ⚠️ Las hojas `_TODO.png` se quedan OBSOLETAS
+
+Reportar sobre una hoja vieja hace perder el tiempo a todos: pasó con `yoalliehecatl`, que ya
+estaba corregido (atlas 17:48) pero su hoja era de las 15:45. **Regenera SIEMPRE antes de
+auditar:**
+
+```
+python tools/sf_audit_sheets.py          # las 18 hojas completas
+python tools/sf_audit_status_sheet.py    # el estado de lo ya reportado
+```
 
 ## Las 3 causas raíz (C1, C2, C3)
 
