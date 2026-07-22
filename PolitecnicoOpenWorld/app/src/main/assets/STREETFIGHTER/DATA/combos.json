@@ -12,8 +12,8 @@
     { "id": "b_dash", "es": "Dash", "en": "Dash", "hintEs": "DOBLE TOQUE hacia adelante. Cierra distancia de golpe; si lo mantienes, corres.", "hintEn": "DOUBLE TAP forward. Closes distance instantly; hold it and you run.", "level": 1, "steps": ["dashForward"] },
     { "id": "b_run", "es": "Correr", "en": "Run", "hintEs": "Tras el dash, SIGUE sosteniendo adelante para correr. Puedes saltar o atacar corriendo.", "hintEn": "After the dash, KEEP holding forward to run. You can jump or attack while running.", "level": 1, "steps": ["dashForward", "run"] },
     { "id": "b_backdash", "es": "Backdash", "en": "Backdash", "hintEs": "DOBLE TOQUE hacia atras. Sirve para salir de la presion del rival.", "hintEn": "DOUBLE TAP back. Use it to escape the rival's pressure.", "level": 1, "steps": ["dashBackward"] },
-    { "id": "b_parry", "es": "Parry", "en": "Parry", "hintEs": "Boton P JUSTO cuando te van a golpear. Anula el golpe entero y deja vendido al rival.", "hintEn": "P button RIGHT as they hit you. It nullifies the attack and leaves them exposed.", "level": 2, "steps": ["parry"] },
-    { "id": "b_grab", "es": "Agarre", "en": "Throw", "hintEs": "Boton G PEGADO al rival. El agarre atraviesa el bloqueo: es la respuesta al que se cubre.", "hintEn": "G button UP CLOSE. Throws go through blocking: the answer to a turtling rival.", "level": 2, "steps": ["grab"] },
+    { "id": "b_parry", "es": "Parry", "en": "Parry", "hintEs": "Boton L1 JUSTO cuando te van a golpear. Anula el golpe entero y deja vendido al rival.", "hintEn": "L1 button RIGHT as they hit you. It nullifies the attack and leaves them exposed.", "level": 2, "steps": ["parry"] },
+    { "id": "b_grab", "es": "Agarre", "en": "Throw", "hintEs": "Boton R1 PEGADO al rival. El agarre atraviesa el bloqueo: es la respuesta al que se cubre.", "hintEn": "R1 button UP CLOSE. Throws go through blocking: the answer to a turtling rival.", "level": 2, "steps": ["grab"] },
     { "id": "b_sweep", "es": "Barrida", "en": "Sweep", "hintEs": "ABAJO + patada fuerte. Derriba al rival y te da espacio.", "hintEn": "DOWN + heavy kick. Knocks the rival down and buys you space.", "level": 1, "steps": ["sweep"] },
     { "id": "b_antiair", "es": "Antiaereo", "en": "Anti-air", "hintEs": "ABAJO + puno fuerte. Cubre el aire: usalo cuando salten hacia ti.", "hintEn": "DOWN + heavy punch. It covers the air: use it when they jump at you.", "level": 1, "steps": ["crouchHeavyPunch"] },
     { "id": "b_crouchchain", "es": "Cadena agachada", "en": "Crouch chain", "hintEs": "AGACHADO: puno bajo y luego patada baja. Es tu presion baja basica y prepara la barrida.", "hintEn": "CROUCHING: low punch then low kick. Your basic low pressure, and it sets up the sweep.", "level": 1, "steps": ["crouchPunch", "crouchKick"] },
@@ -22,8 +22,8 @@
     { "id": "b_air", "es": "Ataque aereo", "en": "Air attack", "hintEs": "Salta y golpea EN EL AIRE. Solo uno por salto; sirve para abrir la guardia.", "hintEn": "Jump and strike IN THE AIR. One per jump; it's how you open a guard.", "level": 1, "steps": ["jump", "airKick"] },
     { "id": "b_special", "es": "Especial", "en": "Special", "hintEs": "ABAJO, DIAGONAL, ADELANTE + puno. Es tu poder a distancia.", "hintEn": "DOWN, DIAGONAL, FORWARD + punch. Your ranged power.", "level": 2, "steps": ["special"] },
     { "id": "b_meter", "es": "Medidor de super", "en": "Super meter", "hintEs": "La barra DORADA sube al conectar golpes y tambien al recibirlos. Llena, habilita la SUPER ART y el FATALITY, que la consumen entera.", "hintEn": "The GOLDEN bar fills as you land hits and also as you take them. When full, it enables the SUPER ART and the FATALITY, which spend it all.", "level": 3, "steps": ["lightPunch", "mediumPunch", "heavyPunch"] },
-    { "id": "b_super", "es": "Super Art", "en": "Super Art", "hintEs": "Boton S con el medidor LLENO (la barra dorada). Pega durisimo y derriba.", "hintEn": "S button with a FULL meter (the golden bar). It hits hard and knocks down.", "level": 3, "steps": ["superArt"] },
-    { "id": "b_taunt", "es": "Burla", "en": "Taunt", "hintEs": "Boton T. No hace dano: es puro estilo.", "hintEn": "T button. No damage: pure style.", "level": 0, "steps": ["taunt"] }
+    { "id": "b_super", "es": "Super Art", "en": "Super Art", "hintEs": "Boton R2 con el medidor LLENO (la barra dorada). Pega durisimo y derriba.", "hintEn": "R2 button with a FULL meter (the golden bar). It hits hard and knocks down.", "level": 3, "steps": ["superArt"] },
+    { "id": "b_taunt", "es": "Burla", "en": "Taunt", "hintEs": "Boton L2. No hace dano: es puro estilo.", "hintEn": "L2 button. No damage: pure style.", "level": 0, "steps": ["taunt"] }
   ],
   "universal": [
     {
@@ -120,8 +120,8 @@
       "id": "fatality",
       "es": "FATALITY (poder super especial)",
       "en": "FATALITY (super special power)",
-      "hintEs": "Con el medidor LLENO: doble toque adelante para correr y, SIN SOLTAR adelante, pulsa S. Es tu poder mas devastador: derriba y acabas AL OTRO LADO del rival.",
-      "hintEn": "With a FULL meter: double tap forward to run and, STILL holding forward, press S. Your most devastating power: it knocks down and you end up ON THE OTHER SIDE of the rival.",
+      "hintEs": "Con el medidor LLENO: doble toque adelante para correr y, SIN SOLTAR adelante, pulsa R2. Es tu poder mas devastador: derriba y acabas AL OTRO LADO del rival.",
+      "hintEn": "With a FULL meter: double tap forward to run and, STILL holding forward, press R2. Your most devastating power: it knocks down and you end up ON THE OTHER SIDE of the rival.",
       "level": 4,
       "steps": ["dashForward", "run", "fatality"]
     },

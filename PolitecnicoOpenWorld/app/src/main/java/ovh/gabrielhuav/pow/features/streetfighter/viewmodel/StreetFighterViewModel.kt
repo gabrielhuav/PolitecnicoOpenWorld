@@ -1637,6 +1637,13 @@ class StreetFighterViewModel @Inject constructor(
                     !input.forward -> changeState(sim, idx, SfFighterState.IDLE, now)
                     input.up -> changeState(sim, idx, SfFighterState.JUMP_FORWARD, now)
                     input.down -> changeState(sim, idx, SfFighterState.CROUCH_DOWN, now)
+                    // 🆕 (2026-07-22) Caminando adelante YA cuenta como "adelante + ataque":
+                    // medio = OVERHEAD, patada fuerte = PATADA LARGA. Antes solo salían pulsando
+                    // →+ataque en el MISMO frame desde IDLE (casi imposible) — por eso el Overhead
+                    // del tutorial (lección 17) no se podía hacer. Si el peleador no los tiene,
+                    // changeState devuelve false y cae al golpe normal.
+                    input.mediumPunch && changeState(sim, idx, SfFighterState.OVERHEAD, now) -> Unit
+                    input.heavyKick && changeState(sim, idx, SfFighterState.LONG_KICK, now) -> Unit
                     else -> tryAttacks(sim, idx, input, now)
                 }
             }
