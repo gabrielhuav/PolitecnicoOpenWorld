@@ -87,6 +87,19 @@ verifica que salió bien, y qué NO debe tocar. Sin eso, cualquier IA improvisa.
 `super-4==super-5` en `charronegro` y `senortienda`.
 → Hay que mirar la hoja fuente de cada uno: si solo trae una pose, no hay arreglo sin arte nuevo.
 
+### 🔵 P2b · Motor compartido entre modos (PLANIFICADO, no empezado)
+
+Medido: `StreetFighterViewModel.kt` tiene **5 271 líneas**, **65 funciones públicas** y
+**7 banderas de modo consultadas 104 veces**. Los modos YA comparten un solo motor (no hay
+duplicación que borrar), pero lo hacen con `if (showcaseMode)` esparcidos, así que añadir un
+modo obliga a tocar el archivo entero. Y **el motor de pelea tiene 0 tests**.
+
+Plan por fases en `SF/PLAN_refactor_motor_compartido.md`. **No empezar por la fase 2 sin la
+fase 1**: extraer el motor sin pruebas es cómo se metió la última regresión grande.
+→ Fase 1 (tests): **Opus 4.8**. Fases 2-4 (extracción y gama baja): **Sol 5.6 / Fable 5**.
+
+⚠️ El `.aab` NO baja refactorizando código: el peso está en los atlas (88.6 MB de IMAGES).
+
 ### ⚪ P3 · Deuda conocida
 
 - `07_OTHER_FEATURES.md` (87 KB) mezcla menú/ajustes con el modo SF. Su parte de SF debería
