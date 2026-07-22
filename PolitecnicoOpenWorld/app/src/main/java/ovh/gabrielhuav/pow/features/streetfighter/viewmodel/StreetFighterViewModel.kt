@@ -2282,11 +2282,13 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     /**
-     * Corrige el encaramiento de la CPU antes de interpretar `forward/backward`. Un cross-up o
-     * un empuje puede intercambiar los lados mientras sigue caminando; con la cara vieja, la
-     * siguiente orden de acercarse se convierte en alejarse y la pelea termina estancada.
+     * Corrige el encaramiento antes de interpretar `forward/backward`. Un cross-up o un empuje
+     * puede intercambiar los lados mientras sigue caminando; con la cara vieja, la siguiente orden
+     * de acercarse se convierte en alejarse. 🆕 (2026-07-22) Se usa para la CPU **y el jugador**
+     * (antes solo la CPU se auto-encaraba; al jugador le tocaba soltar todo y quedar quieto para
+     * girar, lo que se sentía "muy complicado" tras cruzar de lado).
      */
-    private fun repairCpuFacing(sim: Sim, idx: Int, now: Long) {
+    private fun repairFacing(sim: Sim, idx: Int, now: Long) {
         val fighter = sim.fighter(idx)
         val opponent = sim.fighter(1 - idx)
         val expected = if (fighter.x <= opponent.x) SfDirection.RIGHT else SfDirection.LEFT
@@ -2932,6 +2934,10 @@ class StreetFighterViewModel @Inject constructor(
     // ------------------------------------------------------------------
 
     private fun buildPlayerInput(now: Long, sim: Sim): SfInput {
+        // 🆕 (2026-07-22) Auto-encarar al jugador ANTES de leer forward/backward: tras cruzar de
+        // lado, la cara vieja invertía las direcciones y girar era "muy complicado" (había que
+        // soltar todo y quedar quieto). Ahora se voltea solo, como ya hacía la CPU.
+        repairFacing(sim, 0, now)
         val idle = SystemClock.elapsedRealtime() - joyLastMs > JOYSTICK_IDLE_MS
         val left = joyLeft && !idle
         val right = joyRight && !idle
@@ -3092,7 +3098,7 @@ class StreetFighterViewModel @Inject constructor(
         // que el jugador practique la ejecución sin interrupciones.
         if (inTutorial) return SfInput()
         val i = selfIndex.coerceIn(0, 1)
-        repairCpuFacing(sim, i, now)
+        repairFacing(sim, i, now)
         if (now < cpuNextDecisionMs[i]) return cpuHold[i]
 
         val aiVs = _state.value.aiVsAi
