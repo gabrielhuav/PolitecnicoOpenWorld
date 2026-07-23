@@ -189,7 +189,12 @@ jobs:
         uses: actions/checkout@v7
         with:
           ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # 🆕 Si `main` es rama protegida con "Require a pull request", el push directo del
+          # bot lo bloquea el GITHUB_TOKEN normal. Solución: crea un PAT del dueño (admin, que
+          # esté en el Bypass list del ruleset) y guárdalo como secret RELEASE_PAT; el push lo
+          # usa y pasa el bypass. Si no hay PAT, cae al GITHUB_TOKEN (sirve si main NO está
+          # protegida o si añadiste GitHub Actions al Bypass list).
+          token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
       - name: Incrementar patch (build.gradle.kts + whatsnew)
         run: |
           FILE=PolitecnicoOpenWorld/app/build.gradle.kts
