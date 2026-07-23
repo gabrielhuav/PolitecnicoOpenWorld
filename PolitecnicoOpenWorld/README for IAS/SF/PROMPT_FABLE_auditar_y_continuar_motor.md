@@ -13,6 +13,7 @@ Commits: `SF motor Fase 1a`…`1e`. Piezas + tests:
 - `SfDamage` (base, `ATTACK_META`, chip, `resolvedDamage`) — `SfDamageTest`
 - `SfPhysics` (cinemática de un tick) — `SfPhysicsTest`
 - `sfUsableBonusPowerCount` — `SfBonusPowerTest`
+- `SfBox` (ya era puro; geometría de colisión) — `SfBoxTest` (red nueva, sin cambio de prod)
 
 **Tu auditoría (NO reescribas, VERIFICA):**
 1. Que la extracción sea **idéntica** al VM original: `git show` de cada commit `SF motor Fase 1x` y
