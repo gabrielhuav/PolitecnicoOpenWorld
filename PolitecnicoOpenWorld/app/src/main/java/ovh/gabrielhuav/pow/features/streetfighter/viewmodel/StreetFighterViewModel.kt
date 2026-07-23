@@ -24,6 +24,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_HURT_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BONUS_POWER_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BLOCK_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfDamage
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfPhysics
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStateMachine
 import ovh.gabrielhuav.pow.domain.models.streetfighter.sfUsableBonusPowerCount
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_DOWNED_STATES
@@ -1306,19 +1307,8 @@ class StreetFighterViewModel @Inject constructor(
 
     /** Cola común del update: posición, slide, animación, límites y colisión de ataque. */
     private fun finishFighterUpdate(sim: Sim, idx: Int, now: Long, dt: Float) {
-        // updatePositions: x += (vx - slide) * dir * dt ; y += vy * dt
-        var f = sim.fighter(idx)
-        f = f.copy(
-            x = f.x + (f.velocityX - f.slideVelocity) * f.direction.sign * dt,
-            y = f.y + f.velocityY * dt,
-        )
-
-        // updateSlide
-        if (f.slideVelocity > 0f) {
-            val slide = (f.slideVelocity - f.slideFriction * dt).coerceAtLeast(0f)
-            f = f.copy(slideVelocity = slide, slideFriction = if (slide > 0f) f.slideFriction else 0f)
-        }
-        sim.setFighter(idx, f)
+        // 🆕 (2026-07-22, Fase 1) cinemática de un tick (posición + slide) extraída a SfPhysics (puro).
+        sim.setFighter(idx, SfPhysics.step(sim.fighter(idx), dt))
 
         sim.setFighter(idx, updateAnimation(sim.fighter(idx), now))
         updateStageConstraints(sim, idx, dt)
