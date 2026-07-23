@@ -23,6 +23,7 @@ import kotlinx.coroutines.yield
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_HURT_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BONUS_POWER_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BLOCK_STATES
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStateMachine
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_DOWNED_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_NEW_ATTACK_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_NEW_MOVE_STATES
@@ -880,160 +881,16 @@ class StreetFighterViewModel @Inject constructor(
         SfFighterState.FATALITY to AttackMeta(SfAttackStrength.HEAVY, SfAttackType.PUNCH),
     )
 
-    // 🆕 (2026-07-21) Estados que DERRIBAN al defensor (pasa a THROWN y luego GET_UP).
-    private val knockdownStates = setOf(
-        SfFighterState.SWEEP, SfFighterState.SUPER_ART, SfFighterState.FATALITY,
-    )
-
-    // validFrom del JS (Fighter.js states + los specials que añade el constructor de Ryu/Ken)
-    private val specialValidFrom = setOf(
-        SfFighterState.IDLE, SfFighterState.IDLE_TURN, SfFighterState.WALK_FORWARD,
-        SfFighterState.WALK_BACKWARD, SfFighterState.JUMP_LAND,
-        SfFighterState.CROUCH_UP, SfFighterState.CROUCH_DOWN, SfFighterState.CROUCH,
-        SfFighterState.CROUCH_TURN, SfFighterState.LIGHT_PUNCH, SfFighterState.MEDIUM_PUNCH,
-        SfFighterState.HEAVY_PUNCH,
-        // 🆕 (2026-07-20) SPECIAL CANCEL (3rd Strike): también desde las patadas. El único
-        // camino que lo pide estando en golpe es tryChainCancel (exige haber CONECTADO).
-        SfFighterState.LIGHT_KICK, SfFighterState.MEDIUM_KICK, SfFighterState.HEAVY_KICK,
-    )
-
-    private val attackValidFrom = setOf(
-        SfFighterState.IDLE, SfFighterState.WALK_FORWARD, SfFighterState.WALK_BACKWARD,
-        // Tras giro: la IA/jugador debe poder golpear sin esperar a completar IDLE_TURN
-        SfFighterState.IDLE_TURN, SfFighterState.JUMP_LAND, SfFighterState.CROUCH_UP,
-        // 🆕 (2026-07-20) CHAIN CANCEL (3rd Strike): golpe→golpe de mayor fuerza. Ningún
-        // handler pide golpe estando ya en golpe salvo tryChainCancel (exige attackStruck),
-        // así que esto NO permite encadenar a lo loco sin conectar.
-        SfFighterState.LIGHT_PUNCH, SfFighterState.MEDIUM_PUNCH, SfFighterState.HEAVY_PUNCH,
-        SfFighterState.LIGHT_KICK, SfFighterState.MEDIUM_KICK, SfFighterState.HEAVY_KICK,
-        // 🆕 (2026-07-21) Se puede atacar SALIENDO DE LA CARRERA (es su razón de ser).
-        SfFighterState.RUN,
-    )
-
-    // 🆕 (2026-07-21) Orígenes de los movimientos nuevos.
-    /** Neutro DE PIE: dash, parry alto, agarre y burla salen solo de aquí. */
-    private val neutralGround = setOf(
-        SfFighterState.IDLE, SfFighterState.IDLE_TURN,
-        SfFighterState.WALK_FORWARD, SfFighterState.WALK_BACKWARD,
-        SfFighterState.JUMP_LAND, SfFighterState.CROUCH_UP,
-    )
-
-    /** Ataques AGACHADO: desde cuclillas + desde el propio golpe agachado (chain cancel). */
-    private val crouchAttackValidFrom = setOf(
-        SfFighterState.CROUCH, SfFighterState.CROUCH_DOWN, SfFighterState.CROUCH_TURN,
-        SfFighterState.CROUCH_PUNCH, SfFighterState.CROUCH_KICK,
-        SfFighterState.CROUCH_HEAVY_PUNCH,
-    )
-
-    /** Ataques AÉREOS: solo mientras se está en el aire. */
-    private val airAttackValidFrom = setOf(
-        SfFighterState.JUMP_UP, SfFighterState.JUMP_FORWARD, SfFighterState.JUMP_BACKWARD,
-    )
-
-    private val validFrom: Map<SfFighterState, Set<SfFighterState>> = mapOf(
-        SfFighterState.IDLE to setOf(
-            SfFighterState.IDLE, SfFighterState.WALK_FORWARD, SfFighterState.WALK_BACKWARD,
-            SfFighterState.JUMP_UP, SfFighterState.JUMP_FORWARD, SfFighterState.JUMP_BACKWARD,
-            SfFighterState.CROUCH_UP, SfFighterState.JUMP_LAND, SfFighterState.IDLE_TURN,
-            SfFighterState.LIGHT_PUNCH, SfFighterState.MEDIUM_PUNCH, SfFighterState.HEAVY_PUNCH,
-            SfFighterState.LIGHT_KICK, SfFighterState.MEDIUM_KICK, SfFighterState.HEAVY_KICK,
-            SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_HEAD_MEDIUM, SfFighterState.HURT_HEAD_HEAVY,
-            SfFighterState.HURT_BODY_LIGHT, SfFighterState.HURT_BODY_MEDIUM, SfFighterState.HURT_BODY_HEAVY,
-            SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY,
-            SfFighterState.STUN, // 🆕 (2026-07-22) al terminar el mareo se vuelve a IDLE
-            // 🆕 Tras poderes Grok / metamorfosis Presidenta→Yoalli se vuelve a IDLE
-        ) + SF_BONUS_POWER_STATES.toSet(),
-        SfFighterState.WALK_FORWARD to setOf(
-            SfFighterState.IDLE, SfFighterState.JUMP_FORWARD, SfFighterState.WALK_BACKWARD, SfFighterState.JUMP_LAND,
-        ),
-        SfFighterState.WALK_BACKWARD to setOf(
-            SfFighterState.IDLE, SfFighterState.WALK_FORWARD, SfFighterState.JUMP_BACKWARD, SfFighterState.JUMP_LAND,
-        ),
-        SfFighterState.JUMP_START to setOf(
-            SfFighterState.IDLE, SfFighterState.WALK_FORWARD, SfFighterState.WALK_BACKWARD, SfFighterState.JUMP_LAND,
-            SfFighterState.RUN, // 🆕 saltar en plena carrera
-        ),
-        SfFighterState.JUMP_LAND to setOf(
-            SfFighterState.JUMP_UP, SfFighterState.JUMP_FORWARD, SfFighterState.JUMP_BACKWARD,
-        ),
-        SfFighterState.JUMP_UP to setOf(SfFighterState.IDLE, SfFighterState.JUMP_START),
-        SfFighterState.JUMP_FORWARD to setOf(SfFighterState.JUMP_START, SfFighterState.WALK_FORWARD),
-        SfFighterState.JUMP_BACKWARD to setOf(SfFighterState.JUMP_START, SfFighterState.WALK_BACKWARD),
-        SfFighterState.CROUCH_DOWN to setOf(
-            SfFighterState.IDLE, SfFighterState.WALK_FORWARD, SfFighterState.WALK_BACKWARD, SfFighterState.JUMP_LAND,
-        ),
-        SfFighterState.CROUCH to setOf(SfFighterState.CROUCH_DOWN, SfFighterState.CROUCH_TURN),
-        SfFighterState.CROUCH_UP to setOf(SfFighterState.CROUCH),
-        SfFighterState.IDLE_TURN to setOf(
-            SfFighterState.IDLE, SfFighterState.JUMP_LAND, SfFighterState.WALK_FORWARD, SfFighterState.WALK_BACKWARD,
-        ),
-        SfFighterState.CROUCH_TURN to setOf(SfFighterState.CROUCH),
-        SfFighterState.LIGHT_PUNCH to attackValidFrom,
-        SfFighterState.MEDIUM_PUNCH to attackValidFrom,
-        SfFighterState.HEAVY_PUNCH to attackValidFrom,
-        SfFighterState.LIGHT_KICK to attackValidFrom,
-        SfFighterState.MEDIUM_KICK to attackValidFrom,
-        SfFighterState.HEAVY_KICK to attackValidFrom,
-        SfFighterState.HURT_HEAD_LIGHT to SF_HURT_STATES,
-        SfFighterState.HURT_HEAD_MEDIUM to SF_HURT_STATES,
-        SfFighterState.HURT_HEAD_HEAVY to SF_HURT_STATES,
-        SfFighterState.HURT_BODY_LIGHT to SF_HURT_STATES,
-        SfFighterState.HURT_BODY_MEDIUM to SF_HURT_STATES,
-        SfFighterState.HURT_BODY_HEAVY to SF_HURT_STATES,
-        SfFighterState.SPECIAL_1_LIGHT to specialValidFrom,
-        SfFighterState.SPECIAL_1_MEDIUM to specialValidFrom,
-        SfFighterState.SPECIAL_1_HEAVY to specialValidFrom,
-        SfFighterState.VICTORY to SfFighterState.entries.toSet(),
-        SfFighterState.KO to SfFighterState.entries.toSet(),
-        // 🆕 (2026-07-22) MAREO: lo fuerza el medidor lleno (llega desde cualquier estado;
-        // los guards de aire/suelo/metamorfosis van en applyMeterDecay).
-        SfFighterState.STUN to SfFighterState.entries.toSet(),
-        // ── 🆕 (2026-07-21) MOVESET 3rd Strike ──
-        // Movilidad: solo desde neutro de pie (no cancela golpes ni saltos).
-        SfFighterState.DASH_FORWARD to neutralGround,
-        SfFighterState.DASH_BACKWARD to neutralGround,
-        // Defensa: el bloqueo lo FUERZA applyAttackHit (llega desde cualquier estado
-        // golpeable), el parry se pide desde neutro (de pie o agachado).
-        SfFighterState.BLOCK_HIGH to SF_HURT_STATES,
-        SfFighterState.BLOCK_LOW to SF_HURT_STATES,
-        SfFighterState.PARRY_HIGH to neutralGround,
-        SfFighterState.PARRY_LOW to setOf(SfFighterState.CROUCH, SfFighterState.CROUCH_DOWN),
-        // Ataques agachado: desde cuclillas (y desde el propio golpe para los cancels).
-        SfFighterState.CROUCH_PUNCH to crouchAttackValidFrom,
-        SfFighterState.CROUCH_KICK to crouchAttackValidFrom,
-        SfFighterState.CROUCH_HEAVY_PUNCH to crouchAttackValidFrom,
-        SfFighterState.SWEEP to crouchAttackValidFrom,
-        // Aéreos: solo en el aire, uno por salto (el handler lo garantiza).
-        SfFighterState.AIR_PUNCH to airAttackValidFrom,
-        SfFighterState.AIR_KICK to airAttackValidFrom,
-        // Normales de pie con dirección: mismo origen que los golpes clásicos.
-        SfFighterState.LONG_KICK to attackValidFrom,
-        SfFighterState.OVERHEAD to attackValidFrom,
-        SfFighterState.GRAB to neutralGround,
-        // THROW lo fuerza el agarre al conectar; THROWN/GET_UP los fuerza el derribo.
-        SfFighterState.THROW to setOf(SfFighterState.GRAB),
-        SfFighterState.THROWN to SfFighterState.entries.toSet(),
-        SfFighterState.GET_UP to setOf(SfFighterState.THROWN),
-        SfFighterState.TAUNT to neutralGround,
-        SfFighterState.SUPER_ART to specialValidFrom,
-        // 🆕 (2026-07-21) CARRERA: solo continúa un dash (nunca se entra desde parado).
-        SfFighterState.RUN to setOf(SfFighterState.DASH_FORWARD, SfFighterState.RUN),
-        // 🆕 FATALITY: su COMANDO PROPIO es lanzarlo EN CARRERA (correr + súper) con el
-        // medidor lleno — de ahí lo de "correr + golpe + poder". Se puede usar en cualquier
-        // momento de la pelea, no es un remate de fin de ronda.
-        SfFighterState.FATALITY to setOf(
-            SfFighterState.RUN, SfFighterState.DASH_FORWARD,
-        ),
-        // Poses de intro/burla sin guardia: solo desde neutro.
-        SfFighterState.IDLE_RELAXED to neutralGround,
-        SfFighterState.TALK to neutralGround,
-        SfFighterState.HURT_CROUCH to setOf(
-            SfFighterState.CROUCH, SfFighterState.CROUCH_DOWN, SfFighterState.CROUCH_UP,
-            SfFighterState.CROUCH_TURN, SfFighterState.BLOCK_LOW, SfFighterState.HURT_CROUCH,
-            SfFighterState.CROUCH_PUNCH, SfFighterState.CROUCH_KICK,
-            SfFighterState.CROUCH_HEAVY_PUNCH, SfFighterState.SWEEP,
-        ),
-    ) + SF_BONUS_POWER_STATES.associateWith { specialValidFrom }
+    // 🆕 (2026-07-22, Fase 1) La MAQUINA DE ESTADOS se extrajo a SfStateMachine (dato
+    // PURO, testeable en JVM). Aqui quedan ALIAS para no tocar los ~40 usos internos de estas
+    // tablas; el comportamiento no cambia (misma tabla validFrom).
+    private val knockdownStates = SfStateMachine.KNOCKDOWN_STATES
+    private val specialValidFrom = SfStateMachine.SPECIAL_VALID_FROM
+    private val attackValidFrom = SfStateMachine.ATTACK_VALID_FROM
+    private val neutralGround = SfStateMachine.NEUTRAL_GROUND
+    private val crouchAttackValidFrom = SfStateMachine.CROUCH_ATTACK_VALID_FROM
+    private val airAttackValidFrom = SfStateMachine.AIR_ATTACK_VALID_FROM
+    private val validFrom = SfStateMachine.VALID_FROM
 
     init {
         startGameLoop()
