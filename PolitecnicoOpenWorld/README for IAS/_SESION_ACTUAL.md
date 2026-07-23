@@ -175,17 +175,19 @@ vía la anim "stun" sintetizada — si llega arte nuevo de mareo, se verá solo)
 `super-4==super-5` en `charronegro` y `senortienda`.
 → Hay que mirar la hoja fuente de cada uno: si solo trae una pose, no hay arreglo sin arte nuevo.
 
-### 🔵 P2b · Motor compartido entre modos (PLANIFICADO, no empezado)
+### 🔵 P2b · Motor compartido entre modos — ✅ FASE 1 HECHA (Opus, 2026-07-22); Fases 2-5 → Fable
 
-Medido (2026-07-22 PM): `StreetFighterViewModel.kt` tiene **~5 790 líneas** (crece; verifícalo
-antes de citar). Los modos YA comparten un solo motor (no hay duplicación que borrar), pero lo hacen con
-`if (showcaseMode)` esparcidos, así que añadir un modo obliga a tocar el archivo entero. **El motor
-de pelea no tiene tests propios** — el único test SF (`SfArcadeCampaignAuditTest`) audita la
-campaña, no el motor.
+**Fase 1 (red de seguridad) COMPLETA:** la lógica pura del `StreetFighterViewModel` se extrajo a
+`domain/models/streetfighter/` (`SfStateMachine`, `SfDamage`, `SfPhysics`, `sfUsableBonusPowerCount`)
+con **~30 tests de caracterización verdes** (antes 0). El VM la usa por alias/delegación →
+comportamiento idéntico. Commits `SF motor Fase 1a`…`1e`.
 
-Plan por fases en `SF/PLAN_refactor_motor_compartido.md`. **No empezar por la fase 2 sin la
-fase 1**: extraer el motor sin pruebas es cómo se metió la última regresión grande.
-→ Fase 1 (tests): **Opus 4.8**. Fases 2-4 (extracción y gama baja): **Sol 5.6 / Fable 5**.
+**Continuar (Fases 2-5):** extraer el `SfEngine` puro (Fase 2), modos como estrategia (Fase 3, la
+meta: modo nuevo = clase nueva), gama baja medida (Fase 4) y detekt/KDoc (Fase 5). Cada pieza que se
+mueva YA tiene su test de la Fase 1 como red. Prompt de auditoría + continuación:
+`SF/PROMPT_FABLE_auditar_y_continuar_motor.md`. **Validar los 6 modos (incl. multiplayer) en cada
+paso.** Plan completo: `SF/PLAN_refactor_motor_compartido.md`.
+→ Auditar Fase 1 + Fases 2-4: **Fable 5 / Sol 5.6**. Fase 5 (detekt/KDoc): **Gemini 3.6**.
 
 ⚠️ El `.aab` NO baja refactorizando código: el peso está en los atlas (88.6 MB de IMAGES).
 

@@ -1,7 +1,27 @@
 # PLAN · Motor compartido entre modos + gama baja + calidad senior
 
-> **Estado: PLANIFICADO, no empezado** (2026-07-21, Opus 4.8).
+> **Estado: FASE 1 HECHA** (2026-07-22, Opus 4.8) · Fases 2-5 pendientes (auditará Fable).
 > Escrito tras MEDIR el código, no tras leerlo por encima. Ver §1.
+
+## ✅ Fase 1 COMPLETA (2026-07-22) — red de seguridad, riesgo cero, comportamiento idéntico
+
+Se extrajo la LÓGICA PURA del `StreetFighterViewModel` a `domain/models/streetfighter/` (sin
+Android, testeable en JVM). El VM la referencia por ALIAS/delegación, así que **el juego no cambió**:
+
+| Pieza pura | Qué salió del VM | Tests |
+|---|---|---|
+| `SfStateMachine` | tabla `validFrom` + sub-listas + `canEnter` | `SfStateMachineTest` |
+| `SfDamage` | daño base, `ATTACK_META`, chip, `resolvedDamage` (bloqueo/combo) | `SfDamageTest` |
+| `SfPhysics` | cinemática de un tick (posición + slide) | `SfPhysicsTest` |
+| `sfUsableBonusPowerCount` | conteo de poderes lanzables | `SfBonusPowerTest` |
+
+**~30 tests de caracterización, todos verdes** (antes: 0 tests de motor). `compileDebugKotlin +
+testDebugUnitTest` OK. Cada extracción es un commit `SF motor Fase 1x` para auditar por separado.
+
+**Cómo seguir (Fases 2-5) sobre esto:** cada pieza que se mueva al `SfEngine` puro ya tiene su test
+de caracterización; si una fase la rompe, el test lo detecta. Ese era el objetivo de la Fase 1.
+
+---
 
 ## 1. Diagnóstico medido
 
@@ -34,7 +54,7 @@ para el núcleo del modo.
 
 ## 3. Plan por fases (cada una entrega valor y se puede parar ahí)
 
-### Fase 1 · Red de seguridad (SIN tocar producción) — riesgo CERO
+### Fase 1 · Red de seguridad (SIN tocar producción) — riesgo CERO ✅ HECHA (ver arriba)
 
 Tests de caracterización del motor actual: se escribe lo que HOY hace, no lo que debería.
 
