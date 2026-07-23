@@ -897,3 +897,26 @@ Plan ejecutado: `PROMPT_FABLE5_stun_crash_optimizacion.md`. **Sin compilar en la
   substrings), el botón del paso actual PULSA con aro amarillo (`SfTutorialButtonGlow` en
   `FighterXboxButtons`/`FighterNewMoveButtons`, deducido de la etiqueta con
   `sfButtonForLabel`), y el panel se INVIRTIÓ: chips de botones ARRIBA, título/pista ABAJO.
+
+## Cambios 2026-07-22c (Fable 5) — Fase 1 del motor AUDITADA + Fase 2a/2b
+
+- **Auditoría de la Fase 1 (Opus) APROBADA.** `validFrom` del VM previo a `Fase 1a` vs
+  `SfStateMachine.VALID_FROM` comparadas COMO DATOS (parser + diff de conjuntos): 67 destinos,
+  5 sub-listas y `knockdownStates` idénticos. `1b-1e` verificados espejo a espejo (daño base,
+  chip, ATTACK_META ×21, bonus usable, física de tick, resolvedDamage con las mismas
+  constantes). Alias vigentes en el VM, 0 copias residuales. Conteo real de tests: **32 nuevos
+  + 3 previos = 35** (caracterización con literales, no tautologías).
+- **Fase 2a — `SfAnimation` (nuevo objeto puro):** `frameIndex` (wrap a 0), `frameTimerMs`
+  (delay×FRAME_TIME_MS), `shouldAdvance` (delay<=0 = FREEZE/TRANSITION no avanza) e
+  `isCompleted` (terminador −1 O último frame — el fix 2026-07-18 de hojas sin −1, ahora
+  documentado en su KDoc). El VM conserva sus tres funciones como envoltorios que pasan
+  `animOf(f)` → mismos call sites, comportamiento idéntico. +8 tests (`SfAnimationTest`).
+- **Fase 2b — `SfPhysics.clampToStage`:** espejo exacto de `clampFighterToStage` (rescate
+  NaN/∞ → centro/piso, coerce X a `STAGE_X_MIN/MAX`, Y con tope de aire
+  `STAGE_AIR_CEILING = 220f` ahora nombrado). `STAGE_X_MIN/MAX` se movieron del companion del
+  VM a `SfConstants` (el companion conserva ALIAS → 5 usos internos intactos). +4 tests.
+- ⚠️ **Validación pendiente del dueño** (sesión sin SDK): Rebuild + `testDebugUnitTest`
+  (esperados **47**) + detekt (baseline 5) + jugar los 6 modos.
+- **Siguiente:** Fase 2c (empuje de pushboxes/viewport de `updateStageConstraints` a SfPhysics
+  con firma pura) → esqueleto `SfEngine` → Fase 3 (modos como estrategia). Las dos últimas
+  requieren compilador a la mano (tocan audio/red/StateFlow).

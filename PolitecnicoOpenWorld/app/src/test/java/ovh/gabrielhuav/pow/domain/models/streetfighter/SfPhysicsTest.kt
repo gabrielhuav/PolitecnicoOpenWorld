@@ -46,4 +46,42 @@ class SfPhysicsTest {
         assertEquals(0f, r.slideVelocity, 0.01f)
         assertEquals(0f, r.slideFriction, 0.01f)
     }
+
+    // ── 🆕 (Fase 2b) clampToStage: límites del mundo + rescate de coordenadas rotas ──
+
+    @Test
+    fun `clamp - X queda dentro de los limites del stage`() {
+        assertEquals(SfConstants.STAGE_X_MIN, SfPhysics.clampToStage(fighter(x = -500f)).x, 0.01f)
+        assertEquals(SfConstants.STAGE_X_MAX, SfPhysics.clampToStage(fighter(x = 99999f)).x, 0.01f)
+    }
+
+    @Test
+    fun `clamp - Y nunca bajo el piso ni sobre el tope de aire`() {
+        assertEquals(
+            SfConstants.STAGE_FLOOR,
+            SfPhysics.clampToStage(fighter(y = SfConstants.STAGE_FLOOR + 50f)).y,
+            0.01f,
+        )
+        assertEquals(
+            SfConstants.STAGE_FLOOR - SfPhysics.STAGE_AIR_CEILING,
+            SfPhysics.clampToStage(fighter(y = -99999f)).y,
+            0.01f,
+        )
+    }
+
+    @Test
+    fun `clamp - rescata NaN e infinito al centro del stage y al piso`() {
+        val roto = fighter(x = Float.NaN, y = Float.POSITIVE_INFINITY)
+        val r = SfPhysics.clampToStage(roto)
+        assertEquals(SfConstants.STAGE_MID_POINT + SfConstants.STAGE_PADDING, r.x, 0.01f)
+        assertEquals(SfConstants.STAGE_FLOOR, r.y, 0.01f)
+    }
+
+    @Test
+    fun `clamp - un peleador dentro del stage no cambia`() {
+        val ok = fighter(x = SfConstants.STAGE_MID_POINT + SfConstants.STAGE_PADDING)
+        val r = SfPhysics.clampToStage(ok)
+        assertEquals(ok.x, r.x, 0f)
+        assertEquals(ok.y, r.y, 0f)
+    }
 }

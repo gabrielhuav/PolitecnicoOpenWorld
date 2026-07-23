@@ -7,11 +7,12 @@
 > **Regla de oro:** si te quedas sin tokens a media tarea, actualiza ESTE archivo ANTES de
 > parar. Es lo único que garantiza que la siguiente IA continúe en vez de alucinar.
 
-**Última actualización:** 2026-07-22 · Opus 4.8 · rama `fix-audio-add-newFightAssets`
+**Última actualización:** 2026-07-22 (noche) · Fable 5 · rama `fix-audio-add-newFightAssets`
 
-> ➡️ **SIGUIENTE (Fable): `PROMPT_TRASPASO_FABLE.md`** — auditar la Fase 1 del motor y continuar.
-> Estado: **los 6 modos + gama baja PROBADOS OK** (jugable; no del todo optimizado, FPS sin medir →
-> Fase 4 no urgente). Motor SF Fase 1 (red de seguridad) HECHA: piezas puras + ~35 tests verdes.
+> ➡️ **AHORA:** Fase 1 del motor **AUDITADA ✅** (extracción idéntica, verificada como datos) y
+> Fase 2 **INICIADA** (2a `SfAnimation` + 2b `clampToStage`, +12 tests). ⚠️ **El dueño debe
+> Rebuild + `testDebugUnitTest` (esperados 47) + jugar los 6 modos** antes del siguiente
+> incremento (Fase 2c: empuje de pushboxes → SfPhysics; luego `SfEngine`, con compilador).
 
 ## 🖥️ Rutas por PC (para la mudanza laptop ↔ escritorio)
 
@@ -59,7 +60,39 @@ Lo compartido (arquitectura, datos, convenciones) vive en la raíz.
 **Antes de delegar, escribe la tarea con:** rutas absolutas, el comando exacto, cómo se
 verifica que salió bien, y qué NO debe tocar. Sin eso, cualquier IA improvisa.
 
-## 3. Qué se hizo en esta sesión (2026-07-22 PM, Fable 5 — plan `PROMPT_FABLE5_stun_crash_optimizacion.md`)
+## 3. Qué se hizo en esta sesión (2026-07-22 NOCHE, Fable 5 — `PROMPT_TRASPASO_FABLE.md`)
+
+1. **✅ Parte A · AUDITORÍA de la Fase 1 (Opus): APROBADA.**
+   - `validFrom` comparada **como datos** (script) entre el VM previo al commit `Fase 1a` y
+     `SfStateMachine`: **67 destinos, 5 sub-listas y knockdownStates IDÉNTICOS**.
+   - `Fase 1b-1e`: espejos exactos línea a línea (forAttack, CHIP_ATTACK_STATES, ATTACK_META
+     21 entradas, sfUsableBonusPowerCount, SfPhysics.step, resolvedDamage + constantes de
+     combo con los mismos valores). `Fase 1f` solo añade tests.
+   - VM actual: alias en su sitio, **0 copias residuales**, árbol limpio.
+   - Conteo MEDIDO: **32 tests nuevos** + 3 previos = **35** (los docs decían "~30/~35").
+     Son caracterización real (literales fijados), no tautologías.
+   - Lo que NO pude hacer aquí (sandbox sin SDK): compilar/correr tests y jugar los 6 modos —
+     el traspaso dice que el dueño ya los probó y nada cambió desde entonces.
+2. **Parte B · Fase 2 INICIADA (2 incrementos espejo, mismo patrón alias de la Fase 1):**
+   - **2a `SfAnimation` (nuevo, puro):** frameIndex (wrap), frameTimerMs, shouldAdvance
+     (delay<=0 = FREEZE/TRANSITION), isCompleted (fix último-frame-sin-−1). El VM conserva
+     `withAnimationFrame`/`updateAnimation`/`isAnimationCompleted` como ENVOLTORIOS (mismos
+     call sites). +8 tests (`SfAnimationTest`).
+   - **2b `SfPhysics.clampToStage`:** espejo de `clampFighterToStage` (NaN/∞ → centro/piso,
+     coerce X/Y, tope de aire `STAGE_AIR_CEILING=220f`); `STAGE_X_MIN/MAX` movidos del
+     companion del VM a `SfConstants` (alias conservados). +4 tests en `SfPhysicsTest`.
+   - Archivos: SfAnimation.kt (nuevo), SfPhysics.kt, SfModels.kt, VM, SfAnimationTest.kt
+     (nuevo), SfPhysicsTest.kt. Verificado estático: llaves vs HEAD, CRLF/LF consistentes.
+3. ⚠️ **PENDIENTE DEL DUEÑO antes del siguiente incremento:** Rebuild +
+   `testDebugUnitTest` (**esperados 47 = 35 + 12 nuevos**) + detekt (baseline 5) + jugar
+   los 6 modos (la animación y el clamp tocan TODOS).
+4. **Siguiente (por orden):** Fase 2c = núcleo de `updateStageConstraints` (empuje de
+   pushboxes, viewport) a SfPhysics con firma pura `(f, opp, camX, dt, pushboxes) → par`;
+   después el esqueleto `SfEngine` y la Fase 3 (modos como estrategia) — esas dos EXIGEN
+   sesión con compilador (tocan audio/red/StateFlow) o incrementos con Rebuild del dueño
+   entre cada uno.
+
+## 3b. Sesión anterior (2026-07-22 PM, Fable 5 — plan `PROMPT_FABLE5_stun_crash_optimizacion.md`)
 
 *(La sesión AM del mismo día — subtítulos ON + track EN + lecciones — y el follow-up de Opus
 quedaron commiteados; detalle en `SF/DISENO_ARCADE_SF_POW.md` §2026-07-22 y 00_INDEX.)*
@@ -179,7 +212,11 @@ vía la anim "stun" sintetizada — si llega arte nuevo de mareo, se verá solo)
 `super-4==super-5` en `charronegro` y `senortienda`.
 → Hay que mirar la hoja fuente de cada uno: si solo trae una pose, no hay arreglo sin arte nuevo.
 
-### 🔵 P2b · Motor compartido entre modos — ✅ FASE 1 HECHA (Opus, 2026-07-22); Fases 2-5 → Fable
+### 🔵 P2b · Motor compartido — ✅ Fase 1 HECHA y AUDITADA; Fase 2 INICIADA (2a+2b); sigue 2c
+
+🆕 (2026-07-22 noche, Fable) Auditoría de la Fase 1 APROBADA (extracción idéntica, verificada
+como datos) y Fase 2a (`SfAnimation`) + 2b (`SfPhysics.clampToStage`) hechas con el mismo
+patrón de alias. **47 tests esperados.** Ver §3. Lo de abajo queda como referencia del plan:
 
 **Fase 1 (red de seguridad) COMPLETA:** la lógica pura del `StreetFighterViewModel` se extrajo a
 `domain/models/streetfighter/` (`SfStateMachine`, `SfDamage`, `SfPhysics`, `sfUsableBonusPowerCount`)

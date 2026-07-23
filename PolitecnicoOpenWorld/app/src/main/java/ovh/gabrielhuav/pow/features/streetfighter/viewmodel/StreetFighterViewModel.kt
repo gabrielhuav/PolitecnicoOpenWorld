@@ -23,6 +23,7 @@ import kotlinx.coroutines.yield
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_HURT_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BONUS_POWER_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BLOCK_STATES
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAnimation
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfDamage
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfPhysics
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStateMachine
@@ -837,9 +838,10 @@ class StreetFighterViewModel @Inject constructor(
         const val CPU_CLINCH_DIST = 58f
         const val CPU_MELEE_DIST = 105f
         const val CPU_MID_DIST = 175f
-        // Límites mundiales del escenario (padding + stage). Mantienen a los peleadores visibles.
-        val STAGE_X_MIN = SfConstants.STAGE_PADDING + 24f
-        val STAGE_X_MAX = SfConstants.STAGE_PADDING + SfConstants.STAGE_WIDTH - 24f
+        // 🆕 (2026-07-22, Fase 2b) Límites del escenario extraídos a SfConstants (los usa
+        // SfPhysics.clampToStage). Alias para no tocar los usos internos del VM.
+        val STAGE_X_MIN = SfConstants.STAGE_X_MIN
+        val STAGE_X_MAX = SfConstants.STAGE_X_MAX
         // 🆕 Interpolación del rival: tasa del lerp (≈rate*dt por tick) y distancia a partir
         // de la cual se SNAPEA (teleport/reset de ronda — no perseguirlo lerpeando)
         const val NET_LERP_RATE = 14f
@@ -1095,19 +1097,22 @@ class StreetFighterViewModel @Inject constructor(
 
     private fun animOf(f: SfFighter) = dataFor(f).animations.getValue(f.state.jsKey)
 
+    // 🆕 (2026-07-22, Fase 2a) La lógica de avance de animación vive en SfAnimation (puro,
+    // testeable en JVM). Estas funciones quedan como ENVOLTORIOS que pasan animOf(f):
+    // mismos nombres y firmas → cero cambios en sus call sites, comportamiento idéntico.
     private fun withAnimationFrame(f: SfFighter, frame: Int, now: Long): SfFighter {
         val anim = animOf(f)
-        val idx = if (frame >= anim.size) 0 else frame
+        val idx = SfAnimation.frameIndex(anim, frame)
         return f.copy(
             animationFrame = idx,
-            animationTimerMs = now + (anim[idx].delay * SfConstants.FRAME_TIME_MS).toLong(),
+            animationTimerMs = SfAnimation.frameTimerMs(anim, idx, now),
         )
     }
 
     private fun updateAnimation(f: SfFighter, now: Long): SfFighter {
-        val anim = animOf(f)
-        val delay = anim[f.animationFrame.coerceIn(0, anim.size - 1)].delay
-        if (delay <= 0 || now <= f.animationTimerMs) return f // FREEZE/TRANSITION o aún no toca
+        if (!SfAnimation.shouldAdvance(animOf(f), f.animationFrame, f.animationTimerMs, now)) {
+            return f // FREEZE/TRANSITION o aún no toca
+        }
         return withAnimationFrame(f, f.animationFrame + 1, now)
     }
 
@@ -1118,18 +1123,10 @@ class StreetFighterViewModel @Inject constructor(
         else updateAnimation(f, now)
     }
 
-    private fun isAnimationCompleted(f: SfFighter): Boolean {
-        val anim = animOf(f)
-        val idx = f.animationFrame.coerceIn(0, anim.size - 1)
-        // Completa si el frame actual es TERMINADOR (-1) o si ya llegamos al ÚLTIMO frame.
-        // 🆕 (fix 2026-07-18) Varias hojas ALPHA/compartidas (p. ej. los estudiantes del arcade)
-        // NO traen el frame -1 al final; withAnimationFrame hace wrap a 0 → la animación entra en
-        // bucle y isAnimationCompleted jamás era true → el peleador quedaba ATASCADO (el jugador
-        // "no se podía mover" en arcade; la CPU se congelaba). Tratar el último frame como fin evita
-        // el bucle SIN acortar las animaciones bien formadas (en ellas el -1 ES el último frame, así
-        // que el resultado no cambia para datos correctos).
-        return anim[idx].delay == -1 || idx >= anim.size - 1
-    }
+    // (El "por qué" del último-frame-como-fin — fix 2026-07-18 de hojas sin -1 — vive ahora
+    // en el KDoc de SfAnimation.isCompleted; misma semántica, solo cambió de sitio.)
+    private fun isAnimationCompleted(f: SfFighter): Boolean =
+        SfAnimation.isCompleted(animOf(f), f.animationFrame)
 
     // ------------------------------------------------------------------
     // Cambio de estado + inits (changeState del JS)
@@ -2197,17 +2194,8 @@ class StreetFighterViewModel @Inject constructor(
         sim.setFighter(1 - idx, clampFighterToStage(opp))
     }
 
-    /** Mantener al peleador DENTRO del escenario (mundo). Y nunca por debajo del piso. */
-    private fun clampFighterToStage(f: SfFighter): SfFighter {
-        var x = f.x
-        var y = f.y
-        if (x.isNaN() || x.isInfinite()) x = SfConstants.STAGE_MID_POINT + SfConstants.STAGE_PADDING
-        if (y.isNaN() || y.isInfinite()) y = SfConstants.STAGE_FLOOR
-        x = x.coerceIn(STAGE_X_MIN, STAGE_X_MAX)
-        // No permitir caer bajo el piso; el salto puede subir pero con tope de aire
-        y = y.coerceIn(SfConstants.STAGE_FLOOR - 220f, SfConstants.STAGE_FLOOR)
-        return if (x != f.x || y != f.y) f.copy(x = x, y = y) else f
-    }
+    // 🆕 (2026-07-22, Fase 2b) Extraído a SfPhysics.clampToStage (puro); el VM solo delega.
+    private fun clampFighterToStage(f: SfFighter): SfFighter = SfPhysics.clampToStage(f)
 
     private fun updateAttackBoxCollided(sim: Sim, idx: Int, now: Long) {
         val attacker = sim.fighter(idx)

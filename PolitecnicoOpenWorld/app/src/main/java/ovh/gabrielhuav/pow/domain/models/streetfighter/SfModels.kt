@@ -17,6 +17,10 @@ object SfConstants {
     const val STAGE_FLOOR = 218f
     const val STAGE_PADDING = 256f
     const val STAGE_MID_POINT = STAGE_WIDTH / 2f
+    // 🆕 (2026-07-22, Fase 2b) Límites X del peleador en el MUNDO del stage (24 px de margen
+    // sobre el padding). Movidos del companion del VM para que SfPhysics.clampToStage sea puro.
+    val STAGE_X_MIN = STAGE_PADDING + 24f
+    val STAGE_X_MAX = STAGE_PADDING + STAGE_WIDTH - 24f
     const val SCENE_WIDTH = 382f
     const val SCENE_HEIGHT = 224f
     const val SCROLL_BOUNDARY = 100f

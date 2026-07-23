@@ -80,7 +80,23 @@
 Índice propio en **`SF/00_SF_INDEX.md`** (diseño, assets gráficos, audio, herramientas y las
 reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `street_fighter`/`Sf*`.
 
-### Estado vigente (2026-07-22b) — LÉEME PRIMERO
+### Estado vigente (2026-07-22c) — LÉEME PRIMERO
+
+> **🆕 2026-07-22c (Fable 5, noche) — Fase 1 del motor AUDITADA ✅ + Fase 2a/2b:**
+> - **Auditoría Fase 1 (Parte A): APROBADA.** `validFrom` comparada COMO DATOS contra el VM
+>   viejo (67 destinos + 5 sub-listas + knockdown: idénticos), 1b-1e espejos exactos, alias
+>   en su sitio, 0 copias residuales. Conteo real: **32 tests nuevos** (+3 previos = 35).
+>   Los tests son de caracterización de verdad (literales fijados, no tautologías).
+> - **Fase 2a:** avance de animación → `SfAnimation` puro (frameIndex/frameTimerMs/
+>   shouldAdvance/isCompleted) + 8 tests; el VM conserva envoltorios (mismos call sites).
+> - **Fase 2b:** `clampFighterToStage` → `SfPhysics.clampToStage` + STAGE_X_MIN/MAX a
+>   `SfConstants` (alias en el companion del VM) + 4 tests.
+> - ⚠️ **SIN COMPILAR en esta sesión** (sandbox sin SDK): Rebuild + `testDebugUnitTest`
+>   (esperados 47 = 35+12) + jugar los 6 modos ANTES del siguiente incremento.
+> - **Siguiente (Fase 2c+):** núcleo de `updateStageConstraints` (empuje de pushboxes) a
+>   SfPhysics; luego esqueleto `SfEngine` (necesita sesión CON compilador — toca audio/red).
+
+### Estado 2026-07-22b
 
 > **🆕 2026-07-22b (Fable 5, PM) — crash Llorona blindado, carga en IO, STUN, metamorfosis:**
 > - **🔴 Crash La Llorona (P0):** camino ALPHA blindado — `sheetFor` en `runCatching` y el
