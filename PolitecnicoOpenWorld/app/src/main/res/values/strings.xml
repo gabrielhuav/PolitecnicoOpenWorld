@@ -8,7 +8,7 @@
     <string name="exit_dialog_dismiss">Salir</string>
 
     <!-- ─── Menú principal (features/main_menu) ─── -->
-    <string name="menu_version">ALPHA - v%1$s</string>
+    <string name="menu_version">PRE-ALPHA - v%1$s</string>
     <string name="menu_start_game">MUNDO LIBRE</string>
     <string name="menu_load_game">MODO HISTORIA</string>
     <string name="menu_multiplayer">MULTIJUGADOR</string>
@@ -16,7 +16,7 @@
     <string name="menu_collectibles">COLECCIONABLES</string>
     <string name="menu_street_fighter">HUELUM VS. GOYA</string>
     <string name="menu_featured_tag">◆ MODO COMBATE ◆</string>
-    <string name="badge_alpha">ALPHA</string>
+    <string name="badge_alpha">PRE-ALPHA</string>
     <string name="badge_beta">BETA</string>
     <string name="menu_mp_dialog_title">Conectar a Servidor</string>
     <string name="menu_mp_username_label">Nombre de Usuario</string>
@@ -562,6 +562,52 @@
     <string name="sf_paused">PAUSA</string>
     <string name="sf_continue">Continuar</string>
     <string name="sf_controls_hint">X/Y/B: PUÑOS  •  A: PATADA  •  ↓↘→ + X/Y/B: ESPECIAL  •  P: PODER EXTRA</string>
+    <!-- 🆕 Moveset 3rd Strike (2026-07-21): solo se muestra si el peleador tiene esas hojas -->
+    <string name="sf_controls_hint_new">DOBLE TOQUE: DASH  •  P: PARRY  •  G: AGARRE  •  S: SÚPER  •  ↓+B: BARRIDA</string>
+    <!-- 🆕 (2026-07-21) HOJA DE COMBOS + TUTORIAL INTERACTIVO -->
+    <string name="sf_mode_combos">COMBOS Y TUTORIAL</string>
+    <string name="sf_mode_combos_desc">Aprende todos los controles y combos, y practícalos</string>
+    <string name="sf_combos_title">HOJA DE COMBOS</string>
+    <string name="sf_combos_with_fighter">Con %1$s</string>
+    <string name="sf_combos_pick_fighter">ELIGE CON QUIÉN PRACTICAR</string>
+    <string name="sf_combos_controls">CONTROLES DE COMBATE</string>
+    <string name="sf_combos_list">COMBOS</string>
+    <string name="sf_combos_try">PROBAR (TUTORIAL GUIADO)</string>
+    <string name="sf_combos_change_fighter">CAMBIAR DE PELEADOR</string>
+    <string name="sf_ctl_move">Moverse / saltar / agacharse</string>
+    <string name="sf_ctl_move_v">Joystick</string>
+    <string name="sf_ctl_punch">Puños (ligero / medio / fuerte)</string>
+    <string name="sf_ctl_punch_v">X / Y / B</string>
+    <string name="sf_ctl_kick">Patada (fuerza según el joystick)</string>
+    <string name="sf_ctl_kick_v">A</string>
+    <string name="sf_ctl_block">Bloquear alto / bajo</string>
+    <string name="sf_ctl_block_v">Atrás  ·  Atrás + Abajo</string>
+    <string name="sf_ctl_dash">Dash adelante / atrás</string>
+    <string name="sf_ctl_dash_v">Doble toque → / ←</string>
+    <string name="sf_ctl_parry">Parry (anula el golpe)</string>
+    <string name="sf_ctl_parry_v">Botón L1</string>
+    <string name="sf_ctl_grab">Agarre (atraviesa el bloqueo)</string>
+    <string name="sf_ctl_grab_v">Botón R1, pegado al rival</string>
+    <string name="sf_ctl_sweep">Barrida (derriba)</string>
+    <string name="sf_ctl_sweep_v">Abajo + patada fuerte</string>
+    <string name="sf_ctl_overhead">Overhead (rompe guardia baja)</string>
+    <string name="sf_ctl_overhead_v">Adelante + puño medio</string>
+    <string name="sf_ctl_special">Especial</string>
+    <string name="sf_ctl_special_v">↓ ↘ → + puño</string>
+    <string name="sf_ctl_super">Super Art (medidor lleno)</string>
+    <string name="sf_ctl_super_v">Botón R2</string>
+    <string name="sf_tutorial_progress">LECCIÓN %1$d / %2$d</string>
+    <string name="sf_tutorial_step_ok">¡BIEN!</string>
+    <string name="sf_tutorial_combo_ok">¡COMBO COMPLETO!</string>
+    <string name="sf_tutorial_done">¡TERMINASTE EL TUTORIAL!</string>
+    <string name="sf_tutorial_repeat">REPETIR</string>
+    <string name="sf_tutorial_skip">SALTAR</string>
+    <string name="sf_tutorial_wrong">ESO NO ERA</string>
+    <!-- 🆕 (2026-07-21) Coleccionables de PELEADOR (recompensa del arcade en Difícil) -->
+    <string name="collectibles_tab_objects">OBJETOS</string>
+    <string name="collectibles_tab_fighters">PELEADORES</string>
+    <string name="collectibles_view_story">VER HISTORIA</string>
+    <string name="collectibles_story_soon">Próximamente: la historia de este personaje está en camino.</string>
     <string name="sf_controls_help">X/Y/B = puños ligero, medio y fuerte\nA neutro/adelante/atrás = patada ligera, media y fuerte\n↓ ↘ → + X/Y/B = especial ligero, medio o fuerte</string>
     <string name="sf_exit_title">Salir de la pelea</string>
     <string name="sf_exit_message">¿Abandonar la pelea y volver al menú principal?</string>
@@ -616,6 +662,8 @@
     <!-- Banner de rondas (fuente arcade: solo A-Z y 0-9, sin acentos ni signos) -->
     <string name="sf_round_banner">RONDA %1$d</string>
     <string name="sf_fight_banner">PELEA</string>
+    <!-- 🆕 Contador de combo (2026-07-20; fuente arcade: solo A-Z y 0-9) -->
+    <string name="sf_combo_hits">GOLPES</string>
     <string name="sf_choose_rival">Ahora elige al RIVAL (lo controla la CPU)</string>
     <!-- 🆕 Dificultad de la CPU (paso 3 del flujo offline, 2026-07-16) -->
     <string name="sf_choose_difficulty">ELIGE LA DIFICULTAD</string>

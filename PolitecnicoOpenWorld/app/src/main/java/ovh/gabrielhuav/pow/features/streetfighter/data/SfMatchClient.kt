@@ -33,6 +33,10 @@ data class SfNetMsg(
     val frame: Int? = null,
     val dir: Int? = null,            // +1 derecha / -1 izquierda
     val hp: Int? = null,
+    // 🆕 (2026-07-21) MEDIDOR DE SÚPER del rival (0..SUPER_METER_MAX). Sin esto la barra
+    // dorada del oponente se veía siempre vacía en línea. Es OPCIONAL: un cliente viejo no
+    // lo manda y el receptor conserva el valor que ya tenía.
+    val meter: Int? = null,
     // 🆕 SINCRONÍA DEL TIMER: solo lo manda el HOST (autoridad del reloj); el invitado lo adopta
     val timer: Int? = null,
     val fireballs: List<SfNetFireball>? = null,
@@ -118,11 +122,23 @@ class SfMatchClient(private val gson: Gson = Gson()) : SfNetTransport {
     override fun sendDamage(damage: Int, strength: String, atkType: String) =
         send(mapOf("type" to "PLAYER_DAMAGE", "damage" to damage, "strength" to strength, "atkType" to atkType))
 
-    override fun sendPlayerState(x: Float, y: Float, state: String, frame: Int, dir: Int, hp: Int, timer: Int?, fireballs: List<SfNetFireball>) =
+    @Suppress("LongParameterList")
+    override fun sendPlayerState(
+        x: Float,
+        y: Float,
+        state: String,
+        frame: Int,
+        dir: Int,
+        hp: Int,
+        timer: Int?,
+        fireballs: List<SfNetFireball>,
+        meter: Int,
+    ) =
         send(
             mapOf(
                 "type" to "PLAYER_STATE", "x" to x, "y" to y, "state" to state,
-                "frame" to frame, "dir" to dir, "hp" to hp, "timer" to timer, "fireballs" to fireballs,
+                "frame" to frame, "dir" to dir, "hp" to hp, "timer" to timer,
+                "fireballs" to fireballs, "meter" to meter,
             ),
         )
 

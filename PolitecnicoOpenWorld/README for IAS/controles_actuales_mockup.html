@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Controles actuales · Huelum vs. Goya (mockup para rediseñar)</title>
+<!--
+  MOCKUP FIEL de los controles ACTUALES del modo pelea (StreetFighterScreen.kt).
+  Objetivo: base para que Gemini lo vaya acercando a un control real.
+  Colores/letras/funciones tomados del código (2026-07-22):
+    Diamante (der):  Y arriba amarillo=Puño MEDIO · X izq azul=Puño LIGERO ·
+                     B der rojo=Puño FUERTE · A abajo verde=PATADA · P centro morado=PODER bonus
+    Fila secundaria: T gris=Burla · P cian=Parry · G naranja=Agarre · S dorado=Súper (apagado si no está cargada)
+    Izquierda: joystick (←→ caminar, ↑ saltar, ↓ agachar; ↓↘→ + puño = especial/hadouken)
+  NOTA: la letra "P" se usa para DOS cosas (Poder bonus en el diamante y Parry en la fila) — al
+  rediseñar conviene diferenciarlas.
+  Edita libremente los estilos .btn, .stick, etc. Todo es HTML/CSS puro, sin dependencias.
+-->
+<style>
+  :root{
+    --y:#F1C40F; --x:#3498DB; --b:#E74C3C; --a:#2ECC71; --pw:#8E44AD;
+    --t:#7F8C8D; --p:#1ABC9C; --g:#E67E22; --s:#FFD700; --s-off:#555;
+    --ink:#fff; --panel:rgba(0,0,0,.40);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;color:var(--ink);
+    background:#20242c;display:flex;flex-direction:column;align-items:center;gap:18px;padding:20px}
+  h1{font-size:18px;margin:.2em 0}
+  .sub{opacity:.7;font-size:13px;margin:0 0 6px}
+  /* “pantalla” del juego en horizontal */
+  .screen{position:relative;width:min(860px,96vw);aspect-ratio:16/9;border-radius:16px;
+    background:linear-gradient(#2b3140,#171a20);border:1px solid #3a4150;overflow:hidden}
+  .hud{position:absolute;top:10px;left:0;right:0;text-align:center;opacity:.5;font-size:12px;letter-spacing:2px}
+  /* ---- lado izquierdo: joystick ---- */
+  .stickWrap{position:absolute;left:4%;bottom:8%;width:160px;height:160px;border-radius:50%;
+    background:var(--panel);display:flex;align-items:center;justify-content:center}
+  .stick{width:78px;height:78px;border-radius:50%;background:radial-gradient(#5b6472,#333a45);
+    border:2px solid #7a8494;box-shadow:0 4px 10px rgba(0,0,0,.5)}
+  .dir{position:absolute;font-size:15px;opacity:.75}
+  .dir.up{top:8px;left:50%;transform:translateX(-50%)}
+  .dir.down{bottom:8px;left:50%;transform:translateX(-50%)}
+  .dir.left{left:10px;top:50%;transform:translateY(-50%)}
+  .dir.right{right:10px;top:50%;transform:translateY(-50%)}
+  /* ---- lado derecho: diamante ---- */
+  .diamond{position:absolute;right:4%;bottom:6%;width:190px;height:190px;border-radius:50%;
+    background:var(--panel);display:grid;place-items:center}
+  .diamond .row{display:flex;align-items:center;justify-content:center}
+  .gap{width:44px}
+  .btn{width:54px;height:54px;border-radius:50%;border:none;color:#111;font-weight:800;font-size:20px;
+    cursor:pointer;box-shadow:inset 0 -4px 8px rgba(0,0,0,.35),0 3px 6px rgba(0,0,0,.4);
+    display:grid;place-items:center;transition:transform .08s}
+  .btn:active{transform:scale(.92)}
+  .btn.small{width:44px;height:44px;font-size:16px}
+  .btn.center{position:absolute}
+  .Y{background:var(--y)} .X{background:var(--x)} .B{background:var(--b)} .A{background:var(--a)}
+  .P{background:var(--pw)} .T{background:var(--t)} .Pa{background:var(--p)} .G{background:var(--g)}
+  .S{background:var(--s)} .S.off{background:var(--s-off);color:#999}
+  /* fila secundaria (T P G S) arriba del diamante */
+  .secondary{position:absolute;right:5%;bottom:38%;display:flex;gap:8px}
+  /* leyenda */
+  .legend{width:min(860px,96vw);display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:8px;font-size:13px}
+  .legend div{background:#262b34;border:1px solid #333b46;border-radius:8px;padding:8px 10px}
+  .dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+  @media (max-width:560px){ .btn{width:46px;height:46px;font-size:17px} .stickWrap,.diamond{transform:scale(.85)} }
+</style>
+</head>
+<body>
+  <h1>Controles actuales — Huelum vs. Goya</h1>
+  <p class="sub">Mockup fiel para rediseñar (base para Gemini). Colores y funciones tal cual el juego.</p>
+
+  <div class="screen">
+    <div class="hud">— ZONA DE PELEA —</div>
+
+    <!-- Joystick -->
+    <div class="stickWrap">
+      <span class="dir up">↑ saltar</span>
+      <span class="dir down">↓ agachar</span>
+      <span class="dir left">←</span>
+      <span class="dir right">→</span>
+      <div class="stick"></div>
+    </div>
+
+    <!-- Fila secundaria: T P(arry) G S -->
+    <div class="secondary">
+      <button class="btn small T">T</button>
+      <button class="btn small Pa">P</button>
+      <button class="btn small G">G</button>
+      <button class="btn small S">S</button>
+    </div>
+
+    <!-- Diamante principal -->
+    <div class="diamond">
+      <div style="display:flex;flex-direction:column;align-items:center;position:relative">
+        <button class="btn Y">Y</button>
+        <div class="row">
+          <button class="btn X">X</button>
+          <span class="gap"></span>
+          <button class="btn B">B</button>
+        </div>
+        <button class="btn A">A</button>
+        <button class="btn P center">P</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div><span class="dot" style="background:var(--x)"></span><b>X</b> — Puño ligero</div>
+    <div><span class="dot" style="background:var(--y)"></span><b>Y</b> — Puño medio</div>
+    <div><span class="dot" style="background:var(--b)"></span><b>B</b> — Puño fuerte</div>
+    <div><span class="dot" style="background:var(--a)"></span><b>A</b> — Patada (fuerza según joystick)</div>
+    <div><span class="dot" style="background:var(--pw)"></span><b>P</b> (centro) — Poder bonus</div>
+    <div><span class="dot" style="background:var(--p)"></span><b>P</b> (fila) — Parry</div>
+    <div><span class="dot" style="background:var(--g)"></span><b>G</b> — Agarre</div>
+    <div><span class="dot" style="background:var(--t)"></span><b>T</b> — Burla</div>
+    <div><span class="dot" style="background:var(--s)"></span><b>S</b> — Súper / Fatality (apagado si la barra no está llena)</div>
+    <div><span class="dot" style="background:#7a8494"></span><b>Joystick</b> — ← → caminar · ↑ saltar · ↓ agachar · ↓↘→ + puño = especial</div>
+  </div>
+</body>
+</html>

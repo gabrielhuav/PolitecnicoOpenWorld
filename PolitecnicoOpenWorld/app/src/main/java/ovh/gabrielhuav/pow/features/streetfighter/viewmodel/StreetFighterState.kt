@@ -53,6 +53,35 @@ data class StreetFighterState(
     val displayHp0: Float = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat(),
     val displayHp1: Float = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat(),
 
+    // ─── 🆕 TUTORIAL INTERACTIVO (2026-07-21) ───
+    // Modo entrenamiento guiado: el rival es un MUÑECO inerte y la pantalla pide un
+    // movimiento concreto; solo se avanza cuando el jugador lo ejecuta de verdad.
+    val tutorialActive: Boolean = false,
+    /** Índice de la lección en curso (0-based) y total, para el progreso "3/11". */
+    val tutorialLesson: Int = 0,
+    val tutorialTotal: Int = 0,
+    /** Nombre y pista de la lección (ya resueltos al idioma del juego). */
+    val tutorialTitle: String = "",
+    val tutorialHint: String = "",
+    /** Pasos del combo y cuántos lleva acertados (para pintar "✓ ✓ ○"). */
+    val tutorialSteps: List<String> = emptyList(),
+    val tutorialStepIndex: Int = 0,
+    /** Mensaje efímero de acierto ("OK" = paso, "COMPLETO" = combo entero). */
+    val tutorialFlash: String = "",
+    /**
+     * 🆕 Aviso de ERROR: "LO QUE HICISTE → LO QUE TOCABA". Se llena cuando el jugador
+     * ejecuta un movimiento reconocible distinto al que pide la lección.
+     */
+    val tutorialError: String = "",
+    /** El jugador completó TODAS las lecciones. */
+    val tutorialCompleted: Boolean = false,
+
+    // ─── 🆕 COMBO estilo SF III 3rd Strike (2026-07-20) ───
+    // Golpes CONECTADOS encadenados del combo en curso. El VM lo llena/expira (ventana
+    // RAPID_HIT_WINDOW_MS); la View SOLO lo pinta ("N GOLPES") cuando comboCount >= 2.
+    val comboCount: Int = 0,
+    val comboPlayerId: Int = -1,   // índice del atacante del combo (0/1); -1 = sin combo
+
     // ─── 🆕 RONDAS estilo SF (2026-07-16): mejor de 3 — gana quien tome 2 rondas ───
     // Cada ronda termina por KO o timeout (más vida gana; EMPATE exacto → azar; online el
     // azar es DETERMINISTA con semilla compartida para que ambos lados coincidan).
@@ -60,6 +89,7 @@ data class StreetFighterState(
     val cpuRoundWins: Int = 0,
     val roundNumber: Int = 1,                        // 1..3
     val showRoundIntro: Boolean = false,             // banner "RONDA N / PELEA" (input congelado)
+    val roundIntroCountdown: Int = 0,                // 🆕 (2026-07-22) 3→2→1 del banner (0 = "PELEA")
 
     // Reloj de juego virtual (ms); la View lo usa para animaciones del escenario
     val gameTimeMs: Long = 0L,
@@ -113,6 +143,7 @@ data class StreetFighterState(
     // Se muestra un momento al lanzar special/bonus; se limpia cuando specialSubtitleUntilMs <= gameTimeMs.
     val specialSubtitleHud: String? = null,            // A-Z 0-9 para drawFontText
     val specialSubtitleUntilMs: Long = 0L,             // gameTimeMs límite (0 = oculto)
+    val specialSubtitleStartMs: Long = 0L,             // 🆕 (2026-07-22) inicio: reparte los tramos '|' en [start,until]
 
     // ─── 🆕 MULTIJUGADOR 1v1 (servidor MultiplayerSF/ en Render, relay puro) ───
     val onlineStatus: SfOnlineStatus = SfOnlineStatus.OFF,

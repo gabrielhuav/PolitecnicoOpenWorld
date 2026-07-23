@@ -45,8 +45,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.res.stringResource
+import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.data.local.room.entity.CollectibleEntity
+import ovh.gabrielhuav.pow.data.repository.CollectibleRepository.Companion.FIGHTER_PREFIX
 import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
+import ovh.gabrielhuav.pow.features.streetfighter.ui.SfBitmapText
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog
 
@@ -91,8 +96,29 @@ fun CollectiblesScreen(
                 letterSpacing = 8.sp
             )
 
-            Spacer(modifier = Modifier.height(if (isLandscape) 16.dp else 32.dp))
+            Spacer(modifier = Modifier.height(if (isLandscape) 10.dp else 18.dp))
 
+            // 🆕 (2026-07-21) DOS SECCIONES: los coleccionables del mundo (OBJETOS) y los
+            // de PELEADOR, que se ganan venciéndolos en ARCADE (Difícil). Se distinguen por
+            // el prefijo del id, así que no hizo falta migrar la tabla de Room.
+            val fighters = collectibles.filter { it.id.startsWith(FIGHTER_PREFIX) }
+            val objects = collectibles.filterNot { it.id.startsWith(FIGHTER_PREFIX) }
+            var showFighters by remember { mutableStateOf(false) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SectionTab(
+                    text = stringResource(R.string.collectibles_tab_objects),
+                    selected = !showFighters,
+                    onClick = { showFighters = false },
+                )
+                SectionTab(
+                    text = stringResource(R.string.collectibles_tab_fighters),
+                    selected = showFighters,
+                    onClick = { showFighters = true },
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+
+            val shown = if (showFighters) fighters else objects
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columnsCount),
                 contentPadding = PaddingValues(bottom = 16.dp),
@@ -100,7 +126,7 @@ fun CollectiblesScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                items(collectibles) { item ->
+                items(shown) { item ->
                     CollectibleCard(
                         item = item,
                         onClick = {
@@ -141,11 +167,123 @@ fun CollectiblesScreen(
 
         // Mostrar el popup si hay un coleccionable seleccionado
         selectedCollectible?.let { collectible ->
-            CollectibleClaimDialog(
-                collectible = collectible,
-                onDismiss = { selectedCollectible = null } // Cerrar al hacer clic en continuar/fuera
-            )
+            if (collectible.id.startsWith(FIGHTER_PREFIX)) {
+                // 🆕 Los de PELEADOR llevan su propio diálogo con "VER HISTORIA".
+                FighterStoryDialog(
+                    collectible = collectible,
+                    onDismiss = { selectedCollectible = null },
+                )
+            } else {
+                CollectibleClaimDialog(
+                    collectible = collectible,
+                    onDismiss = { selectedCollectible = null } // Cerrar al hacer clic en continuar/fuera
+                )
+            }
         }
+    }
+}
+
+/** Pestaña de sección (OBJETOS / PELEADORES) del inventario. */
+@Composable
+private fun SectionTab(text: String, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        text = text,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Black,
+        letterSpacing = 2.sp,
+        maxLines = 1,
+        softWrap = false,
+        color = if (selected) Color(0xFF1A1016) else Color(0xFFD4AF37),
+        modifier = Modifier
+            .clip(CutCornerShape(topStart = 8.dp, bottomEnd = 8.dp))
+            .background(if (selected) Color(0xFFD4AF37) else Color.White.copy(alpha = 0.08f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+    )
+}
+
+/**
+ * 🆕 (2026-07-21) Ficha del peleador coleccionado. La HISTORIA todavía no está escrita:
+ * el botón queda visible pero anuncia "Próximamente" (implementación futura acordada con
+ * el dueño), para que la pantalla ya muestre su sitio definitivo.
+ */
+@Composable
+private fun FighterStoryDialog(collectible: ActiveCollectible, onDismiss: () -> Unit) {
+    var showSoon by remember { mutableStateOf(false) }
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp))
+                .background(Color(0xFF1A1016))
+                .border(2.dp, Color(0xFFD4AF37), CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp))
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // 🆕 El NOMBRE va con la fuente arcade del modo pelea (pedido del dueño:
+            // "las letras serán las mismas del SF"). Solo tiene A-Z/0-9: SfBitmapText
+            // sanea el texto (acentos y signos fuera) antes de pintarlo.
+            SfBitmapText(text = collectible.name, glyphHeight = 20.dp)
+            Spacer(Modifier.height(12.dp))
+            FighterPortrait(assetPath = collectible.assetPath)
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = if (showSoon) {
+                    stringResource(R.string.collectibles_story_soon)
+                } else {
+                    collectible.description
+                },
+                color = Color.White.copy(alpha = 0.85f),
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = { showSoon = true },
+                shape = CutCornerShape(topStart = 10.dp, bottomEnd = 10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF6B1C3A),
+                    contentColor = Color.White,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    stringResource(R.string.collectibles_view_story),
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Retrato del peleador recortado de su ATLAS de combate (celda 0 = idle-1, 256×256): así
+ * no hace falta arte extra ni otro archivo en el APK. Se decodifica SOLO la región
+ * necesaria con BitmapRegionDecoder (barato incluso en gama baja: no carga el atlas entero,
+ * que llega a 2560×7680).
+ */
+@Composable
+private fun FighterPortrait(assetPath: String) {
+    val context = LocalContext.current
+    val bmp = remember(assetPath) {
+        runCatching {
+            context.assets.open(assetPath).use { stream ->
+                val decoder = android.graphics.BitmapRegionDecoder.newInstance(stream, false)
+                    ?: return@use null
+                decoder.decodeRegion(
+                    android.graphics.Rect(0, 0, 256, 256),
+                    BitmapFactory.Options().apply { inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888 },
+                )
+            }
+        }.getOrNull()
+    }
+    if (bmp != null) {
+        Image(
+            bitmap = bmp.asImageBitmap(),
+            contentDescription = null,
+            modifier = Modifier.size(140.dp),
+        )
     }
 }
 

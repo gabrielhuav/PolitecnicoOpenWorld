@@ -45,6 +45,30 @@ SF_POSE_TARGET_H = {
     "STUN": 100.0,
     "KO": None,
     "PROJECTILE": None,
+    # 🆕 (2026-07-21) TANDAS 5-8 (hojas 20-29). Las poses AGACHADAS comparten la altura
+    # del CROUCH ya aprobado; las que cambian de silueta a proposito (barrida horizontal,
+    # vuelo del lanzamiento, levantarse desde el suelo, super art con efectos) van con
+    # None = conservan la escala fisica del Idle en vez de estirarse a una altura fija.
+    "DASH FORWARD": 95.0,
+    "BACKDASH": 95.0,
+    "BLOCK ALTO": 100.0,
+    "BLOCK BAJO": 70.0,
+    "PARRY ALTO": 100.0,
+    "PARRY BAJO": 70.0,
+    "CROUCH PUNCH": 70.0,
+    "CROUCH KICK": 70.0,
+    "CROUCH HEAVY PUNCH": 80.0,
+    "BARRIDA": None,
+    "AIR PUNCH": None,
+    "AIR KICK": None,
+    "PATADA LARGA": None,
+    "OVERHEAD": None,
+    "AGARRE Y LANZAMIENTO": None,
+    "TAUNT": 100.0,
+    "SER LANZADO": None,
+    "LEVANTARSE": None,
+    "SUPER ART": None,
+    "DANO AGACHADO": 70.0,
 }
 
 def nums(p, n): return ["%s-%d" % (p, i) for i in range(1, n + 1)]
@@ -56,7 +80,9 @@ SHEETS = {
     2:  [("CROUCH",         9, (nums("crouch", 3), "first_half"),None),
          ("CROUCH TURN",    4, (nums("crouch-turn", 3), "even"), None)],
     3:  [("CAMINAR",        6, (nums("forwards", 6), "even"),    ("Walk", "w")),
-         ("CORRER",         8, (None, None),                     ("Run", "r"))],
+         # 🆕 (2026-07-21) CORRER ya no va solo al mundo: el modo pelea lo usa como
+         # carrera tras el dash (antes se recortaba a _extra/ y se desperdiciaba).
+         ("CORRER",         8, (nums("run", 8), "even"),         ("Run", "r"))],
     4:  [("JUMP START",     2, (["jump-start-land-1", "jump-start-2"], "even"), None),
          ("JUMP LAND",      3, (nums("jump-land", 3), "even"), None)],
     5:  [("JUMP UP",        6, (nums("jump-up", 6), "even"),     None),
@@ -85,13 +111,62 @@ SHEETS = {
          ("HANDGUN AIM",    5, (None, None), None)],
     17: [("RIFLE READY",    6, (None, None), None),
          ("RIFLE AIM",      6, (None, None), None)],
-    18: [("IDLE RELAXED",   6, (None, None), ("Idle", "i")),
-         ("TALK",           4, (None, None), ("Talk", "t"))],
+    # 🆕 (2026-07-21) IDLE RELAXED y TALK se usan en la INTRO de ronda (pose sin guardia
+    # antes de "PELEA"), no solo en el mundo abierto.
+    18: [("IDLE RELAXED",   6, (nums("idle-relaxed", 6), "even"), ("Idle", "i")),
+         ("TALK",           4, (nums("talk", 4), "even"),         ("Talk", "t"))],
     19: [("WALK BACKWARD",  6, (nums("backwards", 6), "even"),   None),
          ("HANDGUN WALK",   6, (None, None),                     None)],
+    # ── 🆕 TANDAS 5-8 (2026-07-21): moveset estilo SF III 3rd Strike ──
+    # Mismo contrato que arriba: (rotulo, cuadros esperados, (claves SF, modo), destino mundo).
+    # Los rotulos deben coincidir con SF_POSE_TARGET_H para calibrar la altura de la pose.
+    20: [("DASH FORWARD",   4, (nums("dash", 4), "even"),        None),
+         ("BACKDASH",       4, (nums("backdash", 4), "even"),    None)],
+    21: [("BLOCK ALTO",     4, (nums("block-high", 4), "even"),  None),
+         ("BLOCK BAJO",     4, (nums("block-low", 4), "even"),   None)],
+    22: [("PARRY ALTO",     3, (nums("parry-high", 3), "even"),  None),
+         ("PARRY BAJO",     3, (nums("parry-low", 3), "even"),   None)],
+    23: [("CROUCH PUNCH",   4, (nums("crouch-punch", 4), "even"), None),
+         ("CROUCH KICK",    4, (nums("crouch-kick", 4), "even"), None)],
+    24: [("CROUCH HEAVY PUNCH", 5, (nums("crouch-hp", 5), "even"), None),
+         ("BARRIDA",        6, (nums("sweep", 6), "even"),       None)],
+    25: [("AIR PUNCH",      4, (nums("air-punch", 4), "even"),   None),
+         ("AIR KICK",       4, (nums("air-kick", 4), "even"),    None)],
+    26: [("PATADA LARGA",   7, (nums("long-kick", 7), "even"),   None),
+         ("OVERHEAD",       5, (nums("overhead", 5), "even"),    None)],
+    # La hoja 27 trae 2 cuadros de intento de agarre + 6 del lanzamiento en un solo grupo.
+    27: [("AGARRE Y LANZAMIENTO", 8, (nums("grab", 2) + nums("throw", 6), "even"), None),
+         ("TAUNT",          6, (nums("taunt", 6), "even"),       None)],
+    28: [("SER LANZADO",    6, (nums("thrown", 6), "even"),      None),
+         ("LEVANTARSE",     6, (nums("getup", 6), "even"),       None)],
+    29: [("SUPER ART",      8, (nums("super", 8), "even"),       None),
+         ("DANO AGACHADO",  4, (nums("hurt-crouch", 4), "even"), None)],
 }
 # Grupos con targets SF None se guardan en GEN/<char>/_extra/ (capas de armas,
 # jump land, specials L/M, talk...): nada se tira.
+
+# Excepciones (personaje, hoja) -> {rotulo: cuadros reales}. SHEETS describe el formato
+# que comparten los 18 peleadores; cuando UNA hoja concreta se regenera con otra cantidad
+# de poses, se anota aqui en vez de tocar la tabla global (eso romperia a los demas).
+#
+# 🆕 (2026-07-21) La hoja 09 de La Llorona se regeneró con la fila HURT HEAD de 3 poses
+# BIEN SEPARADAS, en lugar de las 14 apretadas del resto. Sin esta excepcion, maybe_split
+# persigue 14 blobs y trocea cada figura en rebanadas verticales (11/14 en vez de 3/3).
+SHEET_OVERRIDES = {
+    ("lallorona", 9): {"HURT HEAD": 3},
+    # 🆕 (2026-07-21) SUPER ART con 7 poses, no 8. El dueno lo detecto a ojo: "super-6 y
+    # super-7 completan UN solo asset". La fila trae una pose ANCHA (el estallido del
+    # super) y maybe_split, obligado a llegar a 8, la parte en dos mitades. Declarando 7
+    # se queda entera. `pick` sigue rellenando los 8 destinos repitiendo una (one_short_ok).
+    # ⚠️ escomboy: su super-5+6+7 son UN asset partido en tres, o sea 6 poses reales.
+    # NO se puede declarar 6: `pick` necesita llenar los 8 destinos super-1..8 y el
+    # contrato solo tolera que falte UNO (one_short_ok). Con 6 el slicer aborta sin
+    # escribir. Limite real del pipeline: el minimo declarable en la hoja 29 es 7.
+    ("reygrupero", 29): {"SUPER ART": 7},
+    ("policiacdmxhombre", 29): {"SUPER ART": 7},
+    # ⚠️ paparazzi5 NO lleva override: se probo con 7 y sale PEOR (junta dos poses
+    # distintas y el cuadro queda con DOS personajes). Su fila si trae las 8 poses.
+}
 
 def detect(path, close=5):
     im = Image.open(path).convert("RGB")
@@ -137,6 +212,111 @@ def split_groups(bands, nA, nB):
     B = [bl for b in bands[best:] for bl in b]
     return A, B, (len(A) != nA or len(B) != nB)
 
+def _rows_of(grp, gap=90):
+    """Parte un grupo en FILAS por cercania de su centro vertical.
+
+    Mismo criterio de bandas que usa `detect` (90 px), para que "fila" signifique lo
+    mismo en todo el archivo. Devuelve una lista de filas ordenadas de arriba a abajo,
+    cada una ordenada de izquierda a derecha.
+    """
+    rows = []
+    for bl in sorted(grp, key=lambda b: (b[1] + b[3]) / 2):
+        cy = (bl[1] + bl[3]) / 2
+        if rows and abs(cy - rows[-1][0]) < gap:
+            rows[-1][1].append(bl)
+            rows[-1][0] = sum((b[1] + b[3]) / 2 for b in rows[-1][1]) / len(rows[-1][1])
+        else:
+            rows.append([cy, [bl]])
+    return [sorted(r[1], key=lambda b: b[0]) for r in rows]
+
+
+def merge_fragments(grp, n_expected=0, split_rows=True):
+    """Fusiona blobs que pertenecen a UNA MISMA pose (2026-07-21).
+
+    Dos poses distintas de una hoja NUNCA se solapan horizontalmente: hay un hueco real
+    entre ellas. En cambio, una pose con efectos grandes (auras, haces, destellos) se parte
+    en varios componentes cuando el croma separa una parte del cuerpo. El sintoma reportado:
+    "esos 2 assets juntos hacen el asset completo".
+
+    ⚠️ NO basta con "se tocan": en estas hojas las poses vecinas suelen quedar TANGENTES
+    (una empieza justo donde acaba la otra) y fusionarlas encadenaba filas enteras. Se
+    fusiona solo cuando hay evidencia real de que es un trozo y no una pose:
+      a) SOLAPAMIENTO fuerte (>30 % del mas estrecho): dos poses nunca se solapan asi.
+      b) el vecino es un FRAGMENTO anormalmente estrecho (<60 % del ancho tipico de la
+         fila) y ademas toca al anterior: es un pedazo suelto del efecto, no una pose.
+    """
+    if len(grp) < 2:
+        return grp
+    # 🆕 (2026-07-21) Un grupo puede ocupar DOS FILAS (HURT HEAD son 14 poses en 2x7).
+    # Al aplanar y ordenar por X, cada pose de arriba quedaba junto a la de abajo, con
+    # solapamiento horizontal casi total -> se fusionaban EN VERTICAL y el cuadro salia
+    # con dos personajes apilados (senortienda/escomboy/escomgirl/yoalliehecatl).
+    # Un trozo suelto de una pose siempre esta en la MISMA banda que su cuerpo, asi que
+    # fusionar fila por fila conserva intacto el comportamiento de las hojas de una sola
+    # fila (los otros 14 peleadores) y arregla las de dos.
+    # Solo cuentan como DOS FILAS DE POSES si ambas van bien pobladas. Las filas de
+    # EFECTOS (hoja 12: proyectil) tambien quedan dispersas en vertical, pero en grupitos
+    # de uno o dos trozos; partirlas ahi impedia fusionar el efecto y rompia la hoja 12.
+    rows = _rows_of(grp) if split_rows else []
+    if len(rows) > 1 and min(len(r) for r in rows) >= 3:
+        out = []
+        for row in rows:
+            out += merge_fragments(row, n_expected, split_rows=False)
+        return out
+    grp = sorted(grp, key=lambda bl: bl[0])
+    widths = sorted(bl[2] - bl[0] for bl in grp)
+    typical = widths[len(widths) // 2]  # mediana de anchos de la fila
+    out = [list(grp[0])]
+    merged = [False]
+    for bl in grp[1:]:
+        prev = out[-1]
+        overlap = min(prev[2], bl[2]) - max(prev[0], bl[0])
+        narrowest = min(prev[2] - prev[0], bl[2] - bl[0])
+        strong_overlap = overlap > 0.30 * max(narrowest, 1)
+        is_fragment = narrowest < 0.60 * typical and overlap >= -3
+        if strong_overlap or is_fragment:
+            prev[0] = min(prev[0], bl[0])
+            prev[1] = min(prev[1], bl[1])
+            prev[2] = max(prev[2], bl[2])
+            prev[3] = max(prev[3], bl[3])
+            # bid=None -> `cut` usa la mascara CRUDA de todo el bbox, asi entran TODOS los
+            # fragmentos fusionados (con el id de una sola etiqueta se perderian los demas).
+            prev[4] = None
+            merged[-1] = True
+        else:
+            out.append(list(bl))
+            merged.append(False)
+    return [tuple(b) for b in out]
+
+
+def best_cut(cols, lo, hi, ideal):
+    """Donde partir dos poses pegadas, dentro de [lo, hi).
+
+    Prioridad:
+      1. El CENTRO del hueco real (columnas vacias) mas ancho de la ventana. Si dos poses
+         solo se rozan, entre ellas hay columnas a cero: ahi acaba una de verdad.
+      2. Si no hay hueco (las auras se solapan), el minimo de densidad, como antes.
+    """
+    if hi <= lo:
+        return ideal
+    band = cols[lo:hi]
+    empty = band == 0
+    if empty.any():
+        # racha de ceros mas larga
+        mejor_ini = mejor_len = act_ini = act_len = 0
+        for i, e in enumerate(empty):
+            if e:
+                if act_len == 0:
+                    act_ini = i
+                act_len += 1
+                if act_len > mejor_len:
+                    mejor_len, mejor_ini = act_len, act_ini
+            else:
+                act_len = 0
+        return lo + mejor_ini + mejor_len // 2
+    return lo + int(np.argmin(band))
+
+
 def maybe_split(grp, lbl, raw, n_expected):
     """Si el grupo trae MENOS blobs de los esperados y hay uno anormalmente ancho
     (cuadros fusionados por confeti/efectos), lo parte en el valle de densidad."""
@@ -154,19 +334,49 @@ def maybe_split(grp, lbl, raw, n_expected):
         cand = max(grp, key=lambda bl: (bl[2] - bl[0]) / expected_width)
         if (cand[2] - cand[0]) < 1.45 * expected_width:
             break
+        # 🆕 (2026-07-21) Un blob FUSIONADO (bid=None) ya se decidio que es UNA sola pose con
+        # efectos: no se vuelve a partir, o se deshace el arreglo.
+        if cand[4] is None:
+            break
         x0, y0, x1, y1, bid = cand
         m = (lbl[y0:y1, x0:x1] == bid) & raw[y0:y1, x0:x1]
         cols = m.sum(axis=0)
-        lo, hi = int(len(cols) * 0.25), int(len(cols) * 0.75)
-        cutx = lo + int(np.argmin(cols[lo:hi]))
+        # 🆕 Cuantas poses caben en este blob. Antes se partia SIEMPRE en 2 por el minimo de
+        # densidad del centro: con 3-4 poses pegadas (SUPER ART con auras) los cortes caian
+        # en cualquier parte y cada cuadro salia con trozos del vecino. Ahora se reparte en
+        # k tramos UNIFORMES (el paso de la fila es regular) y cada corte se AFINA al valle
+        # mas cercano, que es donde de verdad acaba una pose.
+        k = int(round((x1 - x0) / expected_width))
+        k = max(2, min(k, n_expected - len(grp) + 1))
+        # 🆕 (2026-07-21) Ventana MAS ANCHA + preferir un HUECO REAL. El valle mas bajo no
+        # siempre esta donde acaba una pose: si el aura de una toca el borde de la otra, el
+        # minimo cae DENTRO del efecto y cada cuadro se lleva un trozo del vecino (sintoma
+        # del dueno: "le falta un poco de recorte a la derecha"). Cuando entre dos poses hay
+        # columnas COMPLETAMENTE vacias, ahi acaba una de verdad: se corta en medio de ese
+        # hueco. Solo si no existe hueco se recurre al minimo, como antes.
+        window = max(6, int(expected_width * 0.35))
+        cuts = []
+        for i in range(1, k):
+            ideal = int(round((x1 - x0) * i / k))
+            lo = max(1, ideal - window)
+            hi = min(len(cols) - 1, ideal + window)
+            cuts.append(best_cut(cols, lo, hi, ideal))
+        bounds = [0] + cuts + [len(cols)]
+
         def tight(c0, c1):
             sub = cols[c0:c1]
             nz = np.nonzero(sub)[0]
-            if len(nz) == 0: return None
-            return (x0 + c0 + int(nz[0]), y0, x0 + c0 + int(nz[-1]) + 1, y1, bid)
-        a, b = tight(0, cutx), tight(cutx, len(cols))
-        if not a or not b: break
-        grp.remove(cand); grp += [a, b]
+            if len(nz) == 0:
+                return None
+            # Cada tramo se recorta con su propia mascara cruda (bid=None): el id original
+            # ya no identifica a uno solo de los tramos.
+            return (x0 + c0 + int(nz[0]), y0, x0 + c0 + int(nz[-1]) + 1, y1, None)
+
+        parts = [p for p in (tight(bounds[i], bounds[i + 1]) for i in range(k)) if p]
+        if len(parts) < 2:
+            break
+        grp.remove(cand)
+        grp += parts
         grp = sorted(grp, key=lambda bl: bl[0])
     return grp
 
@@ -390,8 +600,11 @@ def main():
     m = re.search(r"_(\d{1,2})_", os.path.basename(args.sheet))
     num = args.sheet_num or (int(m.group(1)) if m else None)
     if num not in SHEETS:
-        sys.exit("No se qué hoja es (usa --sheet-num 1..19). Detectado: %s" % num)
-    (nameA, nA, sfA, wA), (nameB, nB, sfB, wB) = SHEETS[num]
+        sys.exit("No se qué hoja es (usa --sheet-num 1..29). Detectado: %s" % num)
+    override = SHEET_OVERRIDES.get((args.char, num), {})
+    sheet_spec = [(label, override.get(label, count), sf, world)
+                  for label, count, sf, world in SHEETS[num]]
+    (nameA, nA, sfA, wA), (nameB, nB, sfB, wB) = sheet_spec
 
     # cierre 5 normal; si el conteo no cuadra (efectos dispersos), reintenta con 25
     im, lbl, raw, bands = detect(args.sheet, close=5)
@@ -403,6 +616,16 @@ def main():
             total = sum(len(b) for b in bands)
 
     A, B, warn = split_groups(bands, nA, nB)
+    # 🆕 (2026-07-21) PRIMERO fusionar los fragmentos de una misma pose (efectos grandes que
+    # el croma separa del cuerpo) y DESPUES partir las poses que quedaron pegadas. El orden
+    # importa: si se parte antes de fusionar, se trocea todavia mas un cuadro ya roto.
+    # La hoja 12 es el caso ESPECIAL (rejilla 4x3, fila 3 = efectos del proyectil): sus
+    # trozos se reparten en vertical a proposito y la particion por filas los separaria
+    # en vez de fusionarlos. Se queda con el comportamiento historico; si se toca, hay
+    # que re-aplicar tools/fix_llorona_projectile.py.
+    rows_ok = num != 12
+    A = merge_fragments(A, nA, split_rows=rows_ok)
+    B = merge_fragments(B, nB, split_rows=rows_ok)
     A = maybe_split(A, lbl, raw, nA)
     B = maybe_split(B, lbl, raw, nB)
     if num == 12 and len(B) != nB:
@@ -452,7 +675,7 @@ def main():
     else:
         sys.exit("Falta %s: procesa primero la hoja 01 (fija la escala)." % scale_file)
 
-    for (label, expected_count, (targets, mode), world), group in ((SHEETS[num][0], framesA), (SHEETS[num][1], framesB)):
+    for (label, expected_count, (targets, mode), world), group in ((sheet_spec[0], framesA), (sheet_spec[1], framesB)):
         sf_target_h = SF_POSE_TARGET_H.get(label, TARGET_H)
         if targets:
             if label == "PROJECTILE" and len(group) == 4 and len(targets) == 5:

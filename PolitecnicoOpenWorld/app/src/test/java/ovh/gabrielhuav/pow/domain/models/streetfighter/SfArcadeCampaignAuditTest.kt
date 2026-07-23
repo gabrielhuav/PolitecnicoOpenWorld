@@ -85,6 +85,7 @@ class SfArcadeCampaignAuditTest {
                 "special_prankedy_attack_1.ogg", "special_prankedy_attack_2.ogg",
                 "special_prankedy_attack_3.ogg", "special_prankedy_attack_4.ogg",
                 "special_prankedy_hurt_1.ogg", "special_prankedy_hurt_2.ogg",
+                "special_prankedy_hurt_3.ogg", "special_prankedy_hurt_4.ogg",
                 "special_prankedy_power.ogg", "special_prankedy_win.ogg",
                 "special_prankedy_loss.ogg", "special_prankedy_lowhp.ogg"
             )

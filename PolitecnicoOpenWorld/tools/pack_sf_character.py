@@ -50,6 +50,42 @@ DEDICATED_EXTRA_KEYS = (
     ["special-5"]
 )
 
+# 🆕 (2026-07-21) TANDAS 5-8 (hojas 20-29): moveset estilo SF III 3rd Strike.
+# clave de animacion del motor -> (prefijo de cuadro, numero de cuadros, delays)
+# Solo se empaquetan/animan los que EXISTAN en el GEN del personaje: quien no tenga la
+# hoja simplemente no gana ese estado y el motor lo ignora (nunca entra a el).
+NEW_MOVE_ANIMATIONS = {
+    "dashForward":      ("dash", 4, [3, 3, 4, 4]),
+    "dashBackward":     ("backdash", 4, [3, 3, 4, 4]),
+    "blockHigh":        ("block-high", 4, [3, 4, 6, 4]),
+    "blockLow":         ("block-low", 4, [3, 4, 6, 4]),
+    "parryHigh":        ("parry-high", 3, [3, 5, 4]),
+    "parryLow":         ("parry-low", 3, [3, 5, 4]),
+    "crouchPunch":      ("crouch-punch", 4, [3, 4, 5, 4]),
+    "crouchKick":       ("crouch-kick", 4, [3, 4, 5, 4]),
+    "crouchHeavyPunch": ("crouch-hp", 5, [4, 4, 6, 5, 5]),
+    "sweep":            ("sweep", 6, [4, 4, 6, 6, 5, 5]),
+    "airPunch":         ("air-punch", 4, [3, 4, 5, 4]),
+    "airKick":          ("air-kick", 4, [3, 4, 5, 4]),
+    "longKick":         ("long-kick", 7, [4, 4, 5, 7, 6, 5, 5]),
+    "overhead":         ("overhead", 5, [5, 5, 7, 6, 5]),
+    "grab":             ("grab", 2, [4, 6]),
+    "throw":            ("throw", 6, [4, 5, 6, 6, 6, 8]),
+    "taunt":            ("taunt", 6, [6, 6, 6, 6, 6, 8]),
+    "thrown":           ("thrown", 6, [4, 5, 5, 6, 6, 10]),
+    "getUp":            ("getup", 6, [5, 5, 5, 5, 5, 5]),
+    "superArt":         ("super", 8, [5, 5, 6, 7, 8, 7, 6, 10]),
+    "hurtCrouch":       ("hurt-crouch", 4, [5, 6, 6, 6]),
+    # 🆕 (2026-07-21) Poses que YA se recortaban pero se tiraban a _extra/: la CARRERA
+    # (hoja 03) y las de intro sin guardia (hoja 18). Ahora son estados del motor.
+    "run":              ("run", 8, [3, 3, 3, 3, 3, 3, 3, 3]),
+    "idleRelaxed":      ("idle-relaxed", 6, [8, 8, 8, 8, 8, 8]),
+    "talk":             ("talk", 4, [7, 7, 7, 7]),
+}
+NEW_MOVE_KEYS = [f"{prefix}-{i}"
+                 for prefix, count, _ in NEW_MOVE_ANIMATIONS.values()
+                 for i in range(1, count + 1)]
+
 # Posicion/escala del efecto segun el objeto real de cada personaje. El frame es
 # cero-based dentro de la animacion especial y ya no queda hardcodeado en Kotlin.
 PROJECTILE_PROFILES = {
@@ -184,6 +220,47 @@ DERIVED_BONUS_POWERS = {
     ("yoalliehecatl", 10): ("lapresidenta", 11, True),
 }
 
+# 🆕 (2026-07-21) PODERES DE PROYECTIL: hojas dibujadas como GUION (no como animación del
+# personaje). Sus 5 cuadros son: 1 = personaje lanzando, 2-3-4 = SOLO el proyectil/efecto
+# viajando e impactando (mazo, libro, bolsa de dinero…), 5 = personaje en seguimiento.
+# Si se animaran los 5, el personaje DESAPARECE 3 cuadros (bug reportado en La Presidenta).
+# Aquí la animación usa solo 1 y 5; los cuadros 2-4 siguen empacados y la View los dibuja
+# como el PROYECTIL de ese poder (SfFireball.bonusPower).
+# Los poderes NO listados animan sus 5 cuadros (el personaje sale en todos: aura/rayo).
+BONUS_PROJECTILE_POWERS = {
+    # 🆕 (2026-07-21) El 1 sale de la lista: su arte nueva trae al personaje en los CINCO
+    # cuadros (pose, pose, carrera, mazazo, haz), asi que ya no desaparece 3 cuadros y se
+    # anima completo. Los demas siguen siendo guiones con el proyectil suelto.
+    "lapresidenta": {2, 3, 4, 5, 6},
+}
+
+# 🆕 (2026-07-21) PODERES BONUS "RÁPIDOS": el dueño audita la hoja y decide que solo unos
+# cuadros concretos sirven. Caso real: la hoja de bonus 3/4/5 de La Tzitzimime trae los
+# primeros cuadros dibujados con OTRO personaje (Yoalli), aunque estén bien recortados.
+# En vez de tirar el poder entero o esperar arte nueva, se anima solo la parte válida y
+# queda como un poder corto y seco.
+# Formato: {personaje: {nº de poder: [nº de cuadro válido, ...]}}
+BONUS_FAST_POWERS = {
+    "latzitzimime": {
+        4: [5],       # 1-4 son Yoalli; solo la pose final es de La Tzitzimime
+        5: [4, 5],
+    },
+    # 🆕 (2026-07-21) La Presidenta P1 = "SPECIAL ULTIMATE". El dueno acabo recortando las
+    # CINCO poses (pose, pose, carrera, mazazo, haz), asi que ya NO necesita recorte: se
+    # anima entera. Tampoco va por el camino de proyectil, porque el haz forma parte del
+    # cuadro y no viaja solo.
+}
+
+# 🆕 (2026-07-21) PODERES BONUS RETIRADOS: la hoja trae arte de OTRO personaje y no hay
+# ningun cuadro aprovechable. Se deja de emitir su animacion.
+# Es SEGURO no emitirla: StreetFighterViewModel.kt:2077 comprueba
+# `animations[state.jsKey].isNullOrEmpty()` antes de entrar al estado, asi que el poder
+# simplemente no se dispara (no deja al personaje congelado). Los cuadros siguen en el
+# atlas; solo desaparece la animacion.
+BONUS_REMOVED_POWERS = {
+    "latzitzimime": {3},   # bonus-3-* esta dibujado con Yoalli, no con La Tzitzimime
+}
+
 
 def derived_bonus_path(char_name, key, gen_root):
     match = re.fullmatch(r"bonus-(\d+)-(\d+)", key)
@@ -203,8 +280,12 @@ def frame_source_path(char_name, key, char_gen_dir, gen_root):
         char_gen_dir, filename_for_key(key))
 
 
-def dedicated_animations(template, bonus_powers=0, unique_hurt_frames=False):
+def dedicated_animations(template, bonus_powers=0, unique_hurt_frames=False,
+                         projectile_powers=frozenset(), available_keys=frozenset(),
+                         all_frame_keys=frozenset(), fast_powers=None,
+                         removed_powers=frozenset()):
     """Animaciones completas para arte croma; conserva estados/timings del motor."""
+    fast_powers = fast_powers or {}
     out = json.loads(json.dumps(template))
     out["lightPunch"] = animation_with_transition(
         [f"light-punch-{i}" for i in range(1, 5)], [2, 2, 4, 3])
@@ -252,9 +333,77 @@ def dedicated_animations(template, bonus_powers=0, unique_hurt_frames=False):
         out["hurtBodyMedium"] = animation_with_transition(
             [f"hit-stomach-{i}" for i in range(1, 5)], [8, 7, 7, 9])
     for power in range(1, bonus_powers + 1):
-        out[f"bonusPower{power}"] = animation_with_transition(
-            [f"bonus-{power}-{i}" for i in range(1, 6)], [5, 7, 10, 12, 18])
+        if power in removed_powers:
+            continue
+        fast = fast_powers.get(power)
+        if fast:
+            # Poder corto: solo los cuadros que el dueño validó. Se sostienen para que el
+            # poder siga durando lo suficiente como para leerse en pantalla.
+            keys = [f"bonus-{power}-{i}" for i in fast]
+            out[f"bonusPower{power}"] = animation_with_transition(
+                keys, [34 // len(keys)] * len(keys))
+        elif power in projectile_powers:
+            # Solo las 2 poses del personaje (1 = lanza, 5 = seguimiento), sostenidas para
+            # conservar la duración total del poder. Los cuadros 2-4 son el proyectil.
+            out[f"bonusPower{power}"] = animation_with_transition(
+                [f"bonus-{power}-1", f"bonus-{power}-5"], [12, 22])
+        else:
+            out[f"bonusPower{power}"] = animation_with_transition(
+                [f"bonus-{power}-{i}" for i in range(1, 6)], [5, 7, 10, 12, 18])
+    # 🆕 (2026-07-21) Movimientos nuevos: solo si TODOS sus cuadros existen en el GEN.
+    for anim, (prefix, count, delays) in NEW_MOVE_ANIMATIONS.items():
+        keys = [f"{prefix}-{i}" for i in range(1, count + 1)]
+        if all(k in available_keys for k in keys):
+            out[anim] = animation_with_transition(keys, delays)
+    # 🆕 (2026-07-21) FATALITY: no es arte nueva, es una SECUENCIA CINEMÁTICA compuesta con
+    # cuadros que el personaje YA tiene. Guion: concentración → ejecución de la súper →
+    # desata su poder propio → remate → pose de victoria. Solo se genera si existen las
+    # piezas; si falta alguna, el peleador simplemente no tiene fatality.
+    # 🆕 (2026-07-21) FATALITY DEDICADO: si el peleador tiene arte PROPIA de fatality
+    # (`fatality-1..N`, dibujada a mano para eso), manda sobre la secuencia compuesta.
+    # La compuesta sigue siendo el camino por defecto para los 17 que no la tienen.
+    propios = [f"fatality-{i}" for i in range(1, 9)]
+    propios = [k for k in propios if k in all_frame_keys]
+    if len(propios) >= 3:
+        out["fatality"] = animation_with_transition(propios, [10] * len(propios))
+    else:
+        fatality = fatality_animation(available_keys, all_frame_keys)
+        if fatality:
+            out["fatality"] = fatality
     return out
+
+
+def fatality_animation(available_keys, all_frame_keys):
+    """Secuencia del fatality a partir de cuadros existentes (None si no alcanza)."""
+    def have(key):
+        return key in available_keys or key in all_frame_keys
+
+    charge = [k for k in ("super-1", "super-2", "super-3") if have(k)]
+    strike = [k for k in ("super-4", "super-5", "super-6") if have(k)]
+    if not charge or not strike:
+        return None  # sin SUPER ART no hay fatality
+    # El poder PROPIO del personaje: su bonus power 1 si lo tiene, si no su special.
+    power = [k for k in ("bonus-1-1", "bonus-1-5") if have(k)]
+    if not power:
+        power = [k for k in ("special-1", "special-3", "special-5") if have(k)]
+    finish = [k for k in ("super-7", "super-8") if have(k)]
+    pose = [k for k in ("victory-1", "victory-3") if have(k)]
+
+    keys = charge + strike + power + finish + pose
+    if len(keys) < 6:
+        return None
+    # Ritmo cinematográfico: arranque lento, golpes rápidos, remate sostenido.
+    delays = []
+    for i, _ in enumerate(keys):
+        if i < len(charge):
+            delays.append(7)
+        elif i < len(charge) + len(strike):
+            delays.append(4)
+        elif i < len(charge) + len(strike) + len(power):
+            delays.append(8)
+        else:
+            delays.append(10)
+    return animation_with_transition(keys, delays)
 
 def reference_frame_key(key):
     """Devuelve la caja clasica mas cercana a la pose nueva y si conserva hitbox."""
@@ -286,6 +435,56 @@ def reference_frame_key(key):
         return f"special-{min(idx, 4)}", False
     if key == "special-5":
         return "special-4", False
+    # 🆕 (2026-07-21) Poses de las hojas 20-29. El template no las tiene, asi que cada una
+    # hereda la caja clasica mas parecida; el 2o valor dice si conserva HITBOX (golpea).
+    # Sin esto se empacarian sin cajas: invulnerables y sin poder pegar.
+    new_move = re.match(
+        r"(dash|backdash|block-high|block-low|parry-high|parry-low|crouch-punch|crouch-kick|"
+        r"crouch-hp|sweep|air-punch|air-kick|long-kick|overhead|grab|throw|taunt|thrown|"
+        r"getup|super|hurt-crouch|run|idle-relaxed)-(\d+)$", key)
+    if new_move:
+        prefix, idx = new_move.group(1), int(new_move.group(2))
+        # Defensivas / movilidad / reacciones: hurtbox prestada, nunca hitbox.
+        if prefix == "dash":
+            return "forwards-3", False
+        if prefix == "backdash":
+            return "backwards-3", False
+        if prefix in ("block-high", "parry-high", "taunt", "idle-relaxed"):
+            return "idle-1", False
+        # Correr comparte la caja de caminar (mismo cuerpo, más rápido)
+        if prefix == "run":
+            return f"forwards-{min(idx, 6)}", False
+        if prefix in ("block-low", "parry-low", "hurt-crouch"):
+            return "crouch-3", False
+        if prefix == "thrown":
+            return f"fall-{min(idx, 5)}", False
+        if prefix == "getup":
+            # Se levanta: del suelo (fall) a la guardia (idle)
+            return ("fall-4", False) if idx <= 2 else (("crouch-3", False) if idx <= 4 else ("idle-1", False))
+        if prefix == "throw":
+            # El daño del lanzamiento lo aplica la logica, no una hitbox por cuadro
+            return "idle-1", False
+        # Ofensivas: hitbox SOLO en los cuadros activos (contacto), como en las clasicas.
+        if prefix == "crouch-punch":
+            return "light-punch-2", idx in (2, 3)
+        if prefix == "crouch-kick":
+            return "light-kick-2", idx in (2, 3)
+        if prefix == "crouch-hp":
+            return "heavy-punch-1", idx in (3, 4)
+        if prefix == "sweep":
+            return "heavy-kick-3", idx in (3, 4)
+        if prefix == "air-punch":
+            return "light-punch-2", idx in (2, 3)
+        if prefix == "air-kick":
+            return "light-kick-2", idx in (2, 3)
+        if prefix == "long-kick":
+            return "heavy-kick-3", idx in (4, 5)
+        if prefix == "overhead":
+            return "heavy-punch-1", idx in (3, 4)
+        if prefix == "grab":
+            return "light-punch-2", idx == 2
+        if prefix == "super":
+            return "special-3", idx in (4, 5, 6)
     return key, True
 
 def pack_character(char_name, char_title, gen_root=GEN_DIR):
@@ -325,15 +524,26 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
     existing_proj = [k for k in proj_keys if os.path.exists(os.path.join(char_gen_dir, f"{k}.png"))]
     extra_keys = [k for k in DEDICATED_EXTRA_KEYS
                   if os.path.exists(os.path.join(char_gen_dir, filename_for_key(k)))]
+    # 🆕 (2026-07-21) Cuadros de las hojas 20-29 presentes en el GEN de ESTE personaje
+    new_move_keys = [k for k in NEW_MOVE_KEYS
+                     if os.path.exists(os.path.join(char_gen_dir, filename_for_key(k)))]
     bonus_keys = []
     bonus_power_count = 0
     power = 1
+    removed_powers = BONUS_REMOVED_POWERS.get(char_name, set())
+    fast_powers = BONUS_FAST_POWERS.get(char_name, {})
     while True:
         keys = [f"bonus-{power}-{i}" for i in range(1, 6)]
         present = [os.path.exists(frame_source_path(char_name, key, char_gen_dir, gen_root))
                    for key in keys]
         if all(present):
-            bonus_keys.extend(keys)
+            if power in removed_powers:
+                pass  # Poder retirado totalmente por ser de otro personaje (ej. Yoalli)
+            elif power in fast_powers:
+                valid_indices = fast_powers[power]
+                bonus_keys.extend([f"bonus-{power}-{i}" for i in valid_indices])
+            else:
+                bonus_keys.extend(keys)
             bonus_power_count = power
             power += 1
         elif any(present):
@@ -341,7 +551,15 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
             sys.exit(1)
         else:
             break
-    all_keys = frame_keys + extra_keys + existing_proj + bonus_keys
+    # 🆕 (2026-07-21) Arte PROPIA de fatality (`fatality-1..8`) y destellos reutilizables
+    # (`fx-*`). Opcionales: solo entran los que existan en el GEN de este peleador.
+    fatality_keys = [f"fatality-{i}" for i in range(1, 9)]
+    fatality_keys = [k for k in fatality_keys
+                     if os.path.exists(os.path.join(char_gen_dir, filename_for_key(k)))]
+    fx_keys = [k for k in ("fx-energy-1",)
+               if os.path.exists(os.path.join(char_gen_dir, filename_for_key(k)))]
+    all_keys = (frame_keys + extra_keys + existing_proj + bonus_keys + new_move_keys
+                + fatality_keys + fx_keys)
     num_frames = len(all_keys)
 
     # Algunas hojas de LIGHT PUNCH traen dos cuadros casi identicos a la guardia: el
@@ -493,9 +711,16 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
         print(f"Tamano SF {prefix:12s}: rango {min_h}-{max_h}px OK")
         
     # Save the packed sprite sheet
+    # 🆕 (2026-07-21) WebP LOSSLESS en vez de PNG: mismos pixeles visibles y ~25 % menos de
+    # peso (los atlas crecieron mucho con las hojas 20-29 y el AAB va justo bajo el limite
+    # de 500 MB de Play). SfFighterId.spriteAsset apunta a .webp. Si quedara un .png viejo
+    # del mismo personaje se borra, para no duplicar peso en el APK.
     os.makedirs(IMAGES_DIR, exist_ok=True)
-    out_sheet_path = os.path.join(IMAGES_DIR, f"{char_title}.png")
-    sheet_img.save(out_sheet_path, "PNG")
+    out_sheet_path = os.path.join(IMAGES_DIR, f"{char_title}.webp")
+    sheet_img.save(out_sheet_path, "WEBP", lossless=True, quality=100, method=6)
+    legacy_png = os.path.join(IMAGES_DIR, f"{char_title}.png")
+    if os.path.exists(legacy_png):
+        os.remove(legacy_png)
     print(f"Saved sprite sheet to: {out_sheet_path} (size: {sheet_w}x{sheet_h})")
     
     # Save the JSON data
@@ -505,6 +730,11 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
             ryu_animations,
             bonus_power_count,
             unique_hurt_frames=char_name == "lallorona",
+            projectile_powers=BONUS_PROJECTILE_POWERS.get(char_name, frozenset()),
+            available_keys=frozenset(new_move_keys),
+            all_frame_keys=frozenset(all_keys),
+            fast_powers=BONUS_FAST_POWERS.get(char_name, {}),
+            removed_powers=BONUS_REMOVED_POWERS.get(char_name, frozenset()),
         ),
         "events": {"projectile": PROJECTILE_PROFILES.get(char_name, {})},
     }

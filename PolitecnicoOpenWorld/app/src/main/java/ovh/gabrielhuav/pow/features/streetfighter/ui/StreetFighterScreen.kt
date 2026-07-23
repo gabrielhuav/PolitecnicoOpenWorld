@@ -19,6 +19,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -98,6 +99,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfBox
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackType
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BONUS_POWER_STATES
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_NEW_MOVE_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfConstants
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCpuDifficulty
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfDirection
@@ -178,12 +180,24 @@ private fun playSfSpecial(
     // el contraataque tras recuperarse cortaba su propio quejido → "el hurt no suena"). Solo otro
     // HURT lo reinicia (= te pegaron otra vez).
     // 🆕 (2026-07-19c) Un ataque especial en curso (isSpecialPowerAudio) NUNCA se detiene por otras acciones.
+    // 🆕 (2026-07-22) La INTRO ("Está prohibido beber en vía pública", ~15 s) DEBE terminar:
+    // (a) nunca la corta otra voz del mismo peleadór, y (b) mientras suena, las voces nuevas
+    // de ESE peleadór se SALTAN (no se encima el grito de ataque). Otro clip de intro sí la
+    // reemplaza (re-disparo de ronda nueva).
     val newName = assetPath.substringAfterLast('/')
     val newPrefix = getFighterPrefix(newName)
     val newIsHurt = newName.contains("_hurt")
+    val newIsIntro = newName.contains("_intro")
+    if (!newIsIntro) {
+        val introPlaying = activePlayers.keys.any { key ->
+            val kf = key.substringAfterLast('/')
+            kf.contains("_intro") && getFighterPrefix(kf) == newPrefix
+        }
+        if (introPlaying) return false
+    }
     val keysToStop = activePlayers.keys.filter { key ->
         val kf = key.substringAfterLast('/')
-        !isSpecialPowerAudio(kf) &&
+        !isSpecialPowerAudio(kf) && !kf.contains("_intro") &&
         getFighterPrefix(kf) == newPrefix && (newIsHurt || !kf.contains("_hurt"))
     }
     keysToStop.forEach { key ->
@@ -251,10 +265,17 @@ fun StreetFighterScreen(
     // ---- Bitmaps del tema + sheets de los peleadores ACTUALES (decodificados una vez) ----
     val playerId = state.player.id
     val cpuId = state.cpu.id
+    // 🆕 (2026-07-21) GAMA BAJA: submuestreo de los atlas de peleador. Con las hojas 20-29
+    // los atlas llegaron a 2560×7168 (≈73 MB en ARGB_8888 por peleador, ×2 en pantalla):
+    // demasiado para gama baja y para GPUs con tope de textura de 2048. A 1/2 quedan en
+    // ~18 MB y 1280×3584. Todas las coordenadas del JSON se dividen por este factor.
+    val sheetSample = remember { if (viewModel.isLowEndDevice()) 2 else 1 }
+    val sheetSampleScale = remember(sheetSample) { 1f / sheetSample }
     // 🆕 Hojas pesadas SOLO en pelea (no en selector → menos RAM/lag al abrir el modo).
     // En selector solo se usan thumbs de region-decoder por card.
-    val images = remember(theme, playerId, cpuId, state.inCharacterSelect) {
-        val m = theme.imageFiles.associateWith { name ->
+    // Tema (HUD/sombra/splash): livianos, se decodifican una vez en composición.
+    val themeImages = remember(theme) {
+        theme.imageFiles.associateWith { name ->
             // HUD/sombra: siempre; kenstage puede faltar
             val opts = BitmapFactory.Options().apply {
                 inPreferredConfig = Bitmap.Config.RGB_565
@@ -264,45 +285,99 @@ fun StreetFighterScreen(
                     BitmapFactory.decodeStream(it, null, opts)
                 }?.asImageBitmap()
             }.getOrNull()
-        }.filterValues { it != null }.mapValues { it.value!! }.toMutableMap()
-        if (!state.inCharacterSelect) {
-            // Precargar ambas identidades si una puede metamorfosearse durante la pelea.
-            val ids = buildList {
-                add(playerId)
-                add(cpuId)
-                if (playerId == SfFighterId.LA_PRESIDENTA || cpuId == SfFighterId.LA_PRESIDENTA) {
-                    add(SfFighterId.YOALLI_EHECATL)
-                }
-                if (playerId == SfFighterId.YOALLI_EHECATL || cpuId == SfFighterId.YOALLI_EHECATL) {
-                    add(SfFighterId.LA_PRESIDENTA)
-                }
-            }.distinct()
-            ids.forEach { id ->
-                m[id.spriteAsset.substringAfterLast('/')] =
-                    SfSharedSheets.sheetFor(context, id).asImageBitmap()
-            }
-        }
-        m
+        }.filterValues { it != null }.mapValues { it.value!! }
     }
     val playerData = remember(playerId) { SfFrameCatalog.load(context, playerId) }
     val cpuData = remember(cpuId) { SfFrameCatalog.load(context, cpuId) }
     val lowEnd = remember { viewModel.isLowEndDevice() }
-    // 🆕 Alturas de CONTENIDO opaco: en GAMA BAJA se OMITEN (scan caro de cada frame del
-    // sheet al entrar a pelea → lag de carga). En media/alta se miden para forzar tamaño.
-    val playerContentH = remember(playerId, images, lowEnd) {
-        if (lowEnd) emptyMap()
-        else {
-            val sheet = images[playerId.spriteAsset.substringAfterLast('/')]
-            if (sheet != null) measureFrameContentHeights(sheet, playerData.frames) else emptyMap()
+    // 🆕 (2026-07-22, Bloque B) IDs de la pelea INCLUYENDO ambas identidades de una posible
+    // metamorfosis. Es un SET (igualdad por contenido): cuando La Presidenta se transforma
+    // a media pelea el set NO cambia → NO se re-decodifica nada (antes el remember se
+    // recomputaba con el id nuevo y el juego "se trababa unos segundos" al transformarse).
+    val fightIds = remember(playerId, cpuId) {
+        buildSet {
+            add(playerId)
+            add(cpuId)
+            if (playerId == SfFighterId.LA_PRESIDENTA || cpuId == SfFighterId.LA_PRESIDENTA) {
+                add(SfFighterId.YOALLI_EHECATL)
+            }
+            if (playerId == SfFighterId.YOALLI_EHECATL || cpuId == SfFighterId.YOALLI_EHECATL) {
+                add(SfFighterId.LA_PRESIDENTA)
+            }
         }
     }
-    val cpuContentH = remember(cpuId, images, lowEnd) {
-        if (lowEnd) emptyMap()
-        else {
-            val sheet = images[cpuId.spriteAsset.substringAfterLast('/')]
-            if (sheet != null) measureFrameContentHeights(sheet, cpuData.frames) else emptyMap()
+    // 🆕 (2026-07-22, Bloque B) TODO lo PESADO de la pelea (atlas de peleadores a
+    // `sheetSample`, atlas ALPHA y el escaneo de alturas de contenido) se decodifica en
+    // Dispatchers.IO bajo el overlay CARGANDO. Antes iba en remember{} EN EL HILO DE UI
+    // (el "se traba unos segundos al cargar") y sheetFor podía lanzar error()/OOM SIN
+    // atrapar (crash P0 de La Llorona: su pelea es la ÚNICA que suma un 3er atlas ALPHA).
+    var fightAssets by remember { mutableStateOf<SfFightAssets?>(null) }
+    LaunchedEffect(fightIds, state.inCharacterSelect, sheetSample, lowEnd) {
+        if (state.inCharacterSelect) {
+            fightAssets = null
+            return@LaunchedEffect
+        }
+        fightAssets = null
+        fightAssets = withContext(kotlinx.coroutines.Dispatchers.IO) {
+            // BLINDAJE P0: un atlas que no decodifica (OOM/IO) NO tumba el juego — se
+            // omite y drawFighter cae a la primera hoja disponible (feo pero jugable).
+            val sheets = buildMap {
+                fightIds.forEach { id ->
+                    runCatching { SfSharedSheets.sheetFor(context, id, sheetSample).asImageBitmap() }
+                        .getOrNull()
+                        ?.let { put(id.spriteAsset.substringAfterLast('/'), it) }
+                }
+            }
+            // PLACEHOLDER ALPHA (2026-07-22: La Llorona YA trae PATADA LARGA/OVERHEAD propios, así
+            // que hoy NINGÚN peleador dispara este 3er atlas; la red se queda por si acaso). Se pinta
+            // como SILUETA NEGRA → media resolución NO se nota y evitaba el pico de RAM del 3er atlas
+            // (~63 → ~16 MB en gama alta, ~4 MB en baja), que era el sospechoso del crash por OOM.
+            // Lleva SU escala en sheetScale.
+            val needyId = fightIds.firstOrNull { id ->
+                val d = SfFrameCatalog.load(context, id)
+                SF_NEW_MOVE_STATES.any { d.animations[it.jsKey].isNullOrEmpty() }
+            }
+            val alpha = needyId?.let { needy ->
+                val fallbackId = viewModel.alphaFallbackId(needy)
+                val alphaSample = if (sheetSample > 1) sheetSample * 2 else 2
+                runCatching {
+                    AlphaFallback(
+                        data = SfFrameCatalog.load(context, fallbackId),
+                        sheetKey = fallbackId.spriteAsset.substringAfterLast('/'),
+                        bitmap = context.assets.open(fallbackId.spriteAsset).use {
+                            BitmapFactory.decodeStream(
+                                it,
+                                null,
+                                BitmapFactory.Options().apply { inSampleSize = alphaSample },
+                            )
+                        }?.asImageBitmap(),
+                        sheetScale = 1f / alphaSample,
+                    )
+                }.getOrNull()?.takeIf { it.bitmap != null }
+            }
+            // Alturas de CONTENIDO opaco POR IDENTIDAD: en GAMA BAJA se OMITEN (scan caro);
+            // en media/alta se miden AQUÍ (IO), ya no en el hilo de UI.
+            val contentH = if (lowEnd) {
+                emptyMap()
+            } else {
+                fightIds.associateWith { id ->
+                    val sheet = sheets[id.spriteAsset.substringAfterLast('/')]
+                    if (sheet != null) {
+                        measureFrameContentHeights(sheet, SfFrameCatalog.load(context, id).frames)
+                    } else {
+                        emptyMap()
+                    }
+                }
+            }
+            SfFightAssets(sheets, alpha, contentH)
         }
     }
+    val images = remember(themeImages, fightAssets) {
+        themeImages + (fightAssets?.sheets ?: emptyMap())
+    }
+    val alphaFallback = fightAssets?.alpha
+    val playerContentH = fightAssets?.contentH?.get(playerId) ?: emptyMap()
+    val cpuContentH = fightAssets?.contentH?.get(cpuId) ?: emptyMap()
 
     // ---- Selección offline en 4 pasos: PELEADOR → RIVAL → DIFICULTAD → MAPA ----
     var pendingFighter by remember { mutableStateOf<SfFighterId?>(null) }
@@ -316,7 +391,7 @@ fun StreetFighterScreen(
     // mapa (ligado al rival); ONLINE el del ANFITRIÓN; si no, el elegido offline en el selector.
     val effectiveBgFile = when {
         state.gauntletRunning && state.gauntletMapFile != null -> state.gauntletMapFile
-        state.arcadeActive && state.arcadeMapFile != null -> state.arcadeMapFile
+        (state.arcadeActive || state.aiVsAi) && state.arcadeMapFile != null -> state.arcadeMapFile
         state.onlineStatus != SfOnlineStatus.OFF && state.onlineMapFile != null -> state.onlineMapFile
         else -> chosenBgFile
     }
@@ -478,34 +553,68 @@ fun StreetFighterScreen(
     // Textos del banner de RONDA (i18n; la fuente arcade solo tiene A-Z/0-9)
     val roundBannerText = stringResource(R.string.sf_round_banner, state.roundNumber)
     val fightBannerText = stringResource(R.string.sf_fight_banner)
+    // 🆕 (2026-07-20) Etiqueta del contador de COMBO ("GOLPES"/"HITS")
+    val comboHitsLabel = stringResource(R.string.sf_combo_hits)
+    // 🆕 (2026-07-21) ¿El peleador elegido tiene el moveset nuevo? (botones extra)
+    val hasNewMoves = remember(state.player.id) { viewModel.playerHasNewMoves() }
     // 🆕 Ajustes → "Mostrar hitboxes" (se lee al entrar al modo)
     val showHitboxes = remember { viewModel.showHitboxes() }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         // ---- Escena completa (mundo + HUD) en un Canvas ----
         // En selector no hace falta el Canvas de pelea (ahorra GPU en gama baja).
-        if (!state.inCharacterSelect) {
+        // 🆕 (2026-07-22) Y tampoco se dibuja hasta tener los atlas de peleador (fightAssets):
+        // sin ellos drawFighter caería a la hoja del HUD (basura visual bajo el overlay).
+        if (!state.inCharacterSelect && fightAssets != null) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 drawScene(
                     theme, state, images, playerData, cpuData, stageBg,
-                    roundBannerText, fightBannerText, showHitboxes,
+                    roundBannerText, fightBannerText, comboHitsLabel, showHitboxes,
                     playerContentH, cpuContentH, effectiveBgFile,
                     playerSilhouette = !viewModel.isFighterActuallyUnlocked(state.player.id),
+                    alphaFallback = alphaFallback,
+                    sheetScale = sheetSampleScale,
                 )
             }
         }
         // 🆕 Pantalla CARGANDO (fuente POW del HUD) mientras se decodifican atlas/hojas
-        if (!state.inCharacterSelect && (assetsLoading || stageBg == null && effectiveBgFile != null)) {
+        // (fondo Y ahora también los atlas de peleador, ver fightAssets arriba).
+        val fightLoading = !state.inCharacterSelect &&
+            (assetsLoading || fightAssets == null || stageBg == null && effectiveBgFile != null)
+        // 🆕 (2026-07-22) Avisa al VM para CONGELAR el reloj de juego mientras carga: así el
+        // 3-2-1 y el arranque se ven al terminar (antes se gastaban ocultos tras el CARGANDO,
+        // sobre todo en gama baja e IA vs IA que decodifica dos atlas).
+        LaunchedEffect(fightLoading) { viewModel.setAssetsLoadingUi(fightLoading) }
+        if (fightLoading) {
             SfLoadingOverlay(theme = theme)
         }
 
         // ---- Controles de POW: joystick + diamante Xbox (ocultos en selección y en IA vs IA) ----
         // IA vs IA: ambos los controla la CPU → solo botón "Salir" al menú (sin joystick/botones).
         if (!state.inCharacterSelect && !state.aiVsAi) {
+            // 🆕 (2026-07-22) TUTORIAL: botón físico que pide el PASO ACTUAL (para el glow) y,
+            // si el paso lleva JOYSTICK, la dirección/gesto a marcar (para explicar el combo).
+            val tutorialStepLabel = if (state.tutorialActive && !state.tutorialCompleted) {
+                state.tutorialSteps.getOrNull(state.tutorialStepIndex)
+            } else {
+                null
+            }
+            val tutorialButton = tutorialStepLabel?.let(::sfButtonForLabel)
+            val tutorialJoystick = tutorialStepLabel?.let(::sfJoystickHintForLabel)
             JoystickController(
                 modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+                onRelease = viewModel::onJoystickRelease,
                 onMove = viewModel::onJoystickMove,
             )
+            // 🆕 (2026-07-22) Guía de JOYSTICK del tutorial: gesto/dirección a marcar (↓, →, dash,
+            // hadouken…), pulsando ENCIMA del joystick para que se sepa qué mover (p.ej. la Barrida
+            // = ↓ + patada: antes solo brillaba el botón y el ↓ no se explicaba).
+            if (tutorialJoystick != null) {
+                SfJoystickHint(
+                    text = tutorialJoystick,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(start = 30.dp, bottom = 150.dp),
+                )
+            }
             // OJO: padding-end grande a propósito — en landscape la barra de navegación/gestos
             // del sistema vive en el borde DERECHO y se comía los toques del botón B (los combos
             // "no salían" porque esos taps nunca llegaban a la app). Separado del borde, todos
@@ -516,22 +625,62 @@ fun StreetFighterScreen(
                 onKick = viewModel::onKickPressed,
                 bonusPowerCount = state.player.id.bonusPowerCount,
                 onBonusPower = viewModel::onBonusPowerPressed,
+                highlight = tutorialButton,
             )
-            if (!state.isPaused && !state.showEndMenu) {
-                Text(
-                    text = stringResource(R.string.sf_controls_hint),
+            // 🆕 (2026-07-21) Botones del moveset 3rd Strike. Solo se muestran si el
+            // peleador TIENE ese arte (los compartidos/ALPHA no los tienen).
+            if (hasNewMoves) {
+                // 🆕 (2026-07-22) Rediseño "Neón Arcade": gatillos L (izquierda, encima del
+                // joystick) = L1 Parry · L2 Burla.
+                FighterShoulderButtons(
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 4.dp)
-                        .clip(RoundedCornerShape(5.dp))
-                        .background(Color.Black.copy(alpha = 0.62f))
-                        .padding(horizontal = 8.dp, vertical = 2.dp),
-                    color = Color.White.copy(alpha = 0.88f),
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
+                        .align(Alignment.BottomStart)
+                        .padding(start = 16.dp, bottom = 185.dp),
+                    isLeft = true,
+                    superReady = state.player.superReady,
+                    onParry = viewModel::onParryPressed,
+                    onGrab = viewModel::onGrabPressed,
+                    onTaunt = viewModel::onTauntPressed,
+                    onSuper = viewModel::onSuperArtPressed,
+                    highlight = tutorialButton,
+                )
+                // Gatillos R (derecha, encima del diamante) = R1 Agarre · R2 Súper.
+                FighterShoulderButtons(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = 190.dp),
+                    isLeft = false,
+                    superReady = state.player.superReady,
+                    onParry = viewModel::onParryPressed,
+                    onGrab = viewModel::onGrabPressed,
+                    onTaunt = viewModel::onTauntPressed,
+                    onSuper = viewModel::onSuperArtPressed,
+                    highlight = tutorialButton,
                 )
             }
+            // 🆕 (2026-07-21) TUTORIAL: HUD guía encima de la pelea (el jugador usa los
+            // controles normales; el rival es un muñeco inerte).
+            if (state.tutorialActive) {
+                SfTutorialOverlay(
+                    lesson = state.tutorialLesson,
+                    total = state.tutorialTotal,
+                    title = state.tutorialTitle,
+                    hint = state.tutorialHint,
+                    steps = state.tutorialSteps,
+                    stepIndex = state.tutorialStepIndex,
+                    flash = state.tutorialFlash,
+                    error = state.tutorialError,
+                    completed = state.tutorialCompleted,
+                    onSkip = viewModel::tutorialSkipLesson,
+                    onRestart = viewModel::tutorialRestartLesson,
+                    // `exitTutorial` devuelve el estado a selección de personaje; el
+                    // LaunchedEffect(inCharacterSelect) reabre el flujo normal del modo.
+                    onExit = viewModel::exitTutorial,
+                )
+            }
+            // 🆕 (2026-07-22) El hint de controles al fondo se QUITÓ (pedido del dueño): estorbaba
+            // y además citaba los botones viejos (P/G/S). Los controles se aprenden en la hoja de
+            // combos + el tutorial; los botones ya se rotularon L1/L2/R1/R2.
         }
         // IA vs IA: botón "Salir" al menú de modos (sin controles táctiles de pelea).
         // Durante el AUTOJUEGO se oculta: ahí manda el botón DETENER de abajo.
@@ -642,11 +791,25 @@ fun StreetFighterScreen(
         var sfMenu by remember { mutableStateOf(false) }
         // 🆕 Flujo IA vs IA: elige peleador A → peleaador B → startAiVsAi (PESADILLA, sin mapa).
         var aiVsAiSetup by remember { mutableStateOf(false) }
+        // 🆕 (2026-07-21) HOJA DE COMBOS: lista de controles y combos + "PROBAR" (tutorial).
+        var showComboSheet by remember { mutableStateOf(false) }
+        var comboFighter by remember { mutableStateOf<SfFighterId?>(null) }
+        // 🆕 (2026-07-22) MEMORIA DEL MODO: al salir de una pelea se vuelve al selector DEL
+        // MISMO modo (antes SIEMPRE forzaba el selector de Arcade). Se registra al LANZAR
+        // cada modo; "menu" = gauntlet/showcase (no tienen selector propio) → menú de modos.
+        var lastLaunchedMode by remember { mutableStateOf("arcade") }
         LaunchedEffect(state.inCharacterSelect) {
             if (state.inCharacterSelect) {
-                arcadeSetup = true
+                arcadeSetup = false
                 sfMenu = false
                 aiVsAiSetup = false
+                when (lastLaunchedMode) {
+                    "arcade" -> arcadeSetup = true
+                    "aivsai" -> aiVsAiSetup = true
+                    "practice" -> Unit // el selector de práctica es la rama default
+                    "combos" -> showComboSheet = true // vuelve a la hoja del peleador probado
+                    else -> sfMenu = true
+                }
             }
         }
         if (state.inCharacterSelect) {
@@ -726,6 +889,32 @@ fun StreetFighterScreen(
                     val rival = pendingRival
                     val difficulty = pendingDifficulty
                     when {
+                        // 🆕 (2026-07-21) HOJA DE COMBOS + TUTORIAL. Si aún no hay peleador
+                        // elegido, primero se elige de entre los DESBLOQUEADOS.
+                        showComboSheet && comboFighter == null -> CharacterSelectOverlay(
+                            fighters = viewModel.selectableFighters(),
+                            subtitle = stringResource(R.string.sf_combos_pick_fighter),
+                            lockedFighters = viewModel.lockedFighters(),
+                            isActuallyUnlocked = { viewModel.isFighterActuallyUnlocked(it) },
+                            lowEnd = lowEnd,
+                            onSelect = { comboFighter = it },
+                            onBack = { showComboSheet = false; sfMenu = true },
+                        )
+                        showComboSheet -> SfComboSheetOverlay(
+                            fighterId = comboFighter!!,
+                            combos = remember(comboFighter) { viewModel.comboSheet(comboFighter!!) },
+                            onTry = {
+                                showComboSheet = false
+                                lastLaunchedMode = "combos" // 🆕 al salir del tutorial: la hoja
+                                viewModel.startTutorial(comboFighter!!)
+                            },
+                            onChangeFighter = { comboFighter = null },
+                            onBack = {
+                                showComboSheet = false
+                                comboFighter = null
+                                sfMenu = true
+                            },
+                        )
                         // 🆕 MENÚ DE MODOS (estilo POW): ARCADE principal, PRÁCTICA, IA VS IA, MULTIJUGADOR
                         sfMenu -> SfModeMenuOverlay(
                             devMode = viewModel.devUnlockAll(),
@@ -761,6 +950,10 @@ fun StreetFighterScreen(
                                 pendingRival = null
                                 pendingDifficulty = null
                             },
+                            onCombos = {
+                                viewModel.stopAudioShowcase()
+                                showComboSheet = true
+                            },
                             onMultiplayer = {
                                 viewModel.stopAudioShowcase()
                                 showOnlineMenu = true
@@ -768,16 +961,19 @@ fun StreetFighterScreen(
                             onGauntletAll = {
                                 viewModel.stopAudioShowcase()
                                 sfMenu = false
+                                lastLaunchedMode = "menu" // 🆕 sin selector propio → menú
                                 viewModel.startGauntletRoundRobin()
                             },
                             onGauntletArcade = {
                                 viewModel.stopAudioShowcase()
                                 sfMenu = false
+                                lastLaunchedMode = "menu"
                                 viewModel.startGauntletArcade()
                             },
                             onGauntletShowcase = {
                                 viewModel.stopAudioShowcase()
                                 sfMenu = false
+                                lastLaunchedMode = "menu"
                                 viewModel.startShowcase()
                             },
                             onAudioShowcaseStop = viewModel::stopAudioShowcase,
@@ -797,6 +993,7 @@ fun StreetFighterScreen(
                         arcadeSetup && difficulty == null -> ArcadeDifficultyOverlay(
                             onSelect = { d ->
                                 val p = fighter ?: return@ArcadeDifficultyOverlay
+                                lastLaunchedMode = "arcade" // 🆕 volver = selector de Arcade
                                 viewModel.startArcade(p, d)
                                 pendingFighter = null
                                 pendingDifficulty = null
@@ -834,6 +1031,7 @@ fun StreetFighterScreen(
                                     chosenBgFile = pool.randomOrNull()
                                         ?: theme.fullBackgrounds.firstOrNull()?.file
                                 }
+                                lastLaunchedMode = "aivsai" // 🆕 volver = selector de IA vs IA
                                 viewModel.startAiVsAi(a, b)
                                 pendingFighter = null
                                 pendingRival = null
@@ -881,6 +1079,7 @@ fun StreetFighterScreen(
                                 chosenBgFile = file
                                     ?: pool.randomOrNull()
                                     ?: theme.fullBackgrounds.firstOrNull()?.file
+                                lastLaunchedMode = "practice" // 🆕 volver = selector de práctica
                                 viewModel.selectCharacter(fighter, rival, difficulty)
                             },
                             onBack = { pendingFighter = null; pendingRival = null; pendingDifficulty = null },
@@ -1108,14 +1307,27 @@ fun StreetFighterScreen(
                         fontWeight = FontWeight.Black,
                         letterSpacing = 4.sp,
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = stringResource(R.string.sf_controls_help),
-                        color = Color.White.copy(alpha = 0.82f),
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center,
+                    // 🆕 (2026-07-22) En vez de los controles (desactualizados): logo + título.
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Image(
+                        painter = painterResource(id = R.drawable.logo_pow),
+                        contentDescription = null,
+                        modifier = Modifier.size(128.dp),
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Huelum vs. Goya",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "Politécnico Open World",
+                        color = Color.White.copy(alpha = 0.75f),
+                        fontSize = 12.sp,
+                        letterSpacing = 2.sp,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
                     PowButton(text = stringResource(R.string.sf_continue), onClick = viewModel::togglePause)
                 }
             }
@@ -1258,6 +1470,7 @@ private fun SfModeMenuOverlay(
     onArcade: () -> Unit,
     onPractice: () -> Unit,
     onAiVsAi: () -> Unit,
+    onCombos: () -> Unit, // 🆕 (2026-07-21) hoja de combos + tutorial interactivo
     onMultiplayer: () -> Unit,
     onGauntletAll: () -> Unit,
     onGauntletArcade: () -> Unit,
@@ -1308,6 +1521,22 @@ private fun SfModeMenuOverlay(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = stringResource(R.string.sf_mode_ai_vs_ai_desc),
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+            )
+            // 🆕 (2026-07-21) HOJA DE COMBOS + TUTORIAL interactivo. Visible SIEMPRE (no es
+            // una herramienta de QA: es como se aprende a jugar el modo).
+            Spacer(modifier = Modifier.height(10.dp))
+            PowButton(
+                text = stringResource(R.string.sf_mode_combos),
+                onClick = onCombos,
+                color = Color(0xFF1C6B4A),
+                modifier = Modifier.fillMaxWidth(0.68f),
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.sf_mode_combos_desc),
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
@@ -2452,6 +2681,8 @@ private fun FighterXboxButtons(
     onKick: () -> Unit,
     bonusPowerCount: Int,
     onBonusPower: () -> Unit,
+    // 🆕 (2026-07-22) TUTORIAL: letra del botón que TOCA presionar (brilla/pulsa) o null.
+    highlight: String? = null,
 ) {
     Box(
         modifier = modifier
@@ -2462,24 +2693,32 @@ private fun FighterXboxButtons(
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             // Y arriba — PUÑO MEDIO (amarillo)
-            ActionButton(text = "Y", color = Color(0xFFF1C40F), onHoldEvent = { pressed ->
-                if (pressed) onPunch(SfAttackStrength.MEDIUM)
-            })
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // X izquierda — PUÑO LIGERO (azul)
-                ActionButton(text = "X", color = Color(0xFF3498DB), onHoldEvent = { pressed ->
-                    if (pressed) onPunch(SfAttackStrength.LIGHT)
-                })
-                Spacer(modifier = Modifier.size(48.dp))
-                // B derecha — PUÑO FUERTE (rojo)
-                ActionButton(text = "B", color = Color(0xFFE74C3C), onHoldEvent = { pressed ->
-                    if (pressed) onPunch(SfAttackStrength.HEAVY)
+            SfTutorialButtonGlow(active = highlight == "Y") {
+                ActionButton(text = "Y", color = Color(0xFFF1C40F), onHoldEvent = { pressed ->
+                    if (pressed) onPunch(SfAttackStrength.MEDIUM)
                 })
             }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // X izquierda — PUÑO LIGERO (azul)
+                SfTutorialButtonGlow(active = highlight == "X") {
+                    ActionButton(text = "X", color = Color(0xFF3498DB), onHoldEvent = { pressed ->
+                        if (pressed) onPunch(SfAttackStrength.LIGHT)
+                    })
+                }
+                Spacer(modifier = Modifier.size(48.dp))
+                // B derecha — PUÑO FUERTE (rojo)
+                SfTutorialButtonGlow(active = highlight == "B") {
+                    ActionButton(text = "B", color = Color(0xFFE74C3C), onHoldEvent = { pressed ->
+                        if (pressed) onPunch(SfAttackStrength.HEAVY)
+                    })
+                }
+            }
             // A abajo — PATADA (verde; fuerza según joystick: neutro/adelante/atrás)
-            ActionButton(text = "A", color = Color(0xFF2ECC71), onHoldEvent = { pressed ->
-                if (pressed) onKick()
-            })
+            SfTutorialButtonGlow(active = highlight == "A") {
+                ActionButton(text = "A", color = Color(0xFF2ECC71), onHoldEvent = { pressed ->
+                    if (pressed) onKick()
+                })
+            }
         }
         if (bonusPowerCount > 0) {
             // Centro del diamante: recorre P1..PN. El siguiente toque avanza al poder
@@ -2491,10 +2730,205 @@ private fun FighterXboxButtons(
     }
 }
 
+/**
+ * 🆕 (2026-07-22) RESALTADO del botón que pide el paso ACTUAL del tutorial: pulsa de tamaño
+ * y lleva un aro amarillo. Con active=false es transparente (no cambia el layout del botón).
+ */
+@Composable
+private fun SfTutorialButtonGlow(active: Boolean, content: @Composable () -> Unit) {
+    if (!active) {
+        content()
+        return
+    }
+    val pulse by rememberInfiniteTransition(label = "sfTutorialPulse").animateFloat(
+        initialValue = 0.92f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(tween(340), RepeatMode.Reverse),
+        label = "sfTutorialPulseF",
+    )
+    Box(
+        modifier = Modifier
+            .graphicsLayer { scaleX = pulse; scaleY = pulse }
+            .border(3.dp, Color(0xFFFFF176), CircleShape),
+        contentAlignment = Alignment.Center,
+    ) { content() }
+}
+
+/**
+ * 🆕 (2026-07-22) Botón físico que corresponde a la etiqueta de un paso del tutorial
+ * (mismo truco de substring que chipColor en SfTutorialOverlay). null = va con el joystick.
+ */
+private fun sfButtonForLabel(label: String): String? = when {
+    label.contains("FATALITY") || label.contains("SÚPER") -> "R2"
+    label.contains("PARRY") -> "L1"
+    label.contains("AGARRE") -> "R1"
+    label.contains("BURLA") -> "L2"
+    label.contains("PUÑO LIGERO") -> "X"
+    label.contains("PUÑO MEDIO") -> "Y"
+    label.contains("PUÑO FUERTE") -> "B"
+    label.contains("PUÑO") -> "X" // ↓ + puño / puño en el aire / especial (remate con puño)
+    label.contains("PATADA") -> "A"
+    else -> null
+}
+
+/**
+ * 🆕 (2026-07-22) Gesto de JOYSTICK del paso del tutorial (para EXPLICAR el combo, no solo el
+ * botón). null = el paso no lleva joystick. Se deduce de la etiqueta (que ya trae las flechas).
+ */
+private fun sfJoystickHintForLabel(label: String): String? {
+    // Gestos completos primero.
+    when {
+        label.contains("↓ ↘ →") -> return "↓ ↘ →"                            // especial (hadouken)
+        label.contains("DOBLE TOQUE →") -> return "→ →"                        // dash
+        label.contains("DOBLE TOQUE ←") -> return "← ←"                        // backdash
+        label.contains("SOSTÉN →") || label.contains("CORRE") -> return "→ →"  // correr / fatality
+        label.contains("SALTA") || label.contains("SALTAR") -> return "↑"
+    }
+    val down = label.contains("↓")
+    // Dirección horizontal: la EXPLÍCITA de la etiqueta manda. Si no hay flecha, la fuerza de la
+    // PATADA la da el joystick (fuerte = ATRÁS ←, media = ADELANTE →), porque el botón es uno solo
+    // → así la BARRIDA (↓ + patada fuerte) se muestra como ↓ ← y no como un simple ↓.
+    val horiz = when {
+        label.contains("→") -> "→"
+        label.contains("←") || label.contains("ATRÁS") -> "←"
+        label.contains("PATADA FUERTE") -> "←"
+        label.contains("PATADA MEDIA") -> "→"
+        else -> null
+    }
+    return when {
+        down && horiz != null -> "↓ $horiz"
+        down -> "↓"
+        label.contains("↑") -> "↑"
+        else -> horiz
+    }
+}
+
+/**
+ * 🆕 (2026-07-22) Indicador de JOYSTICK del tutorial: la dirección/gesto a marcar, en una burbuja
+ * que pulsa, encima del joystick, para que se sepa QUÉ mover (p.ej. la Barrida = ↓ + patada).
+ */
+@Composable
+private fun SfJoystickHint(text: String, modifier: Modifier = Modifier) {
+    val pulse by rememberInfiniteTransition(label = "sfJoyHint").animateFloat(
+        initialValue = 0.86f,
+        targetValue = 1.14f,
+        animationSpec = infiniteRepeatable(tween(520), RepeatMode.Reverse),
+        label = "sfJoyHintF",
+    )
+    Row(
+        modifier = modifier
+            .graphicsLayer { scaleX = pulse; scaleY = pulse }
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xE6152A4A))
+            .border(2.dp, Color(0xFF5B6ACD), RoundedCornerShape(10.dp))
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = "🕹 ", fontSize = 14.sp)
+        Text(
+            text = text,
+            color = Color.White,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 2.sp,
+        )
+    }
+}
+
+// ------------------------------------------------------------------
+// 🆕 (2026-07-22) MOVESET 3rd Strike como GATILLOS neón (rediseño "Alt 1 · Neón Arcade" del
+// dueño): IZQUIERDA L1 Parry · L2 Burla; DERECHA R1 Agarre · R2 Súper. El diamante Y/X/B/A no
+// cambia. La SÚPER solo se ve encendida con el medidor lleno.
+//
+// 🎨 RESERVA DE PALETA (NO borrar — para expansión futura, "Alt 3 · Gema/Elementos"):
+//   Esmeralda #2D6A4F (borde #1B4332) · Rubí #9B2226 (borde #641220)
+//   Zafiro    #003566 (borde #001D3D) · Amatista #5A189A (borde #3C096C)
+// ------------------------------------------------------------------
+
+@Composable
+private fun FighterShoulderButtons(
+    modifier: Modifier = Modifier,
+    isLeft: Boolean,
+    superReady: Boolean,
+    onParry: () -> Unit,
+    onGrab: () -> Unit,
+    onTaunt: () -> Unit,
+    onSuper: () -> Unit,
+    // 🆕 (2026-07-22) TUTORIAL: letra del botón que TOCA presionar (brilla/pulsa) o null.
+    highlight: String? = null,
+) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        if (isLeft) {
+            // L1 · Parry (cian neón): desvía el golpe si se aprieta a tiempo
+            SfNeonButton("L1", Color(0xFF00F2FE), Color(0xFF00ADB5), highlight == "L1", onParry)
+            Spacer(modifier = Modifier.size(6.dp))
+            // L2 · Burla (rosa neón, sin efecto en combate)
+            SfNeonButton("L2", Color(0xFFFF007F), Color(0xFFC5005E), highlight == "L2", onTaunt)
+        } else {
+            // R1 · Agarre (violeta neón): lanza al rival pegado, atraviesa la guardia
+            SfNeonButton("R1", Color(0xFF7928CA), Color(0xFF56149F), highlight == "R1", onGrab)
+            Spacer(modifier = Modifier.size(6.dp))
+            // R2 · Súper (naranja neón; apagado si el medidor no está lleno)
+            SfNeonButton(
+                label = "R2",
+                fill = if (superReady) Color(0xFFFF7B00) else Color(0xFF555555),
+                border = if (superReady) Color(0xFFC85A00) else Color(0xFF3A3A3A),
+                highlighted = highlight == "R2",
+                onPress = onSuper,
+            )
+        }
+    }
+}
+
+/** Botón SF con relleno neón + aro de borde, reutilizando ActionButton (hold + feedback). */
+@Composable
+private fun SfNeonButton(
+    label: String,
+    fill: Color,
+    border: Color,
+    highlighted: Boolean,
+    onPress: () -> Unit,
+) {
+    SfTutorialButtonGlow(active = highlighted) {
+        Box(
+            modifier = Modifier.border(2.dp, border, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            ActionButton(text = label, color = fill, onHoldEvent = { pressed -> if (pressed) onPress() })
+        }
+    }
+}
+
 // ------------------------------------------------------------------
 // Render de la escena (mundo virtual 382x224 con letterbox "contain").
 // Todos los recortes/posiciones salen del SfTheme.
 // ------------------------------------------------------------------
+
+/**
+ * 🆕 (2026-07-21) Arte PRESTADA para el placeholder ALPHA: hoja del estudiante del mismo
+ * género que se usa cuando al peleador le falta la hoja de un movimiento nuevo.
+ */
+private class AlphaFallback(
+    val data: SfFighterData,
+    val sheetKey: String,
+    val bitmap: ImageBitmap?,
+    /** 🆕 (2026-07-22) Submuestreo PROPIO del atlas ALPHA (silueta → media res gratis). */
+    val sheetScale: Float = 1f,
+)
+
+/**
+ * 🆕 (2026-07-22, Bloque B) Assets PESADOS de una pelea, decodificados en Dispatchers.IO
+ * bajo el overlay CARGANDO: atlas por identidad (incluye ambas caras de una metamorfosis),
+ * placeholder ALPHA y alturas de contenido opaco por identidad (vacío en gama baja).
+ */
+private class SfFightAssets(
+    val sheets: Map<String, ImageBitmap>,
+    val alpha: AlphaFallback?,
+    val contentH: Map<SfFighterId, Map<String, Int>>,
+)
+
+/** Rótulo del placeholder (fuente arcade del HUD: solo A-Z y 0-9). */
+private const val ALPHA_TAG = "ALPHA"
 
 private class SceneCtx(
     val scale: Float,
@@ -2513,11 +2947,15 @@ private fun DrawScope.drawScene(
     bg: SfStageBackground?,
     roundBannerText: String,
     fightBannerText: String,
+    comboHitsLabel: String,
     showHitboxes: Boolean = false,
     playerContentH: Map<String, Int> = emptyMap(),
     cpuContentH: Map<String, Int> = emptyMap(),
     bgFile: String? = null,
     playerSilhouette: Boolean = false,
+    alphaFallback: AlphaFallback? = null,
+    // 🆕 (2026-07-21) Submuestreo de los atlas de peleador en gama baja (1f = completo).
+    sheetScale: Float = 1f,
 ) {
     val framing = framingForBg(bgFile) // 🆕 zoom/anclaje por escenario (Facultad de Medicina…)
     val scale = minOf(size.width / SfConstants.SCENE_WIDTH, size.height / SfConstants.SCENE_HEIGHT)
@@ -2573,8 +3011,52 @@ private fun DrawScope.drawScene(
     drawShadow(ctx, theme, images.getValue(theme.shadowImage), state.cpu, bgFile)
 
     // ---- Peleadores (sheet según el personaje del snapshot) ----
-    drawFighter(ctx, images, playerData, state.player, t, showHitboxes, playerContentH, silhouette = playerSilhouette)
-    drawFighter(ctx, images, cpuData, state.cpu, t, showHitboxes, cpuContentH, silhouette = false)
+    // 🆕 (2026-07-21) PLACEHOLDER ALPHA: si al peleador le falta la hoja del movimiento en
+    // curso, se dibuja con el arte del estudiante de su género en SILUETA NEGRA PIXELADA y
+    // con el rótulo "ALPHA" encima (mismo lenguaje visual que los personajes bloqueados).
+    listOf(
+        Triple(state.player, playerData, playerContentH),
+        Triple(state.cpu, cpuData, cpuContentH),
+    ).forEachIndexed { side, (fighter, data, contentH) ->
+        val alpha = alphaFallback?.takeIf { data.animations[fighter.state.jsKey].isNullOrEmpty() }
+        if (alpha != null && alpha.bitmap != null) {
+            drawFighter(
+                ctx, images + (alpha.sheetKey to alpha.bitmap), alpha.data, fighter, t,
+                showHitboxes, emptyMap(), silhouette = true, sheetKeyOverride = alpha.sheetKey,
+                // ⚠️ El atlas ALPHA lleva SU propio submuestreo (no el global).
+                sheetScale = alpha.sheetScale,
+            )
+            val hud = images.getValue(theme.hudImage)
+            val w = ALPHA_TAG.length * 12f * 0.7f
+            drawFontText(
+                ctx, theme, hud, ALPHA_TAG,
+                fighter.x - ctx.camX - w / 2f, fighter.y - ctx.camY - 118f, 0.7f,
+            )
+        } else {
+            drawFighter(
+                ctx, images, data, fighter, t, showHitboxes, contentH,
+                silhouette = side == 0 && playerSilhouette,
+                sheetScale = sheetScale,
+            )
+        }
+    }
+
+    // ---- 🆕 (2026-07-22) MAREO: estrellitas PROCEDURALES orbitando la cabeza ----
+    // No hay sprite de estrellas: se dibujan en Canvas (círculos dorados + destello blanco)
+    // sobre la pose stun-3. Órbita elíptica ~1.6 s/vuelta, 3 estrellas desfasadas 120°.
+    listOf(state.player, state.cpu).forEach { f ->
+        if (f.state != SfFighterState.STUN) return@forEach
+        val headY = f.y - 104f
+        for (i in 0 until 3) {
+            val ang = t / 260f + i * 2.0944f // 2π/3 de desfase entre estrellas
+            val sx = f.x + kotlin.math.cos(ang) * 16f
+            val sy = headY + kotlin.math.sin(ang) * 5f
+            val cxPx = ctx.ox + (sx - ctx.camX) * ctx.scale
+            val cyPx = ctx.oy + (sy - ctx.camY) * ctx.scale
+            drawCircle(color = Color(0xFFFFD700), radius = 2.4f * ctx.scale, center = Offset(cxPx, cyPx))
+            drawCircle(color = Color(0xFFFFFDE7), radius = 1f * ctx.scale, center = Offset(cxPx, cyPx))
+        }
+    }
 
     // ---- Proyectiles especiales ----
     // Si el DUEÑO del proyectil trae sus propios frames "proj-*" en su JSON (Prankedy:
@@ -2584,8 +3066,19 @@ private fun DrawScope.drawScene(
         val owner = if (fb.ownerIndex == 0) state.player else state.cpu
         val ownerData = if (fb.ownerIndex == 0) playerData else cpuData
         val ownerSheet = images[owner.id.spriteAsset.substringAfterLast('/')]
-        if (ownerSheet != null && ownerData.frames.containsKey("proj-fly-1")) {
-            val key = if (fb.state == SfFireballState.ACTIVE) {
+        // 🆕 (2026-07-21) PODERES DE PROYECTIL con efecto PROPIO: si el fireball viene de un
+        // bonus power cuya hoja trae sus 3 cuadros de efecto (bonus-N-2 vuelo, -3 vuelo/impacto,
+        // -4 disipación), se dibujan ESOS. Si no existen, cae a los proj-* compartidos.
+        val bonusFly = "bonus-${fb.bonusPower}-2"
+        val useBonusFx = fb.bonusPower > 0 && ownerData.frames.containsKey(bonusFly)
+        if (ownerSheet != null && (useBonusFx || ownerData.frames.containsKey("proj-fly-1"))) {
+            val key = if (useBonusFx) {
+                if (fb.state == SfFireballState.ACTIVE) {
+                    if (fb.animationFrame % 2 == 0) bonusFly else "bonus-${fb.bonusPower}-3"
+                } else {
+                    "bonus-${fb.bonusPower}-${(fb.animationFrame + 3).coerceIn(3, 4)}"
+                }
+            } else if (fb.state == SfFireballState.ACTIVE) {
                 if (fb.animationFrame % 2 == 0) "proj-fly-1" else "proj-fly-2"
             } else {
                 "proj-hit-${(fb.animationFrame + 1).coerceIn(1, 3)}"
@@ -2594,7 +3087,7 @@ private fun DrawScope.drawScene(
                 val effectScale = ownerData.projectileEvents[fb.strength]?.visualScale ?: 1f
                 drawSpriteAnchored(
                     ctx, ownerSheet, fd.src, fd.origin, fb.x, fb.y, fb.direction,
-                    spriteScale = effectScale,
+                    spriteScale = effectScale, sheetScale = sheetScale,
                 )
             }
         }
@@ -2630,13 +3123,85 @@ private fun DrawScope.drawScene(
         }
     }
 
+    // ---- 🆕 (2026-07-21) MEDIDOR DE SÚPER (3rd Strike): barra bajo cada nombre ----
+    // Solo se pinta si el peleador tiene el moveset nuevo (si no, nunca carga y estorbaría).
+    listOf(0 to state.player, 1 to state.cpu).forEach { (side, fighter) ->
+        val data = if (side == 0) playerData else cpuData
+        if (data.animations["superArt"].isNullOrEmpty()) return@forEach
+        val frac = (fighter.superMeter / SfConstants.SUPER_METER_MAX.toFloat()).coerceIn(0f, 1f)
+        val w = 96f
+        val x = if (side == 0) 32f else SfConstants.SCENE_WIDTH - 32f - w
+        val y = 44f
+        val full = frac >= 1f
+        // 🆕 (2026-07-22) BRILLO al llenarse: halo dorado + pulso del relleno (~8 Hz).
+        if (full) {
+            drawRect(
+                color = Color(0x66FFD700),
+                topLeft = Offset(ctx.ox + (x - 2f) * ctx.scale, ctx.oy + (y - 2f) * ctx.scale),
+                size = Size((w + 4f) * ctx.scale, 9f * ctx.scale),
+            )
+        }
+        drawRect( // marco
+            color = Color(0xFF202020),
+            topLeft = Offset(ctx.ox + x * ctx.scale, ctx.oy + y * ctx.scale),
+            size = Size(w * ctx.scale, 5f * ctx.scale),
+        )
+        drawRect( // relleno (dorado PULSANTE al llenarse = súper lista)
+            color = when {
+                !full -> Color(0xFF3AA6FF)
+                (t / 120) % 2 == 0L -> Color(0xFFFFD700)
+                else -> Color(0xFFFFF59D)
+            },
+            topLeft = Offset(ctx.ox + (x + 1f) * ctx.scale, ctx.oy + (y + 1f) * ctx.scale),
+            size = Size((w - 2f) * frac * ctx.scale, 3f * ctx.scale),
+        )
+        // 🆕 (2026-07-22) BARRA DE MAREO: debajo de la de súper, solo si hay mareo activo
+        // (naranja→roja al acercarse al stun). El estado STUN la pinta llena y roja.
+        val dFrac = (fighter.dizzyMeter / SfConstants.DIZZY_METER_MAX.toFloat()).coerceIn(0f, 1f)
+        val stunned = fighter.state == SfFighterState.STUN
+        if (dFrac > 0f || stunned) {
+            val dy = y + 7f
+            drawRect(
+                color = Color(0xFF202020),
+                topLeft = Offset(ctx.ox + x * ctx.scale, ctx.oy + dy * ctx.scale),
+                size = Size(w * ctx.scale, 4f * ctx.scale),
+            )
+            drawRect(
+                color = if (stunned || dFrac >= 0.8f) Color(0xFFE53935) else Color(0xFFFF9800),
+                topLeft = Offset(ctx.ox + (x + 1f) * ctx.scale, ctx.oy + (dy + 1f) * ctx.scale),
+                size = Size((w - 2f) * (if (stunned) 1f else dFrac) * ctx.scale, 2f * ctx.scale),
+            )
+        }
+    }
+
+    // ---- 🆕 (2026-07-20) Contador de COMBO (3rd Strike): "N GOLPES" del lado del atacante ----
+    // El VM llena/expira comboCount (>=2 = mostrar); aquí SOLO se pinta con sombra.
+    if (state.comboCount >= 2 && state.comboPlayerId in 0..1) {
+        val hud = images.getValue(theme.hudImage)
+        val comboText = "${state.comboCount} $comboHitsLabel"
+        val sizeMul = 1.2f
+        val tw = comboText.length * 12f * sizeMul
+        val x = if (state.comboPlayerId == 0) 16f else SfConstants.SCENE_WIDTH - tw - 16f
+        val y = 64f // debajo de las barras de vida, sin tapar a los peleadores
+        drawFontText(ctx, theme, hud, comboText, x + 1f, y + 1f, sizeMul) // sombra
+        drawFontText(ctx, theme, hud, comboText, x, y, sizeMul)
+    }
+
     // ---- 🆕 Banner de RONDA ("RONDA N" + "PELEA"), fuente arcade, input congelado ----
     if (state.showRoundIntro) {
         val hud = images.getValue(theme.hudImage)
         val rw = roundBannerText.length * 12f * 2f
-        drawFontText(ctx, theme, hud, roundBannerText, (SfConstants.SCENE_WIDTH - rw) / 2f, 76f, 2f)
-        val fw = fightBannerText.length * 12f * 1.2f
-        drawFontText(ctx, theme, hud, fightBannerText, (SfConstants.SCENE_WIDTH - fw) / 2f, 104f, 1.2f)
+        drawFontText(ctx, theme, hud, roundBannerText, (SfConstants.SCENE_WIDTH - rw) / 2f, 60f, 2f)
+        // 🆕 (2026-07-22) Cuenta 3-2-1 GRANDE; al llegar a 0 se muestra "PELEA".
+        val cd = state.roundIntroCountdown
+        if (cd > 0) {
+            val txt = cd.toString()
+            val cw = txt.length * 12f * 4f
+            drawFontText(ctx, theme, hud, txt, (SfConstants.SCENE_WIDTH - cw) / 2f, 92f, 4f)
+        } else {
+            val fw = fightBannerText.length * 12f * 1.8f
+            drawFontText(ctx, theme, hud, fightBannerText, (SfConstants.SCENE_WIDTH - fw) / 2f, 100f, 1.8f)
+        }
     }
 
     // ---- 🆕 Subtítulo del special (frase del personaje, fuente arcade POW, pequeño) ----
@@ -2646,30 +3211,41 @@ private fun DrawScope.drawScene(
         state.gameTimeMs < state.specialSubtitleUntilMs
     ) {
         val hud = images.getValue(theme.hudImage)
-        // 🆕 (2026-07-18q) Subtítulo MULTILÍNEA (máx 3) + fuente MENOR, anclado abajo, para que
-        // las frases largas (policías) no se salgan de pantalla. Word-wrap a ~24 chars/línea.
         val sizeMul = 0.6f
         val maxChars = 24
-        val words = sub.split(' ').filter { it.isNotBlank() }
-        val lines = ArrayList<String>(3)
-        val cur = StringBuilder()
-        for (w in words) {
-            when {
-                cur.isEmpty() -> cur.append(w)
-                cur.length + 1 + w.length <= maxChars -> cur.append(' ').append(w)
-                else -> { lines.add(cur.toString()); cur.setLength(0); cur.append(w) }
+        val maxLines = 3
+        // 🆕 (2026-07-22) UN tramo '|' A LA VEZ, sincronizado con la voz: la ventana
+        // [start,until] se reparte por igual entre los tramos y se pinta el tramo ACTUAL
+        // (envuelto a ~24 chars si es largo). Ya NO se muestran todos a la vez.
+        val segments = sub.split('|').filter { it.isNotBlank() }
+        if (segments.isNotEmpty()) {
+            val start = state.specialSubtitleStartMs
+            val total = (state.specialSubtitleUntilMs - start).coerceAtLeast(1L)
+            val elapsed = (state.gameTimeMs - start).coerceIn(0L, total - 1L)
+            val segIndex = (elapsed * segments.size / total).toInt().coerceIn(0, segments.lastIndex)
+            val words = segments[segIndex].split(' ').filter { it.isNotBlank() }
+            val lines = ArrayList<String>(maxLines)
+            val cur = StringBuilder()
+            for (w in words) {
+                when {
+                    cur.isEmpty() -> cur.append(w)
+                    cur.length + 1 + w.length <= maxChars -> cur.append(' ').append(w)
+                    else -> {
+                        lines.add(cur.toString()); cur.setLength(0); cur.append(w)
+                        if (lines.size >= maxLines) break
+                    }
+                }
             }
-            if (lines.size >= 3) break
-        }
-        if (cur.isNotEmpty() && lines.size < 3) lines.add(cur.toString())
-        val lineH = 12f * sizeMul + 3f
-        val bottomBaseline = SfConstants.SCENE_HEIGHT - 10f
-        lines.reversed().forEachIndexed { i, ln ->
-            val w = ln.length * 12f * sizeMul
-            val x = (SfConstants.SCENE_WIDTH - w) / 2f
-            val y = bottomBaseline - i * lineH - 12f * sizeMul
-            drawFontText(ctx, theme, hud, ln, x + 1f, y + 1f, sizeMul) // sombra
-            drawFontText(ctx, theme, hud, ln, x, y, sizeMul)
+            if (cur.isNotEmpty() && lines.size < maxLines) lines.add(cur.toString())
+            val lineH = 12f * sizeMul + 3f
+            val bottomBaseline = SfConstants.SCENE_HEIGHT - 18f // 🆕 (2026-07-22) subtítulo un poco más arriba
+            lines.reversed().forEachIndexed { i, ln ->
+                val w = ln.length * 12f * sizeMul
+                val x = (SfConstants.SCENE_WIDTH - w) / 2f
+                val y = bottomBaseline - i * lineH - 12f * sizeMul
+                drawFontText(ctx, theme, hud, ln, x + 1f, y + 1f, sizeMul) // sombra
+                drawFontText(ctx, theme, hud, ln, x, y, sizeMul)
+            }
         }
     }
 }
@@ -2817,8 +3393,10 @@ private fun SfLoadingOverlay(theme: SfTheme) {
                     val scale = minOf(size.width / SfConstants.SCENE_WIDTH, size.height / 40f)
                     val ctx = SceneCtx(scale, (size.width - SfConstants.SCENE_WIDTH * scale) / 2f, 0f, 0f, 0f)
                     val text = "CARGANDO"
+                    // 🆕 (2026-07-22) tw ya está en unidades de escena (12·sizeMul); centrar sin
+                    // dividir entre scale (ese /scale era el que lo descuadraba).
                     val tw = text.length * 12f * 2.2f
-                    drawFontText(ctx, theme, hud, text, (SfConstants.SCENE_WIDTH - tw / scale) / 2f, 8f, 2.2f)
+                    drawFontText(ctx, theme, hud, text, (SfConstants.SCENE_WIDTH - tw) / 2f, 8f, 2.2f)
                 }
             } else {
                 Text(
@@ -2937,6 +3515,10 @@ private fun DrawScope.drawSpriteAnchored(
     shakeX: Float = 0f,
     spriteScale: Float = 1f,   // parche de escala por-frame (p. ej. HURT de peleadores ALPHA)
     silhouette: Boolean = false,
+    // 🆕 (2026-07-21) 1f = atlas a resolución completa; 0.5f = atlas submuestreado en gama
+    // baja. SOLO afecta al RECORTE (las coordenadas del JSON son de la hoja original); el
+    // tamaño de DESTINO no cambia, así que el sprite se ve igual de grande, solo más suave.
+    sheetScale: Float = 1f,
 ) {
     val anchorSx = ctx.ox + (worldX - ctx.camX) * ctx.scale
     val anchorSy = ctx.oy + (worldY - ctx.camY) * ctx.scale
@@ -2948,8 +3530,11 @@ private fun DrawScope.drawSpriteAnchored(
     val draw: DrawScope.() -> Unit = {
         drawImage(
             image = image,
-            srcOffset = IntOffset(src[0], src[1]),
-            srcSize = IntSize(src[2], src[3]),
+            srcOffset = IntOffset((src[0] * sheetScale).toInt(), (src[1] * sheetScale).toInt()),
+            srcSize = IntSize(
+                (src[2] * sheetScale).toInt().coerceAtLeast(1),
+                (src[3] * sheetScale).toInt().coerceAtLeast(1),
+            ),
             dstOffset = IntOffset(dstX.toInt(), dstY.toInt()),
             dstSize = IntSize((src[2] * s).toInt(), (src[3] * s).toInt()),
             filterQuality = FilterQuality.None,
@@ -3035,9 +3620,14 @@ private fun DrawScope.drawFighter(
     showHitboxes: Boolean = false,
     contentHeights: Map<String, Int> = emptyMap(),
     silhouette: Boolean = false,
+    // 🆕 (2026-07-21) Placeholder ALPHA: dibuja con la hoja de OTRO peleador (el estudiante
+    // del mismo género) sin cambiar la identidad lógica del que pelea.
+    sheetKeyOverride: String? = null,
+    // 🆕 (2026-07-21) Submuestreo del atlas en gama baja (1f = completo, 0.5f = mitad).
+    sheetScale: Float = 1f,
 ) {
     // 🆕 Nunca “desaparecer”: si falta hoja/anim/frame, cae a IDLE-1 o al primer frame disponible.
-    val sheetKey = f.id.spriteAsset.substringAfterLast('/')
+    val sheetKey = sheetKeyOverride ?: f.id.spriteAsset.substringAfterLast('/')
     val sheet = images[sheetKey]
         ?: images.values.firstOrNull()
         ?: return
@@ -3077,6 +3667,7 @@ private fun DrawScope.drawFighter(
     drawSpriteAnchored(
         ctx, sheet, frame.src, origin, f.x, f.y, drawDirection,
         shakeX = shake, spriteScale = spriteScale, silhouette = silhouette,
+        sheetScale = sheetScale,
     )
 
     // 🆕 HITBOXES (Ajustes → "Mostrar hitboxes"): push/hurt/hit. También se reescalan

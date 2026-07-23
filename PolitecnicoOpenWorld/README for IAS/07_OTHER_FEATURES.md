@@ -581,9 +581,13 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
     peleador y frase española, y espera la duración real del OGG mediante
     `MediaMetadataRetriever`; detener libera los `MediaPlayer` activos.
   - **La Llorona:** la hoja 09 entregaba 14 HURT HEAD pegados como siete componentes; dos
-    `hit-face-*` contenían dos personajes. `maybe_split` usa ahora el paso horizontal esperado,
-    separa 14/14 y el pack elige cuatro poses completas. El validador rechaza un cuerpo HURT
-    anormalmente ancho. Resultado: 123 frames/30 animaciones y contrato croma OK.
+    `hit-face-*` contenían dos personajes. `maybe_split` usa ahora el paso horizontal esperado
+    y el pack elige cuatro poses completas. El validador rechaza un cuerpo HURT anormalmente
+    ancho. Resultado: 123 frames/30 animaciones y contrato croma OK.
+    ⚠️ **CORREGIDO el 2026-07-21f:** ese "separa 14/14" **nunca llegó a cumplirse**. La hoja
+    09 vieja seguía fundiendo las 14 poses en 8 blobs (uno de 478 px = 4 figuras en
+    `hit-face-1`) y el arreglo se revirtió. Se cerró de verdad regenerando la hoja: ver
+    §"La Llorona: cerrados los 3 recortes malos (2026-07-21f)" más abajo.
   - **Peso final:** AAB 438.52 MiB; `base` comprimido 459.16 MB; 40.84 MB de margen Play.
 - **🆕 Botón CONFIRMAR en el selector (2026-07-18h, Claude):** `CharacterSelectOverlay` ahora
   muestra un botón explícito para confirmar el peleador resaltado (antes solo el 2.º toque).
@@ -941,3 +945,79 @@ búsqueda de zonas BODY/LEGS en colisiones. La dificultad ajusta reacción/defen
 ligeros por peleador sesgan presión o poderes sin duplicar la IA. Hay memoria de tres ataques,
 cooldowns separados para especiales/poderes, defensa reactiva y escape anti-hit-stun. El auditor
 considera fallo cualquier estancamiento o ronda por tiempo y reporta los totales KO/timeout.
+
+### HUELUM VS. GOYA — 👻 La Llorona: cerrados los 3 recortes malos (2026-07-21f)
+
+Últimos defectos de arte que quedaban del roster, los tres de La Llorona. **Solo se
+re-recortaron las hojas 09 y 29**; los otros 17 peleadores no se tocaron.
+
+| Defecto | Causa real | Arreglo |
+|---|---|---|
+| `crouchTurn` invertido | **ESPEJO**, no recorte | `{"flipX": true}` en `crouch-turn-1/2/3` del `_frame_meta.json` de la staging |
+| `hit-face-1` con 4 figuras | hoja 09 con 14 poses SOLAPADAS → el slicer las fundía en 8 blobs (uno de 478 px) | hoja 09 regenerada (vieja en `.BAK.png`) + `SHEET_OVERRIDES` |
+| `super-4/5/6` | ya estaba bien en la staging | solo faltaba `pack_sf_character.py` |
+
+**`flipX` no necesitó Kotlin nuevo.** La cadena ya existía y es genérica:
+`_frame_meta.json` → `pack_sf_character.py:624` → `DATA/lallorona.json` →
+`SfFrameCatalog.kt:87` → `StreetFighterScreen.kt:3336` (`drawDirection = direction.opposite()`).
+La usan también Señor Tienda, Paramédico, Charro Negro y Prankedy. Revertir = borrar 3 claves.
+
+> ⚠️ **`SHEETS` lo comparten los 18 peleadores.** La hoja 09 regenerada de La Llorona trae la
+> fila HURT HEAD **bien separada pero con solo 3 poses** en vez de 14. Bajar el `14` global a
+> `3` habría roto la hoja 09 de los otros 17; dejarlo en 14 hacía que `maybe_split` **troceara
+> cada figura en rebanadas verticales** (`HURT HEAD 11/14`). Por eso se añadió
+> `SHEET_OVERRIDES = {("lallorona", 9): {"HURT HEAD": 3}}` — excepción por `(personaje, hoja)`.
+>
+> **Deuda asumida (decisión del dueño):** 3 poses para 4 cuadros ⇒ `pick()` repite el central
+> y **`hit-face-2` y `hit-face-3` son el mismo pixel** (rects distintos en el atlas, contenido
+> idéntico). Si algún día se regenera la hoja 09 con 4+ poses separadas, actualizar el
+> override y quitar la duplicación.
+
+**`super-7` (Tarea 2) NO es fallo de recorte.** Verificado en las hojas 29 fuente: en
+**ESCOMBOY** el artista dibujó ese cuadro como **efecto puro** (explosión sin personaje; el
+personaje vuelve en `super-8`), mientras que **Policía CDMX Hombre** (puño en alto, estallido
+azul) y **Rey Grupero** (brazos abiertos, estallido dorado) **sí llevan personaje**. Mismo
+caso que los `bonusPower` de La Presidenta: un cuadro de efecto puro es arte válido.
+
+Detalle completo: `DISENO_ARCADE_SF_POW.md` §2026-07-21f.
+
+### HUELUM VS. GOYA — 🎓 COMBOS data-driven + TUTORIAL interactivo (2026-07-21b)
+
+Catálogo en `assets/STREETFIGHTER/DATA/combos.json` (**23 básicos + 12 universales**
+— incluye `fatality`, `b_meter` (medidor) y `b_crouchchain` (cadena baja), 2026-07-22 —
++ 1 de firma por peleador) cargado por `features/streetfighter/data/SfCombos.kt`. La **IA** encola rutas y
+las ejecuta en orden (`queueCombo`/`nextComboInput`, filtradas por `canPerform` y por
+`cpuIntensity`); el **tutorial** valida cada paso con `stateForAction`. Ambos comparten
+`inputForAction` como única fuente de verdad de cómo se ejecuta cada movimiento.
+
+Entrada **"COMBOS Y TUTORIAL"** en `SfModeMenuOverlay` (siempre visible): elegir peleador
+desbloqueado → `SfComboSheetOverlay` (controles + recetas) → **PROBAR** →
+`SfTutorialOverlay` + campos `tutorial*` de `StreetFighterState`. Muñeco inerte, sin reloj
+y sin daño al muñeco. Detalle: `DISENO_ARCADE_SF_POW.md` §2026-07-21b.
+
+### HUELUM VS. GOYA — 🥊 MOVESET completo estilo 3rd Strike (2026-07-21)
+
+21 estados nuevos en `SfFighterState` (hojas 20-29), todos con guarda `hasAnim`: dash y
+backdash (doble toque), bloqueo alto/bajo con pose propia, **parry** alto/bajo (ventana
+260 ms: anula el golpe y castiga al atacante 320 ms), golpes agachado con cadena propia,
+antiaéreo, **barrida** (derriba → `THROWN`/`GET_UP`, invulnerable en el suelo), aéreos (uno
+por salto), **patada larga**, **overhead** (rompe guardia baja), **agarre→lanzamiento**
+(atraviesa el bloqueo), burla y **Super Art** con medidor (`SfFighter.superMeter`, barra en
+el HUD). La IA los usa vía `cpuNewMove`. 🆕 (2026-07-22b) **MAREO/STUN clásico**: `dizzyMeter`
+(sube al recibir, decae tras 1.5 s) → `SfFighterState.STUN` ~2 s con pose `stun-3` (anim
+"stun" SINTETIZADA en `SfFrameCatalog`), estrellitas procedurales y barra de mareo; el súper
+BRILLA al llenarse y decae lento si no conectas (lleno no decae). Todo en `applyMeterDecay`
+(VM), todos los modos; detalle en `SF/DISENO_ARCADE_SF_POW.md` §2026-07-22b. Si a un peleador le falta una hoja, el movimiento
+igual se juega con **placeholder ALPHA** (silueta del estudiante de su género + rótulo).
+Detalle y tabla de controles: `DISENO_ARCADE_SF_POW.md` §2026-07-21. Pipeline de los
+assets: `FLUJO_ASSETS_SF.md`.
+
+### HUELUM VS. GOYA — 🥊 COMBOS estilo 3rd Strike (2026-07-20)
+
+Primer corte del combate "SF original" (P1): **chain cancel** (golpe normal que CONECTA se
+cancela en el de mayor fuerza: ligero→medio→fuerte, puño o patada) y **special cancel**
+(golpe conectado → especial, con su cooldown). Gate único en `tryChainCancel` (VM): exige
+`attackStruck`, así que en whiff no hay cancel. **Contador "N GOLPES/HITS"** en el HUD
+(`comboCount`/`comboPlayerId` en `StreetFighterState`, string `sf_combo_hits` ES+EN, dibujo
+en `drawScene`) y **escalado de daño** −10%/golpe (piso 50%). Offline only (online el HP del
+rival es autoridad remota). Detalle y pendientes: `DISENO_ARCADE_SF_POW.md` §2026-07-20.
