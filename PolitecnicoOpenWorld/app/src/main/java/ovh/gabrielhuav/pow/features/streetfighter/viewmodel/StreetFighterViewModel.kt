@@ -23,6 +23,7 @@ import kotlinx.coroutines.yield
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_HURT_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BONUS_POWER_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BLOCK_STATES
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfDamage
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStateMachine
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_DOWNED_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_NEW_ATTACK_STATES
@@ -2278,12 +2279,7 @@ class StreetFighterViewModel @Inject constructor(
      * tanto offline como al avisar por RED (sendDamage), para que en línea peguen igual.
      */
     private fun damageForAttack(attacker: SfFighter, strength: SfAttackStrength): Int =
-        when (attacker.state) {
-            SfFighterState.SUPER_ART -> SfConstants.SUPER_ART_DAMAGE
-            SfFighterState.FATALITY -> SfConstants.FATALITY_DAMAGE
-            SfFighterState.GRAB -> SfConstants.THROW_DAMAGE
-            else -> strength.damage
-        }
+        SfDamage.forAttack(attacker.state, strength)
 
     /** 🆕 (2026-07-21) Suma al medidor de súper con tope en el máximo. */
     private fun chargeSuper(f: SfFighter, amount: Int): Int =
@@ -2464,10 +2460,7 @@ class StreetFighterViewModel @Inject constructor(
         val baseDamage = damageForAttack(attacker, strength)
         // 🆕 (2026-07-22) BLOQUEO estilo SF: los golpes NORMALES bloqueados NO hacen daño (antes
         // era /4 = "aún te pegaban mucho"); solo especial/súper/fatality hacen un chip pequeño.
-        val chipAttack = attacker.state in setOf(
-            SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM,
-            SfFighterState.SPECIAL_1_HEAVY, SfFighterState.SUPER_ART, SfFighterState.FATALITY,
-        )
+        val chipAttack = attacker.state in SfDamage.CHIP_ATTACK_STATES
         val damage = when {
             blocked && chipAttack -> maxOf(1, baseDamage / 6)
             blocked -> 0
