@@ -25,6 +25,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BONUS_POWER_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BLOCK_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfDamage
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStateMachine
+import ovh.gabrielhuav.pow.domain.models.streetfighter.sfUsableBonusPowerCount
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_DOWNED_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_NEW_ATTACK_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_NEW_MOVE_STATES
@@ -855,32 +856,8 @@ class StreetFighterViewModel @Inject constructor(
         const val ZONE_FORWARD = 3
     }
 
-    // Metadatos de los estados de ataque (tipo + fuerza), como el states{} del JS
-    private data class AttackMeta(val strength: SfAttackStrength, val type: SfAttackType)
-
-    private val attackMeta = mapOf(
-        SfFighterState.LIGHT_PUNCH to AttackMeta(SfAttackStrength.LIGHT, SfAttackType.PUNCH),
-        SfFighterState.MEDIUM_PUNCH to AttackMeta(SfAttackStrength.MEDIUM, SfAttackType.PUNCH),
-        SfFighterState.HEAVY_PUNCH to AttackMeta(SfAttackStrength.HEAVY, SfAttackType.PUNCH),
-        SfFighterState.LIGHT_KICK to AttackMeta(SfAttackStrength.LIGHT, SfAttackType.KICK),
-        SfFighterState.MEDIUM_KICK to AttackMeta(SfAttackStrength.MEDIUM, SfAttackType.KICK),
-        SfFighterState.HEAVY_KICK to AttackMeta(SfAttackStrength.HEAVY, SfAttackType.KICK),
-        SfFighterState.SPECIAL_1_LIGHT to AttackMeta(SfAttackStrength.LIGHT, SfAttackType.PUNCH),
-        SfFighterState.SPECIAL_1_MEDIUM to AttackMeta(SfAttackStrength.MEDIUM, SfAttackType.PUNCH),
-        SfFighterState.SPECIAL_1_HEAVY to AttackMeta(SfAttackStrength.HEAVY, SfAttackType.PUNCH),
-        // 🆕 (2026-07-21) Golpes del moveset 3rd Strike. La fuerza define daño/empuje/SFX.
-        SfFighterState.CROUCH_PUNCH to AttackMeta(SfAttackStrength.LIGHT, SfAttackType.PUNCH),
-        SfFighterState.CROUCH_KICK to AttackMeta(SfAttackStrength.LIGHT, SfAttackType.KICK),
-        SfFighterState.CROUCH_HEAVY_PUNCH to AttackMeta(SfAttackStrength.HEAVY, SfAttackType.PUNCH),
-        SfFighterState.SWEEP to AttackMeta(SfAttackStrength.HEAVY, SfAttackType.KICK),
-        SfFighterState.AIR_PUNCH to AttackMeta(SfAttackStrength.MEDIUM, SfAttackType.PUNCH),
-        SfFighterState.AIR_KICK to AttackMeta(SfAttackStrength.MEDIUM, SfAttackType.KICK),
-        SfFighterState.LONG_KICK to AttackMeta(SfAttackStrength.HEAVY, SfAttackType.KICK),
-        SfFighterState.OVERHEAD to AttackMeta(SfAttackStrength.MEDIUM, SfAttackType.PUNCH),
-        SfFighterState.GRAB to AttackMeta(SfAttackStrength.LIGHT, SfAttackType.PUNCH),
-        SfFighterState.SUPER_ART to AttackMeta(SfAttackStrength.HEAVY, SfAttackType.PUNCH),
-        SfFighterState.FATALITY to AttackMeta(SfAttackStrength.HEAVY, SfAttackType.PUNCH),
-    )
+    // 🆕 (2026-07-22, Fase 1) attackMeta (metadatos de ataque) extraido a SfDamage.ATTACK_META.
+    private val attackMeta = SfDamage.ATTACK_META
 
     // 🆕 (2026-07-22, Fase 1) La MAQUINA DE ESTADOS se extrajo a SfStateMachine (dato
     // PURO, testeable en JVM). Aqui quedan ALIAS para no tocar los ~40 usos internos de estas
@@ -2066,10 +2043,7 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     /** Poderes Grok “lanzables” (excluye metamorfosis P11 de La Presidenta). */
-    private fun usableBonusPowerCount(id: SfFighterId): Int = when (id) {
-        SfFighterId.LA_PRESIDENTA -> (id.bonusPowerCount - 1).coerceAtLeast(0) // 1..10
-        else -> id.bonusPowerCount
-    }
+    private fun usableBonusPowerCount(id: SfFighterId): Int = sfUsableBonusPowerCount(id)
 
     /**
      * Fin de BONUS_POWER_11 de La Presidenta: se convierte en Yoalli Ehécatl a 50% HP.

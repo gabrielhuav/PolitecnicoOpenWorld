@@ -41,6 +41,17 @@ class SfDamageTest {
     }
 
     @Test
+    fun `ATTACK_META da fuerza y tipo, y los no-ataques no estan`() {
+        assertEquals(SfAttackStrength.LIGHT, SfDamage.ATTACK_META.getValue(SfFighterState.LIGHT_PUNCH).strength)
+        assertEquals(SfAttackType.PUNCH, SfDamage.ATTACK_META.getValue(SfFighterState.LIGHT_PUNCH).type)
+        assertEquals(SfAttackStrength.HEAVY, SfDamage.ATTACK_META.getValue(SfFighterState.SWEEP).strength)
+        assertEquals(SfAttackType.KICK, SfDamage.ATTACK_META.getValue(SfFighterState.SWEEP).type)
+        assertFalse(SfFighterState.IDLE in SfDamage.ATTACK_META)
+        assertFalse(SfFighterState.WALK_FORWARD in SfDamage.ATTACK_META)
+        assertFalse(SfFighterState.STUN in SfDamage.ATTACK_META)
+    }
+
+    @Test
     fun `CHIP_ATTACK_STATES son especial, super y fatality (no los normales)`() {
         listOf(
             SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM,

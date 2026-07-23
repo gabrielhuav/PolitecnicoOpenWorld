@@ -429,6 +429,15 @@ fun sfBonusPowerState(index: Int): SfFighterState? = SF_BONUS_POWER_STATES.getOr
 fun SfFighterState.bonusPowerIndex(): Int? =
     SF_BONUS_POWER_STATES.indexOf(this).takeIf { it >= 0 }?.plus(1)
 
+/**
+ * 🆕 (2026-07-22, Fase 1 del refactor) Poderes bonus LANZABLES por el jugador. La Presidenta tiene
+ * 11 pero el P11 es SOLO la metamorfosis automática (no se elige), así que su usable = count-1.
+ */
+fun sfUsableBonusPowerCount(id: SfFighterId): Int = when (id) {
+    SfFighterId.LA_PRESIDENTA -> (id.bonusPowerCount - 1).coerceAtLeast(0)
+    else -> id.bonusPowerCount
+}
+
 /** Estados en los que un peleador PUEDE ser golpeado (FighterHurtStates del JS). */
 val SF_HURT_STATES: Set<SfFighterState> = setOf(
     SfFighterState.IDLE, SfFighterState.IDLE_TURN,
