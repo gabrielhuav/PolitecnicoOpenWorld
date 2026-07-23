@@ -53,7 +53,7 @@ jobs:
           tag_name: debug-latest
           name: "Latest Debug APK"
           body: |
-            POW 1.0.0.12 — Huelum vs. Goya
+            POW 1.0.0.13 — Huelum vs. Goya
 
             - Lanzamiento del modo Huelum vs. Goya.
             - Mejoras de jugabilidad y estabilidad en la campaña principal de POW.
@@ -132,7 +132,7 @@ jobs:
       - name: Guardar AAB firmado como artefacto
         uses: actions/upload-artifact@v7
         with:
-          name: app-release-1.0.0.12
+          name: app-release-1.0.0.13
           path: PolitecnicoOpenWorld/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14
@@ -147,11 +147,11 @@ jobs:
           # propio en Play Console, pon aquí ese nombre exacto.
           tracks: alpha
           status: completed
-          releaseName: "POW 1.0.0.12 — Huelum vs. Goya"
+          releaseName: "POW 1.0.0.13 — Huelum vs. Goya"
           whatsNewDirectory: distribution/whatsnew
       - name: Confirmar entrega manual solicitada
         if: ${{ contains(github.event.pull_request.labels.*.name, 'manual-play-upload') }}
-        run: echo "Subida automática omitida; usa el artefacto firmado app-release-1.0.0.12."
+        run: echo "Subida automática omitida; usa el artefacto firmado app-release-1.0.0.13."
       - name: Borrar keystore del runner
         if: always()
         run: rm -f "$GITHUB_WORKSPACE/PolitecnicoOpenWorld/app/release-keystore.jks"

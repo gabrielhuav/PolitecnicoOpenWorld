@@ -7,12 +7,17 @@
 > **Regla de oro:** si te quedas sin tokens a media tarea, actualiza ESTE archivo ANTES de
 > parar. Es lo único que garantiza que la siguiente IA continúe en vez de alucinar.
 
-**Última actualización:** 2026-07-22 (noche) · Fable 5 · rama `fix-audio-add-newFightAssets`
+**Última actualización:** 2026-07-22 (noche) · Fable 5 (grueso) + Opus 4.8 (cierre) · rama `fix-audio-add-newFightAssets`
 
 > ➡️ **AHORA:** Fase 1 del motor **AUDITADA ✅** (extracción idéntica, verificada como datos) y
 > Fase 2 **INICIADA** (2a `SfAnimation` + 2b `clampToStage`, +12 tests). ⚠️ **El dueño debe
 > Rebuild + `testDebugUnitTest` (esperados 47) + jugar los 6 modos** antes del siguiente
 > incremento (Fase 2c: empuje de pushboxes → SfPhysics; luego `SfEngine`, con compilador).
+>
+> ⚠️ **NOTA DE CRÉDITOS:** Fable 5 agotó su límite mensual a mitad de sesión (~+90 USD) y NO
+> alcanzó a cerrar. Opus 4.8 tomó el relevo, RE-auditó los cambios sin compilar que dejó Fable
+> (Fase 2a/2b) y confirmó que son espejos exactos y compile-safe (símbolos resueltos, sin dupes).
+> Ninguno de los dos pudo compilar (sandbox sin SDK): **la validación real la hace el dueño.**
 
 ## 🖥️ Rutas por PC (para la mudanza laptop ↔ escritorio)
 
@@ -91,6 +96,36 @@ verifica que salió bien, y qué NO debe tocar. Sin eso, cualquier IA improvisa.
    después el esqueleto `SfEngine` y la Fase 3 (modos como estrategia) — esas dos EXIGEN
    sesión con compilador (tocan audio/red/StateFlow) o incrementos con Rebuild del dueño
    entre cada uno.
+
+### ❓ ¿Está COMPLETA la separación del motor? ¿Se puede lanzar a producción? (medido 2026-07-22 noche)
+
+**Separación del motor: NO está completa.** Medido, no supuesto:
+- `SfEngine` / `SfGameMode` **NO existen** todavía.
+- `StreetFighterViewModel.kt` sigue en **5 643 líneas**.
+- Las **7 banderas de modo se consultan ~142 veces** en el VM (showcase 23, online 62,
+  gauntlet 18, audioShowcase 15, aiVsAi 11, arcade 8, tutorial 5).
+- Las **10 funciones núcleo del tick** siguen privadas en el VM.
+- HECHO: Fase 1 (red de seguridad, auditada) + Fase 2a (`SfAnimation`) + 2b (`clampToStage`).
+- FALTA: el resto de Fase 2, **Fase 3 (modos como estrategia = la meta del dueño)**, 4 y 5.
+
+**PERO la separación NO bloquea producción.** Es un refactor INTERNO de mantenibilidad
+("añadir un modo = clase nueva en vez de tocar todo el archivo"), no de correctitud. El juego
+YA funciona: los 6 modos + gama baja están probados OK por el dueño. **Lo que lanza a
+producción es que el juego esté CORRECTO, no cómo esté organizado el código.**
+
+**Lo que SÍ bloquea el lanzamiento AHORA (checklist real, corto):**
+1. **Compilar + tests:** ni Fable ni Opus pudieron (sandbox sin SDK). El dueño: `.\gradlew.bat
+   compileDebugKotlin testDebugUnitTest` (esperados **47**) + detekt (baseline 5, sin
+   `--build-upon-default-config`).
+2. **Jugar los 6 modos** para confirmar (a) los cambios de esta tanda (stun, metamorfosis,
+   navegación, Llorona, intro) y (b) que la extracción 2a/2b NO cambió nada — el timing de
+   animación y el clamp del escenario tocan TODOS los modos.
+3. El `.aab` NO baja con el refactor (el peso son los atlas, 88.6 MB) — no esperar eso.
+
+**Recomendación:** se PUEDE lanzar con el motor en Fase 1 + 2-parcial una vez pase el
+Rebuild+playtest. Las fases restantes del motor son limpieza POST-lanzamiento, mejor hechas
+incrementalmente CON compilador a la mano (tocan audio/red/StateFlow). No condicionar el
+lanzamiento a ellas.
 
 ## 3b. Sesión anterior (2026-07-22 PM, Fable 5 — plan `PROMPT_FABLE5_stun_crash_optimizacion.md`)
 
