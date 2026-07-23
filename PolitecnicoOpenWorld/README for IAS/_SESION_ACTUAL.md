@@ -9,6 +9,10 @@
 
 **Última actualización:** 2026-07-22 · Opus 4.8 · rama `fix-audio-add-newFightAssets`
 
+> ➡️ **SIGUIENTE (Fable): `PROMPT_TRASPASO_FABLE.md`** — auditar la Fase 1 del motor y continuar.
+> Estado: **los 6 modos + gama baja PROBADOS OK** (jugable; no del todo optimizado, FPS sin medir →
+> Fase 4 no urgente). Motor SF Fase 1 (red de seguridad) HECHA: piezas puras + ~35 tests verdes.
+
 ## 🖥️ Rutas por PC (para la mudanza laptop ↔ escritorio)
 
 | PC | Raíz del PROYECTO (aquí están `gradlew.bat` y `tools/`) |
