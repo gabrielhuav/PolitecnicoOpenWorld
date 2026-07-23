@@ -530,12 +530,20 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
     bonus_keys = []
     bonus_power_count = 0
     power = 1
+    removed_powers = BONUS_REMOVED_POWERS.get(char_name, set())
+    fast_powers = BONUS_FAST_POWERS.get(char_name, {})
     while True:
         keys = [f"bonus-{power}-{i}" for i in range(1, 6)]
         present = [os.path.exists(frame_source_path(char_name, key, char_gen_dir, gen_root))
                    for key in keys]
         if all(present):
-            bonus_keys.extend(keys)
+            if power in removed_powers:
+                pass  # Poder retirado totalmente por ser de otro personaje (ej. Yoalli)
+            elif power in fast_powers:
+                valid_indices = fast_powers[power]
+                bonus_keys.extend([f"bonus-{power}-{i}" for i in valid_indices])
+            else:
+                bonus_keys.extend(keys)
             bonus_power_count = power
             power += 1
         elif any(present):
