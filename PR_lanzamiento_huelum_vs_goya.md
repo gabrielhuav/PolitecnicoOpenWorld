@@ -70,8 +70,12 @@ The **pure logic** was extracted from `StreetFighterViewModel` into `domain/mode
 - **Manual (owner, pending):** play the **6 modes** (Arcade, VS, AI vs AI, Showcase, Tutorial, Multiplayer) with the Release's debug APK. CI does not cover the playtest.
 
 ### Checklist before merging
-- [ ] PR Quality Gate green (compiles + 47 tests + detekt).
+- [ ] PR Quality Gate green (compiles + 47 tests + detekt — includes the 9 new-debt fixes from the engine refactor).
 - [ ] 6 modes played OK (focus: La Llorona, stun in multiplayer, metamorphosis R1/R2, policeman intro, navigation).
-- [ ] `versionName` bumped to `1.0.0.13` in `build.gradle.kts`, `android-release.yml` and both `whatsnew` files.
+
+### Versioning (now automated)
+- This release ships as **`1.0.0.13`** (single source: `build.gradle.kts`; the YAML/whatsnew read it, no more hardcoding).
+- After a real merge, the **`bump-version`** job auto-commits `1.0.0.14` back to `main`, then `15`, `16`… with no manual edits.
+- ⚠️ For the auto-bump to push, `main` must allow **github-actions** to push (if it's a protected branch, grant Actions a bypass in *Settings → Branches*; otherwise the bump job fails with 403 — the release still ships).
 
 > To skip the automatic Play upload and only get the signed AAB: add the **`manual-play-upload`** label to the PR.

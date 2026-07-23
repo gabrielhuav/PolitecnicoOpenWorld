@@ -127,6 +127,22 @@ Rebuild+playtest. Las fases restantes del motor son limpieza POST-lanzamiento, m
 incrementalmente CON compilador a la mano (tocan audio/red/StateFlow). No condicionar el
 lanzamiento a ellas.
 
+## 3a. Cierre de lanzamiento (2026-07-22 noche, Opus 4.8) — detekt + auto-versión
+
+- **Gate de detekt del PR falló con 9 issues NUEVOS del refactor** (no cubiertos por el
+  baseline). CORREGIDOS: (1) `SfConstants.STAGE_X_MIN/MAX` y sus alias en el companion del VM
+  → `const val` (MayBeConst, sin cascada); (2) 4 alias muertos en el VM borrados
+  (`specialValidFrom`, `neutralGround`, `crouchAttackValidFrom`, `airAttackValidFrom` — sus
+  sub-listas ya viven dentro de `SfStateMachine.VALID_FROM`); (3) `cpuNewMove` perdió 3 params
+  sin uso (`sim`, `selfIndex`, `now`) en firma y call site. Verificado: llaves 0, CRLF, 0
+  referencias muertas. **Falta que el dueño re-pushee para re-correr el gate.**
+- **versionName AUTOMATIZADO (14 → 15 → 16 solos):** el YAML de release ya NO hardcodea la
+  versión — la LEE de `build.gradle.kts` (fuente única) para el Release/artefacto/Play. Job
+  nuevo **`bump-version`** (solo en merge real): sube el patch +1 en `build.gradle.kts` +
+  whatsnew y lo commitea a `main` con `[skip ci]`. ⚠️ Si `main` es rama protegida, dar a
+  github-actions permiso de push (Settings → Branches) o el bump falla con 403.
+- YAML validado con parser (3 jobs OK). Este release = **1.0.0.13**.
+
 ## 3b. Sesión anterior (2026-07-22 PM, Fable 5 — plan `PROMPT_FABLE5_stun_crash_optimizacion.md`)
 
 *(La sesión AM del mismo día — subtítulos ON + track EN + lecciones — y el follow-up de Opus

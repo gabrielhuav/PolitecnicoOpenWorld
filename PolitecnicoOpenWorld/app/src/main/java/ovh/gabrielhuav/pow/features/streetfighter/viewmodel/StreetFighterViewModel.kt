@@ -839,9 +839,10 @@ class StreetFighterViewModel @Inject constructor(
         const val CPU_MELEE_DIST = 105f
         const val CPU_MID_DIST = 175f
         // 🆕 (2026-07-22, Fase 2b) Límites del escenario extraídos a SfConstants (los usa
-        // SfPhysics.clampToStage). Alias para no tocar los usos internos del VM.
-        val STAGE_X_MIN = SfConstants.STAGE_X_MIN
-        val STAGE_X_MAX = SfConstants.STAGE_X_MAX
+        // SfPhysics.clampToStage). Alias `const` para no tocar los usos internos del VM
+        // (y evitar que detekt MayBeConst los marque tras volver const los de SfConstants).
+        const val STAGE_X_MIN = SfConstants.STAGE_X_MIN
+        const val STAGE_X_MAX = SfConstants.STAGE_X_MAX
         // 🆕 Interpolación del rival: tasa del lerp (≈rate*dt por tick) y distancia a partir
         // de la cual se SNAPEA (teleport/reset de ronda — no perseguirlo lerpeando)
         const val NET_LERP_RATE = 14f
@@ -861,14 +862,12 @@ class StreetFighterViewModel @Inject constructor(
     private val attackMeta = SfDamage.ATTACK_META
 
     // 🆕 (2026-07-22, Fase 1) La MAQUINA DE ESTADOS se extrajo a SfStateMachine (dato
-    // PURO, testeable en JVM). Aqui quedan ALIAS para no tocar los ~40 usos internos de estas
-    // tablas; el comportamiento no cambia (misma tabla validFrom).
+    // PURO, testeable en JVM). Aqui quedan ALIAS para no tocar los usos internos de estas
+    // tablas; el comportamiento no cambia (misma tabla validFrom). Solo se conservan los que
+    // el VM sigue usando: las sub-listas (special/neutral/crouch/air) ya viven DENTRO de
+    // SfStateMachine.VALID_FROM, así que sus alias quedaron muertos y se retiraron.
     private val knockdownStates = SfStateMachine.KNOCKDOWN_STATES
-    private val specialValidFrom = SfStateMachine.SPECIAL_VALID_FROM
     private val attackValidFrom = SfStateMachine.ATTACK_VALID_FROM
-    private val neutralGround = SfStateMachine.NEUTRAL_GROUND
-    private val crouchAttackValidFrom = SfStateMachine.CROUCH_ATTACK_VALID_FROM
-    private val airAttackValidFrom = SfStateMachine.AIR_ATTACK_VALID_FROM
     private val validFrom = SfStateMachine.VALID_FROM
 
     init {
@@ -3316,7 +3315,7 @@ class StreetFighterViewModel @Inject constructor(
         }
 
         // 🆕 (2026-07-21) La CPU usa el MOVESET nuevo cuando el peleador lo tiene.
-        cpuNewMove(sim, selfIndex, me, foe, dist, now, roll, nightmare)?.let { return it }
+        cpuNewMove(me, foe, dist, roll, nightmare)?.let { return it }
 
         // Anti-aéreo
         if (foe.isAirborne && dist < (if (nightmare) 170f else 145f)) {
@@ -3383,14 +3382,14 @@ class StreetFighterViewModel @Inject constructor(
      * castigo con barrida → agarre a quien se cubre mucho → overhead contra guardia
      * baja → patada larga a media distancia → parry defensivo → dash para cerrar hueco.
      */
-    @Suppress("ReturnCount", "LongParameterList")
+    // 🆕 (2026-07-22) Firma acotada a lo que usa: `sim`, `selfIndex` y `now` no se usaban aquí
+    // (detekt UnusedParameter). La decisión de la IA nueva depende solo de los peleadores,
+    // la distancia, el azar y la dificultad.
+    @Suppress("ReturnCount")
     private fun cpuNewMove(
-        sim: Sim,
-        selfIndex: Int,
         me: SfFighter,
         foe: SfFighter,
         dist: Float,
-        now: Long,
         roll: Float,
         nightmare: Boolean,
     ): SfInput? {

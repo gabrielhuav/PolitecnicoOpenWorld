@@ -41,6 +41,15 @@ jobs:
       - name: Create secrets.properties file
         run: |
           echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > PolitecnicoOpenWorld/secrets.properties
+      # 🆕 (2026-07-22) FUENTE ÚNICA de la versión: se LEE de build.gradle.kts (el mismo número
+      # que estampa el AAB) → ya no se hardcodea en el YAML. El job `bump-version` (abajo) la
+      # sube +1 tras cada release, así que 13 → 14 → 15… salen solos sin editar nada a mano.
+      - name: Leer versionName de build.gradle.kts
+        run: |
+          V=$(grep -oE 'versionName = "[0-9.]+"' PolitecnicoOpenWorld/app/build.gradle.kts \
+              | grep -oE '[0-9]+(\.[0-9]+)+')
+          echo "VERSION_NAME=$V" >> "$GITHUB_ENV"
+          echo "versionName leído: $V"
       - name: Build APK
         working-directory: ./PolitecnicoOpenWorld
         run: gradle :app:assembleDebug
@@ -53,7 +62,7 @@ jobs:
           tag_name: debug-latest
           name: "Latest Debug APK"
           body: |
-            POW 1.0.0.13 — Huelum vs. Goya
+            POW ${{ env.VERSION_NAME }} — Huelum vs. Goya
 
             - Lanzamiento del modo Huelum vs. Goya.
             - Mejoras de jugabilidad y estabilidad en la campaña principal de POW.
@@ -89,6 +98,14 @@ jobs:
       - name: Create secrets.properties (Maps API key)
         run: |
           echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > PolitecnicoOpenWorld/secrets.properties
+      # 🆕 (2026-07-22) FUENTE ÚNICA de la versión: se LEE de build.gradle.kts (el número que
+      # estampa el AAB) para nombrar el artefacto y el release de Play sin hardcodear nada.
+      - name: Leer versionName de build.gradle.kts
+        run: |
+          V=$(grep -oE 'versionName = "[0-9.]+"' PolitecnicoOpenWorld/app/build.gradle.kts \
+              | grep -oE '[0-9]+(\.[0-9]+)+')
+          echo "VERSION_NAME=$V" >> "$GITHUB_ENV"
+          echo "versionName leído: $V"
       - name: google-services.json (opcional; habilita Firebase/multijugador si el secret existe)
         env:
           GS: ${{ secrets.GOOGLE_SERVICES_JSON }}
@@ -132,7 +149,7 @@ jobs:
       - name: Guardar AAB firmado como artefacto
         uses: actions/upload-artifact@v7
         with:
-          name: app-release-1.0.0.13
+          name: app-release-${{ env.VERSION_NAME }}
           path: PolitecnicoOpenWorld/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14
@@ -147,11 +164,51 @@ jobs:
           # propio en Play Console, pon aquí ese nombre exacto.
           tracks: alpha
           status: completed
-          releaseName: "POW 1.0.0.13 — Huelum vs. Goya"
+          releaseName: "POW ${{ env.VERSION_NAME }} — Huelum vs. Goya"
           whatsNewDirectory: distribution/whatsnew
       - name: Confirmar entrega manual solicitada
         if: ${{ contains(github.event.pull_request.labels.*.name, 'manual-play-upload') }}
-        run: echo "Subida automática omitida; usa el artefacto firmado app-release-1.0.0.13."
+        run: echo "Subida automática omitida; usa el artefacto firmado app-release-${{ env.VERSION_NAME }}."
       - name: Borrar keystore del runner
         if: always()
         run: rm -f "$GITHUB_WORKSPACE/PolitecnicoOpenWorld/app/release-keystore.jks"
+
+  # ── 3) AUTO-INCREMENTO del versionName: tras un release REAL (merge a main), sube el patch
+  # +1 en build.gradle.kts + whatsnew y lo commitea a main. Así 13 → 14 → 15… salen solos sin
+  # editar nada a mano. Solo corre en el merge (no en workflow_dispatch) para no doble-incrementar.
+  # ⚠️ Requiere que `main` PERMITA el push de github-actions (si es rama protegida, dale a
+  # Actions un bypass en Settings → Branches, o falla con 403). El `[skip ci]` evita relanzar.
+  bump-version:
+    needs: [release, playstore-closed-testing]
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Incrementar patch (build.gradle.kts + whatsnew)
+        run: |
+          FILE=PolitecnicoOpenWorld/app/build.gradle.kts
+          CUR=$(grep -oE 'versionName = "[0-9.]+"' "$FILE" | grep -oE '[0-9]+(\.[0-9]+)+')
+          BASE=$(echo "$CUR" | sed -E 's/\.[0-9]+$//')   # 1.0.0
+          PATCH=$(echo "$CUR" | grep -oE '[0-9]+$')       # 13
+          NEXT="${BASE}.$((PATCH + 1))"                    # 1.0.0.14
+          sed -i "s/versionName = \"$CUR\"/versionName = \"$NEXT\"/" "$FILE"
+          sed -i "1s/.*/POW $NEXT/" distribution/whatsnew/whatsnew-es-MX
+          sed -i "1s/.*/POW $NEXT/" distribution/whatsnew/whatsnew-en-US
+          echo "versionName $CUR -> $NEXT"
+          echo "NEXT_VERSION=$NEXT" >> "$GITHUB_ENV"
+          echo "PREV_VERSION=$CUR" >> "$GITHUB_ENV"
+      - name: Commit & push a main
+        run: |
+          git config user.name "pow-release-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PolitecnicoOpenWorld/app/build.gradle.kts \
+                  distribution/whatsnew/whatsnew-es-MX distribution/whatsnew/whatsnew-en-US
+          git commit -m "chore: bump versionName ${PREV_VERSION} -> ${NEXT_VERSION} [skip ci]" \
+            || { echo "Sin cambios que commitear"; exit 0; }
+          git push origin main
