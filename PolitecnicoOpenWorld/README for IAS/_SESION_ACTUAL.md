@@ -7,7 +7,22 @@
 > **Regla de oro:** si te quedas sin tokens a media tarea, actualiza ESTE archivo ANTES de
 > parar. Es lo único que garantiza que la siguiente IA continúe en vez de alucinar.
 
-**Última actualización:** 2026-07-22 · Fable 5 · rama `fix-audio-add-newFightAssets`
+**Última actualización:** 2026-07-22 · Opus 4.8 · rama `fix-audio-add-newFightAssets`
+
+## 🖥️ Rutas por PC (para la mudanza laptop ↔ escritorio)
+
+| PC | Raíz del PROYECTO (aquí están `gradlew.bat` y `tools/`) |
+|---|---|
+| **Laptop** (referencia) | `C:\Users\gabri\AndroidStudioProjects\PolitecnicoOpenWorld\PolitecnicoOpenWorld` |
+| **Escritorio** | *distinta — COMPLETAR con la real de esa PC* |
+
+⚠️ **Solo cambia el prefijo absoluto.** Todas las rutas de los prompts/docs son **RELATIVAS a la
+raíz del proyecto** (p.ej. `tools\...`, `app\src\main\assets\STREETFIGHTER\...`,
+`README for IAS\...`), así que funcionan igual en ambas PCs. El GEN de sprites vive FUERA del repo
+en `..\newSFAssets\GEN_*`.
+
+**Traspaso a Gemini (escritorio) para las correcciones humanas de audio/sprites:**
+`README for IAS\PROMPT_GEMINI_correcciones_humanas_audio_sprites.md`.
 
 ---
 

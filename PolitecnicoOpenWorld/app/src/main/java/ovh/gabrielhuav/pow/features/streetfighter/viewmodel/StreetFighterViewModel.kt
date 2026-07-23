@@ -831,8 +831,6 @@ class StreetFighterViewModel @Inject constructor(
         const val TUTORIAL_ERROR_COOLDOWN_MS = 1500L
         // 🆕 (2026-07-22) Cuenta 3-2-1 entre lecciones (no se revisa input mientras corre).
         const val TUTORIAL_LESSON_COUNTDOWN_MS = 3000L
-        const val COMBO_DAMAGE_SCALE_STEP = 0.10f
-        const val COMBO_DAMAGE_SCALE_MIN = 0.5f
         const val MAX_ACTIVE_FIREBALLS_PER_FIGHTER = 1
         const val MAX_FIREBALLS_TOTAL = 4
         // Rangos IA (px): clinch → separar; melee → golpear; mid → footsies
@@ -2418,18 +2416,10 @@ class StreetFighterViewModel @Inject constructor(
             comboHits[attackerIdx] = if (chainHit) comboHits[attackerIdx] + 1 else 1
             comboLastHitMs[attackerIdx] = now
         }
-        val comboScale = (1f - COMBO_DAMAGE_SCALE_STEP * (comboHits[attackerIdx] - 1))
-            .coerceAtLeast(COMBO_DAMAGE_SCALE_MIN)
-        // 🆕 (2026-07-21) La SUPER ART pega con su daño propio (no el de su fuerza base).
+        // 🆕 (2026-07-22, Fase 1) daño base + resolución (bloqueo/chip/combo) en SfDamage (puro).
         val baseDamage = damageForAttack(attacker, strength)
-        // 🆕 (2026-07-22) BLOQUEO estilo SF: los golpes NORMALES bloqueados NO hacen daño (antes
-        // era /4 = "aún te pegaban mucho"); solo especial/súper/fatality hacen un chip pequeño.
         val chipAttack = attacker.state in SfDamage.CHIP_ATTACK_STATES
-        val damage = when {
-            blocked && chipAttack -> maxOf(1, baseDamage / 6)
-            blocked -> 0
-            else -> maxOf(1, (baseDamage * comboScale).toInt())
-        }
+        val damage = SfDamage.resolvedDamage(baseDamage, blocked, chipAttack, comboHits[attackerIdx])
 
         _soundEvents.tryEmit(
             if (blocked) "land" // golpe amortiguado (thud)

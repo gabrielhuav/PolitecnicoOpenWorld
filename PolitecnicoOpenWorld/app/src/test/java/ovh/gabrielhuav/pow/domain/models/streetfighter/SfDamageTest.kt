@@ -52,6 +52,21 @@ class SfDamageTest {
     }
 
     @Test
+    fun `bloqueo - los normales hacen 0 y el chip es base entre 6 (min 1)`() {
+        assertEquals(0, SfDamage.resolvedDamage(20, blocked = true, chipAttack = false, comboHits = 1))
+        assertEquals(20 / 6, SfDamage.resolvedDamage(20, blocked = true, chipAttack = true, comboHits = 1))
+        assertEquals(1, SfDamage.resolvedDamage(3, blocked = true, chipAttack = true, comboHits = 1))
+    }
+
+    @Test
+    fun `combo escala el dano hacia abajo con piso 50 por ciento y minimo 1`() {
+        assertEquals(100, SfDamage.resolvedDamage(100, blocked = false, chipAttack = false, comboHits = 1))
+        assertEquals(90, SfDamage.resolvedDamage(100, blocked = false, chipAttack = false, comboHits = 2))
+        assertEquals(50, SfDamage.resolvedDamage(100, blocked = false, chipAttack = false, comboHits = 10))
+        assertEquals(1, SfDamage.resolvedDamage(1, blocked = false, chipAttack = false, comboHits = 20))
+    }
+
+    @Test
     fun `CHIP_ATTACK_STATES son especial, super y fatality (no los normales)`() {
         listOf(
             SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM,

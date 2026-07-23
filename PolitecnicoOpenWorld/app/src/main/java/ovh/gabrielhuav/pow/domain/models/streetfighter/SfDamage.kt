@@ -28,6 +28,18 @@ object SfDamage {
         else -> strength.damage
     }
 
+    /**
+     * Daño FINAL a partir del base: si está BLOQUEADO, los normales hacen 0 y los que hacen chip
+     * (especial/súper/fatality) pegan `/6`; si conecta LIMPIO, escala hacia abajo por combo
+     * (-10% por golpe encadenado, piso 50%). `comboHits` = golpes encadenados (1 = el primero).
+     */
+    fun resolvedDamage(base: Int, blocked: Boolean, chipAttack: Boolean, comboHits: Int): Int {
+        if (blocked) return if (chipAttack) maxOf(1, base / 6) else 0
+        val scale = (1f - SfConstants.COMBO_DAMAGE_SCALE_STEP * (comboHits - 1))
+            .coerceAtLeast(SfConstants.COMBO_DAMAGE_SCALE_MIN)
+        return maxOf(1, (base * scale).toInt())
+    }
+
     /** Metadatos (fuerza + tipo) de un estado de ATAQUE, como el `states{}` del JS. */
     data class SfAttackMeta(val strength: SfAttackStrength, val type: SfAttackType)
 

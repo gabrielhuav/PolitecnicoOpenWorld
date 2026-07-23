@@ -63,6 +63,10 @@ object SfConstants {
     const val FATALITY_DAMAGE = 70
     /** Distancia a la que el atacante reaparece tras CRUZAR al otro lado en el fatality. */
     const val FATALITY_CROSS_OFFSET = 54f
+    // 🆕 (2026-07-22, Fase 1) Escala de daño por COMBO (3rd Strike): -10% por golpe encadenado,
+    // piso 50%. (Movidas del companion del VM a aquí para que SfDamage.resolvedDamage sea puro.)
+    const val COMBO_DAMAGE_SCALE_STEP = 0.10f
+    const val COMBO_DAMAGE_SCALE_MIN = 0.5f
 
     // ── 🆕 (2026-07-22) MAREO/STUN (dureza MODERADA, pedida por el dueño) ──
     /** Medidor de mareo: sube al RECIBIR golpes (proporcional al daño) y decae sin castigo. */
