@@ -70,18 +70,25 @@ fun JoystickController(
     var offset by remember { mutableStateOf(Offset.Zero) }
     var isDragging by remember { mutableStateOf(false) }
     val latestOffset by rememberUpdatedState(offset)
+    // 🆕 (2026-07-22) radio máximo actual del stick, para calcular la ZONA MUERTA en el bucle.
+    var maxRadiusPx by remember { mutableStateOf(1f) }
     val feedback = rememberInputFeedback()
 
-    // Bucle continuo de movimiento a ~30 fps cuando se mantiene arrastrado.
-    // La clave es sólo 'isDragging' para que el efecto NO se reinicie con cada cambio de offset;
-    // leemos el offset más reciente a través de 'latestOffset' (rememberUpdatedState).
+    // Bucle continuo de movimiento a ~30 fps mientras se mantiene arrastrado (lee 'latestOffset').
     LaunchedEffect(isDragging) {
         if (isDragging) {
             while (isActive) {
-                if (latestOffset != Offset.Zero) {
-                    // En Compose 'Y' crece hacia abajo, pero en GeoPoint 'Latitud' crece hacia arriba, por eso invertimos la 'y'
-                    val angle = kotlin.math.atan2(-latestOffset.y.toDouble(), latestOffset.x.toDouble())
-                    onMove(angle)
+                val o = latestOffset
+                val mag = sqrt(o.x * o.x + o.y * o.y)
+                // 🆕 (2026-07-22) ZONA MUERTA: el stick debe estar CLARAMENTE desviado (>28% del
+                // radio) para contar como dirección; cerca del centro = NEUTRO → onRelease. Antes,
+                // sin zona muerta, un residual mínimo hacia ↓ te dejaba "agachado" al deslizar el
+                // pulgar de vuelta al centro (no todos sueltan LEVANTANDO limpio el dedo).
+                if (mag > maxRadiusPx * 0.28f) {
+                    // Compose: la 'Y' crece hacia abajo → invertimos la 'y' para el ángulo.
+                    onMove(kotlin.math.atan2(-o.y.toDouble(), o.x.toDouble()))
+                } else {
+                    onRelease()
                 }
                 delay(33) // ~30 fps
             }
@@ -102,6 +109,7 @@ fun JoystickController(
                         change.consume()
                         val newOffset = offset + dragAmount
                         val maxRadius = (size.width / 2f) - 24.dp.toPx() // 24 es el radio del botón interior
+                        maxRadiusPx = maxRadius // 🆕 para la zona muerta del bucle
                         val distance = sqrt(newOffset.x * newOffset.x + newOffset.y * newOffset.y)
 
                         offset = if (distance > maxRadius) {
