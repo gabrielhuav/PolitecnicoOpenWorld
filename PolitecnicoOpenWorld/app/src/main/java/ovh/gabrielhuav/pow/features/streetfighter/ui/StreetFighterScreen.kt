@@ -678,25 +678,9 @@ fun StreetFighterScreen(
                     onExit = viewModel::exitTutorial,
                 )
             }
-            if (!state.isPaused && !state.showEndMenu && !state.tutorialActive) {
-                Text(
-                    // 🆕 (2026-07-21) Con moveset nuevo se explica ESE (dash/parry/agarre/
-                    // súper/barrida): es lo que el jugador no puede adivinar.
-                    text = stringResource(
-                        if (hasNewMoves) R.string.sf_controls_hint_new else R.string.sf_controls_hint,
-                    ),
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 4.dp)
-                        .clip(RoundedCornerShape(5.dp))
-                        .background(Color.Black.copy(alpha = 0.62f))
-                        .padding(horizontal = 8.dp, vertical = 2.dp),
-                    color = Color.White.copy(alpha = 0.88f),
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                )
-            }
+            // 🆕 (2026-07-22) El hint de controles al fondo se QUITÓ (pedido del dueño): estorbaba
+            // y además citaba los botones viejos (P/G/S). Los controles se aprenden en la hoja de
+            // combos + el tutorial; los botones ya se rotularon L1/L2/R1/R2.
         }
         // IA vs IA: botón "Salir" al menú de modos (sin controles táctiles de pelea).
         // Durante el AUTOJUEGO se oculta: ahí manda el botón DETENER de abajo.
