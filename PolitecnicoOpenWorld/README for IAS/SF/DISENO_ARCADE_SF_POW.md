@@ -35,6 +35,36 @@ máximo — computable en cualquier lado) · **SUPER** (el golpe de KO fue SUPER
 exacto; **online** viaja en el `outcome` de `ROUND_ENDED` (degrada a NORMAL si falta). El KO del
 COMBATE (MATCH_ENDED) no aplica: no hay ronda siguiente donde mostrarlo.
 
+### 🥊 Orden de jefes INVERTIDO + metamorfosis Yoalli → La Presidenta (decisión del dueño)
+
+Los dos jefes finales del arcade cambian de orden y la metamorfosis automática se INVIERTE:
+
+- **Orden** (`SfArcadeLadder.build`): antes 14 Yoalli · 15 La Presidenta (FINAL). Ahora
+  **14 La Presidenta · 15 YOALLI EHÉCATL (FINAL)**. `isBoss`/`isFinal` se calculan por índice, no
+  por id, así que el resto del sistema (banners, desbloqueos, dificultad) sigue igual.
+- **Metamorfosis** (`tryYoalliMetamorphosis`, antes `tryPresidentaMetamorphosis`): ahora es
+  **YOALLI** quien a ≤1/4 de vida, en la ronda 1, lanza `BONUS_POWER_10` y se transforma en
+  **LA PRESIDENTA con la VIDA LLENA** (segunda vida). Antes era La Presidenta → Yoalli con
+  `BONUS_POWER_11`. `completeYoalliMetamorphosis` pasa de "conserva HP" a **vida llena**. La
+  dirección vieja (`completePresidentaMetamorphosis` / P11) queda por simetría pero INACTIVA en
+  gameplay. `sfUsableBonusPowerCount` ahora excluye también el P10 de Yoalli (era lanzable). El
+  showcase y su conteo de pasos (`showcaseTotalSteps`) fuerzan la metamorfosis de Yoalli. La Screen
+  ya precargaba ambos atlas en las dos direcciones, sin cambios.
+
+### 🤖 Rebalance de la IA del arcade (decisión del dueño: "muy fácil, no escala")
+
+- **Sube un escalón por encima de la etiqueta** (`SfArcadeLadder.difficultyForStep`): "Fácil" ya no
+  usa BASICA (reaccionaba en ~1 s). Curva por pelea: 1-4 **+1**, 5-9 **+1**, 10-12 **+2**, jefes
+  13-14 **+2**, FINAL 15 **+3** (tope PESADILLA). Así Fácil recorre NORMAL→AVANZADA→PESADILLA,
+  Medio AVANZADA→PESADILLA y Difícil se juega en PESADILLA. La **iluminación** del mapa sigue la
+  dificultad ELEGIDA (`lightingForArcadeDifficulty`: día/noche/apocalipsis), **desacoplada** de este
+  bump. El VS/Práctica NO cambia (usa los 4 tiers explícitos, incluida BASICA para casual).
+- **Rampa de intensidad más alta** (`intensityForStep`): arranca en **0.35** (antes 0.20) → las
+  primeras peleas ya no se sienten lentas; sigue llegando a 1.0 en la final.
+- Tests de caracterización (`SfArcadeCampaignAuditTest`, `SfBonusPowerTest`) actualizados a los
+  nuevos valores. ⚠️ **Balance afinado por razonamiento, sin dispositivo**: si Difícil (PESADILLA
+  desde temprano) resulta frustrante, bajar el `bump` de las primeras peleas.
+
 ## Cambios 2026-07-21f (Opus 4.8) — La Llorona: crouchTurn con `flipX`, hoja 09 regenerada, re-pack
 
 Cierra los tres recortes malos que quedaban de La Llorona (auditados por el dueño en
@@ -810,6 +840,9 @@ agachado/aéreos, patada larga, agarres, super arts → cada uno necesitará est
   · 13 Yoalli Ehécatl · **14 La Presidenta (FINAL, PESADILLA)**. Los estudiantes YA NO son
   enemigos. `arcadeDifficulty`: final = PESADILLA, jefes (Tzitzímime/Yoalli) = AVANZADA, resto
   base +1 en la 2ª mitad.
+  > ⚠️ **SUPERADO 2026-07-25 (ver entrada arriba):** el orden de los 2 jefes finales se INVIRTIÓ
+  > (14 La Presidenta · **15 YOALLI FINAL**, que se metamorfosea en La Presidenta) y la IA se
+  > rebalanceó (sube un escalón sobre la etiqueta + rampa más marcada). **El código manda.**
 - **Copyright:** `fireballImage` (Ken.png) ELIMINADO (todos tienen `proj-*` propios);
   **`kenstage.png`** quitado de `imageFiles` + `drawScene` (⚠️ **borrar el archivo físico
   `assets/STREETFIGHTER/IMAGES/kenstage.png`**, no se pudo desde la sesión). Pendiente del dueño:

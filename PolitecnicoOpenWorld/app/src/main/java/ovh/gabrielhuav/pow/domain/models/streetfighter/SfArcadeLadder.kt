@@ -16,8 +16,8 @@ import kotlin.random.Random
  *           POLICIA_GRANADERO_MUJER (orden FIJO)
  *   11-12 : CHARRO_NEGRO, LA_LLORONA (orden ALEATORIO)
  *   13    : LA_TZITZIMIME (jefe)
- *   14    : YOALLI_EHECATL (jefe)
- *   15    : LA_PRESIDENTA (FINAL; su metamorfosis a Yoalli es un power/anim, no una 2ª fase)
+ *   14    : LA_PRESIDENTA (jefe)
+ *   15    : YOALLI_EHECATL (FINAL; a ≤1/4 de vida se metamorfosea en La Presidenta — 2ª vida)
  *
  * Mapas: cada RIVAL tiene su escenario de día (`SfStageCatalog.homeStage`); la iluminación
  * (día / noche / apocalipsis) la elige la dificultad del arcade (Fácil/Medio/Difícil).
@@ -57,20 +57,39 @@ object SfArcadeLadder {
     /** Total de peleas (15). */
     const val TOTAL_FIGHTS = 15
 
-    /** Dificultad real de una pelea: los últimos escalones elevan la IA hasta PESADILLA. */
+    /**
+     * Dificultad real de la IA de una pelea del arcade.
+     *
+     * 🆕 (2026-07-25, rebalance pedido por el dueño) La IA juega **un escalón POR ENCIMA de la
+     * etiqueta elegida** (así "Fácil" ya no es trivial — usaba BASICA, que reacciona en ~1 s) y
+     * **sube con el avance** (antes casi no cambiaba: solo los jefes subían). Curva:
+     *  - peleas 1-4  : +1  (Fácil→NORMAL, Medio→AVANZADA, Difícil→PESADILLA)
+     *  - peleas 5-9  : +1
+     *  - peleas 10-12: +2
+     *  - jefes 13-14 : +2
+     *  - FINAL 15    : +3 (tope PESADILLA)
+     * La ILUMINACIÓN del mapa sigue usando la dificultad ELEGIDA (SfStageCatalog.
+     * lightingForArcadeDifficulty), así que este bump NO cambia día/noche/apocalipsis.
+     */
     fun difficultyForStep(base: SfCpuDifficulty, step: Step): SfCpuDifficulty {
         val increments = when {
-            step.isFinal -> 2
-            step.isBoss || step.index >= 10 -> 1
-            else -> 0
+            step.isFinal -> 3
+            step.isBoss -> 2
+            step.index >= 10 -> 2
+            step.index >= 5 -> 1
+            else -> 1
         }
         val difficulties = SfCpuDifficulty.entries
         return difficulties[(base.ordinal + increments).coerceAtMost(difficulties.lastIndex)]
     }
 
-    /** Intensidad adicional de la IA, de 20 % en la primera pelea a 100 % en la final. */
+    /**
+     * Intensidad adicional de la IA (acelera reacción, presión y combos), de la primera pelea a
+     * la final. 🆕 (2026-07-25) Arranca en 35 % (antes 20 %) para que las primeras peleas ya no
+     * se sientan lentas; llega a 100 % en la final.
+     */
     fun intensityForStep(index: Int, total: Int): Float =
-        if (total <= 1) 1f else 0.20f + 0.80f * (index - 1).toFloat() / (total - 1)
+        if (total <= 1) 1f else 0.35f + 0.65f * (index - 1).toFloat() / (total - 1)
 
     /**
      * Arma la secuencia de escalones para el `player` elegido.
@@ -95,8 +114,11 @@ object SfArcadeLadder {
         )
         rivals += listOf(SfFighterId.CHARRO_NEGRO, SfFighterId.LA_LLORONA).shuffled(rng) // 11-12
         rivals += SfFighterId.LA_TZITZIMIME  // 13
-        rivals += SfFighterId.YOALLI_EHECATL // 14
-        rivals += SfFighterId.LA_PRESIDENTA  // 15 (FINAL)
+        // 🆕 (2026-07-25, decisión del dueño) Orden invertido de los 2 jefes finales: primero
+        // LA PRESIDENTA (14) y el jefe FINAL es YOALLI EHÉCATL (15), que a ≤1/4 de vida se
+        // METAMORFOSEA en La Presidenta (segunda vida) — la dirección inversa a la de antes.
+        rivals += SfFighterId.LA_PRESIDENTA  // 14
+        rivals += SfFighterId.YOALLI_EHECATL // 15 (FINAL; se transforma en La Presidenta)
 
         val total = rivals.size
         return rivals.mapIndexed { i, rival ->

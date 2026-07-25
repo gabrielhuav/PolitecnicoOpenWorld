@@ -1719,19 +1719,19 @@ class StreetFighterViewModel @Inject constructor(
             SfFighterState.BONUS_POWER_7, SfFighterState.BONUS_POWER_8, SfFighterState.BONUS_POWER_9,
             SfFighterState.BONUS_POWER_10, SfFighterState.BONUS_POWER_11,
             -> {
-                // 🆕 BONUS_POWER_11 de La Presidenta = SOLO metamorfosis (sin proyectil spam):
-                // al terminar la anim el id pasa a YOALLI con 50% HP y se QUEDA (no vuelve a Presidenta).
-                if (f.id == SfFighterId.LA_PRESIDENTA && f.state == SfFighterState.BONUS_POWER_11) {
-                    if (isAnimationCompleted(f)) {
-                        completePresidentaMetamorphosis(sim, idx, now)
-                    }
-                    return
-                }
-                // BONUS_POWER_10 de Yoalli reproduce la misma metamorfosis en reversa y
-                // recupera la identidad de La Presidenta, sin proyectil ni cambio de vida.
+                // 🆕 (2026-07-25) BONUS_POWER_10 de YOALLI = metamorfosis PRINCIPAL (jefe FINAL del
+                // arcade): al terminar la anim el id pasa a LA PRESIDENTA con VIDA LLENA y se QUEDA.
                 if (f.id == SfFighterId.YOALLI_EHECATL && f.state == SfFighterState.BONUS_POWER_10) {
                     if (isAnimationCompleted(f)) {
                         completeYoalliMetamorphosis(sim, idx, now)
+                    }
+                    return
+                }
+                // Dirección opuesta (histórica, hoy inactiva en gameplay: P11 no es lanzable y no hay
+                // disparo automático): La Presidenta → Yoalli. Se conserva por simetría/animación.
+                if (f.id == SfFighterId.LA_PRESIDENTA && f.state == SfFighterState.BONUS_POWER_11) {
+                    if (isAnimationCompleted(f)) {
+                        completePresidentaMetamorphosis(sim, idx, now)
                     }
                     return
                 }
@@ -2119,12 +2119,14 @@ class StreetFighterViewModel @Inject constructor(
         return ok
     }
 
-    /** Poderes Grok “lanzables” (excluye metamorfosis P11 de La Presidenta). */
+    /** Poderes Grok “lanzables” (excluye las metamorfosis automáticas: P11 Presidenta, P10 Yoalli). */
     private fun usableBonusPowerCount(id: SfFighterId): Int = sfUsableBonusPowerCount(id)
 
     /**
-     * Fin de BONUS_POWER_11 de La Presidenta: se convierte en Yoalli Ehécatl a 50% HP.
-     * El cambio de id es PERMANENTE (no “vuelve” a Presidenta al idle).
+     * Fin de BONUS_POWER_11 de La Presidenta → Yoalli Ehécatl con VIDA LLENA. El cambio de id es
+     * PERMANENTE. ⚠️ 🆕 (2026-07-25) Dirección HISTÓRICA/inactiva en gameplay: la metamorfosis
+     * automática del arcade ahora es la INVERSA (Yoalli→Presidenta, ver [tryYoalliMetamorphosis] y
+     * [completeYoalliMetamorphosis]). Se conserva por simetría (animación disponible).
      */
     private fun completePresidentaMetamorphosis(sim: Sim, idx: Int, now: Long) {
         val f = sim.fighter(idx)
@@ -2137,14 +2139,19 @@ class StreetFighterViewModel @Inject constructor(
         completeMetamorphosis(sim, idx, SfFighterId.YOALLI_EHECATL, SfConstants.HEALTH_MAX_HIT_POINTS, now)
     }
 
-    /** Fin de BONUS_POWER_10 de Yoalli: regresa a La Presidenta conservando su vida. */
+    /**
+     * Fin de BONUS_POWER_10 de Yoalli: se convierte en LA PRESIDENTA con la VIDA LLENA (su
+     * "segunda vida" del round 1). 🆕 (2026-07-25) Antes conservaba la vida (~1/4); ahora es la
+     * metamorfosis PRINCIPAL del arcade (Yoalli jefe FINAL → Presidenta), espejo de lo que hacía
+     * La Presidenta. El cambio de id es PERMANENTE (persiste entre rondas).
+     */
     private fun completeYoalliMetamorphosis(sim: Sim, idx: Int, now: Long) {
         val f = sim.fighter(idx)
         if (f.id != SfFighterId.YOALLI_EHECATL) {
             changeState(sim, idx, SfFighterState.IDLE, now)
             return
         }
-        completeMetamorphosis(sim, idx, SfFighterId.LA_PRESIDENTA, f.hitPoints, now)
+        completeMetamorphosis(sim, idx, SfFighterId.LA_PRESIDENTA, SfConstants.HEALTH_MAX_HIT_POINTS, now)
     }
 
     private fun completeMetamorphosis(
@@ -2565,9 +2572,9 @@ class StreetFighterViewModel @Inject constructor(
             return
         }
 
-        // 🆕 LA PRESIDENTA no “pierde” al KO: a ≤1/4 de vida (o daño letal) se metamorfosea
-        // a Yoalli Ehécatl con 50% de vida (una sola vez). Invulnerable durante la anim.
-        if (tryPresidentaMetamorphosis(sim, defenderIdx, attackerIdx, now)) {
+        // 🆕 YOALLI EHÉCATL (jefe FINAL) no “pierde” al KO: a ≤1/4 de vida (o daño letal) se
+        // metamorfosea en LA PRESIDENTA con la VIDA LLENA (una sola vez). Invulnerable en la anim.
+        if (tryYoalliMetamorphosis(sim, defenderIdx, attackerIdx, now)) {
             hurtFreezeUntilMs = now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong()
             return
         }
@@ -2619,30 +2626,32 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     /**
-     * Si la defensora es La Presidenta sin haber metamorfoseado y el golpe la deja en
-     * ≤25% HP (o la mataría), lanza BONUS_POWER_11 y NO aplica KO.
-     * Al terminar la anim (ver handler BONUS_POWER_*), el id pasa a YOALLI con 50% HP.
+     * 🆕 (2026-07-25) Si la defensora es YOALLI EHÉCATL (jefe FINAL) sin haber metamorfoseado y el
+     * golpe la deja en ≤25% HP (o la mataría), lanza BONUS_POWER_10 y NO aplica KO.
+     * Al terminar la anim (ver handler BONUS_POWER_*), el id pasa a LA PRESIDENTA con VIDA LLENA.
      * @return true si se consumió el golpe como metamorfosis (el caller no hace KO/hurt).
      */
-    private fun tryPresidentaMetamorphosis(
+    private fun tryYoalliMetamorphosis(
         sim: Sim,
         defenderIdx: Int,
         attackerIdx: Int,
         now: Long,
     ): Boolean {
         val d = sim.fighter(defenderIdx)
-        if (d.id != SfFighterId.LA_PRESIDENTA || d.metamorphosed || d.metamorphosing) return false
+        // 🆕 (2026-07-25, decisión del dueño) INVERTIDA: ahora es YOALLI EHÉCATL (jefe FINAL del
+        // arcade) quien a ≤1/4 de vida se metamorfosea en LA PRESIDENTA (antes era al revés).
+        if (d.id != SfFighterId.YOALLI_EHECATL || d.metamorphosed || d.metamorphosing) return false
         // 🆕 (2026-07-22, decisión del dueño) La metamorfosis automática SOLO ocurre en el
         // ROUND 1. Si sobrevivió el round 1 sin transformarse, ya no se transforma.
         if (_state.value.roundNumber != 1) return false
         val maxHp = SfConstants.HEALTH_MAX_HIT_POINTS
         val threshold = maxHp / 4 // 50 de 200
         if (d.hitPoints > threshold) return false
-        // Ya está en ≤1/4 (el HP se restó arriba). Arranca anim de metamorfosis.
+        // Ya está en ≤1/4 (el HP se restó arriba). Arranca anim de metamorfosis (Yoalli→Presidenta).
         // FORZAR estado: puede venir de HURT (validFrom de BONUS_POWER no lo incluye).
         val pinnedHp = d.hitPoints.coerceIn(1, threshold)
         var nf = d.copy(
-            state = SfFighterState.BONUS_POWER_11,
+            state = SfFighterState.BONUS_POWER_10,
             hitPoints = pinnedHp,
             metamorphosing = true,
             metamorphosed = false,
@@ -2657,7 +2666,7 @@ class StreetFighterViewModel @Inject constructor(
         nf = withAnimationFrame(nf, 0, now)
         sim.setFighter(defenderIdx, clampFighterToStage(nf))
         sim.setFighter(attackerIdx, sim.fighter(attackerIdx).copy(attackStruck = true))
-        emitSpecialVoice(d.id, now) // metamorfosis Presidenta → grito + subtítulo
+        emitSpecialVoice(d.id, now) // metamorfosis Yoalli → grito + subtítulo
         return true
     }
 
@@ -4526,12 +4535,13 @@ class StreetFighterViewModel @Inject constructor(
 
     /**
      * Último índice de paso del showcase para [id]: 0..12 = moves por input, 13.. = poderes,
-     * luego [showcaseExtraStates] forzados y — SOLO La Presidenta — la metamorfosis final
-     * (BONUS_POWER_11 → termina convertida en Yoalli).
+     * luego [showcaseExtraStates] forzados y — SOLO Yoalli Ehécatl — la metamorfosis final
+     * (BONUS_POWER_10 → termina convertida en La Presidenta).
      */
     private fun showcaseTotalSteps(id: SfFighterId): Int =
         12 + usableBonusPowerCount(id) + showcaseExtraStates.size +
-            (if (id == SfFighterId.LA_PRESIDENTA) 1 else 0)
+            // 🆕 (2026-07-25) el paso extra de metamorfosis ahora es de Yoalli (→ La Presidenta)
+            (if (id == SfFighterId.YOALLI_EHECATL) 1 else 0)
 
     /**
      * Input SCRIPTED del showcase: avanza un paso cada [showcaseStepMs] y ejecuta la animación
@@ -4574,13 +4584,13 @@ class StreetFighterViewModel @Inject constructor(
                 if (bp in 1..usable) {
                     if (fireNow) SfInput(bonusPower = bp) else SfInput()
                 } else {
-                    // 🆕 Pasos FORZADOS: giros, HURT_*, KO, VICTORY y metamorfosis Presidenta
+                    // 🆕 Pasos FORZADOS: giros, HURT_*, KO, VICTORY y metamorfosis (Yoalli→Presidenta)
                     if (fireNow) {
                         val extraIdx = step - 13 - usable
                         showcaseForcedState = when {
                             extraIdx in showcaseExtraStates.indices -> showcaseExtraStates[extraIdx]
                             extraIdx == showcaseExtraStates.size &&
-                                id == SfFighterId.LA_PRESIDENTA -> SfFighterState.BONUS_POWER_11
+                                id == SfFighterId.YOALLI_EHECATL -> SfFighterState.BONUS_POWER_10
                             else -> null
                         }
                     }
