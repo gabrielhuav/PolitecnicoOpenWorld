@@ -587,6 +587,15 @@ fun StreetFighterScreen(
         LaunchedEffect(fightLoading) { viewModel.setAssetsLoadingUi(fightLoading) }
         if (fightLoading) {
             SfLoadingOverlay(theme = theme)
+        } else if (state.waitingForOpponentReady) {
+            // 🆕 (2026-07-25) BARRERA "AMBOS LISTOS": ya cargué mis atlas; espero a que el rival
+            // termine de cargar (PLAYER_READY) para arrancar la ronda sincronizada (punto 2).
+            SfLoadingOverlay(
+                theme = theme,
+                arcadeText = "ESPERANDO",
+                fallbackText = stringResource(R.string.sf_waiting_opponent),
+                subtitle = stringResource(R.string.sf_waiting_opponent_sub),
+            )
         }
 
         // ---- Controles de POW: joystick + diamante Xbox (ocultos en selección y en IA vs IA) ----
@@ -828,11 +837,16 @@ fun StreetFighterScreen(
                     onCancel = { viewModel.cancelOnline() },
                 )
                 SfOnlineStatus.WAITING_OPPONENT -> if (state.lanMode) {
-                    // SERVIDOR LOCAL: mostrar la IP a compartir (misma red Wi-Fi/hotspot)
+                    // SERVIDOR LOCAL: mostrar TODAS las IPs a compartir (misma red Wi-Fi/hotspot);
+                    // el rival prueba la alcanzable si el host tiene varias interfaces.
+                    val ips = state.lanLocalIps.ifEmpty { listOfNotNull(state.lanLocalIp) }
                     OnlineInfoOverlay(
                         title = stringResource(R.string.sf_lan_host_title),
-                        subtitle = state.lanLocalIp?.let { stringResource(R.string.sf_lan_host_sub, it) }
-                            ?: stringResource(R.string.sf_lan_no_ip),
+                        subtitle = if (ips.isNotEmpty()) {
+                            stringResource(R.string.sf_lan_host_sub, ips.joinToString("  •  "))
+                        } else {
+                            stringResource(R.string.sf_lan_no_ip)
+                        },
                         onCancel = { viewModel.cancelOnline() },
                     )
                 } else if (state.btMode) {
@@ -3370,7 +3384,12 @@ private fun loadStageBackground(
  * Se muestra al decodificar atlas/hojas en gama baja (entrada a pelea puede tardar).
  */
 @Composable
-private fun SfLoadingOverlay(theme: SfTheme) {
+private fun SfLoadingOverlay(
+    theme: SfTheme,
+    arcadeText: String = "CARGANDO",   // glifos A-Z 0-9 (fuente del HUD)
+    fallbackText: String = stringResource(R.string.sf_loading),
+    subtitle: String = stringResource(R.string.sf_loading_sub),
+) {
     val context = LocalContext.current
     val hud = remember(theme) {
         runCatching {
@@ -3388,19 +3407,18 @@ private fun SfLoadingOverlay(theme: SfTheme) {
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             if (hud != null) {
-                // Dibuja "CARGANDO" con la fuente del HUD (glifos A-Z)
+                // Dibuja el título con la fuente del HUD (glifos A-Z)
                 Canvas(modifier = Modifier.fillMaxWidth().height(48.dp)) {
                     val scale = minOf(size.width / SfConstants.SCENE_WIDTH, size.height / 40f)
                     val ctx = SceneCtx(scale, (size.width - SfConstants.SCENE_WIDTH * scale) / 2f, 0f, 0f, 0f)
-                    val text = "CARGANDO"
                     // 🆕 (2026-07-22) tw ya está en unidades de escena (12·sizeMul); centrar sin
                     // dividir entre scale (ese /scale era el que lo descuadraba).
-                    val tw = text.length * 12f * 2.2f
-                    drawFontText(ctx, theme, hud, text, (SfConstants.SCENE_WIDTH - tw) / 2f, 8f, 2.2f)
+                    val tw = arcadeText.length * 12f * 2.2f
+                    drawFontText(ctx, theme, hud, arcadeText, (SfConstants.SCENE_WIDTH - tw) / 2f, 8f, 2.2f)
                 }
             } else {
                 Text(
-                    text = stringResource(R.string.sf_loading),
+                    text = fallbackText,
                     color = Color(0xFFD4AF37),
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Black,
@@ -3409,7 +3427,7 @@ private fun SfLoadingOverlay(theme: SfTheme) {
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = stringResource(R.string.sf_loading_sub),
+                text = subtitle,
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 12.sp,
             )
@@ -3806,6 +3824,18 @@ private fun DrawScope.drawHud(ctx: SceneCtx, theme: SfTheme, hud: ImageBitmap, s
     drawFontText(ctx, theme, hud, state.player.id.shortName, 32f, 33f, 0.9f)
     val cpuName = state.cpu.id.shortName
     drawFontText(ctx, theme, hud, cpuName, 350f - cpuName.length * 12f * 0.9f, 33f, 0.9f)
+
+    // 🆕 (2026-07-25) GRADO de la ronda anterior (PERFECT/COMBO/SUPER/TIME) bajo la barra del
+    // GANADOR, solo durante el intro de la ronda siguiente (estilo SF III). "" = sin etiqueta.
+    if (state.showRoundIntro && state.roundResultLabel.isNotEmpty() && state.roundResultWinnerIdx in 0..1) {
+        val label = state.roundResultLabel
+        val labelScale = 0.7f
+        if (state.roundResultWinnerIdx == 0) {
+            drawFontText(ctx, theme, hud, label, 32f, 44f, labelScale)
+        } else {
+            drawFontText(ctx, theme, hud, label, 350f - label.length * 12f * labelScale, 44f, labelScale)
+        }
+    }
 
     // Marcadores P1 / P2
     drawFontText(ctx, theme, hud, "P1", 4f, 1f)

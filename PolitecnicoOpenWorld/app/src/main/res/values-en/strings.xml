@@ -729,6 +729,8 @@
     <string name="sf_stage_confirm">Choose this stage</string>
     <string name="sf_loading">LOADING</string>
     <string name="sf_loading_sub">Preparing fight…</string>
+    <string name="sf_waiting_opponent">WAITING FOR RIVAL</string>
+    <string name="sf_waiting_opponent_sub">Waiting for your rival to finish loading…</string>
     <string name="sf_resume_title">Resume fight</string>
     <string name="sf_resume_message">You have an unfinished arcade fight. Resume where you left off?</string>
     <string name="sf_resume_yes">CONTINUE</string>

@@ -731,6 +731,8 @@
     <string name="sf_stage_confirm">Elegir este mapa</string>
     <string name="sf_loading">CARGANDO</string>
     <string name="sf_loading_sub">Preparando pelea…</string>
+    <string name="sf_waiting_opponent">ESPERANDO AL RIVAL</string>
+    <string name="sf_waiting_opponent_sub">Esperando a que el rival termine de cargar…</string>
     <string name="sf_resume_title">Continuar pelea</string>
     <string name="sf_resume_message">Hay una pelea de arcade a medias. ¿Quieres retomar donde la dejaste?</string>
     <string name="sf_resume_yes">CONTINUAR</string>

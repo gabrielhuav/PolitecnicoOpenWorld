@@ -1,5 +1,6 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
+import android.util.Log
 import java.net.Inet4Address
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
@@ -37,8 +38,15 @@ class SfLanClient : SfStreamPeer() {
         running = true
         Thread({
             try {
-                val ss = ServerSocket(SF_LAN_PORT)
+                // 🆕 (2026-07-25) SO_REUSEADDR + bind explícito: sin esto, re-hospedar tras un cierre
+                // sucio tira "Address already in use" (el puerto queda en TIME_WAIT) → el host mostraba
+                // su IP pero el ServerSocket nunca aceptaba ("conecta pero nunca empieza"). Con reuse,
+                // el bind vuelve a tomar el puerto de inmediato.
+                val ss = ServerSocket()
+                ss.reuseAddress = true
+                ss.bind(InetSocketAddress(SF_LAN_PORT))
                 serverSocket = ss
+                Log.d(SF_NET_TAG, "servidor LAN escuchando en :$SF_LAN_PORT (IPs: ${localIpAddresses()})")
                 listener.onOpen()
                 // Como el ROOM_CREATED del relay: el VM pasa a "esperando rival" (host = p1)
                 deliver(SfNetMsg(type = "ROOM_CREATED", code = LAN_ROOM_CODE, playerIndex = 1))
@@ -46,12 +54,15 @@ class SfLanClient : SfStreamPeer() {
                     val s = ss.accept() // bloquea hasta que un rival conecta
                     if (!running) { runCatching { s.close() }; break }
                     s.tcpNoDelay = true // estado de pelea cada ~66 ms: sin Nagle
+                    s.keepAlive = true  // detecta enlaces muertos por power-save de Wi-Fi
                     socket = s
+                    Log.d(SF_NET_TAG, "rival LAN conectó desde ${s.inetAddress?.hostAddress}")
                     // OPPONENT_JOINED se entrega al recibir el HELLO (handshake, en la base)
                     runPeerSession(s.getInputStream(), s.getOutputStream())
                     socket = null
                 }
             } catch (t: Throwable) {
+                Log.e(SF_NET_TAG, "servidor LAN falló", t)
                 if (running) listener.onFailure("Red local: ${t.message ?: "no se pudo abrir el servidor"}")
             }
         }, "SfLanHost").start()
@@ -72,8 +83,10 @@ class SfLanClient : SfStreamPeer() {
                     s = try {
                         candidate.connect(InetSocketAddress(hostAddress.trim(), SF_LAN_PORT), CONNECT_TIMEOUT_MS)
                         candidate.tcpNoDelay = true
+                        candidate.keepAlive = true // detecta enlaces muertos por power-save de Wi-Fi
                         candidate
                     } catch (t: Throwable) {
+                        Log.w(SF_NET_TAG, "intento $attempt de conectar a $hostAddress:$SF_LAN_PORT falló: ${t.message}")
                         lastError = t
                         runCatching { candidate.close() }
                         null
@@ -83,10 +96,12 @@ class SfLanClient : SfStreamPeer() {
                 }
                 val sock = s ?: throw (lastError ?: error("sin socket"))
                 socket = sock
+                Log.d(SF_NET_TAG, "conectado a $hostAddress:$SF_LAN_PORT → handshake")
                 listener.onOpen()
                 runPeerSession(sock.getInputStream(), sock.getOutputStream())
                 socket = null
             } catch (t: Throwable) {
+                Log.e(SF_NET_TAG, "connect LAN falló", t)
                 if (running) listener.onFailure("Red local: no se pudo conectar (${t.message ?: "?"})")
             }
         }, "SfLanJoin").start()
@@ -103,6 +118,8 @@ class SfLanClient : SfStreamPeer() {
     }
 
     companion object {
+        private const val SF_NET_TAG = "SF-NET"
+
         /** Puerto FIJO del servidor local (debe coincidir en ambos teléfonos). */
         const val SF_LAN_PORT = 47645
         /** Código de "sala" simbólico para reusar el flujo del VM (roomCode = "LAN"). */
@@ -112,21 +129,28 @@ class SfLanClient : SfStreamPeer() {
         private const val CONNECT_TIMEOUT_MS = 4000
 
         /**
-         * IP local del teléfono para MOSTRARLA al host ("comparte esta dirección"): la
-         * primera IPv4 site-local de las interfaces activas (wlan primero — Wi-Fi/hotspot).
-         * null = sin red local (la UI pide conectarse a Wi-Fi o encender el hotspot).
-         * No requiere permisos.
+         * 🆕 (2026-07-25) TODAS las IPv4 site-local de las interfaces activas (Wi-Fi/hotspot
+         * primero). La UI del host las muestra TODAS para que el rival pruebe la correcta: si el
+         * teléfono tiene varias interfaces (Wi-Fi + hotspot + VPN), mostrar solo una podía ser la
+         * inalcanzable ("conecta pero nunca empieza"). No requiere permisos.
          */
-        fun localIpAddress(): String? = runCatching {
-            val interfaces = NetworkInterface.getNetworkInterfaces()?.toList().orEmpty()
+        fun localIpAddresses(): List<String> = runCatching {
+            NetworkInterface.getNetworkInterfaces()?.toList().orEmpty()
                 .filter { runCatching { it.isUp && !it.isLoopback }.getOrDefault(false) }
                 .sortedByDescending { it.name.startsWith("wlan") || it.name.startsWith("ap") }
-            interfaces.firstNotNullOfOrNull { ni ->
-                ni.inetAddresses.toList()
-                    .filterIsInstance<Inet4Address>()
-                    .firstOrNull { it.isSiteLocalAddress }
-                    ?.hostAddress
-            }
-        }.getOrNull()
+                .flatMap { ni ->
+                    ni.inetAddresses.toList()
+                        .filterIsInstance<Inet4Address>()
+                        .filter { it.isSiteLocalAddress }
+                        .mapNotNull { it.hostAddress }
+                }
+                .distinct()
+        }.getOrDefault(emptyList())
+
+        /**
+         * IP local del teléfono para MOSTRARLA al host ("comparte esta dirección"): la primera de
+         * [localIpAddresses]. null = sin red local (la UI pide Wi-Fi o encender el hotspot).
+         */
+        fun localIpAddress(): String? = localIpAddresses().firstOrNull()
     }
 }

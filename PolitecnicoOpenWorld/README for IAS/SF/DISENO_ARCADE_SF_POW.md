@@ -7,6 +7,34 @@
 > CRLF, Read para verificar). Los BUGS del modo (stun-lock, revancha, servidor LAN) viven en
 > `PENDIENTES_SF_2026-07-16.md` y NO dependen de esto.
 
+## Cambios 2026-07-25 (Opus 4.8) — súper que persiste entre rondas + GRADO de victoria
+
+> ⚠️ **SIN COMPILAR en esta sesión** (falta `gradle-wrapper.jar` y Gradle 9.5). Rebuild +
+> `testDebugUnitTest` + dispositivo pendientes. Detalle de red en `AUDIT_SF_MULTIPLAYER.md` (2026-07-25).
+
+### 🔋 La barra de PODER (súper) PERSISTE entre rondas (decisión del dueño)
+
+Como en el SF original: si llenas el medidor de súper en la ronda 1, sigue lleno en la 2 y la 3.
+Antes se reiniciaba a 0 cada ronda porque `resetRound` reconstruía los peleadores desde el `base`
+(`StreetFighterState()`, súper=0) conservando solo `id`/`metamorphosed`. Fix (VM `resetRound`):
+`p0`/`p1` ahora copian también `superMeter = s.player.superMeter` / `s.cpu.superMeter`. `superReady`
+es derivado (`superMeter >= MAX`) → se mantiene solo. El **mareo/STUN (`dizzyMeter`) NO se conserva**
+(queda en 0 del `base`) → "la barra de stun sí se regenera", como pidió el dueño. El KO no vacía el
+súper (solo lo consumen SUPER_ART/FATALITY en `changeState`), así que ambos lados lo llevan a la
+ronda siguiente.
+
+### 🏅 GRADO de victoria estilo SF III (PERFECT / COMBO / SUPER / TIME)
+
+Al ganar una ronda se calcula su grado y se pinta con la fuente arcade **bajo la barra del ganador
+durante el intro de la ronda siguiente** (como el SF original). Enum `SfRoundOutcome` (en el paquete
+viewmodel). `endRound(sim, winnerIdx, now, outcome)` guarda `pendingRoundOutcome(+Winner)`;
+`resetRound` lo vuelca a `state.roundResultLabel`/`roundResultWinnerIdx` y `drawHud` lo dibuja si
+`showRoundIntro`. Cómputo (`computeRoundOutcome`): **TIME** (timeout) · **PERFECT** (HP del ganador al
+máximo — computable en cualquier lado) · **SUPER** (el golpe de KO fue SUPER_ART/FATALITY) · **COMBO**
+(`comboHits[ganador] >= COMBO_DISPLAY_MIN`) · si no, **NORMAL** (sin etiqueta). Offline/arcade = grado
+exacto; **online** viaja en el `outcome` de `ROUND_ENDED` (degrada a NORMAL si falta). El KO del
+COMBATE (MATCH_ENDED) no aplica: no hay ronda siguiente donde mostrarlo.
+
 ## Cambios 2026-07-21f (Opus 4.8) — La Llorona: crouchTurn con `flipX`, hoja 09 regenerada, re-pack
 
 Cierra los tres recortes malos que quedaban de La Llorona (auditados por el dueño en

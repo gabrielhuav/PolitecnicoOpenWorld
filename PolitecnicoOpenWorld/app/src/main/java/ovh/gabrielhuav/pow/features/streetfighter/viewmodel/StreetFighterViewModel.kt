@@ -3,6 +3,7 @@ package ovh.gabrielhuav.pow.features.streetfighter.viewmodel
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.os.SystemClock
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -765,6 +766,22 @@ class StreetFighterViewModel @Inject constructor(
     private var roundEndSent = false       // guard de ROUND_ENDED (como onlineEndSent por ronda)
     private var introVoiceSent = false      // 🆕 voz de intro del policía: una vez por ronda
 
+    // 🆕 (2026-07-25) GRADO de la ronda que acaba de cerrar (PERFECT/COMBO/SUPER/TIME): endRound
+    // lo calcula y resetRound lo vuelca al estado para pintarlo bajo la barra del ganador en la
+    // ronda siguiente (estilo SF III). Se limpia al arrancar un combate nuevo.
+    private var pendingRoundOutcome = SfRoundOutcome.NORMAL
+    private var pendingRoundOutcomeWinner = -1
+
+    // 🆕 (2026-07-25) BARRERA "AMBOS LISTOS" (punto 2): tras FIGHT_START cada teléfono decodifica
+    // sus atlas bajo CARGANDO; el que ya terminó ESPERA el PLAYER_READY del rival para que la
+    // ronda arranque sincronizada. Con un fallback por timeout para no colgarse si el rival/server
+    // no soporta el mensaje (cliente viejo o server sin redeploy) → degrada al arranque de siempre.
+    private var awaitingPeerReady = false
+    private var localReadySent = false
+    private var peerReady = false
+    private var readyBarrierUntilMs = 0L    // tope de seguridad (tiempo REAL; gameNow está congelado)
+    private var readyArmedRealMs = 0L       // tiempo REAL al armar; ventana para que arranque CARGANDO
+
     // ─── 🆕 MULTIJUGADOR 1v1 (relay puro contra MultiplayerSF/ en Render) ───
     // Cada cliente simula a SU peleador (índice 0 local); el rival (índice 1) llega
     // por red: posición/estado/frame/hp vía OPPONENT_STATE y el daño que ME hacen vía
@@ -809,6 +826,14 @@ class StreetFighterViewModel @Inject constructor(
         const val ROUND_RESET_DELAY_MS = 3500L   // "X WINS" en pantalla antes de la ronda nueva
         const val ROUND_INTRO_MS = 3600L         // 🆕 (2026-07-22) 3-2-1 + PELEA con input congelado
         const val ROUND_GRACE_MS = 1200L         // ignora estado/daño del rival en vuelo tras el reset
+        // 🆕 (2026-07-25) BARRERA "AMBOS LISTOS": tope de espera del PLAYER_READY del rival tras
+        // cargar los atlas; si no llega (cliente viejo / server sin redeploy), se arranca igual.
+        const val READY_TIMEOUT_MS = 8000L
+        // Ventana tras armar la barrera para que la Screen encienda CARGANDO (ronda 1). Sin CARGANDO
+        // pasada esta ventana = atlas ya en memoria (rondas 2/3) → se avisa PLAYER_READY.
+        const val READY_SETTLE_MS = 400L
+        // 🆕 (2026-07-25) Tag de logcat para diagnosticar el flujo de red (sobre todo LAN).
+        const val SF_NET_TAG = "SF-NET"
         // 🆕 Especiales: cooldown + tope de proyectiles (PESADILLA spameaba y no se contrarrestaba)
         // Cooldowns de special: cortos para que la pelea se sienta viva (sin muro de proyectiles:
         // el tope por peleadór ya limita a 1 activo).
@@ -880,7 +905,56 @@ class StreetFighterViewModel @Inject constructor(
 
     /** 🆕 (2026-07-22) La Screen avisa si el overlay CARGANDO está visible → congela el reloj. */
     fun setAssetsLoadingUi(loading: Boolean) {
+        val was = uiAssetsLoading
         uiAssetsLoading = loading
+        // 🆕 (2026-07-25) Al TERMINAR de decodificar los atlas en una pelea online, avisa al rival
+        // que ya estoy listo (barrera "ambos listos", punto 2).
+        if (was && !loading && awaitingPeerReady && !localReadySent) sendLocalReady()
+    }
+
+    // ═══════════ 🆕 (2026-07-25) BARRERA "AMBOS LISTOS" (punto 2) ═══════════
+    // Tras FIGHT_START cada teléfono decodifica sus atlas; el que ya cargó ESPERA el PLAYER_READY
+    // del rival para arrancar la ronda sincronizada. Aplica a los 3 transportes; degrada por
+    // timeout si el rival/server no soporta el mensaje. La verifican el tick (freeze + timeout) y
+    // los eventos (carga local terminada / PLAYER_READY entrante).
+
+    /**
+     * Arma la barrera para la ronda que empieza (FIGHT_START o rondas 2/3). Solo online. NO avisa
+     * de inmediato: al llegar FIGHT_START la Screen aún no encendió CARGANDO, así que el tick espera
+     * la ventana READY_SETTLE_MS antes de dar por buena la ausencia de carga (rondas 2/3 = atlas ya
+     * en memoria) y avisar. En la ronda 1, `setAssetsLoadingUi(false)` avisa al terminar de decodificar.
+     */
+    private fun armReadyBarrier() {
+        awaitingPeerReady = true
+        localReadySent = false
+        peerReady = false
+        val nowReal = SystemClock.elapsedRealtime()
+        readyArmedRealMs = nowReal
+        readyBarrierUntilMs = nowReal + READY_TIMEOUT_MS
+        Log.d(SF_NET_TAG, "barrera armada (esperando PLAYER_READY del rival)")
+    }
+
+    private fun sendLocalReady() {
+        if (localReadySent) return
+        localReadySent = true
+        transport?.sendReady()
+        Log.d(SF_NET_TAG, "PLAYER_READY enviado")
+        maybeStartAfterReady()
+    }
+
+    /** Libera la barrera cuando AMBOS avisaron (o venció el timeout, desde el tick). */
+    private fun maybeStartAfterReady() {
+        if (awaitingPeerReady && localReadySent && peerReady) releaseReadyBarrier(gameNow)
+    }
+
+    private fun releaseReadyBarrier(now: Long) {
+        if (!awaitingPeerReady) return
+        awaitingPeerReady = false
+        roundIntroUntilMs = now + ROUND_INTRO_MS // 3-2-1 PELEA sincronizado a partir de aquí
+        if (_state.value.waitingForOpponentReady) {
+            _state.value = _state.value.copy(waitingForOpponentReady = false)
+        }
+        Log.d(SF_NET_TAG, "barrera liberada: arranca la ronda")
     }
 
     private fun startGameLoop() {
@@ -893,6 +967,25 @@ class StreetFighterViewModel @Inject constructor(
                 val dtMs = (real - lastRealMs).coerceAtMost(100L)
                 lastRealMs = real
                 val s = _state.value
+                // 🆕 (2026-07-25) BARRERA "AMBOS LISTOS" (punto 2): el reloj de juego NO avanza
+                // hasta que AMBOS teléfonos cargaron sus atlas (o venza el timeout de seguridad).
+                if (awaitingPeerReady) {
+                    // Sin CARGANDO tras la ventana de asentamiento = atlas ya en memoria (rondas 2/3)
+                    // → avisa. En la ronda 1, setAssetsLoadingUi(false) avisa al terminar de decodificar.
+                    val settled = real - readyArmedRealMs >= READY_SETTLE_MS
+                    if (!localReadySent && !uiAssetsLoading && settled) sendLocalReady()
+                    if (awaitingPeerReady) { // sigue esperando al rival
+                        if (real >= readyBarrierUntilMs) {
+                            releaseReadyBarrier(gameNow) // el rival no avisó → arranca igual
+                        } else {
+                            val waiting = !uiAssetsLoading // yo cargué; espero al rival
+                            if (s.waitingForOpponentReady != waiting) {
+                                _state.value = s.copy(waitingForOpponentReady = waiting)
+                            }
+                            continue
+                        }
+                    }
+                }
                 // El reloj de juego se detiene en pausa, diálogo de salida, selector de personaje
                 // y 🆕 mientras la Screen muestra CARGANDO (para que el 3-2-1 se vea al terminar).
                 if (s.isPaused || s.showExitDialog || s.inCharacterSelect || uiAssetsLoading) continue
@@ -2264,7 +2357,7 @@ class StreetFighterViewModel @Inject constructor(
             changeState(sim, defenderIdx, SfFighterState.KO, now)
             sim.setFighter(attackerIdx, sim.fighter(attackerIdx).copy(victory = true))
             if (gauntletActive && !showcaseMode) gauntletKoRounds++
-            endRound(sim, attackerIdx, now)
+            endRound(sim, attackerIdx, now, computeRoundOutcome(sim, attackerIdx, SfFighterState.THROW, byTime = false))
         } else if (!forceState(sim, defenderIdx, SfFighterState.THROWN, now)) {
             // Sin arte de "ser lanzado": al menos reacciona con el daño clásico
             changeState(sim, defenderIdx, SfFighterState.HURT_BODY_HEAVY, now)
@@ -2484,7 +2577,7 @@ class StreetFighterViewModel @Inject constructor(
             sim.setFighter(attackerIdx, sim.fighter(attackerIdx).copy(victory = true))
             // 🆕 KO = fin de RONDA (mejor de 3); endRound decide si el combate terminó
             if (gauntletActive && !showcaseMode) gauntletKoRounds++
-            endRound(sim, attackerIdx, now)
+            endRound(sim, attackerIdx, now, computeRoundOutcome(sim, attackerIdx, attacker.state, byTime = false))
         } else if (attacker.state in knockdownStates &&
             forceState(sim, defenderIdx, SfFighterState.THROWN, now)
         ) {
@@ -2722,7 +2815,8 @@ class StreetFighterViewModel @Inject constructor(
                         "la ronda ${_state.value.roundNumber} no terminó por KO",
                 )
             }
-            endRound(sim, winnerIdx, now) // timeout: ambos lo calculan; los guards evitan doble envío
+            // timeout: ambos lo calculan; los guards evitan doble envío
+            endRound(sim, winnerIdx, now, computeRoundOutcome(sim, winnerIdx, koState = null, byTime = true))
         }
     }
 
@@ -4846,6 +4940,12 @@ class StreetFighterViewModel @Inject constructor(
         roundIntroUntilMs = 0L
         roundGraceUntilMs = 0L
         roundEndSent = false
+        // 🆕 (2026-07-25) pelea nueva: grado de ronda y barrera "ambos listos" en limpio
+        pendingRoundOutcome = SfRoundOutcome.NORMAL
+        pendingRoundOutcomeWinner = -1
+        awaitingPeerReady = false
+        localReadySent = false
+        peerReady = false
         // 🆕 SESIÓN 4: gameNow vuelve a 0 → resetear también lo anclado a él y el HUD
         lastSeenSnapshot = null
         remoteSnapshotAtMs = 0L
@@ -4989,10 +5089,11 @@ class StreetFighterViewModel @Inject constructor(
     fun startLanHost() {
         if (isOnline) return
         stopBtScanInternal()
+        val ips = SfLanClient.localIpAddresses()
         _state.value = _state.value.copy(
             onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null,
             btMode = false, lanMode = true,
-            lanLocalIp = SfLanClient.localIpAddress(), lanHostAddress = null,
+            lanLocalIp = ips.firstOrNull(), lanLocalIps = ips, lanHostAddress = null,
             btError = null, btRetryAddress = null, btHandshaking = false,
         )
         val client = SfLanClient()
@@ -5135,6 +5236,7 @@ class StreetFighterViewModel @Inject constructor(
                         btMode = s.btMode,
                         lanMode = s.lanMode,
                         lanLocalIp = s.lanLocalIp,
+                        lanLocalIps = s.lanLocalIps,
                     )
                 } else {
                     _state.value = s.copy(
@@ -5188,9 +5290,15 @@ class StreetFighterViewModel @Inject constructor(
                 }
             }
             "FIGHT_START" -> startOnlineBattle()
+            // 🆕 (2026-07-25) El rival ya cargó sus atlas: parte de la barrera "ambos listos".
+            "PLAYER_READY" -> {
+                Log.d(SF_NET_TAG, "PLAYER_READY del rival recibido")
+                peerReady = true
+                maybeStartAfterReady()
+            }
             "OPPONENT_STATE" -> remoteSnapshot = msg
             "PLAYER_DAMAGE" -> netDamageQueue.add(msg)
-            "ROUND_ENDED" -> roundEndedFromNet(msg.winner) // 🆕 fin de RONDA intermedia
+            "ROUND_ENDED" -> roundEndedFromNet(msg.winner, msg.outcome) // 🆕 fin de RONDA intermedia
             "MATCH_ENDED" -> endFromNet(msg.winner)
             "REMATCH_REQUESTED" -> _state.value = s.copy(opponentWantsRematch = true)
             "REMATCH_ACCEPTED" -> {
@@ -5207,6 +5315,7 @@ class StreetFighterViewModel @Inject constructor(
                     btMode = s.btMode, // la revancha BT/LAN sigue en su transporte
                     lanMode = s.lanMode,
                     lanLocalIp = s.lanLocalIp,
+                    lanLocalIps = s.lanLocalIps,
                 )
             }
             "OPPONENT_LEFT", "OPPONENT_DISCONNECTED" -> {
@@ -5255,8 +5364,12 @@ class StreetFighterViewModel @Inject constructor(
     /** FIGHT_START: arranca la pelea online. El anfitrión pelea a la IZQUIERDA. */
     private fun startOnlineBattle() {
         val s = _state.value
+        Log.d(SF_NET_TAG, "FIGHT_START recibido → cargando y esperando al rival")
         resetInternals()
-        roundIntroUntilMs = ROUND_INTRO_MS // banner "RONDA 1 / PELEA" tras el countdown
+        // 🆕 (2026-07-25) BARRERA "AMBOS LISTOS": no arrancar el intro/reloj hasta que AMBOS
+        // teléfonos cargaron sus atlas. releaseReadyBarrier fija roundIntroUntilMs al liberarse.
+        roundIntroUntilMs = 0L
+        armReadyBarrier()
         onlineEndSent = false
         remoteSnapshot = null
         netDamageQueue.clear()
@@ -5284,6 +5397,7 @@ class StreetFighterViewModel @Inject constructor(
             btMode = s.btMode, // conservar el transporte para overlays post-pelea
             lanMode = s.lanMode,
             lanLocalIp = s.lanLocalIp,
+            lanLocalIps = s.lanLocalIps,
         )
     }
 
@@ -5333,7 +5447,9 @@ class StreetFighterViewModel @Inject constructor(
         // Si su propio estado reporta 0 HP, gané la RONDA (él manda ROUND/MATCH_ENDED; esto
         // lo adelanta). GRACIA post-reset: ignora snapshots viejos en vuelo con hp=0.
         if ((rs.hp ?: 1) <= 0 && !sim.battleEnded && now >= roundGraceUntilMs) {
-            endRound(sim, winnerIdx = 0, now = now)
+            // El KO lo simuló el rival (llega por snapshot): solo PERFECT es computable aquí
+            // (mi HP al máximo); SUPER/COMBO viajan en el `outcome` de ROUND_ENDED si aplica.
+            endRound(sim, winnerIdx = 0, now = now, computeRoundOutcome(sim, 0, koState = null, byTime = false))
         }
     }
 
@@ -5457,10 +5573,19 @@ class StreetFighterViewModel @Inject constructor(
      * ¿alguien llegó a ROUNDS_TO_WIN? → COMBATE terminado (menú de fin, MATCH_ENDED).
      * ¿No? → congela con "X WINS" y programa la ronda siguiente (ROUND_ENDED al rival).
      */
-    private fun endRound(sim: Sim, winnerIdx: Int, now: Long) {
+    private fun endRound(
+        sim: Sim,
+        winnerIdx: Int,
+        now: Long,
+        outcome: SfRoundOutcome = SfRoundOutcome.NORMAL,
+    ) {
         if (sim.battleEnded) return
         sim.winner = winnerIdx
         sim.battleEnded = true
+        // 🆕 (2026-07-25) Grado de la ronda (PERFECT/COMBO/SUPER/TIME): resetRound lo pinta bajo
+        // la barra del ganador en la ronda siguiente. Solo importa si HABRÁ ronda siguiente.
+        pendingRoundOutcome = outcome
+        pendingRoundOutcomeWinner = winnerIdx
         val s = _state.value
         val w0 = s.playerRoundWins + if (winnerIdx == 0) 1 else 0
         val w1 = s.cpuRoundWins + if (winnerIdx == 1) 1 else 0
@@ -5475,18 +5600,41 @@ class StreetFighterViewModel @Inject constructor(
             roundResetAtMs = now + ROUND_RESET_DELAY_MS
             if (isOnline && !roundEndSent) {
                 roundEndSent = true
-                transport?.sendRoundEnded(sideOf(winnerIdx))
+                transport?.sendRoundEnded(sideOf(winnerIdx), outcome.name)
             }
         }
     }
 
+    /**
+     * 🆕 (2026-07-25) Calcula el GRADO de una ronda ganada (estilo SF III). PERFECT es computable
+     * en cualquier lado (HP del ganador al máximo); SUPER/COMBO requieren conocer el golpe de KO
+     * (solo en el lado que lo simuló → `koState`/`comboHits`); TIME lo fija el timeout.
+     */
+    private fun computeRoundOutcome(
+        sim: Sim,
+        winnerIdx: Int,
+        koState: SfFighterState?,
+        byTime: Boolean,
+    ): SfRoundOutcome = when {
+        byTime -> SfRoundOutcome.TIME
+        sim.fighter(winnerIdx).hitPoints >= SfConstants.HEALTH_MAX_HIT_POINTS -> SfRoundOutcome.PERFECT
+        koState == SfFighterState.SUPER_ART || koState == SfFighterState.FATALITY -> SfRoundOutcome.SUPER
+        comboHits[winnerIdx.coerceIn(0, 1)] >= COMBO_DISPLAY_MIN -> SfRoundOutcome.COMBO
+        else -> SfRoundOutcome.NORMAL
+    }
+
     /** ROUND_ENDED recibido: reconcilia el fin de RONDA si mi sim aún no lo detectaba. */
-    private fun roundEndedFromNet(winnerSide: String?) {
+    private fun roundEndedFromNet(winnerSide: String?, outcomeName: String?) {
         val s = _state.value
         if (s.battleEnded || s.onlineStatus != SfOnlineStatus.FIGHTING) return
         val winnerIdx = idxOf(winnerSide)
         val now = gameNow
         roundEndSent = true // ya lo publicó el otro lado; no re-enviar
+        // 🆕 (2026-07-25) Grado que viajó desde el lado que simuló el KO (PERFECT/COMBO/SUPER/TIME).
+        pendingRoundOutcome = outcomeName
+            ?.let { n -> runCatching { SfRoundOutcome.valueOf(n) }.getOrNull() }
+            ?: SfRoundOutcome.NORMAL
+        pendingRoundOutcomeWinner = winnerIdx
         val w0 = s.playerRoundWins + if (winnerIdx == 0) 1 else 0
         val w1 = s.cpuRoundWins + if (winnerIdx == 1) 1 else 0
         _state.value = s.copy(
@@ -5520,15 +5668,21 @@ class StreetFighterViewModel @Inject constructor(
         // Presidenta ya se transformó en Yoalli, la ronda siguiente ARRANCA como Yoalli y NO
         // se re-transforma (antes `metamorphosed` volvía al false del base con el id nuevo →
         // estado inconsistente: "en la segunda regresa a ser La Presidenta").
+        // 🆕 (2026-07-25, decisión del dueño) La barra de PODER (súper) PERSISTE entre rondas: si
+        // llenaste el medidor en la ronda 1 sigue lleno en la 2 y la 3 (como en el SF original). El
+        // mareo/STUN (dizzyMeter) NO se conserva — queda en el default de `base` (0) → "se regenera".
+        // El KO no vacía el súper (solo lo consumen SUPER_ART/FATALITY), así que ambos lados lo llevan.
         val p0 = base.player.copy(
             id = s.player.id,
             metamorphosed = s.player.metamorphosed,
+            superMeter = s.player.superMeter,
             x = if (playerLeft) leftX else rightX,
             direction = if (playerLeft) SfDirection.RIGHT else SfDirection.LEFT,
         )
         val p1 = base.cpu.copy(
             id = s.cpu.id,
             metamorphosed = s.cpu.metamorphosed,
+            superMeter = s.cpu.superMeter,
             x = if (playerLeft) rightX else leftX,
             direction = if (playerLeft) SfDirection.LEFT else SfDirection.RIGHT,
         )
@@ -5579,7 +5733,16 @@ class StreetFighterViewModel @Inject constructor(
         onlineEndSent = false
         roundEndSent = false
         roundGraceUntilMs = now + ROUND_GRACE_MS
-        roundIntroUntilMs = now + ROUND_INTRO_MS
+        // 🆕 (2026-07-25) Online: la ronda nueva también espera la barrera "ambos listos" (evita que
+        // el de gama baja arranque tarde en la ronda 2/3). releaseReadyBarrier fija el intro.
+        if (onlineFight) {
+            roundIntroUntilMs = 0L
+            armReadyBarrier()
+        } else {
+            roundIntroUntilMs = now + ROUND_INTRO_MS
+        }
+        // 🆕 (2026-07-25) GRADO de la ronda que acaba de cerrar → bajo la barra del ganador.
+        val label = if (pendingRoundOutcome == SfRoundOutcome.NORMAL) "" else pendingRoundOutcome.label
         // s.copy conserva aiVsAi / cpuDifficulty / arcade*
         _state.value = s.copy(
             player = p0,
@@ -5596,6 +5759,9 @@ class StreetFighterViewModel @Inject constructor(
             koFlash = false,
             roundNumber = s.roundNumber + 1,
             showRoundIntro = true,
+            waitingForOpponentReady = false,
+            roundResultLabel = label,
+            roundResultWinnerIdx = if (label.isEmpty()) -1 else pendingRoundOutcomeWinner,
         )
     }
 

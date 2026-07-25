@@ -34,8 +34,18 @@ interface SfNetTransport {
     fun selectCharacter(name: String)
     fun selectMap(file: String)
     fun requestRematch()
-    /** 🆕 Fin de RONDA intermedia (el combate sigue); MATCH_ENDED = combate decidido (2 rondas). */
-    fun sendRoundEnded(winner: String)
+    /**
+     * 🆕 (2026-07-25) BARRERA "AMBOS LISTOS": este teléfono ya decodificó sus atlas y está listo
+     * para arrancar la ronda. El rival lo espera para no empezar desincronizado (gama baja tarda
+     * más en cargar). Relay puro: online lo reenvía el server; en BT/LAN llega directo al peer.
+     */
+    fun sendReady()
+    /**
+     * 🆕 Fin de RONDA intermedia (el combate sigue); MATCH_ENDED = combate decidido (2 rondas).
+     * `outcome` = GRADO de la ronda (SfRoundOutcome.name: PERFECT/COMBO/SUPER/TIME/NORMAL) para que
+     * el lado que reconcilia pinte la misma etiqueta bajo la barra del ganador.
+     */
+    fun sendRoundEnded(winner: String, outcome: String)
     fun sendMatchEnded(winner: String)
     fun sendDamage(damage: Int, strength: String, atkType: String)
     /** `timer` = 🆕 sincronía del reloj de la ronda: solo lo manda el HOST (null en el invitado). */

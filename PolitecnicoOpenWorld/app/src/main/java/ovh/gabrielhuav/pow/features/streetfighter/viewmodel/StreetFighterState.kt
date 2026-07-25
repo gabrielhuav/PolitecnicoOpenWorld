@@ -91,6 +91,12 @@ data class StreetFighterState(
     val showRoundIntro: Boolean = false,             // banner "RONDA N / PELEA" (input congelado)
     val roundIntroCountdown: Int = 0,                // 🆕 (2026-07-22) 3→2→1 del banner (0 = "PELEA")
 
+    // 🆕 (2026-07-25) GRADO de la RONDA anterior estilo SF III: se pinta bajo la barra del
+    // GANADOR durante el intro de la ronda SIGUIENTE (PERFECT/COMBO/SUPER/TIME; NORMAL = sin
+    // etiqueta). Lo llena resetRound con el resultado de la ronda que acaba de cerrar.
+    val roundResultLabel: String = "",               // texto arcade (A-Z 0-9); "" = no mostrar
+    val roundResultWinnerIdx: Int = -1,              // índice del ganador de esa ronda (0/1); -1 = ninguno
+
     // Reloj de juego virtual (ms); la View lo usa para animaciones del escenario
     val gameTimeMs: Long = 0L,
 
@@ -153,6 +159,10 @@ data class StreetFighterState(
     val onlineError: String? = null,
     val onlineMapFile: String? = null,    // mapa elegido por el anfitrión (fondo del combate)
     val opponentWantsRematch: Boolean = false,
+    // 🆕 (2026-07-25) BARRERA "AMBOS LISTOS": tras FIGHT_START cada teléfono decodifica sus
+    // atlas; el que ya cargó ESPERA a que el rival avise PLAYER_READY para que la ronda arranque
+    // sincronizada (antes el de gama baja empezaba tarde). La View muestra "ESPERANDO AL RIVAL".
+    val waitingForOpponentReady: Boolean = false,
     // Resumen de partidas (LIST_ROOMS): salas activas + tamaño de la lista de espera.
     // La View arma el texto (i18n) y pinta las salas en 'waiting' como tarjetas tocables.
     val activeRooms: List<SfRoomSummary> = emptyList(),
@@ -176,9 +186,24 @@ data class StreetFighterState(
 
     // ─── 🆕 SERVIDOR LOCAL (LAN/Wi-Fi, SfLanClient): el jugador hostea su propia sala ───
     val lanMode: Boolean = false,            // la sesión actual va por LAN
-    val lanLocalIp: String? = null,          // (host) IP a COMPARTIR con el rival; null = sin red
+    val lanLocalIp: String? = null,          // (host) IP principal a COMPARTIR; null = sin red
+    // 🆕 (2026-07-25) TODAS las IPv4 del host (Wi-Fi/hotspot/…). La UI las muestra todas para que
+    // el rival pruebe la alcanzable (una sola podía ser la interfaz equivocada → "nunca empieza").
+    val lanLocalIps: List<String> = emptyList(),
     val lanHostAddress: String? = null,      // (invitado) IP tecleada, para REINTENTAR
 )
+
+/**
+ * 🆕 (2026-07-25) GRADO de una ronda ganada estilo SF III (se muestra bajo la barra del ganador
+ * en la ronda siguiente). NORMAL no pinta etiqueta; el resto usan la fuente arcade (A-Z 0-9).
+ */
+enum class SfRoundOutcome(val label: String) {
+    NORMAL(""),        // KO común: sin etiqueta (como el SF original)
+    PERFECT("PERFECT"), // el ganador cerró la ronda con la vida al máximo
+    COMBO("COMBO"),    // el golpe de KO formó parte de un combo
+    SUPER("SUPER"),    // el KO vino de un Super Art / Fatality
+    TIME("TIME"),      // victoria por tiempo (más vida al agotarse el reloj)
+}
 
 /** Resultado de una pelea de arcade (dirige el overlay de fin del modo arcade). */
 enum class SfArcadeOutcome {

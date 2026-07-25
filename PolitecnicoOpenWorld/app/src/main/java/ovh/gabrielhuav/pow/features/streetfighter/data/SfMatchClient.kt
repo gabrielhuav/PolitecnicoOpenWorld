@@ -26,6 +26,8 @@ data class SfNetMsg(
     val countdownMs: Int? = null,
     val message: String? = null,
     val winner: String? = null,
+    // 🆕 (2026-07-25) GRADO de la ronda (ROUND_ENDED): SfRoundOutcome.name (PERFECT/COMBO/SUPER/TIME).
+    val outcome: String? = null,
     // Estado del peleador (PLAYER_STATE / OPPONENT_STATE)
     val x: Float? = null,
     val y: Float? = null,
@@ -116,7 +118,9 @@ class SfMatchClient(private val gson: Gson = Gson()) : SfNetTransport {
     override fun selectCharacter(name: String) = send(mapOf("type" to "SELECT_CHARACTER", "character" to name))
     override fun selectMap(file: String) = send(mapOf("type" to "SELECT_MAP", "map" to file))
     override fun requestRematch() = send(mapOf("type" to "REQUEST_REMATCH"))
-    override fun sendRoundEnded(winner: String) = send(mapOf("type" to "ROUND_ENDED", "winner" to winner))
+    override fun sendReady() = send(mapOf("type" to "PLAYER_READY"))
+    override fun sendRoundEnded(winner: String, outcome: String) =
+        send(mapOf("type" to "ROUND_ENDED", "winner" to winner, "outcome" to outcome))
     override fun sendMatchEnded(winner: String) = send(mapOf("type" to "MATCH_ENDED", "winner" to winner))
 
     override fun sendDamage(damage: Int, strength: String, atkType: String) =

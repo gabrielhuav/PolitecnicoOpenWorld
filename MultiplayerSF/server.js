@@ -319,6 +319,18 @@ wss.on('connection', (ws, req) => {
                 break;
             }
 
+            // 🆕 (2026-07-25) BARRERA "AMBOS LISTOS": el emisor terminó de cargar sus atlas. Relay
+            // puro al rival, que lo espera para arrancar la ronda sincronizada (gama baja tarda más
+            // en decodificar). Sin fase: llega tras FIGHT_START. Ver AUDIT_SF_MULTIPLAYER.md.
+            case 'PLAYER_READY': {
+                if (!room) break;
+                const target = (ws === room.p1) ? room.p2 : room.p1;
+                if (target && target.readyState === WebSocket.OPEN) {
+                    target.send(JSON.stringify({ type: 'PLAYER_READY' }));
+                }
+                break;
+            }
+
             case 'PLAYER_DAMAGE': {
                 if (!room) break;
                 // El daño SIEMPRE va al RIVAL del que lo manda (el receptor lo aplica a su
@@ -336,7 +348,9 @@ wss.on('connection', (ws, req) => {
             case 'ROUND_ENDED': {
                 if (!room) break;
                 room.lastActivityMs = Date.now();
-                broadcastToRoom(room, { type: 'ROUND_ENDED', winner: msg.winner });
+                // 🆕 (2026-07-25) `outcome` = grado de la ronda (PERFECT/COMBO/SUPER/TIME) para que
+                // el otro lado pinte la misma etiqueta bajo la barra del ganador.
+                broadcastToRoom(room, { type: 'ROUND_ENDED', winner: msg.winner, outcome: msg.outcome });
                 break;
             }
 

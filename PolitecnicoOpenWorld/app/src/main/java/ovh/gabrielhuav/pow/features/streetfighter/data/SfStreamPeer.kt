@@ -1,5 +1,6 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
+import android.util.Log
 import com.google.gson.Gson
 import java.io.BufferedReader
 import java.io.InputStream
@@ -76,21 +77,29 @@ abstract class SfStreamPeer(
         startHeartbeat()
         if (!isHostRole) {
             // Aviso de progreso a la UI ("verificando la conexión…") + HELLO del handshake
+            Log.d(SF_NET_TAG, "peer conectado (invitado): enviando BT_HELLO")
             deliver(SfNetMsg(type = "BT_HANDSHAKE"))
             sendRaw(mapOf("type" to "BT_HELLO"))
-            startWelcomeWatchdog()
+        } else {
+            Log.d(SF_NET_TAG, "peer conectado (host): esperando BT_HELLO")
         }
+        // 🆕 (2026-07-25) Watchdog de handshake en AMBOS roles: si el saludo no se completa en
+        // HANDSHAKE_TIMEOUT_MS se cierra el socket. Antes SOLO el invitado lo tenía; sin el del
+        // HOST, un enlace TCP asimétrico (HELLO llega pero WELCOME no vuelve) dejaba al host en una
+        // sesión a medio abrir (LAN "conecta pero nunca empieza"). Al cerrar, el host re-acepta.
+        startHandshakeWatchdog()
         readLoop(input)
     }
 
-    /** Si el WELCOME no llega a tiempo, se cierra el socket (conexión NO verificada). */
-    private fun startWelcomeWatchdog() {
+    /** Si el handshake no se completa a tiempo, se cierra el socket (conexión NO verificada). */
+    private fun startHandshakeWatchdog() {
         Thread({
             runCatching { Thread.sleep(HANDSHAKE_TIMEOUT_MS) }
             if (running && !handshaken) {
-                runCatching { closePeerSocket() } // destraba el readLoop → onFailure reintentable
+                Log.w(SF_NET_TAG, "handshake sin completar en ${HANDSHAKE_TIMEOUT_MS}ms → cerrando socket")
+                runCatching { closePeerSocket() } // destraba el readLoop → onFailure/re-accept
             }
-        }, "SfPeerWelcome").start()
+        }, "SfPeerHandshake").start()
     }
 
     private fun startHeartbeat() {
@@ -142,11 +151,13 @@ abstract class SfStreamPeer(
             // ── HANDSHAKE (conexión verificada) ──
             "BT_HELLO" -> if (isHostRole && !handshaken) {
                 handshaken = true
+                Log.d(SF_NET_TAG, "BT_HELLO recibido (host) → BT_WELCOME + OPPONENT_JOINED")
                 sendRaw(mapOf("type" to "BT_WELCOME"))
                 deliver(SfNetMsg(type = "OPPONENT_JOINED", playerIndex = 2))
             }
             "BT_WELCOME" -> if (!isHostRole && !handshaken) {
                 handshaken = true
+                Log.d(SF_NET_TAG, "BT_WELCOME recibido (invitado) → ROOM_JOINED")
                 deliver(SfNetMsg(type = "ROOM_JOINED", code = roomCode, playerIndex = 2))
             }
             // Keepalive del enlace: NO sube al VM
@@ -186,10 +197,12 @@ abstract class SfStreamPeer(
         if (!isHostRole) return
         sendRaw(mapOf("type" to "MAP_SELECTED", "map" to file, "countdownMs" to COUNTDOWN_MS))
         deliver(SfNetMsg(type = "MAP_SELECTED", map = file, countdownMs = COUNTDOWN_MS))
+        Log.d(SF_NET_TAG, "MAP_SELECTED ($file) → countdown ${COUNTDOWN_MS}ms al FIGHT_START")
         // El countdown que en online corre el server, aquí lo corre el host
         Thread({
             runCatching { Thread.sleep(COUNTDOWN_MS.toLong()) }
             if (running && out != null) {
+                Log.d(SF_NET_TAG, "FIGHT_START (host) → ambos empiezan a cargar")
                 sendRaw(mapOf("type" to "FIGHT_START"))
                 deliver(SfNetMsg(type = "FIGHT_START"))
             }
@@ -206,10 +219,16 @@ abstract class SfStreamPeer(
         }
     }
 
-    override fun sendRoundEnded(winner: String) {
+    override fun sendReady() {
+        // 🆕 (2026-07-25) BARRERA "AMBOS LISTOS": solo al PEER (mi propio VM ya sabe que cargué).
+        // El peer lo recibe por readLoop → onLine → deliver (else) → su VM.
+        sendRaw(mapOf("type" to "PLAYER_READY"))
+    }
+
+    override fun sendRoundEnded(winner: String, outcome: String) {
         // Como MATCH_ENDED: el "relay" local lo difunde a AMBOS (peer + yo mismo)
-        sendRaw(mapOf("type" to "ROUND_ENDED", "winner" to winner))
-        deliver(SfNetMsg(type = "ROUND_ENDED", winner = winner))
+        sendRaw(mapOf("type" to "ROUND_ENDED", "winner" to winner, "outcome" to outcome))
+        deliver(SfNetMsg(type = "ROUND_ENDED", winner = winner, outcome = outcome))
     }
 
     override fun sendMatchEnded(winner: String) {
@@ -308,5 +327,7 @@ abstract class SfStreamPeer(
         const val COUNTDOWN_MS = 3000
         const val HEARTBEAT_MS = 10_000L
         const val HANDSHAKE_TIMEOUT_MS = 6000L
+        // 🆕 (2026-07-25) Tag de logcat para diagnosticar el enlace local (BT/LAN).
+        const val SF_NET_TAG = "SF-NET"
     }
 }
