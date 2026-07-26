@@ -14,6 +14,8 @@ data class SettingsState(
     val showCoordsWidget: Boolean = false, // widget de coordenadas X/Y/Z (Interfaz)
     val developerMode: Boolean = false, // Modo Desarrollador: revela botones/opciones de prueba que se ocultarán en la versión final
     val showHitboxes: Boolean = false, // 🆕 dibuja las hitboxes del modo pelea (estilo Minecraft)
+    val showSfFps: Boolean = false, // 🆕 (2026-07-25) contador de FPS del modo pelea
+    val showVoiceSubtitles: Boolean = false, // 🆕 (2026-07-25) subtítulos de voces (default OFF)
 
     // ─── Audio: volumen de música y efectos (0f..1f) ─────────────────────────
     val musicVolume: Float = 1.0f,

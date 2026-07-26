@@ -97,6 +97,10 @@ data class StreetFighterState(
     val roundResultLabel: String = "",               // texto arcade (A-Z 0-9); "" = no mostrar
     val roundResultWinnerIdx: Int = -1,              // índice del ganador de esa ronda (0/1); -1 = ninguno
 
+    // 🆕 (2026-07-25) NOTA del combate estilo SF III (E/D/C/B/A/S/MS) del JUGADOR; se muestra en el
+    // menú de fin cuando gana. "" = sin nota (perdió, o modo sin humano: IA vs IA/showcase/tutorial).
+    val matchGrade: String = "",
+
     // Reloj de juego virtual (ms); la View lo usa para animaciones del escenario
     val gameTimeMs: Long = 0L,
 

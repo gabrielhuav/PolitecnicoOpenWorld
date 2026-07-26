@@ -27,6 +27,8 @@ class SettingsRepository(context: Context) {
         private const val KEY_SHOW_COORDS_WIDGET = "SHOW_COORDS_WIDGET" // widget de coordenadas X/Y/Z (Interfaz)
         private const val KEY_DEVELOPER_MODE = "DEVELOPER_MODE" // Modo Desarrollador (Interfaz): muestra botones/opciones de prueba
         private const val KEY_SHOW_HITBOXES = "SHOW_HITBOXES" // 🆕 dibuja las hitboxes del modo pelea (estilo Minecraft)
+        private const val KEY_SHOW_SF_FPS = "SHOW_SF_FPS" // 🆕 contador de FPS en el modo pelea
+        private const val KEY_SHOW_VOICE_SUBTITLES = "SHOW_VOICE_SUBTITLES" // 🆕 subtítulos de voces (default OFF)
         private const val KEY_MUSIC_VOLUME = "MUSIC_VOLUME" // volumen música 0f..1f (Audio)
         private const val KEY_SFX_VOLUME = "SFX_VOLUME"     // volumen efectos 0f..1f (Audio)
         private const val KEY_LANGUAGE = "APP_LANGUAGE"             // idioma de la UI (BCP-47; "" = sistema)
@@ -149,6 +151,20 @@ class SettingsRepository(context: Context) {
     fun getShowHitboxes(): Boolean = prefs.getBoolean(KEY_SHOW_HITBOXES, false)
     fun saveShowHitboxes(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_SHOW_HITBOXES, enabled).apply()
+    }
+
+    // ─── 🆕 (2026-07-25) Modo pelea: contador de FPS en pantalla (como ya existía en el mundo
+    // abierto). Default = desactivado. Útil para medir la fluidez en gama baja. ──
+    fun getShowSfFps(): Boolean = prefs.getBoolean(KEY_SHOW_SF_FPS, false)
+    fun saveShowSfFps(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_SF_FPS, enabled).apply()
+    }
+
+    // ─── 🆕 (2026-07-25) Subtítulos de las VOCES de los peleadores (frases de special/win/etc.).
+    // Default = APAGADO (decisión del dueño). El jugador los prende en Ajustes si los quiere. ──
+    fun getShowVoiceSubtitles(): Boolean = prefs.getBoolean(KEY_SHOW_VOICE_SUBTITLES, false)
+    fun saveShowVoiceSubtitles(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_VOICE_SUBTITLES, enabled).apply()
     }
 
     // ─── Tutorial de controles (optativo): se ofrece UNA vez al entrar por primera vez al

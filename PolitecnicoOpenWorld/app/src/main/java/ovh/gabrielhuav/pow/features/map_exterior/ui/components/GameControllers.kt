@@ -65,6 +65,12 @@ fun JoystickController(
     // por un timer de inactividad (~100 ms), lo que hacía sentir "pegado" (p.ej. quedarse
     // agachado un instante tras soltar ↓). Opcional: los modos que no lo pasan no cambian.
     onRelease: () -> Unit = {},
+    // 🆕 (2026-07-25) RESPUESTA INMEDIATA al TOQUE (joystick virtual estándar): con detectDragGestures
+    // un TAP puro (tocar y soltar sin arrastrar) se IGNORA y tocar-y-mantener no registra input hasta
+    // cruzar el touch-slop → los controles se sentían "no instantáneos / pegados" (agacharse el más
+    // notorio). Con true, la dirección se toma de la POSICIÓN del toque desde el centro y dispara YA.
+    // Default false = comportamiento de ARRASTRE de siempre (mundo abierto sin cambios).
+    respondToTouchDown: Boolean = false,
     onMove: (angleRad: Double) -> Unit
 ) {
     var offset by remember { mutableStateOf(Offset.Zero) }
@@ -95,31 +101,73 @@ fun JoystickController(
         }
     }
 
+    val pointerModifier = if (respondToTouchDown) {
+        // 🆕 Joystick virtual con RESPUESTA INMEDIATA: la deflexión = posición del toque respecto al
+        // CENTRO, y se dispara YA (sin touch-slop ni esperar el bucle) → un tap/pica ya responde.
+        Modifier.pointerInput(Unit) {
+            val innerRadiusPx = 24.dp.toPx()
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                val center = Offset(size.width / 2f, size.height / 2f)
+                val maxRadius = ((size.width / 2f) - innerRadiusPx).coerceAtLeast(1f)
+                maxRadiusPx = maxRadius
+                isDragging = true
+                feedback.tap()
+                fun place(pos: Offset) {
+                    val raw = pos - center
+                    val dist = sqrt(raw.x * raw.x + raw.y * raw.y)
+                    offset = if (dist > maxRadius) raw * (maxRadius / dist) else raw
+                }
+                place(down.position)
+                // Respuesta INMEDIATA del primer toque (el bucle de 33 ms mantiene el HOLD después).
+                val m0 = sqrt(offset.x * offset.x + offset.y * offset.y)
+                if (m0 > maxRadius * 0.28f) {
+                    onMove(kotlin.math.atan2(-offset.y.toDouble(), offset.x.toDouble()))
+                } else {
+                    onRelease()
+                }
+                while (true) {
+                    val event = awaitPointerEvent()
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    if (!change.pressed) break
+                    change.consume()
+                    place(change.position)
+                }
+                isDragging = false
+                offset = Offset.Zero
+                onRelease()
+            }
+        }
+    } else {
+        // Comportamiento de ARRASTRE de siempre (mundo abierto): la deflexión acumula el drag.
+        Modifier.pointerInput(Unit) {
+            detectDragGestures(
+                onDragStart = { isDragging = true; feedback.tap() },
+                onDragEnd = { isDragging = false; offset = Offset.Zero; onRelease() },
+                onDragCancel = { isDragging = false; offset = Offset.Zero; onRelease() },
+                onDrag = { change, dragAmount ->
+                    change.consume()
+                    val newOffset = offset + dragAmount
+                    val maxRadius = (size.width / 2f) - 24.dp.toPx() // 24 es el radio del botón interior
+                    maxRadiusPx = maxRadius // 🆕 para la zona muerta del bucle
+                    val distance = sqrt(newOffset.x * newOffset.x + newOffset.y * newOffset.y)
+
+                    offset = if (distance > maxRadius) {
+                        newOffset * (maxRadius / distance)
+                    } else {
+                        newOffset
+                    }
+                }
+            )
+        }
+    }
+
     Box(
         modifier = modifier
             .size(ControllerBaseSize) // uso de constante
             .clip(CircleShape)
             .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f)))
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { isDragging = true; feedback.tap() },
-                    onDragEnd = { isDragging = false; offset = Offset.Zero; onRelease() },
-                    onDragCancel = { isDragging = false; offset = Offset.Zero; onRelease() },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        val newOffset = offset + dragAmount
-                        val maxRadius = (size.width / 2f) - 24.dp.toPx() // 24 es el radio del botón interior
-                        maxRadiusPx = maxRadius // 🆕 para la zona muerta del bucle
-                        val distance = sqrt(newOffset.x * newOffset.x + newOffset.y * newOffset.y)
-
-                        offset = if (distance > maxRadius) {
-                            newOffset * (maxRadius / distance)
-                        } else {
-                            newOffset
-                        }
-                    }
-                )
-            },
+            .then(pointerModifier),
         contentAlignment = Alignment.Center
     ) {
         // Círculo interior (El "pulgar" del joystick). Se ACLARA mientras se arrastra (resalte visual).

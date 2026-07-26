@@ -328,9 +328,11 @@ class StreetFighterViewModel @Inject constructor(
         .replace(Regex("[^A-Z0-9 ]"), " ").replace(Regex("\\s+"), " ").trim()
 
     /** Fija el subtítulo (frase) por un tiempo proporcional a su longitud. */
-    // 🆕 (2026-07-22) SUBTÍTULOS ACTIVOS: voice_phrases.json ya está curado (64 `es` + track `en`).
-    // El delimitador '|' del catálogo separa tramos sincronizados con la voz; ver setVoiceSubtitle.
-    private val voiceSubtitlesEnabled = true
+    // 🆕 (2026-07-22) SUBTÍTULOS: voice_phrases.json curado (64 `es` + track `en`). El delimitador
+    // '|' separa tramos sincronizados con la voz; ver setVoiceSubtitle.
+    // 🆕 (2026-07-25) Ahora son OPTATIVOS desde Ajustes → Interfaz (default APAGADO, decisión del
+    // dueño). Se lee una vez al crear el VM (se reentra al modo para aplicar un cambio).
+    private val voiceSubtitlesEnabled = SettingsRepository(appContext).getShowVoiceSubtitles()
 
     private fun setVoiceSubtitle(phrase: String, now: Long) {
         if (!voiceSubtitlesEnabled) return
@@ -563,6 +565,9 @@ class StreetFighterViewModel @Inject constructor(
     /** 🆕 Ajustes → "Mostrar hitboxes": dibuja las cajas push/hurt/hit sobre los peleadores. */
     fun showHitboxes(): Boolean = SettingsRepository(appContext).getShowHitboxes()
 
+    /** 🆕 (2026-07-25) Ajustes → "Mostrar FPS (pelea)": contador de cuadros por segundo en el HUD. */
+    fun showSfFps(): Boolean = SettingsRepository(appContext).getShowSfFps()
+
     /**
      * 🆕 REVELAR el arte de los bloqueados (a color, sin pixelar) — siempre que el Modo Desarrollador esté activo.
      */
@@ -655,6 +660,11 @@ class StreetFighterViewModel @Inject constructor(
     private val cpuWantsSpaceUntilMs = LongArray(2) { 0L }
     // Recuperación tras estancamiento: durante una ventana corta ambos cierran distancia.
     private val cpuForceEngageUntilMs = LongArray(2) { 0L }
+    // 🆕 (2026-07-25) INTENCIÓN DE FATALITY comprometida: una vez que la IA decide el fatality
+    // (medidor lleno; rival aturdido = garantizado), lo COMPLETA dentro de esta ventana — corre y
+    // suelta el súper — SOBREPONIÉNDOSE al clinch/watchdog que si no lo abortaban al cerrar
+    // distancia. Antes el fatality de la IA "nunca" salía por eso. 0 = sin intención activa.
+    private val cpuFatalityUntilMs = LongArray(2) { 0L }
     // Variedad ofensiva: memoria de los últimos tres golpes (fuerza×tipo, 0..5) por CPU.
     private val cpuAttackHistory = Array(2) { ArrayDeque<Int>() }
     // 🆕 (2026-07-18n) Dificultad POR ÍNDICE solo para IA vs IA: si ambos son iguales (dos
@@ -665,6 +675,10 @@ class StreetFighterViewModel @Inject constructor(
     private val lastHitTakenMs = LongArray(2) { 0L }
     private val rapidHitsTaken = IntArray(2)
     private val comboEscapeUntilMs = LongArray(2)
+    // 🆕 (2026-07-25) WALL SPLAT: un golpe pesado con el rival contra la pared lo "aplasta" y
+    // rebota al centro abriendo UNA continuación de combo. UNA sola vez por combo (se reinicia al
+    // empezar un combo nuevo) → JUSTO para ambos y SIN infinitos en la esquina ("que te traben").
+    private val wallSplatUsed = BooleanArray(2)
     // 🆕 (2026-07-20) COMBO estilo SF III 3rd Strike: golpes CONECTADOS encadenados por
     // ATACANTE (índice). Alimenta el contador del HUD ("N GOLPES") y el escalado de daño.
     // Expira si pasa la ventana RAPID_HIT_WINDOW_MS sin conectar otro golpe.
@@ -772,6 +786,22 @@ class StreetFighterViewModel @Inject constructor(
     private var pendingRoundOutcome = SfRoundOutcome.NORMAL
     private var pendingRoundOutcomeWinner = -1
 
+    // 🆕 (2026-07-25) SISTEMA DE CALIFICACIÓN estilo SF III (E..MS): mide el desempeño del JUGADOR
+    // (índice 0) A LO LARGO DEL COMBATE (no por ronda) y da una nota al terminar. Se resetea por
+    // combate (resetInternals). Métricas: daño hecho/recibido, parries, combo más largo, súpers/
+    // fatalities conectados, VARIEDAD de golpes y rondas perfectas.
+    private var gradeDealt = 0
+    private var gradeTaken = 0
+    private var gradeParries = 0
+    private var gradeMaxCombo = 0
+    private var gradeSupers = 0
+    private var gradeHits = 0
+    private var gradePerfects = 0
+    private val gradeMoves = HashSet<SfFighterState>()
+    // Solo se califica cuando hay un HUMANO en el índice 0 (no IA vs IA / showcase / gauntlet / tutorial).
+    private val gradeTrackingOn: Boolean
+        get() = !_state.value.aiVsAi && !_state.value.tutorialActive && !showcaseMode && !gauntletActive
+
     // 🆕 (2026-07-25) BARRERA "AMBOS LISTOS" (punto 2): tras FIGHT_START cada teléfono decodifica
     // sus atlas bajo CARGANDO; el que ya terminó ESPERA el PLAYER_READY del rival para que la
     // ronda arranque sincronizada. Con un fallback por timeout para no colgarse si el rival/server
@@ -844,6 +874,10 @@ class StreetFighterViewModel @Inject constructor(
         const val RAPID_HIT_WINDOW_MS = 1200L
         const val COMBO_ESCAPE_MS = 950L
         const val RAPID_HITS_BEFORE_ESCAPE = 3
+        // 🆕 (2026-07-25) WALL SPLAT: zona de "pared" (px desde el borde jugable) y rebote al centro
+        // (despega al defensor y crea espacio en el escape de esquina).
+        const val WALL_SPLAT_ZONE = 60f
+        const val WALL_SPLAT_BOUNCE_PX = 46f
         // 🆕 Combos (3rd Strike): el HUD muestra el contador desde 2 golpes; cada golpe
         // encadenado hace -10% de daño (piso 50%) para que el combo no sea letal gratis.
         const val COMBO_DISPLAY_MIN = 2
@@ -863,6 +897,8 @@ class StreetFighterViewModel @Inject constructor(
         const val CPU_CLINCH_DIST = 58f
         const val CPU_MELEE_DIST = 105f
         const val CPU_MID_DIST = 175f
+        // 🆕 (2026-07-25) Ventana para COMPLETAR un fatality comprometido (correr + soltar súper).
+        const val FATALITY_INTENT_MS = 1500L
         // 🆕 (2026-07-22, Fase 2b) Límites del escenario extraídos a SfConstants (los usa
         // SfPhysics.clampToStage). Alias `const` para no tocar los usos internos del VM
         // (y evitar que detekt MayBeConst los marque tras volver const los de SfConstants).
@@ -2464,6 +2500,7 @@ class StreetFighterViewModel @Inject constructor(
         // vendido un momento (castigo). Es la recompensa por leer el golpe.
         if (defender.state in SF_PARRY_STATES && now < parryActiveUntilMs[defenderIdx]) {
             _soundEvents.tryEmit("land") // chasquido seco del desvío
+            if (defenderIdx == 0 && gradeTrackingOn) gradeParries++ // 🆕 calificación: parry logrado
             parryStunUntilMs[attackerIdx] = now + SfConstants.PARRY_ADVANTAGE_MS
             sim.setFighter(attackerIdx, attacker.copy(attackStruck = true))
             sim.setFighter(
@@ -2508,6 +2545,20 @@ class StreetFighterViewModel @Inject constructor(
         val chipAttack = attacker.state in SfDamage.CHIP_ATTACK_STATES
         val damage = SfDamage.resolvedDamage(baseDamage, blocked, chipAttack, comboHits[attackerIdx])
 
+        // 🆕 (2026-07-25) CALIFICACIÓN (E..MS): mide el desempeño del JUGADOR (índice 0) en el combate.
+        if (gradeTrackingOn && !blocked) {
+            if (attackerIdx == 0) {
+                gradeDealt += damage
+                gradeHits++
+                if (comboHits[0] > gradeMaxCombo) gradeMaxCombo = comboHits[0]
+                gradeMoves.add(attacker.state)
+                if (attacker.state == SfFighterState.SUPER_ART || attacker.state == SfFighterState.FATALITY) {
+                    gradeSupers++
+                }
+            }
+            if (defenderIdx == 0) gradeTaken += damage
+        }
+
         _soundEvents.tryEmit(
             if (blocked) "land" // golpe amortiguado (thud)
             else "${strength.name.lowercase()}-${type.name.lowercase()}-hit"
@@ -2542,14 +2593,42 @@ class StreetFighterViewModel @Inject constructor(
             },
         )
         if (!blocked) {
+            // 🆕 (2026-07-25) Combo NUEVO (no encadenado) → el wall splat vuelve a estar disponible.
+            if (!chainHit) wallSplatUsed[defenderIdx] = false
             rapidHitsTaken[defenderIdx] = if (chainHit) rapidHitsTaken[defenderIdx] + 1 else 1
             lastHitTakenMs[defenderIdx] = now
+
+            // 🆕 (2026-07-25) WALL SPLAT: golpe PESADO (o barrida) con el rival EMPUJADO contra la
+            // pared → se despega REBOTANDO al centro, quedando a rango para CONTINUAR el combo (ruta
+            // nueva). UNA sola vez por combo (justo para ambos, sin infinitos). Simétrico por lado.
+            val heavyEnough = strength == SfAttackStrength.HEAVY || attacker.state == SfFighterState.SWEEP
+            val atRightWall = attacker.direction == SfDirection.RIGHT &&
+                defender.x >= SfConstants.STAGE_X_MAX - WALL_SPLAT_ZONE
+            val atLeftWall = attacker.direction == SfDirection.LEFT &&
+                defender.x <= SfConstants.STAGE_X_MIN + WALL_SPLAT_ZONE
+            if (heavyEnough && (atRightWall || atLeftWall) && !wallSplatUsed[defenderIdx] && defender.hitPoints > 0) {
+                wallSplatUsed[defenderIdx] = true
+                // Rebote al centro: el defensor se DESPEGA de la pared y vuelve hacia el atacante,
+                // que queda a rango para CONTINUAR el combo (la ruta nueva). El hit-stun normal de
+                // más abajo da la ventana; el rebote es la posición.
+                val bouncedX = if (atRightWall) defender.x - WALL_SPLAT_BOUNCE_PX else defender.x + WALL_SPLAT_BOUNCE_PX
+                defender = defender.copy(x = bouncedX, slideVelocity = 0f)
+                _soundEvents.tryEmit("heavy-punch-hit") // golpe seco del aplastón
+            }
+
             if (rapidHitsTaken[defenderIdx] >= RAPID_HITS_BEFORE_ESCAPE && defender.hitPoints > 0) {
                 comboEscapeUntilMs[defenderIdx] = now + COMBO_ESCAPE_MS
                 rapidHitsTaken[defenderIdx] = 0
+                wallSplatUsed[defenderIdx] = false // el combo terminó → wall splat disponible otra vez
                 defender = defender.copy(
                     slideVelocity = maxOf(defender.slideVelocity, strength.slideVelocity * 1.35f),
                 )
+                // 🆕 (2026-07-25) ANTI-"TRABE" en la esquina: el empuje del escape se lo comía la
+                // pared, así que el defensor quedaba atrapado. Ahora, si está contra la pared, se
+                // EMPUJA AL ATACANTE hacia atrás (crea ESPACIO real, sin meter al defensor en overlap).
+                if (isNearStageCorner(defender.x)) {
+                    attacker = attacker.copy(x = attacker.x - WALL_SPLAT_BOUNCE_PX * attacker.direction.sign)
+                }
             }
         }
         if (!blocked) {
@@ -3038,7 +3117,12 @@ class StreetFighterViewModel @Inject constructor(
         val foe = sim.fighter(1 - i)
         val dist = abs(me.x - foe.x)
 
-        if (now < cpuForceEngageUntilMs[i] && !me.isAirborne) {
+        // 🆕 (2026-07-25) Con un FATALITY comprometido (dash → RUN → súper), el run-up NO lleva
+        // ataque, así que el force-engage / watchdog / anti-walk-loop lo abortarían. Los saltamos
+        // mientras la intención esté activa: la propia `maybeFatalityInput` decide y se auto-cancela.
+        val fatalityCommitted = now < cpuFatalityUntilMs[i]
+
+        if (now < cpuForceEngageUntilMs[i] && !me.isAirborne && !fatalityCommitted) {
             decision = if (dist > CPU_MELEE_DIST * 0.75f) {
                 cpuApproach(me, foe)
             } else {
@@ -3063,7 +3147,7 @@ class StreetFighterViewModel @Inject constructor(
             aiVs -> 420L
             else -> 700L
         }
-        if (watchdogLimit != null) {
+        if (watchdogLimit != null && !fatalityCommitted) {
             val staleMs = now - cpuLastOffenseMs[i]
             if (staleMs > watchdogLimit && !decision.hasAttackOrSpecial()) {
                 // 🆕 (2026-07-18j) Con pasividad extrema (>2×limit) el golpe es OBLIGATORIO en
@@ -3084,7 +3168,7 @@ class StreetFighterViewModel @Inject constructor(
 
         // Anti-walk-loop: caminar hacia el rival sin golpear de cerca
         val onlyWalkIn = decision.isOnlyWalkToward(me, foe)
-        if (onlyWalkIn && dist < 120f) {
+        if (onlyWalkIn && dist < 120f && !fatalityCommitted) {
             cpuStaleApproach[i]++
             if (cpuStaleApproach[i] >= 2) {
                 decision = if (dist < CPU_CLINCH_DIST) {
@@ -3353,6 +3437,54 @@ class StreetFighterViewModel @Inject constructor(
      * defense (fireball/anti-air/block) → punish → clinch/spacing → pressure por rango.
      * @param nightmare más agresivo (PESADILLA / IA vs IA show).
      */
+    /**
+     * 🆕 (2026-07-25) FATALITY comprometido de la IA. El fatality es "SÚPER EN CARRERA": hay que
+     * llegar a [SfFighterState.RUN] y soltar el súper. Antes la IA "nunca" lo hacía porque, al
+     * correr hacia el rival, entraba en rango de CLINCH y abortaba (o quedaba fuera del rango de
+     * dash). Aquí, una vez COMPROMETIDA (medidor lleno; rival aturdido = garantizado), mantiene la
+     * intención [FATALITY_INTENT_MS] y la completa (dash → RUN → súper) sobreponiéndose a todo.
+     * Devuelve null si no aplica (deja seguir a la IA normal).
+     */
+    private fun maybeFatalityInput(
+        me: SfFighter,
+        foe: SfFighter,
+        dist: Float,
+        now: Long,
+        i: Int,
+        nightmare: Boolean,
+    ): SfInput? {
+        val idx = i.coerceIn(0, 1)
+        // Necesita las hojas de FATALITY y de RUN (el comando es súper en carrera).
+        if (!hasAnim(me, SfFighterState.FATALITY) || !hasAnim(me, SfFighterState.RUN)) {
+            cpuFatalityUntilMs[idx] = 0L
+            return null
+        }
+        val committed = now < cpuFatalityUntilMs[idx]
+        val foeStunned = foe.state == SfFighterState.STUN
+        if (!committed) {
+            if (!me.superReady) return null // solo con el medidor LLENO
+            // Comprometerse: rival ATURDIDO = sí o sí; si no, azar que ESCALA con la dificultad y
+            // desde un rango con pista para correr (ni pegado ni lejísimos).
+            val diff = if (nightmare) 1f else cpuIntensity
+            val chance = (0.5f + 0.45f * diff).coerceIn(0.5f, 0.95f)
+            val commit = foeStunned ||
+                (dist in 60f..(CPU_MID_DIST + 40f) && Random.nextFloat() < chance)
+            if (!commit) return null
+            cpuFatalityUntilMs[idx] = now + FATALITY_INTENT_MS
+        }
+        // Intención ACTIVA. Si ya se gastó el medidor (lo soltó) o murió → cancelar.
+        if (!me.superReady) { cpuFatalityUntilMs[idx] = 0L; return null }
+        // Interrumpido (golpeado/aéreo/derribado/metamorfosis): espera SIN gastar el medidor.
+        if (me.isAirborne || me.downed || isMetamorphosing(me) || me.state in SF_HURT_STATES) {
+            return SfInput()
+        }
+        return when (me.state) {
+            SfFighterState.RUN -> { cpuFatalityUntilMs[idx] = 0L; SfInput(forward = true, superArt = true) }
+            SfFighterState.DASH_FORWARD -> SfInput(forward = true) // el dash ya arrancó → mantener → RUN
+            else -> SfInput(dashForward = true, forward = true)    // arrancar el dash hacia la carrera
+        }
+    }
+
     private fun smartCpuDecision(sim: Sim, selfIndex: Int, now: Long, nightmare: Boolean): SfInput {
         val me = sim.fighter(selfIndex)
         val foe = sim.fighter(1 - selfIndex)
@@ -3364,6 +3496,11 @@ class StreetFighterViewModel @Inject constructor(
         // 🆕 (2026-07-21) Perfil ESCALADO por escalón: el mismo personaje se vuelve más
         // fiel a su estilo (y más peligroso) conforme avanzas la escalera.
         val style = cpuStyleForLevel(me.id)
+
+        // 🆕 (2026-07-25) FATALITY comprometido: se evalúa ANTES del clinch/space/watchdog para que,
+        // una vez decidido, la IA lo COMPLETE (corra y suelte el súper) en vez de abortarlo al cerrar
+        // distancia. Rival ATURDIDO + medidor lleno = garantizado (sí o sí).
+        maybeFatalityInput(me, foe, dist, now, selfIndex, nightmare)?.let { return it }
 
         val specialFarBase = when {
             nightmare && aiVs -> 0.24f
@@ -3499,27 +3636,13 @@ class StreetFighterViewModel @Inject constructor(
         if (!hasAnim(me, SfFighterState.PARRY_HIGH)) return null // sin moveset nuevo
         val aggressive = nightmare || cpuIntensity > 0.5f
 
-        // 🆕 (2026-07-22) FATALITY/SÚPER con el medidor lleno: probabilidad ALTA que ESCALA con
-        // la dificultad (cpuIntensity 0→1; nightmare = tope). "Bastante probable" ya de base.
-        // El comando del FATALITY es SÚPER EN CARRERA: se prepara en dos tiempos (arranca con un
-        // dash y, ya en RUN, lo suelta).
+        // 🆕 (2026-07-25) El FATALITY (súper en carrera) lo maneja `maybeFatalityInput` ANTES del
+        // clinch (intención comprometida); si se llega hasta aquí es que NO hay fatality en curso.
+        // Queda el SÚPER normal como respaldo a rango de golpe (peleadores sin RUN, o cuando el
+        // fatality no se comprometió). Rival aturdido = garantizado.
         val diff = if (nightmare) 1f else cpuIntensity
-        val fatalityChance = (0.45f + 0.45f * diff).coerceIn(0.45f, 0.95f)
         val superChance = (0.35f + 0.40f * diff).coerceIn(0.35f, 0.90f)
-        // 🆕 (2026-07-22) Rival MAREADO (stun) + medidor lleno = castigo GARANTIZADO con el
-        // FATALITY: se salta el azar y se amplía el rango del dash (no se mueve, hay tiempo).
         val foeStunned = foe.state == SfFighterState.STUN
-        val canFatality = me.superReady && hasAnim(me, SfFighterState.FATALITY)
-        if (canFatality && me.state == SfFighterState.RUN) {
-            if (foeStunned || roll < fatalityChance) return SfInput(forward = true, superArt = true)
-        } else if (canFatality && (foeStunned || roll < fatalityChance)) {
-            // arrancar el fatality: dash (al terminar entra en RUN y lo suelta)
-            val dashRange = if (foeStunned) 40f..CPU_MID_DIST else 70f..CPU_MID_DIST
-            if (dist in dashRange && hasAnim(me, SfFighterState.DASH_FORWARD)) {
-                return SfInput(dashForward = true, forward = true)
-            }
-        }
-        // SÚPER a rango de golpe (respaldo si no alcanzó a lanzar el fatality en carrera)
         if (me.superReady && dist < CPU_MELEE_DIST && hasAnim(me, SfFighterState.SUPER_ART) &&
             (foeStunned || roll < superChance)
         ) {
@@ -4907,6 +5030,8 @@ class StreetFighterViewModel @Inject constructor(
         cpuWantsSpaceUntilMs[1] = 0L
         cpuForceEngageUntilMs[0] = 0L
         cpuForceEngageUntilMs[1] = 0L
+        cpuFatalityUntilMs[0] = 0L
+        cpuFatalityUntilMs[1] = 0L
         cpuAttackHistory[0].clear()
         cpuAttackHistory[1].clear()
         cpuDiffOverride[0] = null
@@ -4918,6 +5043,7 @@ class StreetFighterViewModel @Inject constructor(
         lowHpVoiceTriggered.fill(false)
         rapidHitsTaken.fill(0)
         comboEscapeUntilMs.fill(0L)
+        wallSplatUsed.fill(false)
         comboHits.fill(0)
         comboLastHitMs.fill(0L)
         // 🆕 (2026-07-21) moveset nuevo
@@ -4956,6 +5082,15 @@ class StreetFighterViewModel @Inject constructor(
         awaitingPeerReady = false
         localReadySent = false
         peerReady = false
+        // 🆕 (2026-07-25) Calificación del combate: contadores en cero (se mide POR combate).
+        gradeDealt = 0
+        gradeTaken = 0
+        gradeParries = 0
+        gradeMaxCombo = 0
+        gradeSupers = 0
+        gradeHits = 0
+        gradePerfects = 0
+        gradeMoves.clear()
         // 🆕 SESIÓN 4: gameNow vuelve a 0 → resetear también lo anclado a él y el HUD
         lastSeenSnapshot = null
         remoteSnapshotAtMs = 0L
@@ -5106,7 +5241,7 @@ class StreetFighterViewModel @Inject constructor(
             lanLocalIp = ips.firstOrNull(), lanLocalIps = ips, lanHostAddress = null,
             btError = null, btRetryAddress = null, btHandshaking = false,
         )
-        val client = SfLanClient()
+        val client = SfLanClient(appContext)
         transport = client
         client.startHost(makeNetListener())
     }
@@ -5123,7 +5258,7 @@ class StreetFighterViewModel @Inject constructor(
             lanLocalIp = null, lanHostAddress = address,
             btError = null, btRetryAddress = null, btHandshaking = false,
         )
-        val client = SfLanClient()
+        val client = SfLanClient(appContext)
         transport = client
         client.connectToHost(address, makeNetListener())
     }
@@ -5583,6 +5718,31 @@ class StreetFighterViewModel @Inject constructor(
      * ¿alguien llegó a ROUNDS_TO_WIN? → COMBATE terminado (menú de fin, MATCH_ENDED).
      * ¿No? → congela con "X WINS" y programa la ronda siguiente (ROUND_ENDED al rival).
      */
+    /**
+     * 🆕 (2026-07-25) Calcula la NOTA del combate (E..MS) del jugador, estilo SF III. Premia la
+     * OFENSIVA (daño, combos, súpers), la técnica (parries, variedad de golpes) y las rondas
+     * perfectas; penaliza el daño RECIBIDO. Umbrales afinados por razonamiento (sin dispositivo):
+     * ajustar si en la práctica cuesta demasiado subir de nota.
+     */
+    private fun computeMatchGrade(): String {
+        val score = gradeDealt * 1.0 -
+            gradeTaken * 0.7 +
+            gradeParries * 45 +
+            gradeMaxCombo * 18 +
+            gradeSupers * 35 +
+            gradeMoves.size * 10 +
+            gradePerfects * 70
+        return when {
+            score >= 700 -> "MS" // Master
+            score >= 520 -> "S"
+            score >= 380 -> "A"
+            score >= 260 -> "B"
+            score >= 160 -> "C"
+            score >= 80 -> "D"
+            else -> "E"
+        }
+    }
+
     private fun endRound(
         sim: Sim,
         winnerIdx: Int,
@@ -5596,6 +5756,8 @@ class StreetFighterViewModel @Inject constructor(
         // la barra del ganador en la ronda siguiente. Solo importa si HABRÁ ronda siguiente.
         pendingRoundOutcome = outcome
         pendingRoundOutcomeWinner = winnerIdx
+        // 🆕 (2026-07-25) Calificación: una ronda PERFECTA del jugador (ganó con la vida al máximo).
+        if (gradeTrackingOn && winnerIdx == 0 && outcome == SfRoundOutcome.PERFECT) gradePerfects++
         val s = _state.value
         val w0 = s.playerRoundWins + if (winnerIdx == 0) 1 else 0
         val w1 = s.cpuRoundWins + if (winnerIdx == 1) 1 else 0
@@ -5603,6 +5765,10 @@ class StreetFighterViewModel @Inject constructor(
         if (w0 >= ROUNDS_TO_WIN || w1 >= ROUNDS_TO_WIN) {
             matchOver = true
             endMenuAtMs = now + END_MENU_DELAY_MS
+            // 🆕 (2026-07-25) GRADO del combate (E..MS): solo si el JUGADOR ganó (nota de rendimiento).
+            if (gradeTrackingOn && winnerIdx == 0) {
+                _state.value = _state.value.copy(matchGrade = computeMatchGrade())
+            }
             if (isOnline) sendOnlineEnd(winnerIdx)
             // 🆕 ARCADE (offline): desbloqueo/avance de la escalera al decidirse el combate.
             if (_state.value.arcadeActive) handleArcadeMatchEnd(winnerIdx)
@@ -5712,9 +5878,12 @@ class StreetFighterViewModel @Inject constructor(
         cpuHold[1] = SfInput()
         specialCooldownUntil[0] = 0L
         specialCooldownUntil[1] = 0L
+        cpuFatalityUntilMs[0] = 0L
+        cpuFatalityUntilMs[1] = 0L
         lastHitTakenMs.fill(0L)
         rapidHitsTaken.fill(0)
         comboEscapeUntilMs.fill(0L)
+        wallSplatUsed.fill(false)
         comboHits.fill(0)
         comboLastHitMs.fill(0L)
         // 🆕 (2026-07-21) moveset nuevo (la ronda nueva arranca sin ventanas abiertas)

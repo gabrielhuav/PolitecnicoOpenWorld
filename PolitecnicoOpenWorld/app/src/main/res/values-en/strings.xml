@@ -102,6 +102,10 @@
     <string name="settings_developer_mode_desc">Shows test options and buttons reserved for development</string>
     <string name="settings_show_hitboxes">Show hitboxes (fight mode)</string>
     <string name="settings_show_hitboxes_desc">Draws the collision boxes over the fighters, like Minecraft hitboxes</string>
+    <string name="settings_show_sf_fps">Show FPS (fight mode)</string>
+    <string name="settings_show_sf_fps_desc">Shows frames per second during the fight (useful to measure smoothness on low-end devices)</string>
+    <string name="settings_voice_subtitles">Voice subtitles (fight mode)</string>
+    <string name="settings_voice_subtitles_desc">Shows the text of each fighter\'s spoken lines (special, victory, etc.). Off by default</string>
     <!-- ─── Account / Authentication (Google Sign-In) ─── -->
     <string name="settings_cat_account">Account</string>
     <string name="settings_account_desc">Sign in with Google to play online. Local play and Story Mode don\'t require an account.</string>
@@ -656,6 +660,7 @@
     <string name="sf_lan_host_sub">Your room is open. Share this address with your rival (same Wi-Fi network or your hotspot):\n\n%1$s</string>
     <string name="sf_lan_no_ip">No local network detected: join a Wi-Fi network or turn on your hotspot and retry.</string>
     <string name="sf_lan_connecting_sub">Connecting to the local server…</string>
+    <string name="sf_lan_error_title">NO WI-FI CONNECTION</string>
     <string name="sf_lan_error_hint">Both phones must be on the SAME Wi-Fi network (or one on the other\'s hotspot). Check the IP shown on the host\'s screen and retry.</string>
     <!-- Round banner (arcade font: A-Z and 0-9 only) -->
     <string name="sf_round_banner">ROUND %1$d</string>
@@ -686,6 +691,7 @@
     <string name="sf_arcade_diff_hard_desc">Aggressive AI · rewards coming soon</string>
     <string name="sf_back">← Back</string>
     <string name="sf_arcade_won">YOU WON!</string>
+    <string name="sf_grade_label">GRADE</string>
     <string name="sf_arcade_progress">Fight %1$d of %2$d</string>
     <string name="sf_arcade_continue">CONTINUE</string>
     <string name="sf_arcade_quit">QUIT</string>

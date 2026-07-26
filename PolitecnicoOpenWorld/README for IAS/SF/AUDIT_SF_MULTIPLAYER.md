@@ -1,5 +1,22 @@
 # AUDIT · Multijugador 1v1 del modo pelea "HUELUM VS. GOYA" (2026-07-11)
 
+> **🆕 2026-07-25b (Opus 4.8) — LAN "muere tras elegir peleador" + mensaje equivocado (dueño):**
+> - **✅ BT ahora arranca SINCRONIZADO** entre gamas distintas (la barrera "ambos listos" funcionó).
+> - **🐛 Mensaje equivocado:** al fallar el WiFi salía "SIN CONEXIÓN BLUETOOTH". `BtRetryOverlay`
+>   tenía el TÍTULO fijo a `sf_bt_error_title`; ahora recibe `titleRes` y usa `sf_lan_error_title`
+>   ("SIN CONEXIÓN WI-FI") cuando `lanMode`. (El hint ya cambiaba bien.)
+> - **🔴 CAUSA del "muere en el siguiente paso" (hipótesis fuerte):** **power-save del Wi-Fi**. Al
+>   quedar IDLE en la selección de peleador, Android duerme la radio Wi-Fi y MATA el socket TCP; el
+>   siguiente `SELECT_CHARACTER` falla al escribir → `OPPONENT_DISCONNECTED`. BT no sufre esto (su
+>   radio sigue activa). **Fix:** `SfLanClient` toma `Context` y adquiere un **WifiLock**
+>   (`WIFI_MODE_FULL_HIGH_PERF`) mientras dura la sesión (host y join); se libera en `close`. **NO
+>   requiere permiso nuevo** (createWifiLock/acquire no piden ninguno) → sin cambio en Play.
+> - **🔎 Diagnóstico:** `sendRaw` ahora LOGUEA (tag `SF-NET`) cuando una escritura falla (el síntoma
+>   del socket muerto). Si tras el WifiLock aún cae, el logcat `SF-NET` dirá en qué paso.
+> - **⏭️ SIGUIENTE (pedido del dueño):** autodescubrimiento LAN por UDP broadcast (encontrar los
+>   juegos hosteados en la MISMA red sin teclear IP) — es el punto ④ de `_ARCHIVO/PENDIENTES_SF_2026-07-16.md`.
+>   Se hace tras confirmar que la conexión ya no muere.
+
 > **🆕 2026-07-25 (Opus 4.8) — BARRERA "AMBOS LISTOS" + endurecimiento LAN (⚠️ SIN COMPILAR aquí:
 > falta el gradle-wrapper.jar y Gradle 9.5; Rebuild + 2 dispositivos pendientes):**
 > - **🟢 Arranque sincronizado (punto 2 del dueño):** nuevo mensaje **`PLAYER_READY`** (relay puro,

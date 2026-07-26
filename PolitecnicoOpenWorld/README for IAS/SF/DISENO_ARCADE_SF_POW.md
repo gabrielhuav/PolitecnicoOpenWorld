@@ -65,6 +65,35 @@ Los dos jefes finales del arcade cambian de orden y la metamorfosis automática 
   nuevos valores. ⚠️ **Balance afinado por razonamiento, sin dispositivo**: si Difícil (PESADILLA
   desde temprano) resulta frustrante, bajar el `bump` de las primeras peleas.
 
+### 💀 La IA ahora SÍ hace el FATALITY (con el medidor lleno) + 🏆 Calificación + 🎞️ FPS
+
+- **Fatality de la IA (`maybeFatalityInput`):** el comando es "súper EN CARRERA"; antes la IA "nunca"
+  lo lograba porque al correr hacia el rival entraba en rango de CLINCH y abortaba, o quedaba fuera
+  del rango de dash. Ahora, con el medidor lleno, la IA se **COMPROMETE** (rival ATURDIDO = sí o sí;
+  si no, azar que escala con la dificultad) y **completa** la secuencia dash → RUN → súper dentro de
+  `FATALITY_INTENT_MS`, evaluada ANTES del clinch y con el watchdog/anti-walk-loop **desactivados**
+  mientras dura (si no, lo abortaban). Se auto-cancela al soltarlo o si la interrumpen. El súper
+  normal queda como respaldo.
+- **🏆 Sistema de calificación (E..MS) estilo SF III:** mide el desempeño del JUGADOR a lo largo del
+  COMBATE (daño hecho − recibido, parries, combo más largo, súpers/fatalities, variedad de golpes,
+  rondas perfectas → `computeMatchGrade`) y muestra la nota (`SfGradeBadge`) en el menú de fin **solo
+  si ganó**. Contadores por combate (`resetInternals`); solo con humano (no IA-vs-IA/showcase/tutorial).
+  ⚠️ Umbrales afinados por razonamiento — ajustar tras jugar.
+- **🎞️ Contador de FPS del combate:** Ajustes → Interfaz → "Mostrar FPS (modo pelea)" (junto a
+  hitboxes). `SettingsRepository.getShowSfFps` → `SfFpsOverlay` (mide cuadros REALES con
+  `withFrameNanos`). Análogo al del mundo abierto.
+
+### 🕹️ Joystick con RESPUESTA INMEDIATA en la pelea (bug de controles "no instantáneos")
+
+El `JoystickController` (compartido) usaba `detectDragGestures`: un **TAP puro se IGNORABA** y
+tocar-y-mantener no registraba nada hasta cruzar el *touch-slop* → los controles se sentían
+"pegados/lageados", el **agacharse** el más notorio (el ↓ no respondía al instante). Fix
+(`GameControllers.kt`): nuevo flag **`respondToTouchDown`** (default `false` = arrastre de siempre,
+mundo abierto/interiores/zombis SIN cambios) que la Screen del SF activa. Con él, la deflexión se
+toma de la **posición del toque respecto al centro** y se dispara **YA** en el `awaitFirstDown`
+(joystick virtual estándar), con la misma zona muerta (28%) y el bucle de 33 fps para el HOLD. Los
+botones de ataque ya eran inmediatos (`detectHoldEvent` → `awaitFirstDown`).
+
 ## Cambios 2026-07-21f (Opus 4.8) — La Llorona: crouchTurn con `flipX`, hoja 09 regenerada, re-pack
 
 Cierra los tres recortes malos que quedaban de La Llorona (auditados por el dueño en

@@ -1,5 +1,7 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
+import android.content.Context
+import android.net.wifi.WifiManager
 import android.util.Log
 import java.net.Inet4Address
 import java.net.InetSocketAddress
@@ -20,7 +22,12 @@ import java.net.Socket
 // declara) ni servicios en primer plano, y el tráfico es dispositivo-a-dispositivo efímero
 // → NO cambia Data Safety ni ningún formulario de la consola. Mantenerlo así.
 
-class SfLanClient : SfStreamPeer() {
+// 🆕 (2026-07-25) Recibe Context para el WIFI LOCK: en Android, el Wi-Fi entra en power-save
+// cuando la app "no hace nada" un rato (p. ej. mientras el jugador ELIGE peleador) y MATA el
+// socket TCP → la conexión "muere en el siguiente paso" (BT no sufre esto, su radio sigue
+// activa). El WifiLock (WIFI_MODE_FULL_HIGH_PERF) mantiene la radio despierta durante la sesión.
+// NO requiere permiso nuevo (createWifiLock/acquire no piden ninguno) → sin cambio en Play.
+class SfLanClient(private val context: Context) : SfStreamPeer() {
 
     override val roomCode: String = LAN_ROOM_CODE
     override val handshakeFailMessage: String =
@@ -28,6 +35,26 @@ class SfLanClient : SfStreamPeer() {
 
     private var serverSocket: ServerSocket? = null
     @Volatile private var socket: Socket? = null
+    private var wifiLock: WifiManager.WifiLock? = null
+
+    /** Mantiene el Wi-Fi despierto mientras dure la sesión LAN (evita que el power-save corte el socket). */
+    @Suppress("DEPRECATION") // WIFI_MODE_FULL_HIGH_PERF: deprecado pero funcional y el más compatible
+    private fun acquireWifiLock() {
+        runCatching {
+            val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager ?: return
+            val lock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "POW-SF-LAN").apply {
+                setReferenceCounted(false)
+                acquire()
+            }
+            wifiLock = lock
+            Log.d(SF_NET_TAG, "WifiLock adquirido (mantiene el Wi-Fi despierto)")
+        }.onFailure { Log.w(SF_NET_TAG, "no se pudo adquirir el WifiLock: ${it.message}") }
+    }
+
+    private fun releaseWifiLock() {
+        runCatching { wifiLock?.takeIf { it.isHeld }?.release() }
+        wifiLock = null
+    }
 
     // ══════════════════════════════ CONEXIÓN ══════════════════════════════
 
@@ -36,6 +63,7 @@ class SfLanClient : SfStreamPeer() {
         this.listener = listener
         isHostRole = true
         running = true
+        acquireWifiLock()
         Thread({
             try {
                 // 🆕 (2026-07-25) SO_REUSEADDR + bind explícito: sin esto, re-hospedar tras un cierre
@@ -73,6 +101,7 @@ class SfLanClient : SfStreamPeer() {
         this.listener = listener
         isHostRole = false
         running = true
+        acquireWifiLock()
         Thread({
             try {
                 var s: Socket? = null
@@ -113,6 +142,7 @@ class SfLanClient : SfStreamPeer() {
     }
 
     override fun closeTransport() {
+        releaseWifiLock()
         runCatching { serverSocket?.close() }
         serverSocket = null
     }

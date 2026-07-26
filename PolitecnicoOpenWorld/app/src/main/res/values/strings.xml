@@ -102,6 +102,10 @@
     <string name="settings_developer_mode_desc">Muestra opciones y botones de prueba reservados para desarrollo</string>
     <string name="settings_show_hitboxes">Mostrar hitboxes (modo pelea)</string>
     <string name="settings_show_hitboxes_desc">Dibuja las cajas de colisión sobre los peleadores, como las hitboxes de Minecraft</string>
+    <string name="settings_show_sf_fps">Mostrar FPS (modo pelea)</string>
+    <string name="settings_show_sf_fps_desc">Muestra los cuadros por segundo durante el combate (útil para medir la fluidez en gama baja)</string>
+    <string name="settings_voice_subtitles">Subtítulos de voces (modo pelea)</string>
+    <string name="settings_voice_subtitles_desc">Muestra el texto de las frases habladas de cada peleador (special, victoria, etc.). Apagado por defecto</string>
     <!-- ─── Cuenta / Autenticación (Google Sign-In) ─── -->
     <string name="settings_cat_account">Cuenta</string>
     <string name="settings_account_desc">Inicia sesión con Google para jugar en línea. El juego local y el Modo Historia no requieren cuenta.</string>
@@ -658,6 +662,7 @@
     <string name="sf_lan_host_sub">Tu sala está abierta. Comparte esta dirección con tu rival (misma red Wi-Fi o tu hotspot):\n\n%1$s</string>
     <string name="sf_lan_no_ip">No se detectó red local: conéctate a una red Wi-Fi o enciende tu hotspot y reintenta.</string>
     <string name="sf_lan_connecting_sub">Conectando con el servidor local…</string>
+    <string name="sf_lan_error_title">SIN CONEXIÓN WI-FI</string>
     <string name="sf_lan_error_hint">Ambos teléfonos deben estar en la MISMA red Wi-Fi (o uno al hotspot del otro). Verifica la IP que muestra la pantalla del anfitrión y reintenta.</string>
     <!-- Banner de rondas (fuente arcade: solo A-Z y 0-9, sin acentos ni signos) -->
     <string name="sf_round_banner">RONDA %1$d</string>
@@ -688,6 +693,7 @@
     <string name="sf_arcade_diff_hard_desc">IA agresiva · recompensas próximamente</string>
     <string name="sf_back">← Volver</string>
     <string name="sf_arcade_won">¡GANASTE!</string>
+    <string name="sf_grade_label">CALIFICACIÓN</string>
     <string name="sf_arcade_progress">Pelea %1$d de %2$d</string>
     <string name="sf_arcade_continue">CONTINUAR</string>
     <string name="sf_arcade_quit">SALIR</string>

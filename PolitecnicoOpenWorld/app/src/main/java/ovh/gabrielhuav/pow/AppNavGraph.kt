@@ -574,6 +574,8 @@ fun AppNavGraph(
                                 },
                                 onDeveloperModeToggled = { settingsViewModel.toggleDeveloperMode(it) },
                                 onHitboxesToggled = { settingsViewModel.toggleHitboxes(it) },
+                                onSfFpsToggled = { settingsViewModel.toggleSfFps(it) },
+                                onVoiceSubtitlesToggled = { settingsViewModel.toggleVoiceSubtitles(it) },
                                 // Audio: persisten en Ajustes Y se aplican en vivo al SoundManager.
                                 onMusicVolumeChanged = {
                                     settingsViewModel.changeMusicVolume(it)

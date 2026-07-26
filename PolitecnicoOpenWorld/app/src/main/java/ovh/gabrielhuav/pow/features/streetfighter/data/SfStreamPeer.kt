@@ -308,15 +308,20 @@ abstract class SfStreamPeer(
      */
     protected fun sendRaw(payload: Map<String, Any?>) {
         val line = gson.toJson(payload.filterValues { it != null }) + "\n"
-        val ok = runCatching {
+        val result = runCatching {
             out?.let { o ->
                 synchronized(o) {
                     o.write(line.toByteArray())
                     o.flush()
                 }
             }
-        }.isSuccess
-        if (!ok) runCatching { closePeerSocket() }
+        }
+        if (result.isFailure) {
+            // 🆕 (2026-07-25) La escritura falló = el enlace MURIÓ (típico del power-save de Wi-Fi
+            // en LAN al quedar idle en la selección de peleador). Log para diagnóstico + cierre.
+            Log.w(SF_NET_TAG, "escritura falló (${payload["type"]}) → enlace muerto: ${result.exceptionOrNull()?.message}")
+            runCatching { closePeerSocket() }
+        }
     }
 
     protected fun deliver(msg: SfNetMsg) {
