@@ -80,6 +80,7 @@
 | 07 | `07_OTHER_FEATURES.md` | Menú principal, ajustes, ShineCTO, coleccionables (+ 🥊 SF; ⚠️ su parte de SF debería migrar a `SF/`) |
 | 09 | `09_CONVENTIONS_GOTCHAS.md` | Convenciones, reglas de gama baja, protocolo de actualización de docs |
 | — | `PLAYSTORE_formulario_seguridad_datos.md` | 🛡️ **Play Store: formulario de Seguridad de los datos + políticas.** Valores EXACTOS aprobados, errores que nos rechazaron y checklist antes de cada envío. **Léelo antes de tocar la ficha o subir versión.** |
+| — | `ARRANQUE_MAC_iOS.md` | 🍏 **EMPIEZA AQUÍ si estás en el MAC.** Guion exacto de la primera compilación de `:shared` para iOS: rutas, JDK, comandos y dónde va a fallar. Las Fases 1-4 se hicieron en Windows, donde iOS NO compila. |
 | — | `PLAN_MIGRACION_KMP.md` | 🍏 **Migración a Kotlin Multiplatform / iOS — Fase 0 (auditoría).** Acoplamiento real MEDIDO, estado verificado de las libs KMP, decisión del mapa y qué NO se puede portar. **Estado: esperando decisión del dueño (§11); no se ha migrado nada.** |
 
 ### 🌎 `MUNDO/` — mundo libre POW

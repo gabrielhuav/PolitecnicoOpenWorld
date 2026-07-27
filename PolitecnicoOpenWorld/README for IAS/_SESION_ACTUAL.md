@@ -36,8 +36,8 @@
 **Última actualización:** 2026-07-27 · Opus 5 · rama `fase0-auditoria-kmp`
 **Ventana viva:** 2026-07-26 → 2026-07-27 · *purgar a `_ARCHIVO/` a partir del 2026-07-28*
 
-> ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: **Fases 0-3 COMPLETAS; la 4 a medias**
-> (prefs sí; Room KMP y Ktor NO). ⚠️ **NO existe app iOS todavía** — ver §4 P0.
+> ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: **Fases 0-4 COMPLETAS y verdes.**
+> ⚠️ **De iOS NO hay nada compilado aún** → siguiente paso EN EL MAC: `ARRANQUE_MAC_iOS.md`.
 
 ## 🖥️ Rutas por PC
 
@@ -45,6 +45,7 @@
 |---|---|
 | **Laptop** (referencia) | `C:\Users\gabri\AndroidStudioProjects\PolitecnicoOpenWorld\PolitecnicoOpenWorld` |
 | **Escritorio** | *distinta — COMPLETAR con la real* |
+| **🍏 Mac** (iOS) | `/Users/gabrielhuav/Documents/GitHub/PolitecnicoOpenWorld/PolitecnicoOpenWorld` |
 
 Solo cambia el prefijo absoluto: todas las rutas de los docs son **relativas a la raíz**.
 El GEN de sprites vive FUERA del repo en `..\newSFAssets\GEN_*`.
@@ -81,45 +82,46 @@ Audio del rival sincronizado, P2P por WebRTC, auditoría pre-producción (4 defe
 puerta `play-compliance` de CI. Detalle en `_ARCHIVO/HISTORIAL_sesiones_2026-07-26.md`.
 ⚠️ Lo único que sigue VIVO de ahí está en los P0 de §4 (probar multijugador + redeploy Render).
 
-## 3bis. Sesión 2026-07-27 (Opus 5) — KMP/iOS: Fases 0-3 + Fase 4 parcial + auditoría
+## 3bis. Sesión 2026-07-27 (Opus 5) — KMP/iOS: Fases 0-4 COMPLETAS + auditoría
 
 **Datos, opciones y fases: `PLAN_MIGRACION_KMP.md`.** Aquí solo lo que no puede perderse:
 - **osmdroid NO bloquea 51 archivos, sino 6** (los otros 45 solo usan `GeoPoint`). Y **el mapa por
   defecto YA es Leaflet en WebView**, no osmdroid → iOS hereda mapa sin escribir renderer.
-- **🔴 Gson en 20 archivos (5 = protocolo de red de SF)**: reflexión JVM, NO existe en iOS. Faltaba
-  en todas las tablas previas. Es la fase que puede romper saves/red de usuarios REALES.
+- **🔴 Gson en 20 archivos (5 = red de SF)**: reflexión JVM, NO existe en iOS. Faltaba en las tablas.
 - **Hilt→Koin NO es obligatorio** (`:shared` no necesita DI; Android sigue con Hilt).
 
 **DECISIONES del dueño:** alcance = **juego ENTERO** (yo recomendaba SF primero; consta en el plan).
-Mapa = **Opción A**. **Tiene Mac**, no cuenta Developer. Fase 1 **sin subir Kotlin**.
+Mapa = **Opción A**. **Tiene Mac + Xcode**, no cuenta Developer. **Sin subir Kotlin** hasta la Fase 5.
 
-**FASE 1 HECHA y VERDE.** Módulo **`:shared`** (Kotlin 2.2.10 y AGP intactos), `androidTarget` + 3
-targets iOS. Con `git mv`: dominio puro de SF (7 archivos, 1235 líneas) → `commonMain`; 6 tests →
-`commonTest` (JUnit4 → `kotlin.test`). **Se conservó el paquete** → cero imports que tocar en `:app`.
-- **MEDIDO: `:app` 87 + `:shared` 44 = 131 tests, 0 fallos.** `assembleDebug` OK. detekt exit 0.
-- ⚠️ **`SfArcadeCampaignAuditTest` NO se movió** (usa `java.io.File`): se queda en `:app`.
-- ⚠️ **CI actualizado** (`pr-quality-gate.yml`): corre `:shared:testDebugUnitTest` **y** el input
-  nuevo de detekt. Sin eso CI habría corrido solo 87 tests **sin avisar**.
-- 🆕 **GOTCHA (ya en 09 §12): el smart cast NO cruza módulos** → `x.campo?.let { usa(it) } == true`.
+**FASE 1 HECHA.** Módulo **`:shared`** (Kotlin 2.2.10 y AGP intactos), `androidTarget` + 3 targets
+iOS. Dominio puro de SF y 6 tests movidos con `git mv`; **se conservó el paquete** → cero imports
+que tocar en `:app`. ⚠️ `SfArcadeCampaignAuditTest` se queda en `:app` (usa `java.io.File`).
+⚠️ **CI** (`pr-quality-gate.yml`) corre `:shared:testDebugUnitTest` **y** el input nuevo de detekt;
+sin eso habría corrido de menos **sin avisar**.
+🆕 **GOTCHA (09 §12): el smart cast NO cruza módulos** → `x.campo?.let { usa(it) } == true`.
 
 **FASE 2 HECHA.** `GeoPoint` propio en `:shared` → **osmdroid pasa de 51 archivos a 7**. Se llama
 IGUAL a propósito: en los 45 archivos solo cambió la línea del `import`. Fórmulas = port LITERAL de
-osmdroid (mismo radio 6378137). `GeoPointParidadOsmdroidTest` compara contra osmdroid real y sale
-**bit a bit** igual. ⚠️ Cazó que `x*x` ≠ `.pow(2)` (2 ULP): **no lo "simplifiques"**.
-La conversión al mundo osmdroid vive SOLO en `ui/GeoPointInterop.kt` (19 sitios).
+osmdroid (mismo radio 6378137); `GeoPointParidadOsmdroidTest` sale **bit a bit** igual.
+⚠️ Cazó que `x*x` ≠ `.pow(2)` (2 ULP): **no lo "simplifiques"**. La conversión a osmdroid vive
+SOLO en `ui/GeoPointInterop.kt` (19 sitios).
 
-**FASE 3 COMPLETA — Gson FUERA de producción** (0 archivos; queda solo en `testImplementation`
-para los tests de compatibilidad). `PowJson` + `jsonOf`/`jsonArrayOf` en `:shared`.
-⚠️ **Las opciones de `PowJson` imitan a Gson a propósito** (`ignoreUnknownKeys`/`encodeDefaults`/
-`explicitNulls=false`/`coerceInputValues`); tocarlas rompe saves y clientes viejos EN SILENCIO.
+**FASE 3 COMPLETA — Gson FUERA de producción** (queda solo en `testImplementation`, para los tests
+de compatibilidad). `PowJson` + `jsonOf`/`jsonArrayOf` en `:shared`. ⚠️ **Las opciones de `PowJson`
+imitan a Gson a propósito** (`ignoreUnknownKeys`/`encodeDefaults`/`explicitNulls=false`/
+`coerceInputValues`); tocarlas rompe saves y clientes viejos EN SILENCIO.
 
-**FASE 4 A MEDIAS.** ✅ SharedPreferences → `multiplatform-settings` en los 5 repos. Se eligió
-sobre DataStore (que recomendaba el plan) porque **envuelve el fichero de prefs existente → cero
-migración**, y porque DataStore es asíncrono (volvería `suspend` ~60 lecturas hoy síncronas).
-⚠️ `SfArcadeRepository` es el ÚNICO con migración real de datos: los desbloqueos se guardaban con
-`putStringSet` (no existe en multiplatform-settings) → ahora array JSON en claves `_V2`, y
-`leerConjunto()` migra una vez desde la vieja. Sin eso, todos pierden peleadores y mapas.
-❌ **FALTAN: Room KMP y OkHttp → Ktor** (las deps de Ktor ya están declaradas, sin usar).
+**FASE 4 COMPLETA.** ✅ SharedPreferences → `multiplatform-settings` (elegido sobre DataStore:
+**envuelve el fichero de prefs existente → cero migración**; DataStore es asíncrono y volvería
+`suspend` ~60 lecturas). ✅ **Room 2.8.4 KMP** en `:shared`. ✅ **Ktor** en vez de OkHttp.
+⚠️ `SfArcadeRepository` es el ÚNICO con migración real de datos: los desbloqueos usaban
+`putStringSet` (no existe en multiplatform-settings) → array JSON en claves `_V2` + `leerConjunto()`
+migra una vez desde la vieja. Sin eso, todos pierden peleadores y mapas.
+⚠️ **NO cambies la ruta de la BD** (`filesDir/databases/pow_roads.db`) ni el driver de Android
+(SQLite del sistema; el bundled es solo para iOS): se perdería caché y landmarks del Diseñador.
+⚠️ **Ktor: sin `HttpTimeout` sobre el socket** (OkHttp los tenía a 0) y ping 25s/20s — no son
+decorativos: evitan que se caiga la partida en los ratos sin tráfico y despiertan Render.
+⚠️ **`dependencies { add("kspAndroid"…) }` va DESPUÉS de `kotlin { }`** en `shared/build.gradle.kts`.
 
 ### 🔴 AUDITORÍA de las fases 1-4 — 12 bugs REALES (ya corregidos)
 Dos clases de bug que **el compilador NO ve** y que habrían salido en producción:
@@ -140,7 +142,8 @@ Tests de regresión: `PayloadsSeSerializanEnRuntimeTest` (serializa de verdad) y
    `SF-NET`). BT y LAN son lo que hay que validar sí o sí.
 2. **Redeploy de `MultiplayerSF/` en Render** para activar el P2P (no bloquea el release).
    Con 2 teléfonos en redes distintas, buscar en logcat `SF-RTC`: `DataChannel → OPEN`.
-3. **🍏 FASE 1.5 EN EL MAC** (siguiente paso de KMP): compilar `:shared` para iOS de verdad y
+3. **🍏 EN EL MAC: seguir `ARRANQUE_MAC_iOS.md`** (guion exacto). Primero
+   `./gradlew :shared:iosSimulatorArm64Test`. Luego la Fase 1.5 (siguiente paso de KMP): compilar `:shared` para iOS de verdad y
    probar Compose MP + el mapa Leaflet en `WKWebView`. **Es lo que convierte en hechos las 2
    suposiciones más caras del plan.** Sin esto, no meter más código en `:shared`.
    ⚠️ **EXPECTATIVA A CORREGIR: en el Mac todavía NO se puede "probar todo".** Las Fases 1-4 NO
