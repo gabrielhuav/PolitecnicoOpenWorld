@@ -18,6 +18,98 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # ── 0) PUERTA DE CUMPLIMIENTO DE PLAY ─────────────────────────────────────
+  # Bloquea la subida si se repite alguno de los motivos por los que Google nos RECHAZÓ el
+  # 2026-07-22 (5 correos = 3 problemas). Ver README for IAS/PLAYSTORE_formulario_seguridad_datos.md:
+  #   1. "Invalid Privacy policy"  → policy_en_es.html daba 404
+  #   2. "Invalid account deletion link" → account-deletion.html daba 404
+  #      (causa RAÍZ de los dos: se borró la rama gh-pages, que es la que los sirve)
+  #   3. "Invalid Data safety form" → faltaba declarar el correo (eso es del formulario, no
+  #      automatizable; aquí se recuerda en el resumen del job)
+  # El 90% de los rechazos fue el punto 1-2, y son EXACTAMENTE lo que se comprueba aquí.
+  play-compliance:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    env:
+      POLICY_URL: https://gabrielhuav.github.io/PolitecnicoOpenWorld/policy_en_es.html
+      DELETION_URL: https://gabrielhuav.github.io/PolitecnicoOpenWorld/account-deletion.html
+      CONTACT_EMAIL: gabrielhuav@gmail.com
+      WRONG_EMAIL: iiaragonii6@gmail.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # Causa RAÍZ de los rechazos 1 y 2: sin gh-pages, las dos URLs dan 404.
+      - name: gh-pages debe existir (es infraestructura de cumplimiento, no una rama cualquiera)
+        run: |
+          if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            echo "::error::La rama gh-pages NO existe. Es la que sirve la política de privacidad"
+            echo "::error::y la página de eliminación de cuenta. Sin ella Play RECHAZA la app"
+            echo "::error::(nos pasó el 2026-07-22). Restáurala antes de publicar."
+            exit 1
+          fi
+          echo "gh-pages presente."
+
+      - name: Las 2 URLs de políticas deben cargar (no 404) y traer el correo correcto
+        run: |
+          FAIL=0
+          for URL in "$POLICY_URL" "$DELETION_URL"; do
+            echo "── Comprobando $URL"
+            CODE=$(curl -sS -L --retry 4 --retry-delay 5 --retry-all-errors --max-time 45 \
+                   -o page.html -w '%{http_code}' "$URL" || echo "000")
+            if [ "$CODE" != "200" ]; then
+              echo "::error::$URL respondió HTTP $CODE (se esperaba 200)."
+              echo "::error::Este es EXACTAMENTE el motivo de rechazo de Play del 2026-07-22."
+              FAIL=1
+              continue
+            fi
+            # Una página servida pero vacía/rota también invalida el enlace ante Google.
+            BYTES=$(wc -c < page.html)
+            if [ "$BYTES" -lt 500 ]; then
+              echo "::error::$URL devolvió 200 pero solo $BYTES bytes: la página parece rota."
+              FAIL=1
+            fi
+            # El correo de contacto/eliminación debe ser real y del dueño.
+            if ! grep -qF "$CONTACT_EMAIL" page.html; then
+              echo "::error::$URL NO contiene el correo de contacto $CONTACT_EMAIL."
+              FAIL=1
+            fi
+            if grep -qF "$WRONG_EMAIL" page.html; then
+              echo "::error::$URL contiene el correo EQUIVOCADO $WRONG_EMAIL (ver playbook §2)."
+              FAIL=1
+            fi
+            [ "$FAIL" -eq 0 ] && echo "OK: HTTP 200, $BYTES bytes, correo correcto."
+          done
+          exit $FAIL
+
+      # El paso de subida usa whatsNewDirectory: si faltan, el release llega sin notas.
+      - name: Notas de la versión presentes (ES + EN)
+        run: |
+          MISSING=0
+          for F in distribution/whatsnew/whatsnew-es-MX distribution/whatsnew/whatsnew-en-US; do
+            if [ ! -s "$F" ]; then
+              echo "::error::Falta o está vacío $F (lo usa whatsNewDirectory al publicar)."
+              MISSING=1
+            fi
+          done
+          exit $MISSING
+
+      - name: Recordatorio del formulario (lo único que NO se puede automatizar)
+        run: |
+          {
+            echo "### ✅ Puerta de cumplimiento de Play superada"
+            echo ""
+            echo "Verificado automáticamente:"
+            echo "- Rama \`gh-pages\` presente (causa raíz de los 404 de 2026-07-22)."
+            echo "- Política de privacidad y eliminación de cuenta: **HTTP 200** y correo correcto."
+            echo "- Notas de versión ES + EN presentes."
+            echo ""
+            echo "> ⚠️ **Revisa a mano** si añadiste un SDK nuevo (analytics, ads, un backend que"
+            echo "> reciba más datos, o si empiezas a mandar el GPS al servidor): entonces hay que"
+            echo "> declarar los datos nuevos en **Seguridad de los datos** Y actualizar la política."
+            echo "> Formulario ≠ realidad = rechazo. Ver \`PLAYSTORE_formulario_seguridad_datos.md\` §6."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # ── 1) MERGE de PR → APK debug + GitHub Release ───────────────────────────
   release:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
@@ -79,6 +171,9 @@ jobs:
 
   # ── 2) PR MERGEADO a main → AAB firmado → Play Store PRUEBA CERRADA (track "alpha") ──
   playstore-closed-testing:
+    # 🆕 (2026-07-26) NO se sube nada a Play si la puerta de cumplimiento falla: es la red que
+    # evita repetir los rechazos de 2026-07-22 (políticas en 404 por haber borrado gh-pages).
+    needs: [play-compliance]
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
