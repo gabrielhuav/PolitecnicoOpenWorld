@@ -844,7 +844,11 @@ fun StreetFighterScreen(
                             (state.btMode || state.lanMode) && state.btHandshaking -> R.string.sf_bt_handshake_sub
                             state.lanMode -> R.string.sf_lan_connecting_sub
                             state.btMode -> R.string.sf_bt_connecting_sub
-                            else -> R.string.sf_mp_connecting_sub
+                            // 🆕 (2026-07-26) El aviso de "hasta un minuto" SOLO si el servidor
+                            // estaba dormido de verdad. Antes salía siempre y asustaba de gratis:
+                            // con el servicio despierto la conexión es inmediata.
+                            state.onlineWaking -> R.string.sf_mp_connecting_sub
+                            else -> R.string.sf_mp_connecting_fast
                         },
                     ),
                     onCancel = { viewModel.cancelOnline() },

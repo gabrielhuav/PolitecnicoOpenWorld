@@ -70,6 +70,7 @@ import ovh.gabrielhuav.pow.features.streetfighter.data.SfMatchClient
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetFireball
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetMsg
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetTransport
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfWebRtcClient
 import ovh.gabrielhuav.pow.features.streetfighter.data.isSfLowEnd
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.inject.Inject
@@ -320,7 +321,39 @@ class StreetFighterViewModel @Inject constructor(
     private fun emitVoiceClip(name: String): Boolean {
         if (!sfAssetExists("STREETFIGHTER/SOUNDS/$name.ogg")) return false
         _soundEvents.tryEmit(name)
+        // 🆕 (2026-07-26) Si es la voz de MI peleador en una pelea en red, se encola para que
+        // el rival reproduzca EL MISMO clip (ver pendingNetAudio).
+        if (netAudioCapture) queueNetAudio(name)
         return true
+    }
+
+    /**
+     * 🆕 (2026-07-26) Corre [block] capturando las voces que emita, para mandarlas por red.
+     * Solo captura las del peleador LOCAL (índice 0) y solo en pelea en red: la voz del rival
+     * la manda ÉL, y en un jugador no hay a quién mandársela. Reentrante-seguro (restaura el
+     * valor previo) por si un emit* llama a otro (emitWinVoice → emitSpecialVoice).
+     */
+    // ⚡ GAMA BAJA: `inline` a propósito. Se llama desde `changeState`, que corre varias veces por
+    // segundo y por peleador; sin inline cada llamada ASIGNA un lambda (captura nf/idx/now) y eso
+    // es basura para el GC en un teléfono lento. Inline = cero asignaciones.
+    private inline fun withNetAudioCapture(idx: Int, block: () -> Unit) {
+        if (idx != 0 || !inOnlineFight) {
+            block()
+            return
+        }
+        val previous = netAudioCapture
+        netAudioCapture = true
+        try {
+            block()
+        } finally {
+            netAudioCapture = previous
+        }
+    }
+
+    /** Encola una clave de voz para el próximo PLAYER_STATE (con tope, por si no se envía). */
+    private fun queueNetAudio(name: String) {
+        if (pendingNetAudio.size >= NET_AUDIO_MAX_PER_SNAPSHOT) return
+        pendingNetAudio.add(name)
     }
 
     /** Solo A-Z/0-9 para la fuente pixel del HUD (acentos/ñ/puntuación → simplificados). */
@@ -470,6 +503,10 @@ class StreetFighterViewModel @Inject constructor(
         val p = sfVoicePacks[id]
         if (p != null && emitVoiceLines(p.power, now)) return
         _soundEvents.tryEmit(specialSfxKey(id))
+        // 🆕 (2026-07-26) El grito del special también viaja: aunque `specialSfxKey` sea
+        // derivable del id, se emite desde 4 transiciones distintas y capturarlo aquí evita
+        // duplicar esa lógica en el receptor (y que suene dos veces si me equivoco).
+        if (netAudioCapture) queueNetAudio(specialSfxKey(id))
         val phrase = specialPhrases[id] ?: return
         // 🆕 (2026-07-21g) Usaba phraseEs FIJO: la traducción `phrase_en` del catálogo no se
         // mostraba nunca, ni con el juego en inglés. Mismo criterio que emitVoiceLines.
@@ -821,11 +858,30 @@ class StreetFighterViewModel @Inject constructor(
     // TRANSPORTE intercambiable: SfMatchClient (WebSocket/Render) o SfBtClient (Bluetooth
     // local). Mismos mensajes/arquitectura; el VM solo habla con la interfaz.
     private var transport: SfNetTransport? = null
+    // 🆕 (2026-07-26) P2P: cuando la sala ONLINE ya tiene a los 2, se intenta subir la pelea a
+    // una conexión DIRECTA teléfono-a-teléfono (Render pasa a ser solo cupido). Si no se logra,
+    // `transport` sigue mandando todo por el relay: el decorador cae solo. Ver SfWebRtcClient.
+    private var webRtc: SfWebRtcClient? = null
+    // El cliente de relay crudo: hace de canal de SEÑALIZACIÓN y de respaldo del P2P.
+    private var relayClient: SfMatchClient? = null
     private var btScanner: SfBtClient? = null   // discovery del selector "BUSCAR RIVAL"
     // 🆕 (2026-07-26) Autodescubrimiento LAN por UDP: baliza del host + escucha del invitado.
     private var lanDiscovery: SfLanDiscovery? = null
     @Volatile private var remoteSnapshot: SfNetMsg? = null
     private val netDamageQueue = ConcurrentLinkedQueue<SfNetMsg>()
+    // 🆕 (2026-07-26) AUDIO SINCRONIZADO EN RED. Antes los dos jugadores VEÍAN lo mismo pero no
+    // OÍAN lo mismo: `applyRemoteSnapshot` asigna el estado del rival DIRECTO, sin pasar por
+    // `changeState`, que es donde se emite todo el audio. Ahora:
+    //  · las VOCES de mi peleador se acumulan aquí y viajan en el PLAYER_STATE (campo `audio`),
+    //    porque los packs eligen con `.random()` y sorteadas por separado sonarían distintas;
+    //  · los SFX DETERMINISTAS del rival (whoosh, aterrizaje) los DERIVA el receptor de su
+    //    `state` en `emitRemoteStateSfx` — no hace falta mandarlos;
+    //  · los impactos (`*-hit`) NO se tocan: ya suenan en AMBOS lados (atacante y receptor).
+    private val pendingNetAudio = mutableListOf<String>()
+    // Solo se captura mientras corre la voz del peleador LOCAL en una pelea en red.
+    private var netAudioCapture = false
+    // Último estado del rival ya sonorizado (para detectar la TRANSICIÓN, no el estado sostenido).
+    private var lastRemoteSfxState: SfFighterState? = null
     private var myOnlineChar: SfFighterId? = null
     private var oppOnlineChar: SfFighterId? = null
     private var lastNetSendMs = 0L
@@ -914,6 +970,9 @@ class StreetFighterViewModel @Inject constructor(
         const val NET_SNAP_DIST = 80f
         // 🆕 Extrapolación de proyectiles remotos: tope de edad del snapshot (no sobrepasar)
         const val NET_FB_MAX_AGE_S = 0.25f
+        // 🆕 (2026-07-26) Tope de claves de voz por snapshot: son eventos raros (un puñado por
+        // pelea). El tope solo evita que la lista crezca sin límite si algo dejara de enviarse.
+        const val NET_AUDIO_MAX_PER_SNAPSHOT = 4
         // 🆕 Sincronía del timer: el invitado adopta el del host si difieren >= este umbral
         const val TIMER_RESYNC_DIFF = 2
         // 🆕 Roll-up del HUD: velocidad de drenado de la barra (HP por segundo)
@@ -1073,8 +1132,11 @@ class StreetFighterViewModel @Inject constructor(
         // combate/ronda; solo suena si el peleadór tiene intro — hoy policía HOMBRE).
         if (!introVoiceSent && !showcaseMode && roundIntroUntilMs > 0L && now < roundIntroUntilMs) {
             introVoiceSent = true
-            emitIntroVoice(s.player.id, now)
-            emitIntroVoice(s.cpu.id, now)
+            withNetAudioCapture(0) { emitIntroVoice(s.player.id, now) }
+            // 🆕 (2026-07-26) EN RED la intro del rival la manda ÉL (viaja en `audio`): si se
+            // sorteara aquí, cada teléfono elegiría una línea DISTINTA del mismo pack y no
+            // estaríamos oyendo lo mismo. Sin red (arcade/práctica) se emite como siempre.
+            if (!online) emitIntroVoice(s.cpu.id, now)
         }
         val sim = Sim(
             p0 = s.player, p1 = s.cpu,
@@ -1327,12 +1389,14 @@ class StreetFighterViewModel @Inject constructor(
             -> {
                 nf = nf.copy(velocityX = 0f, velocityY = 0f, attackStruck = false)
                 _soundEvents.tryEmit("${attackMeta.getValue(newState).strength.name.lowercase()}-attack")
-                emitAttackVoice(nf.id, idx, now) // 🆕 grito al golpear (pack; con cooldown)
+                // 🆕 grito al golpear (pack; con cooldown). El whoosh de arriba NO se captura:
+                // el rival lo deriva del estado en emitRemoteStateSfx.
+                withNetAudioCapture(idx) { emitAttackVoice(nf.id, idx, now) }
             }
             SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY -> {
                 nf = nf.copy(velocityX = 0f, velocityY = 0f, attackStruck = false, fireballFired = false)
                 // Especial por personaje + subtítulo de frase (ES/EN catálogo)
-                emitSpecialVoice(nf.id, now)
+                withNetAudioCapture(idx) { emitSpecialVoice(nf.id, now) }
             }
             SfFighterState.BONUS_POWER_1, SfFighterState.BONUS_POWER_2, SfFighterState.BONUS_POWER_3,
             SfFighterState.BONUS_POWER_4, SfFighterState.BONUS_POWER_5, SfFighterState.BONUS_POWER_6,
@@ -1348,7 +1412,7 @@ class StreetFighterViewModel @Inject constructor(
                     fireballFired = false,
                     metamorphosing = nf.metamorphosing || returnsToPresidenta,
                 )
-                emitSpecialVoice(nf.id, now)
+                withNetAudioCapture(idx) { emitSpecialVoice(nf.id, now) }
             }
             // ── 🆕 (2026-07-21) MOVESET 3rd Strike ──
             SfFighterState.DASH_FORWARD ->
@@ -1362,7 +1426,7 @@ class StreetFighterViewModel @Inject constructor(
             -> {
                 nf = nf.copy(velocityX = 0f, velocityY = 0f, attackStruck = false)
                 _soundEvents.tryEmit("${attackMeta.getValue(newState).strength.name.lowercase()}-attack")
-                emitAttackVoice(nf.id, idx, now)
+                withNetAudioCapture(idx) { emitAttackVoice(nf.id, idx, now) }
             }
             // Los aéreos NO ponen la velocidad a cero: conservan el arco del salto.
             SfFighterState.AIR_PUNCH, SfFighterState.AIR_KICK -> {
@@ -1374,7 +1438,7 @@ class StreetFighterViewModel @Inject constructor(
                 nf = nf.copy(
                     velocityX = 0f, velocityY = 0f, attackStruck = false, superMeter = 0,
                 )
-                emitSpecialVoice(nf.id, now)
+                withNetAudioCapture(idx) { emitSpecialVoice(nf.id, now) }
             }
             SfFighterState.THROW -> nf = nf.copy(velocityX = 0f, velocityY = 0f)
             SfFighterState.THROWN -> nf = nf.copy(velocityX = 0f, velocityY = 0f, downed = true)
@@ -1403,11 +1467,11 @@ class StreetFighterViewModel @Inject constructor(
         // la celebración de fin de ronda estaba muda; el dueño pidió reutilizar audios
         // correctos antes que dejar animaciones sin sonido.
         if (newState == SfFighterState.VICTORY && f.state != SfFighterState.VICTORY) {
-            emitWinVoice(nf.id, now)
+            withNetAudioCapture(idx) { emitWinVoice(nf.id, now) }
         }
         // 🆕 (2026-07-19) Voz de DERROTA: cuando un peleadór entra en KO, emite su quejido de loss.
         if (newState == SfFighterState.KO && f.state != SfFighterState.KO) {
-            emitLossVoice(nf.id, now)
+            withNetAudioCapture(idx) { emitLossVoice(nf.id, now) }
         }
         sim.setFighter(idx, nf)
         return true
@@ -2417,7 +2481,7 @@ class StreetFighterViewModel @Inject constructor(
             // Sin arte de "ser lanzado": al menos reacciona con el daño clásico
             changeState(sim, defenderIdx, SfFighterState.HURT_BODY_HEAVY, now)
         }
-        emitHurtVoice(defender.id, defenderIdx, defender.hitPoints, now)
+        withNetAudioCapture(defenderIdx) { emitHurtVoice(defender.id, defenderIdx, defender.hitPoints, now) }
         hurtFreezeUntilMs =
             now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong()
     }
@@ -2512,6 +2576,10 @@ class StreetFighterViewModel @Inject constructor(
         // vendido un momento (castigo). Es la recompensa por leer el golpe.
         if (defender.state in SF_PARRY_STATES && now < parryActiveUntilMs[defenderIdx]) {
             _soundEvents.tryEmit("land") // chasquido seco del desvío
+            // 🆕 (2026-07-26) Este SFX sí VIAJA (no se deriva): el parry lo resuelve solo quien
+            // se defiende, y el estado PARRY_* no basta para deducirlo — pararse sin desviar
+            // nada NO suena. Sin esto, el atacante no oía que le habían leído el golpe.
+            if (defenderIdx == 0 && inOnlineFight) queueNetAudio("land")
             if (defenderIdx == 0 && gradeTrackingOn) gradeParries++ // 🆕 calificación: parry logrado
             parryStunUntilMs[attackerIdx] = now + SfConstants.PARRY_ADVANTAGE_MS
             sim.setFighter(attackerIdx, attacker.copy(attackStruck = true))
@@ -2689,11 +2757,11 @@ class StreetFighterViewModel @Inject constructor(
                     slideFriction = SfAttackStrength.HEAVY.slideFriction,
                 ),
             )
-            emitHurtVoice(defender.id, defenderIdx, defender.hitPoints, now)
+            withNetAudioCapture(defenderIdx) { emitHurtVoice(defender.id, defenderIdx, defender.hitPoints, now) }
         } else {
             // 🆕 (2026-07-21) Golpe recibido EN CUCLILLAS: pose de daño agachado propia.
             if (crouchGuard && changeState(sim, defenderIdx, SfFighterState.HURT_CROUCH, now)) {
-                emitHurtVoice(defender.id, defenderIdx, defender.hitPoints, now)
+                withNetAudioCapture(defenderIdx) { emitHurtVoice(defender.id, defenderIdx, defender.hitPoints, now) }
                 hurtFreezeUntilMs =
                     now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong()
                 return
@@ -2711,7 +2779,7 @@ class StreetFighterViewModel @Inject constructor(
                 }
             }
             changeState(sim, defenderIdx, hurtState, now)
-            emitHurtVoice(defender.id, defenderIdx, defender.hitPoints, now) // 🆕 voz de daño (con cooldown / lowHp)
+            withNetAudioCapture(defenderIdx) { emitHurtVoice(defender.id, defenderIdx, defender.hitPoints, now) } // 🆕 voz de daño (con cooldown / lowHp)
         }
         hurtFreezeUntilMs = now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong()
     }
@@ -2757,7 +2825,8 @@ class StreetFighterViewModel @Inject constructor(
         nf = withAnimationFrame(nf, 0, now)
         sim.setFighter(defenderIdx, clampFighterToStage(nf))
         sim.setFighter(attackerIdx, sim.fighter(attackerIdx).copy(attackStruck = true))
-        emitSpecialVoice(d.id, now) // metamorfosis Yoalli → grito + subtítulo
+        // metamorfosis Yoalli → grito + subtítulo (viaja si es MI peleadora: el rival la oye)
+        withNetAudioCapture(defenderIdx) { emitSpecialVoice(d.id, now) }
         return true
     }
 
@@ -5106,6 +5175,9 @@ class StreetFighterViewModel @Inject constructor(
         // 🆕 SESIÓN 4: gameNow vuelve a 0 → resetear también lo anclado a él y el HUD
         lastSeenSnapshot = null
         remoteSnapshotAtMs = 0L
+        // 🆕 (2026-07-26) Audio de red: ni voces a medio mandar ni transición de SFX heredada
+        pendingNetAudio.clear()
+        lastRemoteSfxState = null
         dispHp0 = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat()
         dispHp1 = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat()
     }
@@ -5129,15 +5201,26 @@ class StreetFighterViewModel @Inject constructor(
         if (isOnline) return
         _state.value = _state.value.copy(onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null)
         viewModelScope.launch(Dispatchers.IO) {
-            if (!SfMatchClient.warmupBlocking(BuildConfig.SF_SERVER_URL)) {
+            val awake = SfMatchClient.warmupBlocking(
+                BuildConfig.SF_SERVER_URL,
+                // 🆕 (2026-07-26) Solo si estaba dormido: la UI explica la espera en vez de
+                // dejar al jugador mirando un "conectando…" durante un minuto sin motivo.
+                onSleeping = {
+                    _state.value = _state.value.copy(onlineWaking = true)
+                },
+            )
+            if (!awake) {
                 _state.value = _state.value.copy(
                     onlineStatus = SfOnlineStatus.OFF,
+                    onlineWaking = false,
                     onlineError = "No se pudo despertar el servidor (plan gratis de Render). Intenta de nuevo.",
                 )
                 return@launch
             }
+            _state.value = _state.value.copy(onlineWaking = false)
             val client = SfMatchClient()
             transport = client
+            relayClient = client // 🆕 canal de señalización y respaldo del P2P
             client.connect(
                 BuildConfig.SF_SERVER_URL,
                 object : SfNetTransport.Listener {
@@ -5164,6 +5247,35 @@ class StreetFighterViewModel @Inject constructor(
     // Los permisos runtime (CONNECT/SCAN/ADVERTISE en Android 12+) los pide la
     // View ANTES de llamar estos intents.
     // ══════════════════════════════════════════════════════════════════
+
+    /**
+     * 🆕 (2026-07-26) Intenta subir la pelea a una conexión DIRECTA teléfono-a-teléfono. A partir
+     * de aquí Render solo hace de CUPIDO: intercambia el SDP y los candidatos ICE de los dos y se
+     * aparta. La pelea deja de dar el rodeo hasta Oregón, que era de donde salía casi todo el lag.
+     *
+     * Solo ONLINE: en BT/LAN los teléfonos YA están conectados directo, no hay nada que mejorar.
+     * El HOST hace la oferta y el invitado contesta (si ofrecieran los dos habría colisión).
+     *
+     * Si algo falla —WebRTC no arranca, el NAT es simétrico, el canal se cae a media pelea— no
+     * pasa NADA visible: [SfWebRtcClient] reenvía por el relay de siempre. Por eso no hace falta
+     * un TURN de pago y el online sigue siendo gratis.
+     */
+    private fun maybeUpgradeToP2p(offerer: Boolean) {
+        val s = _state.value
+        if (s.btMode || s.lanMode) return
+        webRtc?.let {
+            // Ya negociado. Si el que entra es un rival NUEVO (se fue uno y llegó otro), el canal
+            // directo apunta al que se fue: se marca muerto para que todo salga por el relay.
+            it.markPeerChanged()
+            return
+        }
+        val relay = relayClient ?: return
+        val client = SfWebRtcClient(appContext, relay, isOfferer = offerer)
+        webRtc = client
+        transport = client
+        client.start(makeNetListener())
+        Log.d(SF_NET_TAG, "P2P: negociando conexión directa (offerer=$offerer)")
+    }
 
     /** Listener común de red para los transportes que no necesitan acción al abrir (BT). */
     private fun makeNetListener() = object : SfNetTransport.Listener {
@@ -5327,8 +5439,10 @@ class StreetFighterViewModel @Inject constructor(
         val s = _state.value
         lanDiscovery?.close()
         lanDiscovery = null
-        transport?.close()
+        transport?.close() // si es el P2P, su close() cierra también el relay que decora
         transport = null
+        webRtc = null
+        relayClient = null
         remoteSnapshot = null
         netDamageQueue.clear()
         myOnlineChar = null
@@ -5381,8 +5495,10 @@ class StreetFighterViewModel @Inject constructor(
         // libera la sala; el server ignora el que no aplique.
         transport?.cancelQueue()
         transport?.leaveRoom()
-        transport?.close()
+        transport?.close() // si es el P2P, su close() cierra también el relay que decora
         transport = null
+        webRtc = null
+        relayClient = null
         stopBtScanInternal()
         remoteSnapshot = null
         netDamageQueue.clear()
@@ -5406,15 +5522,22 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     private fun handleNetMessage(msg: SfNetMsg) {
+        // 🆕 (2026-07-26) SEÑALIZACIÓN WebRTC: SIGNAL_OFFER/ANSWER/ICE son plomería para abrir
+        // la conexión directa, no gameplay. Se los queda el transporte P2P y NO llegan al when.
+        if (webRtc?.consumeSignaling(msg) == true) return
         val s = _state.value
         when (msg.type) {
             "ROOM_CREATED" -> _state.value = s.copy(
                 onlineStatus = SfOnlineStatus.WAITING_OPPONENT, roomCode = msg.code, isHost = true,
             )
-            "ROOM_JOINED" -> _state.value = s.copy(
-                onlineStatus = SfOnlineStatus.SELECTING, roomCode = msg.code, isHost = false,
-                awaitingJoinOk = false, queueNotice = null,
-            )
+            "ROOM_JOINED" -> {
+                _state.value = s.copy(
+                    onlineStatus = SfOnlineStatus.SELECTING, roomCode = msg.code, isHost = false,
+                    awaitingJoinOk = false, queueNotice = null,
+                )
+                // 🆕 Ya somos 2 en la sala: a partir de aquí se puede negociar el P2P.
+                maybeUpgradeToP2p(offerer = false)
+            }
             "OPPONENT_JOINED" -> {
                 lanDiscovery?.stopBeacon() // 🆕 sala llena → deja de anunciarse por UDP
                 if (s.battleEnded || !s.inCharacterSelect) {
@@ -5441,6 +5564,8 @@ class StreetFighterViewModel @Inject constructor(
                         onlineStatus = SfOnlineStatus.SELECTING, joinRequestPending = false,
                     )
                 }
+                // 🆕 El HOST hace la OFERTA en cuanto entra el rival (el invitado contesta).
+                maybeUpgradeToP2p(offerer = true)
             }
             // Sala pública: en lista de espera (roomCode null → la UI muestra "buscando rival")
             "QUEUED" -> {
@@ -5611,6 +5736,11 @@ class StreetFighterViewModel @Inject constructor(
         if (rs !== lastSeenSnapshot) {
             lastSeenSnapshot = rs
             remoteSnapshotAtMs = now // edad del snapshot (para extrapolar sus proyectiles)
+            // 🆕 (2026-07-26) VOCES DEL RIVAL. Las eligió SU teléfono (los packs sortean con
+            // `.random()`) y viajan en el snapshot, así los dos oímos el MISMO clip y no dos
+            // variantes distintas del mismo evento. Solo en el snapshot NUEVO: el objeto se
+            // conserva entre ticks y aquí se re-entra ~30 veces por segundo.
+            rs.audio?.forEach { _soundEvents.tryEmit(it) }
         }
         // Los estados NUEVOS viajan como enum.name; un cliente viejo que no los conozca
         // conserva el estado anterior en vez de romperse (parse defensivo ya existente).
@@ -5630,6 +5760,10 @@ class StreetFighterViewModel @Inject constructor(
             hitPoints = rs.hp ?: sim.p1.hitPoints,
             superMeter = remoteMeter,
         )
+        // 🆕 (2026-07-26) SFX del rival que se DEDUCEN de su pose (no hace falta mandarlos).
+        // Aquí el estado se asigna DIRECTO, sin pasar por changeState — que es donde el dueño
+        // del peleador emite su audio. Sin esto, el rival peleaba en silencio en tu teléfono.
+        emitRemoteStateSfx(st)
         // 🆕 SINCRONÍA DEL TIMER: el HOST manda su reloj en PLAYER_STATE; el invitado lo
         // ADOPTA solo si el drift acumulado es >= TIMER_RESYNC_DIFF (el conteo local sigue
         // bajando suave; esto solo re-ancla). GRACIA post-reset: un timer viejo en vuelo de
@@ -5648,6 +5782,39 @@ class StreetFighterViewModel @Inject constructor(
             // El KO lo simuló el rival (llega por snapshot): solo PERFECT es computable aquí
             // (mi HP al máximo); SUPER/COMBO viajan en el `outcome` de ROUND_ENDED si aplica.
             endRound(sim, winnerIdx = 0, now = now, computeRoundOutcome(sim, 0, koState = null, byTime = false))
+        }
+    }
+
+    /**
+     * 🆕 (2026-07-26) SFX del peleador REMOTO que NO viajan por red porque son DETERMINISTAS:
+     * se deducen de su `state`, que ya viene en cada snapshot. Solo suenan en la TRANSICIÓN —
+     * el mismo estado se repite en todos los snapshots mientras dura la animación, y sin este
+     * filtro el whoosh sonaría ~15 veces por golpe.
+     *
+     * Lo que NO está aquí, a propósito:
+     *  · las VOCES (packs): se eligen al azar, así que viajan en `SfNetMsg.audio`;
+     *  · los IMPACTOS (`*-hit`): ya los emiten AMBOS lados (el atacante en applyAttackHit y
+     *    el receptor al aplicar el daño de red), así que añadirlos aquí los duplicaría.
+     */
+    private fun emitRemoteStateSfx(st: SfFighterState) {
+        if (st == lastRemoteSfxState) return
+        lastRemoteSfxState = st
+        when (st) {
+            // Golpe al aire: el mismo whoosh que emite su dueño al entrar al estado
+            SfFighterState.LIGHT_PUNCH, SfFighterState.MEDIUM_PUNCH, SfFighterState.HEAVY_PUNCH,
+            SfFighterState.LIGHT_KICK, SfFighterState.MEDIUM_KICK, SfFighterState.HEAVY_KICK,
+            SfFighterState.CROUCH_PUNCH, SfFighterState.CROUCH_KICK,
+            SfFighterState.CROUCH_HEAVY_PUNCH, SfFighterState.SWEEP,
+            SfFighterState.LONG_KICK, SfFighterState.OVERHEAD, SfFighterState.GRAB,
+            -> attackMeta[st]?.let {
+                _soundEvents.tryEmit("${it.strength.name.lowercase()}-attack")
+            }
+            SfFighterState.AIR_PUNCH, SfFighterState.AIR_KICK -> _soundEvents.tryEmit("medium-attack")
+            SfFighterState.STUN -> _soundEvents.tryEmit("land") // golpe seco al caer mareado
+            // Aterrizaje: su dueño lo emite al ENTRAR a JUMP_LAND (ver runStateHandler), que es
+            // justo la transición que se detecta aquí.
+            SfFighterState.JUMP_LAND -> _soundEvents.tryEmit("land")
+            else -> Unit
         }
     }
 
@@ -5672,7 +5839,11 @@ class StreetFighterViewModel @Inject constructor(
 
     /** Manda MI estado al rival cada ~66 ms (posición, pose, frame, HP, 🆕 timer del host y mis proyectiles). */
     private fun sendNetState(sim: Sim, now: Long) {
-        if (now - lastNetSendMs < 66) return
+        // 🆕 (2026-07-26) Las VOCES no pueden esperar a la ventana de 66 ms: un clip encolado
+        // justo después de un envío se perdería hasta 66 ms, y si la ronda termina en medio se
+        // perdería del todo. Si hay voces pendientes se manda YA (son eventos raros: un puñado
+        // por pelea, no engordan el tráfico).
+        if (now - lastNetSendMs < 66 && pendingNetAudio.isEmpty()) return
         lastNetSendMs = now
         val f = sim.p0
         transport?.sendPlayerState(
@@ -5686,7 +5857,12 @@ class StreetFighterViewModel @Inject constructor(
             // 🆕 (2026-07-21) Medidor de súper: sin esto la barra dorada del rival se veía
             // siempre vacía en línea (y no se entendía cuándo podía soltar súper/fatality).
             meter = f.superMeter,
+            // 🆕 (2026-07-26) Voces que emitió MI peleador desde el envío anterior.
+            // ⚡ GAMA BAJA: `emptyList()` es un singleton — no se asigna una lista nueva en cada
+            // envío (15 por segundo) solo para decir "no hay voces", que es el caso normal.
+            audio = if (pendingNetAudio.isEmpty()) emptyList() else pendingNetAudio.toList(),
         )
+        if (pendingNetAudio.isNotEmpty()) pendingNetAudio.clear()
     }
 
     /**
@@ -5961,6 +6137,9 @@ class StreetFighterViewModel @Inject constructor(
         remoteSnapshot = null
         lastSeenSnapshot = null   // 🆕 SESIÓN 4: la edad del snapshot arranca con el próximo
         remoteSnapshotAtMs = 0L
+        // 🆕 (2026-07-26) La ronda nueva arranca sin voces pendientes ni transición heredada
+        pendingNetAudio.clear()
+        lastRemoteSfxState = null
         netDamageQueue.clear()
         onlineEndSent = false
         roundEndSent = false

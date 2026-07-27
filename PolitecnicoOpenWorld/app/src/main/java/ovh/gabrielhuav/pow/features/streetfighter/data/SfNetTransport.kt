@@ -50,6 +50,12 @@ interface SfNetTransport {
     fun sendDamage(damage: Int, strength: String, atkType: String)
     /** `timer` = 🆕 sincronía del reloj de la ronda: solo lo manda el HOST (null en el invitado). */
     /** `meter` = 🆕 (2026-07-21) medidor de súper, para que el rival vea la barra dorada. */
+    /**
+     * `audio` = 🆕 (2026-07-26) claves de VOZ que acaba de emitir mi peleador, para que el rival
+     * las oiga también (antes cada jugador solo escuchaba a su propio peleador: veían lo mismo
+     * pero no oían lo mismo). Van solo las voces sorteadas de los packs; los SFX deterministas
+     * los deriva el receptor del `state`. Vacío = no mandar el campo.
+     */
     @Suppress("LongParameterList")
     fun sendPlayerState(
         x: Float,
@@ -61,6 +67,7 @@ interface SfNetTransport {
         timer: Int?,
         fireballs: List<SfNetFireball>,
         meter: Int = 0,
+        audio: List<String> = emptyList(),
     )
 
     fun close()

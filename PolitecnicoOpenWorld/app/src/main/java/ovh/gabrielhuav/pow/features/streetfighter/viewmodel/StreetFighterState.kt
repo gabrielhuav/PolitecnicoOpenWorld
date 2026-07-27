@@ -162,6 +162,10 @@ data class StreetFighterState(
     val isHost: Boolean = false,          // el anfitrión (p1) elige el mapa y arranca a la izquierda
     val onlineCountdown: Int = 0,         // 3-2-1 sincronizado por el servidor
     val onlineError: String? = null,
+    // 🆕 (2026-07-26) El servidor gratuito de Render estaba DORMIDO y se está levantando (tarda
+    // hasta ~1 min). Solo se enciende cuando de verdad toca esperar: si ya estaba despierto, el
+    // jugador no ve nada. Es un AVISO, no un error — la conexión sigue en curso.
+    val onlineWaking: Boolean = false,
     val onlineMapFile: String? = null,    // mapa elegido por el anfitrión (fondo del combate)
     val opponentWantsRematch: Boolean = false,
     // 🆕 (2026-07-25) BARRERA "AMBOS LISTOS": tras FIGHT_START cada teléfono decodifica sus

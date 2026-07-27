@@ -36,6 +36,64 @@ en `..\newSFAssets\GEN_*`.
 
 ---
 
+## 0. 🆕 SESIÓN 2026-07-26 (Opus 5) — audio sincronizado en red + P2P WebRTC
+
+**Rama `fix-multiplayer`. Compilado, 131 tests verdes, detekt sin issues nuevos.**
+
+### A · Audio del rival sincronizado (BT + LAN + online) — el pedido del dueño
+**Causa REAL:** `applyRemoteSnapshot` asigna `sim.p1.state` DIRECTO, saltándose `changeState()`,
+que es donde vive TODO el audio → el rival peleaba **mudo** en tu teléfono (veían lo mismo pero
+no oían lo mismo). **Trampa encontrada:** los packs eligen con `lines.random()`; disparar el
+audio localmente habría sonado un clip DISTINTO en cada teléfono. Solución por naturaleza:
+- **VIAJAN** (campo `audio` nuevo y opcional en `SfNetMsg`): voces de ataque/dolor/poder/
+  victoria/derrota/intro/metamorfosis + el chasquido del **parry** (solo lo resuelve quien se
+  defiende y `PARRY_*` no basta: parar sin desviar nada no suena).
+- **SE DERIVAN** del `state` que ya viajaba (`emitRemoteStateSfx`): whoosh, aterrizaje, mareo.
+- **NO se tocan** los impactos `*-hit`: ya sonaban en AMBOS lados.
+- En línea ya NO se sortea la intro del rival localmente (la manda él). Si hay voces pendientes
+  el snapshot sale YA, sin esperar la ventana de 66 ms.
+- ✅ **El relay de Render NO necesita redeploy por esto:** hace `{...msg}` (server.js:314).
+
+### B · P2P por WebRTC (Render = "GameRanger") — decisión del dueño
+`SfWebRtcClient` **decora** al relay: camino caliente DIRECTO, plano de control por el relay
+(el server los agrega/difunde; moverlos lo dejaría ciego). **Sin TURN**: si el hole punching
+falla (~20-30%, NAT simétrico) cae solo al relay que ya existía → **gratis de por vida**.
+- ⚠️ **`MultiplayerSF/server.js` requiere REDEPLOY** (4 casos `SIGNAL_*` nuevos) — pero la app es
+  **SEGURA de subir ANTES**: con el server viejo los `SIGNAL_*` se ignoran, el P2P nunca negocia
+  y TODO sigue por el relay de siempre. El redeploy solo ACTIVA la mejora, no la condiciona.
+- **Peso medido con `bundleRelease` REAL:** AAB **368.83 → 390.07 MiB** (+21.2). Límite de Play
+  500 → **margen ~110 MiB**. ⚠️ Los docs viejos decían 434 MiB: dato **stale**. NO poner
+  `abiFilters`: quitaría x86_64, que es el del emulador (AVD "Nexus").
+
+### C · AUDITORÍA previa a producción — 4 defectos REALES encontrados y corregidos
+1. **Pérdida de daño (corrección).** El DataChannel estaba en modo NO fiable
+   (`ordered=false, maxRetransmits=0`). Sirve para `PLAYER_STATE` (el siguiente snapshot corrige)
+   pero **`PLAYER_DAMAGE` es un evento ÚNICO**: perder ese paquete = golpe que no existe y los
+   dos teléfonos dejan de coincidir en la vida. → Canal **FIABLE Y ORDENADO** (`DataChannel.Init()`
+   por defecto). La ganancia viene de quitar el rodeo a Oregón, no de perder paquetes.
+2. **⚡ Tirón en gama baja.** `PeerConnectionFactory.initialize()` (carga ~11 MB de nativa + hilos)
+   corría en el **hilo principal** durante la selección de peleador. → Movido a hilo de trabajo,
+   con buffer de la señalización que llegue mientras arranca. El desmontaje (`dispose`) también.
+3. **Carrera en PARTIDA RÁPIDA.** `QUICK_MATCH` manda `OPPONENT_JOINED` al host ANTES que
+   `ROOM_JOINED` al invitado → el host ofrecía cuando el invitado no existía y la oferta se
+   perdía. → Nuevo `SIGNAL_READY`: el invitado avisa y el host ofrece SOLO al recibirlo.
+4. **Visibilidad entre hilos.** `channel`/`peer`/`factory` se escriben en el hilo de WebRTC y se
+   leen en el del juego → sin `@Volatile` el juego podía no ver nunca el canal abierto.
++ Rival NUEVO en la misma sala → `markPeerChanged()` marca el canal muerto YA (sin esperar los
+  segundos que tarda ICE en detectarlo, ventana en la que se perderían envíos).
+- Aviso de arranque en frío: `sf_mp_connecting_sub` ("hasta un minuto") ahora sale **solo** si
+  el servidor estaba dormido de verdad; si no, `sf_mp_connecting_fast`.
+- **Play Store: CERO cambios** en ficha y formulario (DTLS = sigue "cifrado en tránsito"; no hay
+  tipo de dato nuevo). Las 2 URLs de políticas verificadas **200** el 2026-07-26.
+
+### ⚠️ PENDIENTE DEL DUEÑO
+1. **Redeploy de `MultiplayerSF/` en Render** (sin eso el P2P no negocia y todo sigue por relay —
+   no rompe nada, pero no mejora nada).
+2. **Probar con 2 teléfonos en redes distintas** (aquí no se puede: WebRTC necesita 2 dispositivos
+   reales). Buscar en logcat el tag **`SF-RTC`**: `DataChannel → OPEN (directo=true)` = P2P vivo.
+3. Confirmar que ambos jugadores **oyen** lo mismo (tag `SF-NET`).
+4. ⚠️ **`testDebugUnitTest` son 131**, no 47 como decía este archivo.
+
 ## 1. Cómo está organizado esto
 
 ```

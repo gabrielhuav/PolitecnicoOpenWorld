@@ -266,12 +266,15 @@ abstract class SfStreamPeer(
         timer: Int?,
         fireballs: List<SfNetFireball>,
         meter: Int,
+        audio: List<String>,
     ) =
         sendRaw(
             mapOf(
                 "type" to "PLAYER_STATE", "x" to x, "y" to y, "state" to state,
                 "frame" to frame, "dir" to dir, "hp" to hp, "timer" to timer,
                 "fireballs" to fireballs, "meter" to meter,
+                // Vacío → null → `sendRaw` lo filtra (no engorda el snapshot de ~15 Hz).
+                "audio" to audio.ifEmpty { null },
             ),
         )
 

@@ -626,6 +626,8 @@
     <string name="sf_mp_cancel">Cancelar</string>
     <string name="sf_mp_connecting_title">CONECTANDO…</string>
     <string name="sf_mp_connecting_sub">Despertando el servidor (plan gratis de Render): puede tardar hasta un minuto</string>
+    <!-- 🆕 (2026-07-26) El servidor YA estaba despierto: no hay que asustar con "un minuto". -->
+    <string name="sf_mp_connecting_fast">Conectando con el servidor…</string>
     <string name="sf_mp_room">SALA %1$s</string>
     <string name="sf_mp_waiting_sub">Comparte el código con tu rival; esperando a que se una…</string>
     <string name="sf_mp_pick_sub">SALA %1$s · elige tu peleador</string>

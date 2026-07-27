@@ -624,6 +624,8 @@
     <string name="sf_mp_cancel">Cancel</string>
     <string name="sf_mp_connecting_title">CONNECTING…</string>
     <string name="sf_mp_connecting_sub">Waking up the server (Render free plan): it can take up to a minute</string>
+    <!-- 🆕 (2026-07-26) Server was already awake: no need to scare anyone with "a minute". -->
+    <string name="sf_mp_connecting_fast">Connecting to the server…</string>
     <string name="sf_mp_room">ROOM %1$s</string>
     <string name="sf_mp_waiting_sub">Share the code with your rival; waiting for them to join…</string>
     <string name="sf_mp_pick_sub">ROOM %1$s · pick your fighter</string>

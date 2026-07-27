@@ -1,10 +1,25 @@
 # DISEÑO · Matchmaking + host real (evolución del multijugador online SF)
 
-> **Estado: DOCUMENTO DE DISEÑO (2026-07-25). NO implementado.** Decisión del dueño: en esta
-> sesión el punto 3 (Render → solo matchmaking + host real, "una tecnología como Cloudflare
-> Tunnel") **SOLO se documenta**. Este archivo compara las opciones, deja el análisis de política
-> de Play Store y recomienda el camino Play-safe. Lo demás de la sesión (barrera "ambos listos",
-> endurecimiento de LAN, súper que persiste entre rondas, grado de victoria) SÍ se implementó.
+> **⚠️ ESTADO ACTUALIZADO (2026-07-26): se implementó la OPCIÓN C (P2P real con WebRTC), no la
+> B.** Decisión del dueño en esa sesión: quiere P2P de verdad (Render solo como "GameRanger") y
+> que **todo sea gratis de por vida**. El análisis de abajo sigue siendo válido como comparativa,
+> pero su recomendación (opción B, Workers+DO) quedó **descartada por el dueño**. Lo implementado:
+>
+> - `SfWebRtcClient` — DataChannel de WebRTC que implementa `SfNetTransport` **decorando** al
+>   relay: el camino caliente (`PLAYER_STATE`/`PLAYER_DAMAGE`/`PLAYER_READY`) va DIRECTO y el
+>   plano de control (salas, selección, revancha, `ROUND_ENDED`/`MATCH_ENDED`) sigue por el relay,
+>   porque el server los AGREGA o los DIFUNDE y moverlos lo dejaría ciego.
+> - `MultiplayerSF/server.js` — 3 casos nuevos (`SIGNAL_OFFER`/`SIGNAL_ANSWER`/`SIGNAL_ICE`) que
+>   reenvían ciego al otro de la sala. **Requiere redeploy en Render.**
+> - **Sin TURN**: cuando el hole punching falla (~20-30%, NAT simétrico), el respaldo es el relay
+>   que ya existía → gratis de por vida, sin servicio de pago.
+> - **Peso MEDIDO (2026-07-26):** AAB 368.8 MiB → ~414 MiB con las 4 ABIs (límite de Play 500).
+>   `.so` de 11.5 MB en arm64-v8a. Cada teléfono descarga solo SU arquitectura.
+> - **Play Store: CERO cambios** en la ficha y en Seguridad de los datos (DTLS mantiene "cifrado
+>   en tránsito"; no aparece ningún tipo de dato nuevo; Data Safety no tiene categoría de IP).
+>
+> Lo demás de la sesión de 2026-07-25 (barrera "ambos listos", endurecimiento de LAN, súper que
+> persiste entre rondas, grado de victoria) ya estaba implementado.
 
 ## 1. El problema
 
