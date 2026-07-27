@@ -214,6 +214,37 @@ jobs:
       - name: Decodificar keystore (.jks) desde el secret base64
         run: |
           echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > "$GITHUB_WORKSPACE/PolitecnicoOpenWorld/app/release-keystore.jks"
+      # 🆕 Pre-vuelo de firma: si el keystore está corrupto o la contraseña/alias no casan, el
+      # fallo real queda oculto dentro de `signReleaseBundle` ("A failure occurred..."). Aquí lo
+      # sacamos a la luz ANTES de compilar 5 min, sin filtrar secretos (keytool no imprime la clave).
+      - name: Verificar keystore (contraseña + alias) antes de firmar
+        env:
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+        run: |
+          KS="$GITHUB_WORKSPACE/PolitecnicoOpenWorld/app/release-keystore.jks"
+          SIZE=$(stat -c%s "$KS" 2>/dev/null || echo 0)
+          echo "Keystore decodificado: ${SIZE} bytes."
+          if [ "$SIZE" -lt 100 ]; then
+            echo "::error::El keystore quedó vacío/corrupto tras decodificar RELEASE_KEYSTORE_BASE64."
+            echo "::error::Regénéralo con:  base64 -w0 release-keystore.jks   y pégalo tal cual en el secret."
+            exit 1
+          fi
+          # ¿La contraseña del STORE abre el keystore?
+          if ! keytool -list -keystore "$KS" -storepass "$RELEASE_STORE_PASSWORD" >/tmp/ks.txt 2>/tmp/ks.err; then
+            echo "::error::No se pudo abrir el keystore con RELEASE_STORE_PASSWORD (contraseña incorrecta o .jks corrupto)."
+            sed 's/[Pp]assword[^ ]*/[oculto]/g' /tmp/ks.err
+            exit 1
+          fi
+          # ¿Existe el alias indicado dentro del keystore?
+          if ! keytool -list -keystore "$KS" -storepass "$RELEASE_STORE_PASSWORD" -alias "$RELEASE_KEY_ALIAS" >/dev/null 2>&1; then
+            echo "::error::El alias '$RELEASE_KEY_ALIAS' (RELEASE_KEY_ALIAS) NO existe en el keystore."
+            echo "Alias disponibles en el keystore:"
+            grep -iE 'alias name' /tmp/ks.txt || echo "  (no se pudieron listar; revisa /tmp/ks.txt)"
+            exit 1
+          fi
+          echo "Keystore OK: se abre con la contraseña y el alias '$RELEASE_KEY_ALIAS' existe."
+          echo "(Si aun así falla la firma, el culpable es RELEASE_KEY_PASSWORD: la clave del alias.)"
       # 🆕 versionCode AUTOINCREMENTAL: Play rechaza subir dos veces el mismo código. Antes
       # quedaba fijo en 12 (el default de build.gradle.kts) y el upload fallaba con
       # "Version code 12 has already been used". run_number siempre crece; +1000 lo deja muy
@@ -229,7 +260,9 @@ jobs:
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
           APP_VERSION_CODE: ${{ env.APP_VERSION_CODE }}
-        run: gradle :app:bundleRelease
+        # --stacktrace: si la firma vuelve a fallar, muestra la causa REAL (p. ej. "Cannot recover
+        # key" = RELEASE_KEY_PASSWORD incorrecta) en vez del genérico "A failure occurred...".
+        run: gradle :app:bundleRelease --stacktrace
       - name: Validar tamaño máximo de Play Store
         shell: bash
         run: |
