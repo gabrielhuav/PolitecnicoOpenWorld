@@ -106,6 +106,8 @@
     <string name="settings_show_sf_fps_desc">Shows frames per second during the fight (useful to measure smoothness on low-end devices)</string>
     <string name="settings_voice_subtitles">Voice subtitles (fight mode)</string>
     <string name="settings_voice_subtitles_desc">Shows the text of each fighter\'s spoken lines (special, victory, etc.). Off by default</string>
+    <string name="settings_world_shoulders">L1/L2/R1/R2 triggers in the world</string>
+    <string name="settings_world_shoulders_desc">Shows the four fight-mode triggers in the open world too. Heads-up: they have no action there yet, they are visual only.</string>
     <!-- ─── Account / Authentication (Google Sign-In) ─── -->
     <string name="settings_cat_account">Account</string>
     <string name="settings_account_desc">Sign in with Google to play online. Local play and Story Mode don\'t require an account.</string>

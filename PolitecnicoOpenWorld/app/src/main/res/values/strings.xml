@@ -106,6 +106,8 @@
     <string name="settings_show_sf_fps_desc">Muestra los cuadros por segundo durante el combate (útil para medir la fluidez en gama baja)</string>
     <string name="settings_voice_subtitles">Subtítulos de voces (modo pelea)</string>
     <string name="settings_voice_subtitles_desc">Muestra el texto de las frases habladas de cada peleador (special, victoria, etc.). Apagado por defecto</string>
+    <string name="settings_world_shoulders">Gatillos L1/L2/R1/R2 en el mundo</string>
+    <string name="settings_world_shoulders_desc">Muestra los cuatro gatillos del modo pelea también en el mundo abierto. Aviso: ahí todavía no tienen función, son solo visuales.</string>
     <!-- ─── Cuenta / Autenticación (Google Sign-In) ─── -->
     <string name="settings_cat_account">Cuenta</string>
     <string name="settings_account_desc">Inicia sesión con Google para jugar en línea. El juego local y el Modo Historia no requieren cuenta.</string>

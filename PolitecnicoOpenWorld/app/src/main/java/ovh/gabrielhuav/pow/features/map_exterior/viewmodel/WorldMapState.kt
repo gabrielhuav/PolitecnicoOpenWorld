@@ -100,6 +100,9 @@ data class WorldMapState(
     val showCoordsWidget: Boolean = false,
     val controlType: ControlType = ControlType.JOYSTICK, // Default: JOYSTICK (las flechitas se cambian en Ajustes)
     val controlsScale: Float = 1.0f,
+    // 🆕 (2026-07-26) Gatillos L1/L2/R1/R2 (estilo del modo pelea) sobre los controles. Default
+    // FALSE: en el mundo abierto todavía no tienen acción, así que solo aparecen si los pides.
+    val showShoulderButtons: Boolean = false,
     val swapControls: Boolean = false,
 
     // ─── Skin del jugador ────────────────────────────────────────────────

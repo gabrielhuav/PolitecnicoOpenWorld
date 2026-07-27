@@ -16,6 +16,9 @@ data class SettingsState(
     val showHitboxes: Boolean = false, // 🆕 dibuja las hitboxes del modo pelea (estilo Minecraft)
     val showSfFps: Boolean = false, // 🆕 (2026-07-25) contador de FPS del modo pelea
     val showVoiceSubtitles: Boolean = false, // 🆕 (2026-07-25) subtítulos de voces (default OFF)
+    // 🆕 (2026-07-26) Gatillos L1/L2/R1/R2 en el MUNDO ABIERTO. Default OFF: allá todavía no
+    // tienen acción (nacieron en el modo pelea), así que no deben estorbar a quien no los pida.
+    val showWorldShoulderButtons: Boolean = false,
 
     // ─── Audio: volumen de música y efectos (0f..1f) ─────────────────────────
     val musicVolume: Float = 1.0f,
