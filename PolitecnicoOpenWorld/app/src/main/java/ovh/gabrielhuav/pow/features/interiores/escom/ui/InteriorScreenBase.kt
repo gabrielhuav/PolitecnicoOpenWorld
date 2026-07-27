@@ -56,6 +56,7 @@ import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.InteriorViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CoordsWidget
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.ui.components.JoystickController
+import ovh.gabrielhuav.pow.ui.components.WithShoulderTriggers
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
@@ -220,16 +221,24 @@ fun InteriorScreenBase(
                 .padding(bottom = bottomPadding, start = sidePadding, end = sidePadding)
                 .systemBarsPadding()
         ) {
-            if (state.controlType == ControlType.DPAD) {
-                DPadController(
-                    modifier = Modifier.scale(effectiveScale),
-                    onDirectionPressed = { viewModel.moveDirection(it) }
-                )
-            } else {
-                JoystickController(
-                    modifier = Modifier.scale(effectiveScale),
-                    onMove = { viewModel.moveByAngle(it) }
-                )
+            // 🆕 (2026-07-26) Gatillos L1/L2/R1/R2 opcionales (Ajustes → Interfaz, OFF por defecto).
+            // Aquí solo hay control de MOVIMIENTO (este interior no tiene diamante), así que se
+            // usa el lado donde está colocado: swapControls lo manda a la derecha.
+            WithShoulderTriggers(
+                isLeft = !state.swapControls,
+                scale = effectiveScale,
+            ) {
+                if (state.controlType == ControlType.DPAD) {
+                    DPadController(
+                        modifier = Modifier.scale(effectiveScale),
+                        onDirectionPressed = { viewModel.moveDirection(it) }
+                    )
+                } else {
+                    JoystickController(
+                        modifier = Modifier.scale(effectiveScale),
+                        onMove = { viewModel.moveByAngle(it) }
+                    )
+                }
             }
         }
     }

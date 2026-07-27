@@ -127,7 +127,10 @@ fun AppNavGraph(
                     // CONTROLES (D-pad/joystick, escala, swap): se aplican EN VIVO al GUARDARLOS en
                     // Ajustes — `settingsState` ya trae los valores COMMITTEADOS por saveControlsSettings,
                     // así que no hay que salir al menú y volver a entrar para que el cambio surta efecto.
-                    LaunchedEffect(settingsState.controlType, settingsState.controlsScale, settingsState.swapControls) {
+                    // 🆕 (2026-07-26) `showWorldShoulderButtons` va TAMBIÉN como clave: su
+                    // interruptor vive en Ajustes → INTERFAZ, no en Controles, así que sin esto
+                    // el efecto no se relanzaba y los gatillos no aparecían hasta reiniciar.
+                    LaunchedEffect(settingsState.controlType, settingsState.controlsScale, settingsState.swapControls, settingsState.showWorldShoulderButtons) {
                         worldMapViewModel.updateControlSettings(
                             settingsState.controlType,
                             settingsState.controlsScale,

@@ -2,16 +2,22 @@ package ovh.gabrielhuav.pow.ui.components
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.Box
+import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 
 // GATILLOS "NEÓN ARCADE" COMPARTIDOS (2026-07-26).
 //
@@ -56,6 +62,50 @@ fun NeonButton(
  * día que se les dé función ya aparezcan con el aspecto correcto y en su sitio, sin rediseñar.
  * Mientras tanto [onPress] no hace nada y eso es intencional, no un bug.
  */
+/**
+ * ¿Están activados los gatillos? Se lee **al entrar a la pantalla**, igual que hace el resto de
+ * ajustes de interiores (ver `developerMode` en ZombieGameScreen).
+ *
+ * ⚠️ POR QUÉ AQUÍ Y NO EN EL ViewModel: los VM de interiores construyen su estado UNA sola vez y
+ * no tienen un camino de refresco como `updateControlSettings` del mundo abierto. Leerlo allí
+ * hacía que el ajuste no se notara (bug 2026-07-26: en exteriores salían y en interiores no).
+ * `remember` sin claves = una lectura por entrada a la pantalla: barata y siempre fresca.
+ */
+@Composable
+fun rememberShoulderTriggersEnabled(): Boolean {
+    val context = LocalContext.current
+    return remember { SettingsRepository(context).getShowWorldShoulderButtons() }
+}
+
+/**
+ * Envuelve un control del HUD (joystick/D-pad o diamante) añadiéndole ARRIBA su par de gatillos
+ * si el ajuste está activo. Si no lo está NO dibuja nada extra: la columna envuelve un único
+ * hijo, así que el HUD queda EXACTAMENTE igual que antes de existir esta función.
+ *
+ * Lo usan el mundo abierto y los interiores para no repetir el mismo Column en 5 pantallas.
+ *
+ * @param isLeft de qué lado está el control (el de la izquierda lleva L1/L2; el otro R1/R2).
+ *   Ojo: depende de `swapControls`, no de una posición fija.
+ * @param enabled por defecto se lee del ajuste; se puede forzar (el mundo abierto le pasa el
+ *   suyo, que sí se refresca en vivo al volver de Ajustes).
+ */
+@Composable
+fun WithShoulderTriggers(
+    isLeft: Boolean,
+    modifier: Modifier = Modifier,
+    scale: Float = 1f,
+    enabled: Boolean = rememberShoulderTriggersEnabled(),
+    control: @Composable () -> Unit,
+) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        if (enabled) {
+            NeonTriggerPair(isLeft = isLeft, modifier = Modifier.scale(scale))
+            Spacer(modifier = Modifier.height(6.dp))
+        }
+        control()
+    }
+}
+
 @Composable
 fun NeonTriggerPair(
     isLeft: Boolean,
