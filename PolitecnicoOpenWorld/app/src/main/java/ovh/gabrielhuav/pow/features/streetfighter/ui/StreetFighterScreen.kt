@@ -110,9 +110,9 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireballState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFrameDef
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButton
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PowButton
+import ovh.gabrielhuav.pow.ui.components.ActionButton
+import ovh.gabrielhuav.pow.ui.components.JoystickController
+import ovh.gabrielhuav.pow.ui.components.PowButton
 import ovh.gabrielhuav.pow.features.streetfighter.data.SF_CLASSIC_THEME
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtDevice
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanGame
@@ -2099,8 +2099,8 @@ private fun DifficultyOption(title: String, desc: String, onClick: () -> Unit) {
 
 // ------------------------------------------------------------------
 // Overlays del MULTIJUGADOR: menú crear/unir/pública + pantallas de espera.
-// (PowButton, el botón estilo POW, ahora vive COMPARTIDO en
-// map_exterior/ui/components/PowButton.kt — pendiente 4 del AUDIT.)
+// (PowButton, el botón estilo POW, vive COMPARTIDO en ui/components/PowButton.kt —
+// 🆕 2026-07-26: se movió ahí desde map_exterior, que no era su sitio.)
 // ------------------------------------------------------------------
 
 /** Permisos runtime del ANFITRIÓN BT (Android 12+): aceptar conexiones + ser visible. */

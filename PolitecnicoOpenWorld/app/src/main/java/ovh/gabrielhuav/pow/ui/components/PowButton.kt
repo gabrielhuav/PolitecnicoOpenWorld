@@ -1,4 +1,4 @@
-package ovh.gabrielhuav.pow.features.map_exterior.ui.components
+package ovh.gabrielhuav.pow.ui.components
 
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CutCornerShape

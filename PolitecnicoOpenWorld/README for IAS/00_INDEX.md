@@ -52,11 +52,28 @@
 > **➡️ Empieza SIEMPRE por [`_SESION_ACTUAL.md`](_SESION_ACTUAL.md):** estado vivo del trabajo,
 > qué está pendiente y a qué IA conviene delegar cada cosa.
 
+> ### 🧠 Cómo funciona la memoria entre IAs (LÉELO SI VAS A TRABAJAR AQUÍ)
+>
+> A este proyecto entran **varias IAs distintas** (Opus, Fable, Sol, Gemini…) y **ninguna
+> recuerda nada** de otra sesión ni de otro asistente. La memoria del proyecto es esta carpeta,
+> y se divide en tres capas con reglas distintas:
+>
+> | Capa | Archivo | Regla |
+> |---|---|---|
+> | **Memoria de trabajo** | `_SESION_ACTUAL.md` | **Ventana de 2 días · máx. 200 líneas.** Lo único que se lee SIEMPRE. Lo que pase de ahí se purga. |
+> | **Conocimiento estable** | `00`–`09`, `MUNDO/`, `SF/` | Se ACTUALIZA cuando cambia el código. No lleva historia de sesiones. |
+> | **Histórico** | `_ARCHIVO/` | Solo lectura, para arqueología. **NO son tareas.** |
+>
+> **La regla que hace que esto funcione:** `_SESION_ACTUAL.md` se lee en cada arranque, así que
+> cada KB de más se paga en tokens **todas las veces**. Mantenerlo corto no es estética: es lo
+> que deja presupuesto para trabajar. Al cerrar sesión, **purga a `_ARCHIVO/` lo que ya pasó de
+> 2 días** y deja solo el estado vivo. El procedimiento exacto está en su propia cabecera.
+
 ### Compartido (raíz)
 
 | # | Archivo / File | Contenido / Contents |
 |---|---|---|
-| — | `_SESION_ACTUAL.md` | **🧠 Memoria de sesión.** Estado vivo + guía de delegación entre IAs. Se actualiza SIEMPRE antes de cerrar. |
+| — | `_SESION_ACTUAL.md` | **🧠 MEMORIA COMPARTIDA ENTRE IAs.** Ver el recuadro de abajo: es el ÚNICO punto de traspaso entre asistentes. **Ventana de 2 días, techo de 200 líneas.** Se actualiza SIEMPRE antes de cerrar. |
 | 00 | `00_INDEX.md` | Este índice + prompt de reuso / This index + reuse prompt |
 | 01 | `01_ARCHITECTURE.md` | Visión general, MVVM, navegación, build, stack / Overview, MVVM, navigation, build, stack |
 | 02 | `02_DATA_LAYER.md` | Room (DB v8), DAOs, entidades, cachés, repos, red / Room, DAOs, entities, caches, repos, network |

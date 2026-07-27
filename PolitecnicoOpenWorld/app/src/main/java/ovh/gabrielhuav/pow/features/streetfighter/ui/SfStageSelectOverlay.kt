@@ -52,7 +52,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import org.json.JSONObject
 import ovh.gabrielhuav.pow.R
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PowButton
+import ovh.gabrielhuav.pow.ui.components.PowButton
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
 
 // ---------------------------------------------------------------------------

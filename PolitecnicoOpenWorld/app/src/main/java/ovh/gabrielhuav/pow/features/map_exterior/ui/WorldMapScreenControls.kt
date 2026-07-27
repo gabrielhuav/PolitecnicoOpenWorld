@@ -22,7 +22,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
+import ovh.gabrielhuav.pow.ui.components.JoystickController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleDPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleJoystickController

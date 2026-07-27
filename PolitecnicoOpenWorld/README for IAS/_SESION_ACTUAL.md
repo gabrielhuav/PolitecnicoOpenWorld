@@ -1,12 +1,40 @@
-# 🧠 MEMORIA DE SESIÓN — estado vivo del trabajo
+# 🧠 MEMORIA COMPARTIDA ENTRE IAs — estado vivo del trabajo
 
-> **CORTO A PROPÓSITO (objetivo: < 200 líneas).** Es lo primero que lee una IA nueva, así que
-> cada KB de más se paga en TODAS las sesiones. El detalle histórico va a `_ARCHIVO/`, y el de
-> diseño a `SF/DISENO_ARCADE_SF_POW.md`. **Si crece, se poda.**
+> ## Qué es este archivo
+>
+> El proyecto lo trabajan **varias IAs distintas** (Opus, Fable, Sol, Gemini…) que **no
+> comparten memoria entre sí ni entre sesiones**. Cada una empieza de cero. Este archivo es el
+> **único punto de traspaso**: lo que esté aquí es lo que sabrá la siguiente; lo que no, se
+> pierde y se reinventa (o se alucina).
+>
+> Por eso vale más que un changelog: es **memoria operativa**. No cuenta la historia del
+> proyecto — cuenta **en qué estado quedó todo y qué sigue**.
+>
+> ## Reglas de mantenimiento (obligatorias)
+>
+> 1. **Ventana de 2 DÍAS como máximo.** Solo vive aquí el trabajo de la sesión actual y, como
+>    mucho, el de la anterior si sigue siendo relevante. **Todo lo que pase de 2 días se PURGA**
+>    a `_ARCHIVO/HISTORIAL_sesiones_<AAAA-MM-DD>.md`, con un enlace desde aquí si hace falta.
+> 2. **Techo de 200 líneas.** Es lo primero que se lee en CADA sesión: cada KB de más se paga en
+>    tokens siempre. Si crece, se poda — no se justifica, se poda.
+> 3. **Qué NO va aquí:** detalle de diseño (→ `SF/DISENO_ARCADE_SF_POW.md` o el doc del área),
+>    historia de cómo se llegó a algo, ni nada que el código o `git log` ya digan.
+> 4. **Qué SÍ va aquí:** estado real medido, lo que está a medias, lo que está BLOQUEADO y en
+>    quién, las trampas que costaron caro, y los datos que contradicen a otros docs.
+> 5. **Marca lo MEDIDO vs lo SUPUESTO.** Varios docs de este repo afirmaban cosas falsas
+>    ("0 smells", "47 tests", "AAB 434 MiB"). Si lo verificaste, dilo; si no, dilo también.
+>
+> ## Cómo cerrar una sesión (haz esto ANTES de quedarte sin tokens)
+>
+> 1. Purga a `_ARCHIVO/` lo que ya pasó de la ventana de 2 días.
+> 2. Reescribe la sección de sesión con lo tuyo: qué cambió, qué se verificó y **qué falta**.
+> 3. Actualiza **PENDIENTE por prioridad**: lo que quede a medias tiene que estar ahí o se pierde.
+> 4. Comprueba que sigues bajo las 200 líneas.
 >
 > **Regla de oro:** si te quedas sin tokens a media tarea, actualiza ESTE archivo ANTES de parar.
 
 **Última actualización:** 2026-07-26 · Opus 5 · rama `fix-multiplayer`
+**Ventana viva:** 2026-07-26 → 2026-07-27 · *purgar a `_ARCHIVO/` a partir del 2026-07-28*
 
 > ➡️ **AHORA:** preparando el **release a Play** con el multijugador arreglado. El siguiente
 > cambio grande será de **arquitectura** (tocará mucho código), así que conviene publicar antes.
