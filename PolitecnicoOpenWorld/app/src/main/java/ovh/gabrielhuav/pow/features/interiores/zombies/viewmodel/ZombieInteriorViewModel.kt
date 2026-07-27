@@ -67,7 +67,6 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
         ZombieGameState(
             controlType  = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
-            showShoulderButtons = settingsRepository.getShowWorldShoulderButtons(),
             swapControls = settingsRepository.getSwapControls(),
             selectedSkin = settingsRepository.getPlayerSkin(),     // ← NUEVO
             showCoordsWidget = settingsRepository.getShowCoordsWidget(),

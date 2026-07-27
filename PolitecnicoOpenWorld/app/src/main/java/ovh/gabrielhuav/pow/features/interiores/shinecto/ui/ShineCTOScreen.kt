@@ -432,7 +432,7 @@ private fun ShineCTOHud(
             // 🆕 (2026-07-26) Gatillos L1/L2/R1/R2 opcionales (Ajustes → Interfaz, OFF por defecto).
             // Con la opción apagada no dibujan NADA y el HUD queda igual que siempre.
             val movement: @Composable () -> Unit = {
-              WithShoulderTriggers(state.showShoulderButtons, isLeft = !state.swapControls, scale = effectiveScale) {
+              WithShoulderTriggers(isLeft = !state.swapControls, scale = effectiveScale) {
                 if (state.controlType == ControlType.DPAD)
                     DPadController(modifier = Modifier.scale(effectiveScale), onDirectionPressed = onMoveDir)
                 else
@@ -440,7 +440,7 @@ private fun ShineCTOHud(
               }
             }
             val actions: @Composable () -> Unit = {
-              WithShoulderTriggers(state.showShoulderButtons, isLeft = state.swapControls, scale = effectiveScale) {
+              WithShoulderTriggers(isLeft = state.swapControls, scale = effectiveScale) {
                 ActionButtonsController(
                     modifier = Modifier.scale(effectiveScale),
                     onActionChanged = { action, pressed ->

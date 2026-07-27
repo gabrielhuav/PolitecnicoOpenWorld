@@ -309,7 +309,7 @@ fun MetrobusStationInteriorScreen(
                 val movement = @Composable {
                     // 🆕 (2026-07-26) Gatillos L1/L2/R1/R2 opcionales (Ajustes → Interfaz, OFF por defecto).
             // Con la opción apagada esto no dibuja NADA extra y el HUD queda igual que siempre.
-                    WithShoulderTriggers(state.showShoulderButtons, isLeft = !state.swapControls, scale = ctrlScale) {
+                    WithShoulderTriggers(isLeft = !state.swapControls, scale = ctrlScale) {
                         if (state.controlType == ControlType.DPAD)
                             DPadController(modifier = Modifier.scale(ctrlScale), onDirectionPressed = { viewModel.moveDirection(it) })
                         else
@@ -319,7 +319,7 @@ fun MetrobusStationInteriorScreen(
                 val actions = @Composable {
                     // 🆕 (2026-07-26) Gatillos L1/L2/R1/R2 opcionales (Ajustes → Interfaz, OFF por defecto).
             // Con la opción apagada esto no dibuja NADA extra y el HUD queda igual que siempre.
-                    WithShoulderTriggers(state.showShoulderButtons, isLeft = state.swapControls, scale = ctrlScale) {
+                    WithShoulderTriggers(isLeft = state.swapControls, scale = ctrlScale) {
                         ActionButtonsController(
                             modifier = Modifier.scale(ctrlScale),
                             onActionChanged = { action, pressed ->

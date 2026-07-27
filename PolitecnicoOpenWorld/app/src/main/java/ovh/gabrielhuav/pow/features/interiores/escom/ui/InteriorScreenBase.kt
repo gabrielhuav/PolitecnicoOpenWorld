@@ -225,7 +225,6 @@ fun InteriorScreenBase(
             // Aquí solo hay control de MOVIMIENTO (este interior no tiene diamante), así que se
             // usa el lado donde está colocado: swapControls lo manda a la derecha.
             WithShoulderTriggers(
-                enabled = state.showShoulderButtons,
                 isLeft = !state.swapControls,
                 scale = effectiveScale,
             ) {

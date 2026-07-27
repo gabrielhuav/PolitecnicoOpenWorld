@@ -36,7 +36,6 @@ class ShineCTOViewModel @javax.inject.Inject constructor(
         ShineCTOState(
             controlType = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
-            showShoulderButtons = settingsRepository.getShowWorldShoulderButtons(),
             swapControls = settingsRepository.getSwapControls()
         )
     )

@@ -13,9 +13,6 @@ data class ShineCTOState(
     val isFacingRight: Boolean = true,
     val controlType: ControlType = ControlType.JOYSTICK,
     val controlsScale: Float = 1.0f,
-    // 🆕 (2026-07-26) Gatillos L1/L2/R1/R2 (estilo del modo pelea) sobre los controles.
-    // Default FALSE: todavía no tienen acción, solo aparecen si se piden en Ajustes.
-    val showShoulderButtons: Boolean = false,
     val swapControls: Boolean = false,
     val drinkCount: Int = 0,
     val playerHealth: Float = 100f,
