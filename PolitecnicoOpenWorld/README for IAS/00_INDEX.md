@@ -52,16 +52,34 @@
 > **➡️ Empieza SIEMPRE por [`_SESION_ACTUAL.md`](_SESION_ACTUAL.md):** estado vivo del trabajo,
 > qué está pendiente y a qué IA conviene delegar cada cosa.
 
+> ### 🧠 Cómo funciona la memoria entre IAs (LÉELO SI VAS A TRABAJAR AQUÍ)
+>
+> A este proyecto entran **varias IAs distintas** (Opus, Fable, Sol, Gemini…) y **ninguna
+> recuerda nada** de otra sesión ni de otro asistente. La memoria del proyecto es esta carpeta,
+> y se divide en tres capas con reglas distintas:
+>
+> | Capa | Archivo | Regla |
+> |---|---|---|
+> | **Memoria de trabajo** | `_SESION_ACTUAL.md` | **Ventana de 2 días · máx. 200 líneas.** Lo único que se lee SIEMPRE. Lo que pase de ahí se purga. |
+> | **Conocimiento estable** | `00`–`09`, `MUNDO/`, `SF/` | Se ACTUALIZA cuando cambia el código. No lleva historia de sesiones. |
+> | **Histórico** | `_ARCHIVO/` | Solo lectura, para arqueología. **NO son tareas.** |
+>
+> **La regla que hace que esto funcione:** `_SESION_ACTUAL.md` se lee en cada arranque, así que
+> cada KB de más se paga en tokens **todas las veces**. Mantenerlo corto no es estética: es lo
+> que deja presupuesto para trabajar. Al cerrar sesión, **purga a `_ARCHIVO/` lo que ya pasó de
+> 2 días** y deja solo el estado vivo. El procedimiento exacto está en su propia cabecera.
+
 ### Compartido (raíz)
 
 | # | Archivo / File | Contenido / Contents |
 |---|---|---|
-| — | `_SESION_ACTUAL.md` | **🧠 Memoria de sesión.** Estado vivo + guía de delegación entre IAs. Se actualiza SIEMPRE antes de cerrar. |
+| — | `_SESION_ACTUAL.md` | **🧠 MEMORIA COMPARTIDA ENTRE IAs.** Ver el recuadro de abajo: es el ÚNICO punto de traspaso entre asistentes. **Ventana de 2 días, techo de 200 líneas.** Se actualiza SIEMPRE antes de cerrar. |
 | 00 | `00_INDEX.md` | Este índice + prompt de reuso / This index + reuse prompt |
 | 01 | `01_ARCHITECTURE.md` | Visión general, MVVM, navegación, build, stack / Overview, MVVM, navigation, build, stack |
 | 02 | `02_DATA_LAYER.md` | Room (DB v8), DAOs, entidades, cachés, repos, red / Room, DAOs, entities, caches, repos, network |
 | 07 | `07_OTHER_FEATURES.md` | Menú principal, ajustes, ShineCTO, coleccionables (+ 🥊 SF; ⚠️ su parte de SF debería migrar a `SF/`) |
 | 09 | `09_CONVENTIONS_GOTCHAS.md` | Convenciones, reglas de gama baja, protocolo de actualización de docs |
+| — | `PLAYSTORE_formulario_seguridad_datos.md` | 🛡️ **Play Store: formulario de Seguridad de los datos + políticas.** Valores EXACTOS aprobados, errores que nos rechazaron y checklist antes de cada envío. **Léelo antes de tocar la ficha o subir versión.** |
 
 ### 🌎 `MUNDO/` — mundo libre POW
 
@@ -80,211 +98,21 @@
 Índice propio en **`SF/00_SF_INDEX.md`** (diseño, assets gráficos, audio, herramientas y las
 reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `street_fighter`/`Sf*`.
 
-### Estado vigente (2026-07-22c) — LÉEME PRIMERO
+### Estado vigente — dónde mirar
 
-> **🆕 2026-07-22c (Fable 5, noche) — Fase 1 del motor AUDITADA ✅ + Fase 2a/2b:**
-> - **Auditoría Fase 1 (Parte A): APROBADA.** `validFrom` comparada COMO DATOS contra el VM
->   viejo (67 destinos + 5 sub-listas + knockdown: idénticos), 1b-1e espejos exactos, alias
->   en su sitio, 0 copias residuales. Conteo real: **32 tests nuevos** (+3 previos = 35).
->   Los tests son de caracterización de verdad (literales fijados, no tautologías).
-> - **Fase 2a:** avance de animación → `SfAnimation` puro (frameIndex/frameTimerMs/
->   shouldAdvance/isCompleted) + 8 tests; el VM conserva envoltorios (mismos call sites).
-> - **Fase 2b:** `clampFighterToStage` → `SfPhysics.clampToStage` + STAGE_X_MIN/MAX a
->   `SfConstants` (alias en el companion del VM) + 4 tests.
-> - ⚠️ **SIN COMPILAR en esta sesión** (sandbox sin SDK): Rebuild + `testDebugUnitTest`
->   (esperados 47 = 35+12) + jugar los 6 modos ANTES del siguiente incremento.
-> - **Siguiente (Fase 2c+):** núcleo de `updateStageConstraints` (empuje de pushboxes) a
->   SfPhysics; luego esqueleto `SfEngine` (necesita sesión CON compilador — toca audio/red).
+> **El estado VIVO vive en [`_SESION_ACTUAL.md`](_SESION_ACTUAL.md).** Empieza SIEMPRE ahí.
+>
+> El changelog acumulado (2026-07-20 → 07-22c: moveset 3rd Strike, fatality, combos, tutorial,
+> subtítulos, STUN, crash de La Llorona, gama baja, WebP, motor Fase 1/2a/2b…) se archivó en
+> [`_ARCHIVO/HISTORIAL_changelog_00_INDEX.md`](_ARCHIVO/HISTORIAL_changelog_00_INDEX.md) para
+> no pagarlo en tokens en cada sesión. El diseño de SF está en `SF/DISENO_ARCADE_SF_POW.md`.
 
-### Estado 2026-07-22b
-
-> **🆕 2026-07-22b (Fable 5, PM) — crash Llorona blindado, carga en IO, STUN, metamorfosis:**
-> - **🔴 Crash La Llorona (P0):** camino ALPHA blindado — `sheetFor` en `runCatching` y el
->   3er atlas (silueta) SIEMPRE a media res (~63→16 MB). Falta confirmar en dispositivo.
-> - **🟠 Carga de pelea en IO:** atlas + escaneo de alturas bajo el overlay CARGANDO
->   (`SfFightAssets`); la metamorfosis ya no re-decodifica nada (`fightIds` = Set estable).
-> - **🟡 MAREO/STUN moderado en todos los modos:** `dizzyMeter` + `SfFighterState.STUN`
->   (al FINAL del enum, retro-compatible online), anim "stun" sintetizada, estrellitas
->   procedurales + barra de mareo; súper con brillo al llenarse y decaimiento lento (llena
->   no decae).
-> - **🟢 Metamorfosis (decisión del dueño):** SOLO round 1, con VIDA LLENA, y persiste
->   entre rondas.
-> - **🔵 Intro del policía** ya no se corta; **🟣 navegación** vuelve al selector del MISMO
->   modo; **tutorial**: etiquetas con los controles reales, botón del paso PULSANDO y chips
->   arriba / hoja abajo.
-> - ⚠️ **SIN COMPILAR** (sesión sin AS): Rebuild + tests + detekt + 6 modos → checklist en
->   `_SESION_ACTUAL.md` §🧪. Detalle completo: `SF/DISENO_ARCADE_SF_POW.md` §2026-07-22b.
-
-### Estado 2026-07-22a
-
-> **🆕 2026-07-22 (Fable 5) — SUBTÍTULOS DE VOZ ENCENDIDOS + tutorial ampliado:**
-> - **🗣️ Subtítulos ON:** `voiceSubtitlesEnabled = true`. `voice_phrases.json` es la verdad
->   (64 `es` curados). El delimitador `|` ya NO se pierde: el VM sanea POR TRAMO y la Screen
->   dibuja **una línea por tramo** encadenada al word-wrap ~24 chars (techo 9 líneas).
-> - **🇬🇧 Track `en` completo:** se tradujeron los ~33 campos `en` que seguían en español
->   (gritos/onomatopeyas se conservan). 0 clips con rasgos ES, 0 tramos `|` desiguales.
-> - **🎓 Tutorial:** +2 básicas en `combos.json` (`b_crouchchain` puño/patada bajos y
->   `b_meter` cómo se llena/consume el medidor — verificado en VM: súper y fatality lo
->   consumen entero). La lección FATALITY YA existía (universal `fatality`, level 4).
-> - **⛔ Trabajo futuro (bloqueado por pipeline de arte, NO forzar):** azar de poderes de
->   La Presidenta (fatality V2 `suoerFatV2_*`, `fat_*`, proyectil V2) y las 2 metamorfosis
->   nuevas (`SPEC_metamorfosis_lapresidenta.md`) requieren importar croma + extender packer +
->   re-empacar. El motor degrada bien sin ellos (guard `animations[jsKey]` en `tryBonusPower`).
-> - Verificado: JSONs válidos, CRLF, llaves balanceadas. **Falta Rebuild + dispositivo.**
-
-### Estado 2026-07-21f
-
-> **🆕 2026-07-21f (Opus 4.8) — La Llorona: cerrados los 3 recortes malos que quedaban:**
-> - **`crouchTurn`**: era ESPEJO, no recorte. `{"flipX": true}` en `crouch-turn-1/2/3` del
->   `_frame_meta.json` de la staging → packer → `SfFrameCatalog` → `StreetFighterScreen`.
->   **Cero Kotlin nuevo**: mecanismo genérico que ya usaban 4 peleadores.
-> - **`hurtHead` / `hit-face-1`**: la hoja 09 vieja tenía 14 poses SOLAPADAS y el slicer metía
->   **4 figuras en un solo cuadro**. Hoja regenerada (vieja en `.BAK.png`) → `HURT HEAD 3/3 OK`.
-> - **`superArt` `super-4/5/6`**: ya estaba bien en la staging; solo faltaba **empaquetar**.
-> - ⚠️ **Trampa del slicer**: `SHEETS` lo comparten los 18 peleadores. La hoja 09 nueva de
->   La Llorona trae **3** poses de HURT HEAD (no 14), así que se añadió `SHEET_OVERRIDES`
->   por `(personaje, hoja)` en vez de tocar la tabla global. **Deuda asumida:** con 3 poses
->   para 4 cuadros, `hit-face-2` y `hit-face-3` son el mismo pixel; si se regenera la hoja
->   con 4+ poses separadas, actualizar el override y quitar la duplicación.
-> - **Tarea 2 resuelta**: `super-7` como efecto puro **solo en ESCOMBOY** (Policía CDMX
->   Hombre y Rey Grupero SÍ llevan personaje). No es fallo de recorte, es el arte.
-> - ⚠️ **detekt no está a 0**: 5 smells PREEXISTENTES (`CachingWebViewClient`, `NpcAiManager`,
->   `RoadRouter`, `CatSpriteManager` ×2), ajenos a este cambio. Corregir el "0 smells" del
->   traspaso anterior.
-
-### Estado 2026-07-21d
-
-> **🆕 2026-07-21d (Fable) — FATALITY, coleccionables de peleador, WebP y audit MP:**
-> - **💀 FATALITY 18/18**: secuencia cinemática compuesta con arte EXISTENTE (súper → su
->   poder → remate → pose). Comando propio: **súper EN CARRERA** con medidor lleno. Daño 70,
->   derriba y el atacante **cruza al otro lado**. En la IA y en el tutorial.
-> - **🏆 Arcade DIFÍCIL ya da algo**: el coleccionable del rival (Coleccionables → pestaña
->   **PELEADORES**); "Ver Historia" → "Próximamente". Sin migración de Room (prefijo de id).
-> - **📦 WebP lossless**: IMAGES 102 → **88.6 MB**.
-> - **🌐 MP**: 2 bugs REALES corregidos (el daño de fatality/súper/agarre no viajaba bien).
->   ⚠️ Falta sincronizar `superMeter` (cosmético).
-> - **🗂️ Auditoría visual**: `tools/_audit_sheets/` con TODAS las animaciones de los 18,
->   `_FATALITIES.png` y `_RESUMEN.png`.
-> - ⚠️ **Pendiente**: La Tzitzimime/Yoalli pueden tener bonus powers sin recortar.
-
-### Estado 2026-07-21c
-
-> **🆕 2026-07-21c (Fable) — tutorial paso a paso, poses recuperadas y GAMA BAJA:**
-> - **⚡ CRÍTICO gama baja:** los atlas llegaron a 2560×7680 = **73 MB de RAM por peleador**
->   en ARGB_8888. Ahora se decodifican a **1/2** en gama baja (`sheetFor(..., sampleSize)`
->   + `sheetScale` en la View) → ~18 MB. ⚠️ IMAGES creció 82→**102 MB**: revisar margen de
->   Play antes del próximo release (WebP lossless daría −25 %, sin aplicar).
-> - **Poses recuperadas:** `correr`, `idle-relaxed` y `talk` se recortaban y se tiraban a
->   `_extra/`; ahora son estados (**RUN** con dash-run, se puede saltar/atacar corriendo).
-> - **Dificultad por personaje que ESCALA:** `cpuStyleForLevel` acentúa el perfil de cada
->   peleador con el escalón (zoner→más poderes, rusher→más presión y combos).
-> - **Tutorial paso a paso:** 21 lecciones básicas (una por movimiento), chips del color del
->   botón real y cartel de error "lo que hiciste → lo que tocaba".
-
-### Estado 2026-07-21b
-
-> **🆕 2026-07-21b (Fable) — COMBOS + TUTORIAL + fix del menú:**
-> - **Catálogo de combos data-driven:** `assets/STREETFIGHTER/DATA/combos.json` (10
->   universales + 1 de firma por personaje) → `SfCombos.kt`. Lo usan la **IA** (encola y
->   ejecuta rutas completas) y el **tutorial** (valida paso a paso).
-> - **"COMBOS Y TUTORIAL"** en el menú del modo (junto a Práctica / IA vs IA, siempre
->   visible): hoja con TODOS los controles y combos + **tutorial guiado con validación**
->   contra un **muñeco inerte** (sin reloj y sin que el muñeco pierda vida).
-> - **Fix menú principal:** las etiquetas ALPHA/BETA ya no pueden saltar de renglón
->   (se quitó el offset vertical negativo + `maxLines=1` en los rótulos). Falta confirmarlo
->   en un S24 real.
-> - Verificado: compila, tests en verde, detekt 0 smells, strings ES+EN con paridad.
-
-### Estado 2026-07-21
-
-> **🆕 2026-07-21 (Fable) — MOVESET 3rd Strike COMPLETO (assets + motor):**
-> - **179/180 hojas nuevas (20-29) recortadas y empacadas** para los 18 peleadores.
->   Flujo repetible: **`FLUJO_ASSETS_SF.md`** (⭐ empezar por ahí para cualquier asset).
-> - **21 estados nuevos jugables:** dash/backdash, bloqueo alto-bajo, **parry**, golpes
->   agachado, antiaéreo, **barrida** (derriba), aéreos, **patada larga**, **overhead**
->   (rompe guardia baja), **agarre→lanzamiento**, burla, **Super Art** con medidor.
->   Tabla de controles y reglas en `DISENO_ARCADE_SF_POW.md` §2026-07-21 y 07 §MOVESET.
-> - **Placeholder ALPHA:** si falta una hoja, el movimiento se juega igual con el arte del
->   estudiante del mismo género en silueta negra + rótulo "ALPHA".
-> - **Arreglados:** proyectil de La Llorona (se lanzaba a sí misma) y `bonusPower1-6` de
->   La Presidenta (desaparecía 3 cuadros).
-> - Verificado: compila, tests en verde, detekt 0 smells. **Falta dispositivo.**
-
-### Estado 2026-07-20
-
-> **🆕 2026-07-20 (Fable) — post-release 1.0.0.12 EN PRODUCCIÓN (Play Store, CI/CD verde):**
-> - **PENDIENTES vivos → `PENDIENTES_2026-07-20.md`** (dueño: videos UAM, sprites tandas 5–8
->   con Sol 5.6, oído de audios escom, curar frases; código: probar combos en dispositivo).
-> - **🥊 COMBOS 3rd Strike (1er corte):** chain/special cancels + contador "N GOLPES" +
->   escalado de daño. Ver 07 §COMBOS + `DISENO_ARCADE_SF_POW.md` §2026-07-20.
-> - **Audit MP3→OGG retomado:** `tools/sf_audio_audit.py` → `tools/sf_audio_audit_report.md`
->   (mapeo real, duración, pitch, transcripción Whisper) + `_audio_review/*.mp3` regenerados.
->   Frase win de La Presidenta corregida. Escom* flagged para oído del dueño.
-> - **QA visual de assets:** `tools/sf_contact_sheet.py` + hojas de los 17 peleadores en
->   `tools/_contact_sheets/` (frames de La Llorona empacados están DE FRENTE).
-> - **Frases de voz — LUGAR ÚNICO:** `assets/STREETFIGHTER/DATA/voice_phrases.json`
->   (por clip: `es`/`en` curables + `draft` Whisper). Cargador `SfVoicePhrases.kt` +
->   hook en `emitVoiceLines` LISTOS pero APAGADOS (`voiceSubtitlesEnabled=false`).
->   Regenerable con `tools/build_voice_phrases_catalog.py` (conserva lo curado).
-> - **Prompt de assets nuevos (hojas 20–29):** `PROMPT_SOL56_TANDAS_NUEVAS.md`.
-> - **Purga:** `GUIA_generacion_assets_SF.md` (fondo negro, superada) → `_ARCHIVO/`.
-
-> **ES:** El estado del modo pelea y del resto del juego vive en **00–09** (sobre todo
-> **07 §HUELUM VS. GOYA**). Los prompts/checkpoints/pendientes de sesiones pasadas están en
-> **`_ARCHIVO/`** → **NO hace falta leerlos** para retomar trabajo (son histórico), salvo el
-> **prompt de traspaso IA** si vas a arreglar la CPU.
-> **EN:** Live state is in **00–09** (esp. **07 §HUELUM VS. GOYA**). Past prompts under
-> **`_ARCHIVO/`** — except the AI handoff prompt if fixing CPU.
-
-**HUELUM VS. GOYA — lo reciente (resumen vivo, detalle en 07 + docs de trabajo):**
-- Modos: **ARCADE** (default) / PRÁCTICA / **IA VS IA** / MULTIJUGADOR (Render / BT / LAN).
-- **Arcade:** peleadór → **Fácil/Medio/Difícil** → escalera 15. Mapas = hogar del **rival** +
-  luz (día / noche / apocalipsis). Tabla peleadór→mapa: **`SF_STAGES_MAPS_UNLOCK.md`**.
-- **Desbloqueos:** peleadór + **3 luces** de su mapa (`SfArcadeRepository`); práctica/MP host
-  solo mapas desbloqueados.
-- **Roster arcade:** 18 dedicados. **NO** arcade: Lázaro / Granadero genérico / Paramédico
-  genérico (alpha+shared).
-- **Gama baja:** tick ~30 fps, atlas ≤2048, thumbs, CARGANDO, sesión arcade al pausar.
-- **SFX especiales:** 21/21 en assets (pack viejo). **Nueva pasada diarizada** en
-  `tools/sf_voice_scrape/out_diarized/` + catálogo `DATA/special_phrases.json` + subtítulos HUD
-  (`emitSpecialVoice`). Fuentes YT y links: **`SF_SPECIAL_VOICES_SFX.md`** (2026-07-18).
-  **Deepfake lab: NO hecho.** Pap5 oficial age-gate pendiente. Lázaro sin frase special.
-- **Presidenta** ≤1/4 vida → meta real a **Yoalli** (50% HP).
-- **IA 2026-07-18i:** reescritura (clinch break, mundo-space, smartCpuDecision, watchdog).
-  Si en dispositivo aún falla: **`_ARCHIVO/PROMPT_traspaso_IA_CPU_2026-07-18.md`**.
-  Handoff Fable: **`_ARCHIVO/PROMPT_traspaso_Fable_2026-07-18_voces.md`**
-  (**prioridad = IA quietos/mismo ataque + Showcase**; voces solo contexto al final).
-- **✅ IA + Showcase 2026-07-18j (Fable):** ofensiva por ESTADO real (no intención), clinch
-  con roles asimétricos, `variedCpuAttack` (sin repetir golpe); showcase COMPLETO (giros,
-  HURT, KO, VICTORY, metamorfosis) + **auditoría estática** de anims/frames/.ogg → reporte.
-  Detalle: 07 §HUELUM + `DISENO_ARCADE_SF_POW.md` §18j. **Pendiente: Rebuild + dispositivo.**
-- **✅ Showcase v2 2026-07-18k (Fable, feedback dueño):** avance automático + botón SALTAR
-  (`sf_showcase_skip`), mapa HOGAR por peleadór (`gauntletMapFile`), audio en pasos forzados
-  (hits/KO/voz en VICTORY-metamorfosis; VICTORY con voz también en pelea real), fix salto
-  perdido. Su nota de audio pendiente es histórica; Release 1/9 abajo la supera. Detalle: 07
-  §HUELUM + DISENO §18k.
-- **✅ Release 1/9 2026-07-18 (Sol):** audio final **21/21 solo español**, cortes locales de
-  duración individual, contenido hablado verificado con Whisper y hashes reproducibles; Lázaro
-  incluido, Presidenta 8.3 s y banda Granadero completa 27.5 s. Los especiales largos migran a
-  `MediaPlayer`. La nota “deepfake pendiente” de 18k queda SUPERADA: se usan voces auténticas de
-  las fuentes locales y síntesis únicamente para el Robot ficticio. Arte: HURT únicos de Llorona
-  + metamorfosis inversa Yoalli→Presidenta. Auditoría IA: 9 campañas/135 peleas aceleradas y 600
-  configuraciones estructurales. Play Store: `versionCode 12`, `versionName 1.0.0.12`.
-- **✅ Hotfix de entrega 1.0.0.12 (Sol):** el primer upload llegó firmado pero Play rechazó
-  `base` por superar 500 MB. Los 48 atlas de mapas pasaron PNG→WebP lossless con hash RGBA
-  idéntico y 29 fondos fijos sin referencias se archivaron en `_ORPHAN_ASSETS`; AAB real
-  **434.47 MiB**, `base` comprimido **433.84 MiB**. SALTAR termina peleador+timer. CI usa
-  Actions Node 24, `tracks`, notas ES/EN y entrega AAB firmado; label `manual-play-upload`
-  omite solo el upload automático.
-
-- **✅ Hotfix animación/showcase/Llorona (Sol):** los 48 fondos se regeneraron como WebP
-  lossless con 15 cuadros únicos distribuidos en 5 s y playback 6 fps: **16 día + 16 noche +
-  16 noche tenebrosa**, todos con `logoPOW.png` aplicado por frame. Los auxiliares fijos salen a
-  `additional_assets/`, fuera del proyecto Android compilable. Showcase separa siguiente
-  animación/personaje, velocidad 1×/2×/4×, repetición de voz y recorrido audio-only 21/21.
-  La hoja 09 de La Llorona ahora separa 14 poses pegadas; `hit-face-*` ya no contiene dos
-  cuerpos y el validador detecta cuerpos fusionados. `bundleRelease` final: **438.52 MiB**,
-  `base` comprimido **459.16 MB**, margen Play **40.84 MB**.
+**HUELUM VS. GOYA — lo estable:**
+- Modos: **ARCADE** (default) / PRÁCTICA / **IA VS IA** / MULTIJUGADOR (Render / BT / LAN / P2P).
+- **Arcade:** peleador → Fácil/Medio/Difícil → escalera 15. Mapas = hogar del **rival** + luz.
+  Tabla peleador→mapa: **`SF_STAGES_MAPS_UNLOCK.md`**.
+- **Roster:** 18 dedicados. NO arcade: Lázaro / Granadero / Paramédico (alpha+shared).
+- **Presidenta** ≤1/4 vida → metamorfosis. **Gama baja:** tick ~30 fps, atlas ≤2048, CARGANDO.
 
 ### Docs de trabajo / Working docs (no son 00–09)
 
@@ -324,7 +152,8 @@ reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `stree
 - **🆕 Assets COMPARTIDOS SF⇄mundo (2026-07-15/17):** 3 de los 22 peleadores de "HUELUM VS. GOYA"
   se arman EN RUNTIME desde los sets del mundo (`SPRITES/PLAYER|NPC/`) — sin sheets duplicados
   en el APK: Lázaro, Granadero y Paramédico. Los otros 17 POW tienen hojas croma
-  dedicadas; Ryu/Ken solo existen en debug. Ver 07 y 09 §12.
+  dedicadas; Ryu/Ken **BORRADOS del repo (2026-07-26)** — eran huérfanos (no están en `SfFighterId`).
+  Ver 07 y 09 §12.
 - **Default map provider:** `CARTO_VOYAGER` (web, tiles reales hasta z20 / real tiles up to z20; no persistido / not persisted)
 - **Auth / Autenticación:** Firebase Auth (Google Sign-In) en `data/auth/` (`AuthManager`, `AuthSession`).
   Obligatoria para multijugador; local/Modo Historia sin login. Ambos servidores verifican el ID token

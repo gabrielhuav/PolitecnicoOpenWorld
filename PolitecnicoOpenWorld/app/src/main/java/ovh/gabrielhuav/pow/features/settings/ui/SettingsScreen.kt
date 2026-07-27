@@ -57,6 +57,9 @@ fun SettingsScreen(
     onCoordsWidgetToggled: (Boolean) -> Unit,
     onDeveloperModeToggled: (Boolean) -> Unit,
     onHitboxesToggled: (Boolean) -> Unit,
+    onSfFpsToggled: (Boolean) -> Unit,
+    onVoiceSubtitlesToggled: (Boolean) -> Unit,
+    onWorldShouldersToggled: (Boolean) -> Unit,
     onMusicVolumeChanged: (Float) -> Unit,
     onSfxVolumeChanged: (Float) -> Unit,
     onRoadNetworkToggled: (Boolean) -> Unit,
@@ -143,7 +146,7 @@ fun SettingsScreen(
                     ) {
                         Text(stringResource(state.selectedCategory.titleRes).uppercase(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, onHitboxesToggled, onMusicVolumeChanged, onSfxVolumeChanged, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, onOptimizeForDevice, authManager, onAccountDeleted, currentLanguage, onLanguageChanged)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, onHitboxesToggled, onSfFpsToggled, onVoiceSubtitlesToggled, onWorldShouldersToggled, onMusicVolumeChanged, onSfxVolumeChanged, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, onOptimizeForDevice, authManager, onAccountDeleted, currentLanguage, onLanguageChanged)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -194,7 +197,7 @@ fun SettingsScreen(
                     Column(modifier = Modifier.weight(0.7f).fillMaxHeight().padding(start = if (compactLand) 12.dp else 24.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF1A0A10)).border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(if (compactLand) 12.dp else 24.dp).verticalScroll(contentScrollState)) {
                         Text(stringResource(state.selectedCategory.titleRes).uppercase(), fontSize = if (compactLand) 15.sp else 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(modifier = Modifier.height(if (compactLand) 10.dp else 24.dp))
-                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, onHitboxesToggled, onMusicVolumeChanged, onSfxVolumeChanged, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, onOptimizeForDevice, authManager, onAccountDeleted, currentLanguage, onLanguageChanged)
+                        SettingsContent(state, onMapProviderChanged, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, onHitboxesToggled, onSfFpsToggled, onVoiceSubtitlesToggled, onWorldShouldersToggled, onMusicVolumeChanged, onSfxVolumeChanged, onSaveClicked, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onRoadNetworkToggled, onNpcDensityChanged, onNpcEmojiLodToggled, onNpcFullEmojiToggled, onOptimizeForDevice, authManager, onAccountDeleted, currentLanguage, onLanguageChanged)
                     }
                 }
             }
@@ -253,6 +256,9 @@ private fun SettingsContent(
     onCoordsWidgetToggled: (Boolean) -> Unit,
     onDeveloperModeToggled: (Boolean) -> Unit,
     onHitboxesToggled: (Boolean) -> Unit,
+    onSfFpsToggled: (Boolean) -> Unit,
+    onVoiceSubtitlesToggled: (Boolean) -> Unit,
+    onWorldShouldersToggled: (Boolean) -> Unit,
     onMusicVolumeChanged: (Float) -> Unit,
     onSfxVolumeChanged: (Float) -> Unit,
     onSaveClicked: () -> Unit,
@@ -276,7 +282,7 @@ private fun SettingsContent(
         )
         is SettingsCategory.Controls -> ControlsSettingsConfig(state.tempControlType, state.tempControlsScale, state.tempSwapControls, onControlTypeChanged, onControlsScaleChanged, onSwapControlsToggled, onSaveClicked)
         is SettingsCategory.Gameplay -> GameplaySettings(state.npcDensity, onNpcDensityChanged, state.npcEmojiLod, onNpcEmojiLodToggled, state.npcFullEmoji, onNpcFullEmojiToggled, onOptimizeForDevice)
-        is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, state.showZoomWidget, state.showSpeedometer, state.showCoordsWidget, state.developerMode, state.showHitboxes, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, onHitboxesToggled, currentLanguage, onLanguageChanged)
+        is SettingsCategory.Interface -> DiagnosticWidgetsSetting(state.showCacheWidget, state.showFpsWidget, state.showZoomWidget, state.showSpeedometer, state.showCoordsWidget, state.developerMode, state.showHitboxes, state.showSfFps, state.showVoiceSubtitles, state.showWorldShoulderButtons, onCacheToggled, onFpsToggled, onZoomWidgetToggled, onSpeedometerToggled, onCoordsWidgetToggled, onDeveloperModeToggled, onHitboxesToggled, onSfFpsToggled, onVoiceSubtitlesToggled, onWorldShouldersToggled, currentLanguage, onLanguageChanged)
         is SettingsCategory.Audio -> AudioSettings(state.musicVolume, state.sfxVolume, onMusicVolumeChanged, onSfxVolumeChanged)
         is SettingsCategory.Account -> AccountSettings(authManager, onAccountDeleted)
         else -> Text(stringResource(R.string.settings_none_available), color = Color.Gray)

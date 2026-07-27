@@ -24,7 +24,8 @@
 | `DISENO_ARCADE_SF_POW.md` | **El doc central.** Roster, escalera del arcade, moveset 3rd Strike, combos, tutorial, fatality, y el registro de cambios por fecha. |
 | `SF_STAGES_MAPS_UNLOCK.md` | Escenarios y cómo se desbloquean. |
 | `QA_SF_STAGES_2026-07-18.md` | QA de escenarios. |
-| `AUDIT_SF_MULTIPLAYER.md` | Auditoría del 1v1 en red (WS y BT/LAN). |
+| `AUDIT_SF_MULTIPLAYER.md` | Auditoría del 1v1 en red (WS y BT/LAN). Barrera "ambos listos" + endurecimiento LAN (2026-07-25). |
+| `DISENO_MATCHMAKING_P2P.md` | 🆕 Diseño (2026-07-25): Render→matchmaking + host real. Recomienda Cloudflare Workers/DO; descarta el túnel en el teléfono (Play). |
 
 ### Assets gráficos (sprites)
 

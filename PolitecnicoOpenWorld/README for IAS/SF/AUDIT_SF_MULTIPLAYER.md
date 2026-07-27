@@ -1,5 +1,78 @@
 # AUDIT · Multijugador 1v1 del modo pelea "HUELUM VS. GOYA" (2026-07-11)
 
+> **🆕 2026-07-26d (Opus 4.8) — LAN funciona ✅ + AUTODESCUBRIMIENTO (punto ④, dueño):** con el fix
+> del hilo (26c) el Wi-Fi 1v1 ya conecta y arranca. Nuevo: **`SfLanDiscovery`** — el ANFITRIÓN emite
+> una baliza por **UDP broadcast** (`255.255.255.255:47646`, cada 1.5 s) y el INVITADO la escucha
+> (con `MulticastLock`) → ve las **partidas de la MISMA red como tarjetas tocables**, sin teclear IP
+> (se une por la IP origen del paquete). La baliza para al entrar el rival (`OPPONENT_JOINED`). VM:
+> `startLanDiscovery`/`stopLanDiscovery` + estado `lanDiscovered`; el menú online escucha mientras
+> está abierto (`DisposableEffect`). Se conserva el campo de IP manual como respaldo. Permiso nuevo:
+> **`CHANGE_WIFI_MULTICAST_STATE`** (NORMAL, sin impacto en Play, como `WAKE_LOCK`). ⚠️ Falta prueba
+> en 2 dispositivos (algunos routers bloquean broadcast → el campo de IP queda de fallback).
+
+
+> **🆕 2026-07-26c (Opus 4.8) — LAN "muere al elegir peleador": CAUSA REAL (logcat definitivo):**
+> `escritura falló (SELECT_CHARACTER) → NetworkOnMainThreadException`. **NO era power-save, ni idle,
+> ni Wi-Fi.** El VM llama `transport.selectCharacter/sendPlayerState/…` desde el **HILO PRINCIPAL**, y
+> Android PROHÍBE I/O de red (TCP) en Main → lanza `NetworkOnMainThreadException`; `sendRaw` la
+> atrapaba y **CERRABA el socket** (el enlace estaba sano — los heartbeats fluían cada 1 s en ambos
+> lados). **BT sí funcionaba porque los sockets Bluetooth están EXENTOS** de esa regla de StrictMode;
+> los TCP no. **FIX:** en `SfStreamPeer` todas las escrituras van por un **`writeExecutor`
+> (single-thread)** → fuera de Main y serializadas. Se apaga en `close()`. Las hipótesis previas
+> (WifiLock/WAKE_LOCK, heartbeat frecuente) NO eran la causa; se conservan como red de seguridad
+> menor (heartbeat 4 s + WifiLock para el idle real de partidas largas). Logs de diagnóstico
+> (`heartbeat →` por-latido) retirados; se conservan `readLoop: EOF/excepción` y `escritura falló`.
+
+
+> **🆕 2026-07-26 (Opus 4.8) — LAN "muere tras elegir peleador": CAUSA CONFIRMADA por logcat:**
+> El logcat del HOST mostró: handshake OK (BT_HELLO→WELCOME→OPPONENT_JOINED) y **reconexión a los ~8 s**
+> SIN "escritura falló" en el host → el **GUEST cerraba su socket durante el IDLE** (mientras se elige
+> peleador), **ANTES del primer heartbeat (10 s)**. **Causa:** el socket TCP de LAN queda idle sin
+> tráfico ~6-8 s y Android/Wi-Fi lo MATA antes del heartbeat. BT no lo sufre (RFCOMM no idle-killea).
+> - **✅ FIX principal:** heartbeat FRECUENTE (`HEARTBEAT_FIRST_MS=1500`, `HEARTBEAT_MS=3000`, antes
+>   10 s) en `SfStreamPeer` → tráfico cada 3 s mantiene el socket vivo Y el Wi-Fi despierto durante
+>   la selección de peleador. Aplica a BT/LAN (a BT no le estorba).
+> - **✅ (complementario) WifiLock** (`WIFI_MODE_FULL_HIGH_PERF`) en `SfLanClient` (toma `Context`) —
+>   evita el power-save del Wi-Fi. Sin permiso nuevo. El WifiLock SOLO no bastó (el idle-kill del
+>   socket ocurre igual); el heartbeat frecuente es lo que lo cierra.
+> - **🐛 Mensaje equivocado corregido:** salía "SIN CONEXIÓN BLUETOOTH" en WiFi. `BtRetryOverlay`
+>   ahora recibe `titleRes` → "SIN CONEXIÓN WI-FI" (`sf_lan_error_title`) cuando `lanMode`.
+> - **🔎** `sendRaw` loguea (tag `SF-NET`) si una escritura falla.
+> - **⏭️ SIGUIENTE (pedido del dueño):** autodescubrimiento LAN por UDP broadcast (punto ④ de
+>   `_ARCHIVO/PENDIENTES_SF_2026-07-16.md`) — tras confirmar que ya no muere.
+
+> **🆕 2026-07-25b (Opus 4.8) — LAN "muere tras elegir peleador" + mensaje equivocado (dueño):**
+> - **✅ BT ahora arranca SINCRONIZADO** entre gamas distintas (la barrera "ambos listos" funcionó).
+> - **🐛 Mensaje equivocado:** al fallar el WiFi salía "SIN CONEXIÓN BLUETOOTH". `BtRetryOverlay`
+>   tenía el TÍTULO fijo a `sf_bt_error_title`; ahora recibe `titleRes` y usa `sf_lan_error_title`
+>   ("SIN CONEXIÓN WI-FI") cuando `lanMode`. (El hint ya cambiaba bien.)
+> - **🔴 Hipótesis inicial (power-save):** WifiLock añadido; NO bastó (ver banner de arriba: era el
+>   idle-kill del socket, resuelto con el heartbeat frecuente).
+
+> **🆕 2026-07-25 (Opus 4.8) — BARRERA "AMBOS LISTOS" + endurecimiento LAN (⚠️ SIN COMPILAR aquí:
+> falta el gradle-wrapper.jar y Gradle 9.5; Rebuild + 2 dispositivos pendientes):**
+> - **🟢 Arranque sincronizado (punto 2 del dueño):** nuevo mensaje **`PLAYER_READY`** (relay puro,
+>   los 3 transportes). Tras `FIGHT_START` cada teléfono decodifica sus atlas y AVISA cuando terminó;
+>   el que ya cargó ESPERA al rival (overlay "ESPERANDO AL RIVAL") para arrancar la ronda juntos —
+>   antes el de gama baja empezaba tarde. Fallback por **timeout ~8 s** si el rival/server no lo
+>   soporta (cliente viejo / server sin redeploy) → degrada al arranque de siempre. También en las
+>   rondas 2/3. Server: `case 'PLAYER_READY'` (⚠️ **requiere redeploy**; sin él, timeout).
+> - **🔵 LAN "conecta pero nunca empieza" (punto 1):** el transporte y el wiring eran idénticos a BT
+>   (que sí funciona) → fallo de red/entorno, no de lógica. Fixes: **SO_REUSEADDR + bind explícito**
+>   (re-hospedar tras cierre sucio ya no tira "Address already in use"), **keepAlive** en los sockets,
+>   **watchdog de handshake TAMBIÉN en el HOST** (un enlace TCP asimétrico dejaba al host a medio
+>   abrir), **mostrar TODAS las IPv4** del host (Wi-Fi/hotspot/…) para descartar la interfaz
+>   equivocada, y **logs `SF-NET`** en cada paso (HELLO/WELCOME/MAP_SELECTED/FIGHT_START/PLAYER_READY)
+>   para pinpointear el atasco en el próximo test de 2 equipos. La barrera de arriba también aplica.
+> - **🟡 Punto 3 (Render→matchmaking + host real vía Cloudflare Tunnel): SOLO DOCUMENTADO** en
+>   `DISENO_MATCHMAKING_P2P.md` (decisión del dueño). Recomendación Play-safe: **Cloudflare Workers +
+>   Durable Objects** (edge, sin cold start, sin foreground service, sin cambios de ficha). El túnel
+>   en el teléfono se descartó por riesgo de Play (FGS + binario nativo).
+> - Fuera de red (mismo día): **la barra de PODER (súper) PERSISTE entre rondas** y el **GRADO de
+>   victoria** (PERFECT/COMBO/SUPER/TIME) se pinta bajo la barra del ganador en la ronda siguiente
+>   (detalle en `DISENO_ARCADE_SF_POW.md`).
+
+
 > **✅ AUDIT 2026-07-18m — lo NUEVO funciona igual en los 3 transportes (Render/BT/LAN):**
 > Verificado por lectura de código que las features de 2026-07-18 son AGNÓSTICAS al transporte
 > (el VM habla solo con `SfNetTransport`; BT/LAN pasan por `SfStreamPeer`, online por WebSocket,
@@ -199,12 +272,13 @@
 | SELECT_CHARACTER → CHARACTERS_SELECTED | C→S→C | `character` → `char1, char2` (nombres de `SfFighterId`) |
 | SELECT_MAP → MAP_SELECTED | C→S→C | `map` (archivo del fondo) → `map, countdownMs` |
 | FIGHT_START | S→C | tras 3 s de countdown del server |
-| PLAYER_STATE → OPPONENT_STATE | C→S→C | `x,y,state,frame,dir,hp,timer?,fireballs[]` cada ~66 ms (🆕 `timer` solo lo manda el HOST — sincronía del reloj, SESIÓN 4) |
+| PLAYER_STATE → OPPONENT_STATE | C→S→C | `x,y,state,frame,dir,hp,timer?,fireballs[],meter` cada ~66 ms (🆕 `timer` solo lo manda el HOST — sincronía del reloj, SESIÓN 4) |
+| 🆕 PLAYER_READY (2026-07-25) | C→S→C(rival) | — : "ya cargué mis atlas". Barrera "ambos listos": el rival lo espera para arrancar la ronda sincronizada (fallback timeout ~8 s). ⚠️ Requiere redeploy |
 | PLAYER_DAMAGE | C→S→C(rival) | `damage, strength, atkType` |
 | MATCH_ENDED | C→S→C | `winner` ("p1"/"p2") |
 | REQUEST_REMATCH → REMATCH_REQUESTED / REMATCH_ACCEPTED | C→S→C | acepta cuando lo piden AMBOS |
 | HEARTBEAT / ERROR / SESSION_INIT | varios | keep-alive de sala / `message` / `sessionId` |
-| 🆕 ROUND_ENDED (2026-07-16) | C→S→AMBOS | `winner` ("p1"/"p2"): fin de RONDA intermedia (mejor de 3); NO toca la fase de la sala — MATCH_ENDED queda solo para el combate decidido. ⚠️ Requiere redeploy |
+| 🆕 ROUND_ENDED (2026-07-16) | C→S→AMBOS | `winner` ("p1"/"p2") + 🆕 `outcome` (2026-07-25: PERFECT/COMBO/SUPER/TIME/NORMAL para la etiqueta bajo la barra del ganador): fin de RONDA intermedia (mejor de 3); NO toca la fase de la sala — MATCH_ENDED queda solo para el combate decidido. ⚠️ Requiere redeploy |
 | 🆕 REQUEST_JOIN → JOIN_REQUESTED | C→S→host | `code`: solicitud de unión (lobby con aprobación) |
 | 🆕 RESPOND_JOIN | host→S | `accept`: true = mete al pendiente (ROOM_JOINED/OPPONENT_JOINED) |
 | 🆕 JOIN_REJECTED / JOIN_REQUEST_CANCELLED | S→C / S→host | `message` (soft-reject; el invitado re-encola) / el solicitante se fue |

@@ -7,6 +7,108 @@
 > CRLF, Read para verificar). Los BUGS del modo (stun-lock, revancha, servidor LAN) viven en
 > `PENDIENTES_SF_2026-07-16.md` y NO dependen de esto.
 
+## Cambios 2026-07-25 (Opus 4.8) — súper que persiste entre rondas + GRADO de victoria
+
+> ⚠️ **SIN COMPILAR en esta sesión** (falta `gradle-wrapper.jar` y Gradle 9.5). Rebuild +
+> `testDebugUnitTest` + dispositivo pendientes. Detalle de red en `AUDIT_SF_MULTIPLAYER.md` (2026-07-25).
+
+### 🔋 La barra de PODER (súper) PERSISTE entre rondas (decisión del dueño)
+
+Como en el SF original: si llenas el medidor de súper en la ronda 1, sigue lleno en la 2 y la 3.
+Antes se reiniciaba a 0 cada ronda porque `resetRound` reconstruía los peleadores desde el `base`
+(`StreetFighterState()`, súper=0) conservando solo `id`/`metamorphosed`. Fix (VM `resetRound`):
+`p0`/`p1` ahora copian también `superMeter = s.player.superMeter` / `s.cpu.superMeter`. `superReady`
+es derivado (`superMeter >= MAX`) → se mantiene solo. El **mareo/STUN (`dizzyMeter`) NO se conserva**
+(queda en 0 del `base`) → "la barra de stun sí se regenera", como pidió el dueño. El KO no vacía el
+súper (solo lo consumen SUPER_ART/FATALITY en `changeState`), así que ambos lados lo llevan a la
+ronda siguiente.
+
+### 🏅 GRADO de victoria estilo SF III (PERFECT / COMBO / SUPER / TIME)
+
+Al ganar una ronda se calcula su grado y se pinta con la fuente arcade **bajo la barra del ganador
+durante el intro de la ronda siguiente** (como el SF original). Enum `SfRoundOutcome` (en el paquete
+viewmodel). `endRound(sim, winnerIdx, now, outcome)` guarda `pendingRoundOutcome(+Winner)`;
+`resetRound` lo vuelca a `state.roundResultLabel`/`roundResultWinnerIdx` y `drawHud` lo dibuja si
+`showRoundIntro`. Cómputo (`computeRoundOutcome`): **TIME** (timeout) · **PERFECT** (HP del ganador al
+máximo — computable en cualquier lado) · **SUPER** (el golpe de KO fue SUPER_ART/FATALITY) · **COMBO**
+(`comboHits[ganador] >= COMBO_DISPLAY_MIN`) · si no, **NORMAL** (sin etiqueta). Offline/arcade = grado
+exacto; **online** viaja en el `outcome` de `ROUND_ENDED` (degrada a NORMAL si falta). El KO del
+COMBATE (MATCH_ENDED) no aplica: no hay ronda siguiente donde mostrarlo.
+
+### 🥊 Orden de jefes INVERTIDO + metamorfosis Yoalli → La Presidenta (decisión del dueño)
+
+Los dos jefes finales del arcade cambian de orden y la metamorfosis automática se INVIERTE:
+
+- **Orden** (`SfArcadeLadder.build`): antes 14 Yoalli · 15 La Presidenta (FINAL). Ahora
+  **14 La Presidenta · 15 YOALLI EHÉCATL (FINAL)**. `isBoss`/`isFinal` se calculan por índice, no
+  por id, así que el resto del sistema (banners, desbloqueos, dificultad) sigue igual.
+- **Metamorfosis** (`tryYoalliMetamorphosis`, antes `tryPresidentaMetamorphosis`): ahora es
+  **YOALLI** quien a ≤1/4 de vida, en la ronda 1, lanza `BONUS_POWER_10` y se transforma en
+  **LA PRESIDENTA con la VIDA LLENA** (segunda vida). Antes era La Presidenta → Yoalli con
+  `BONUS_POWER_11`. `completeYoalliMetamorphosis` pasa de "conserva HP" a **vida llena**. La
+  dirección vieja (`completePresidentaMetamorphosis` / P11) queda por simetría pero INACTIVA en
+  gameplay. `sfUsableBonusPowerCount` ahora excluye también el P10 de Yoalli (era lanzable). El
+  showcase y su conteo de pasos (`showcaseTotalSteps`) fuerzan la metamorfosis de Yoalli. La Screen
+  ya precargaba ambos atlas en las dos direcciones, sin cambios.
+
+### 🤖 Rebalance de la IA del arcade (decisión del dueño: "muy fácil, no escala")
+
+- **Sube un escalón por encima de la etiqueta** (`SfArcadeLadder.difficultyForStep`): "Fácil" ya no
+  usa BASICA (reaccionaba en ~1 s). Curva por pelea: 1-4 **+1**, 5-9 **+1**, 10-12 **+2**, jefes
+  13-14 **+2**, FINAL 15 **+3** (tope PESADILLA). Así Fácil recorre NORMAL→AVANZADA→PESADILLA,
+  Medio AVANZADA→PESADILLA y Difícil se juega en PESADILLA. La **iluminación** del mapa sigue la
+  dificultad ELEGIDA (`lightingForArcadeDifficulty`: día/noche/apocalipsis), **desacoplada** de este
+  bump. El VS/Práctica NO cambia (usa los 4 tiers explícitos, incluida BASICA para casual).
+- **Rampa de intensidad más alta** (`intensityForStep`): arranca en **0.35** (antes 0.20) → las
+  primeras peleas ya no se sienten lentas; sigue llegando a 1.0 en la final.
+- Tests de caracterización (`SfArcadeCampaignAuditTest`, `SfBonusPowerTest`) actualizados a los
+  nuevos valores. ⚠️ **Balance afinado por razonamiento, sin dispositivo**: si Difícil (PESADILLA
+  desde temprano) resulta frustrante, bajar el `bump` de las primeras peleas.
+
+### 💀 La IA ahora SÍ hace el FATALITY (con el medidor lleno) + 🏆 Calificación + 🎞️ FPS
+
+- **Fatality de la IA (`maybeFatalityInput`):** el comando es "súper EN CARRERA"; antes la IA "nunca"
+  lo lograba porque al correr hacia el rival entraba en rango de CLINCH y abortaba, o quedaba fuera
+  del rango de dash. Ahora, con el medidor lleno, la IA se **COMPROMETE** (rival ATURDIDO = sí o sí;
+  si no, azar que escala con la dificultad) y **completa** la secuencia dash → RUN → súper dentro de
+  `FATALITY_INTENT_MS`, evaluada ANTES del clinch y con el watchdog/anti-walk-loop **desactivados**
+  mientras dura (si no, lo abortaban). Se auto-cancela al soltarlo o si la interrumpen. El súper
+  normal queda como respaldo.
+- **🏆 Sistema de calificación (E..MS) estilo SF III:** mide el desempeño del JUGADOR a lo largo del
+  COMBATE (daño hecho − recibido, parries, combo más largo, súpers/fatalities, variedad de golpes,
+  rondas perfectas → `computeMatchGrade`) y muestra la nota (`SfGradeBadge`) en el menú de fin **solo
+  si ganó**. Contadores por combate (`resetInternals`); solo con humano (no IA-vs-IA/showcase/tutorial).
+  ⚠️ Umbrales afinados por razonamiento — ajustar tras jugar.
+- **🎞️ Contador de FPS del combate:** Ajustes → Interfaz → "Mostrar FPS (modo pelea)" (junto a
+  hitboxes). `SettingsRepository.getShowSfFps` → `SfFpsOverlay` (mide cuadros REALES con
+  `withFrameNanos`). Análogo al del mundo abierto.
+
+### 🕹️ Joystick con RESPUESTA INMEDIATA en la pelea (bug de controles "no instantáneos")
+
+El `JoystickController` (compartido) usaba `detectDragGestures`: un **TAP puro se IGNORABA** y
+tocar-y-mantener no registraba nada hasta cruzar el *touch-slop* → los controles se sentían
+"pegados/lageados", el **agacharse** el más notorio (el ↓ no respondía al instante). Fix
+(`GameControllers.kt`): nuevo flag **`respondToTouchDown`** (default `false` = arrastre de siempre,
+mundo abierto/interiores/zombis SIN cambios) que la Screen del SF activa. Con él, la deflexión se
+toma de la **posición del toque respecto al centro** y se dispara **YA** en el `awaitFirstDown`
+(joystick virtual estándar), con la misma zona muerta (28%) y el bucle de 33 fps para el HOLD. Los
+botones de ataque ya eran inmediatos (`detectHoldEvent` → `awaitFirstDown`).
+
+### 🛡️ (2026-07-26) BLOQUEO "atrapado" al defender (segunda parte del bug de controles)
+
+El dueño reportó que al **hacerse para atrás para defender** los controles seguían sin responder.
+**Causa REAL:** los estados `BLOCK_HIGH`/`BLOCK_LOW` (se entra al bloquear un golpe cubriéndose) SOLO
+salían si soltabas la dirección **Y** terminaba la animación, y **no aceptaban ninguna otra acción**;
+peor aún, `BLOCK_HIGH`/`BLOCK_LOW` **no figuraban como orígenes válidos** en la tabla `validFrom`, así
+que hasta el `→ IDLE` fallaba en `changeState` → **quedabas literalmente atrapado en la pose de
+bloqueo**. Fix (`StreetFighterViewModel.runStateHandler` + `SfStateMachine.VALID_FROM`): la guardia
+ahora **rebota AL INSTANTE** al neutro correspondiente (WALK_BACKWARD si sostienes atrás / CROUCH si
+sostienes ↓ / IDLE-CROUCH_UP al soltar), estados totalmente responsivos que **vuelven a bloquear** si
+te pegan otra vez. Se añadieron `BLOCK_HIGH→{IDLE,WALK_BACKWARD,CROUCH_DOWN}` y
+`BLOCK_LOW→{CROUCH,CROUCH_UP}` a `validFrom`. El **blockstun real** lo sigue dando `hurtFreezeUntilMs`
+durante el golpe, no la animación (así que no se pierde el bloqueo). Sin tocar tests (no había
+aserciones de transiciones DESDE bloqueo).
+
 ## Cambios 2026-07-21f (Opus 4.8) — La Llorona: crouchTurn con `flipX`, hoja 09 regenerada, re-pack
 
 Cierra los tres recortes malos que quedaban de La Llorona (auditados por el dueño en
@@ -782,6 +884,9 @@ agachado/aéreos, patada larga, agarres, super arts → cada uno necesitará est
   · 13 Yoalli Ehécatl · **14 La Presidenta (FINAL, PESADILLA)**. Los estudiantes YA NO son
   enemigos. `arcadeDifficulty`: final = PESADILLA, jefes (Tzitzímime/Yoalli) = AVANZADA, resto
   base +1 en la 2ª mitad.
+  > ⚠️ **SUPERADO 2026-07-25 (ver entrada arriba):** el orden de los 2 jefes finales se INVIRTIÓ
+  > (14 La Presidenta · **15 YOALLI FINAL**, que se metamorfosea en La Presidenta) y la IA se
+  > rebalanceó (sube un escalón sobre la etiqueta + rampa más marcada). **El código manda.**
 - **Copyright:** `fireballImage` (Ken.png) ELIMINADO (todos tienen `proj-*` propios);
   **`kenstage.png`** quitado de `imageFiles` + `drawScene` (⚠️ **borrar el archivo físico
   `assets/STREETFIGHTER/IMAGES/kenstage.png`**, no se pudo desde la sesión). Pendiente del dueño:

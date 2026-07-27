@@ -11,12 +11,15 @@ import org.junit.Test
  */
 class SfBonusPowerTest {
 
+    // Peleadores cuyo ÚLTIMO poder es una metamorfosis automática (no lanzable): usable = count-1.
+    // 🆕 (2026-07-25) Yoalli se suma a la lista (su P10 = metamorfosis → La Presidenta, jefe FINAL).
+    private val metamorphFighters = setOf(SfFighterId.LA_PRESIDENTA, SfFighterId.YOALLI_EHECATL)
+
     @Test
-    fun `La Presidenta tiene un usable menos (el P11 es metamorfosis automatica)`() {
-        assertEquals(
-            SfFighterId.LA_PRESIDENTA.bonusPowerCount - 1,
-            sfUsableBonusPowerCount(SfFighterId.LA_PRESIDENTA),
-        )
+    fun `Presidenta y Yoalli tienen un usable menos (su ultimo poder es metamorfosis)`() {
+        metamorphFighters.forEach { id ->
+            assertEquals("$id", id.bonusPowerCount - 1, sfUsableBonusPowerCount(id))
+        }
     }
 
     @Test
@@ -24,7 +27,7 @@ class SfBonusPowerTest {
         SfFighterId.entries.forEach { id ->
             val usable = sfUsableBonusPowerCount(id)
             assertTrue("$id usable >= 0", usable >= 0)
-            if (id != SfFighterId.LA_PRESIDENTA) {
+            if (id !in metamorphFighters) {
                 assertEquals("$id", id.bonusPowerCount, usable)
             }
         }

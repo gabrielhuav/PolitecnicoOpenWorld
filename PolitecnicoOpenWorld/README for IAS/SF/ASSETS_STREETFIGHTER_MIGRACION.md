@@ -31,7 +31,7 @@ de `tools/` ya existen). Estado por archivo, en ORDEN DE PRIORIDAD:
 | 4 | `kenstage.png` | Muelle de Ken (solo FALLBACK si falla un fondo) | Con 6 fondos propios ya casi no se ve: generar el "escenario ESCOM por capas" (GUIA) o BORRARLO y quitar el fallback clásico del código | 🟡 PENDIENTE (baja exposición) |
 | 5 | `shadow.png` | Óvalo de sombra bajo el peleador | Trivial: óvalo propio (hasta dibujable por código) | 🟡 PENDIENTE |
 | 6 | `sf_template.json` | NÚMEROS de timings/cajas (derivados del JS del clon) | Template propio cuando se re-tunee el gameplay | 🟢 Riesgo bajo (datos) |
-| — | `Ryu.png`/`Ken.png`/`ryu.json`/`ken.json`/`kens-theme.ogg` | Peleadores del clon | — | ✅ FUERA de release (source set debug, 2026-07-15e) |
+| — | `Ryu.png`/`Ken.png`/`ryu.json`/`ken.json`/`kens-theme.ogg` | Peleadores del clon | — | ✅ **BORRADOS del repo (2026-07-26, dueño)** — eran huérfanos (RYU/KEN ya no están en `SfFighterId`; solo vivían en `app/src/debug/assets/`). El TEMPLATE de cajas/timings viaja aparte en `sf_template.json` (release), así que borrarlos NO afecta al build |
 | — | `winnerText.png` | Letrero viejo de ganador | — | ✅ BORRADO (2026-07-16) |
 | — | Música, 6 fondos, 12 peleadores POW | — | — | ✅ YA PROPIOS |
 

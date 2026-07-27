@@ -22,7 +22,11 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
+import ovh.gabrielhuav.pow.ui.components.JoystickController
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import ovh.gabrielhuav.pow.ui.components.NeonTriggerPair
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleDPadController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleJoystickController
@@ -143,9 +147,30 @@ fun BoxScope.WorldMapControls(
             // El control de la DERECHA (segundo) recibe el desplazamiento.
             if (uiState.swapControls) { drivingActions(Modifier); drivingDpad(rightShiftMod) } else { drivingDpad(Modifier); drivingActions(rightShiftMod) }
         } else {
+                // 🆕 (2026-07-26) GATILLOS L1/L2/R1/R2 (estilo "Neón Arcade" del modo pelea).
+                // OPTATIVOS y APAGADOS de fábrica: en el mundo abierto TODAVÍA no tienen acción,
+                // así que quien no los prenda en Ajustes → Interfaz no ve ningún botón nuevo y el
+                // HUD queda EXACTAMENTE como estaba. Cuando se les dé función, se conecta onPress.
+                val shoulders = @Composable { isLeft: Boolean ->
+                    if (uiState.showShoulderButtons) {
+                        NeonTriggerPair(
+                            isLeft = isLeft,
+                            modifier = Modifier.scale(effectiveScale),
+                            // Sin acción a propósito (ver NeonButton.kt): no es un bug.
+                            onPress = { },
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
+                }
                 val movementComponent = @Composable { m: Modifier ->
-                    if (uiState.controlType == ControlType.DPAD) DPadController(modifier = m.scale(effectiveScale), onDirectionPressed = { viewModel.moveCharacter(it) })
-                    else JoystickController(modifier = m.scale(effectiveScale), onMove = { viewModel.moveCharacterByAngle(it) })
+                    // `m` (el desplazamiento por el menú de Opciones) va en la COLUMNA, no en el
+                    // control: así los gatillos se mueven CON él. Con los gatillos apagados la
+                    // columna envuelve un único hijo → el layout queda igual que antes.
+                    Column(modifier = m, horizontalAlignment = Alignment.CenterHorizontally) {
+                        shoulders(!uiState.swapControls)
+                        if (uiState.controlType == ControlType.DPAD) DPadController(modifier = Modifier.scale(effectiveScale), onDirectionPressed = { viewModel.moveCharacter(it) })
+                        else JoystickController(modifier = Modifier.scale(effectiveScale), onMove = { viewModel.moveCharacterByAngle(it) })
+                    }
                 }
                 // 🆕 2026-07-13: Y a pie tiene DOS usos — toque corto (al SOLTAR) = subir al
                 // auto; MANTENER ~450 ms = abrir el INVENTARIO del mapa (paridad con interiores).
@@ -153,8 +178,10 @@ fun BoxScope.WorldMapControls(
                 var yHoldJob by remember { mutableStateOf<Job?>(null) }
                 var yPressedAtMs by remember { mutableStateOf(0L) }
                 val actionComponent = @Composable { m: Modifier ->
+                  Column(modifier = m, horizontalAlignment = Alignment.CenterHorizontally) {
+                    shoulders(uiState.swapControls)
                     ActionButtonsController(
-                        modifier = m.scale(effectiveScale),
+                        modifier = Modifier.scale(effectiveScale),
                         onActionChanged = { action, isPressed ->
                             if (action == GameAction.X && isPressed) {
                                 viewModel.handleInteraction()
@@ -178,6 +205,7 @@ fun BoxScope.WorldMapControls(
                         },
                         onClaimCollectiblePressed = { viewModel.onClaimCollectiblePressed() }
                     )
+                  }
                 }
                 // El control de la DERECHA (segundo) recibe el desplazamiento.
                 if (uiState.swapControls) { actionComponent(Modifier); movementComponent(rightShiftMod) } else { movementComponent(Modifier); actionComponent(rightShiftMod) }

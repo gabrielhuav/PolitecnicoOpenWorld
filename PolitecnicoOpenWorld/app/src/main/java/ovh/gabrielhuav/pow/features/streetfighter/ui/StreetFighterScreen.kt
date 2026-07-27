@@ -64,6 +64,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -109,11 +110,12 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireballState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFrameDef
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButton
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PowButton
+import ovh.gabrielhuav.pow.ui.components.ActionButton
+import ovh.gabrielhuav.pow.ui.components.JoystickController
+import ovh.gabrielhuav.pow.ui.components.PowButton
 import ovh.gabrielhuav.pow.features.streetfighter.data.SF_CLASSIC_THEME
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtDevice
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanGame
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfFrameCatalog
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfRoomSummary
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfSharedSheets
@@ -559,6 +561,8 @@ fun StreetFighterScreen(
     val hasNewMoves = remember(state.player.id) { viewModel.playerHasNewMoves() }
     // 🆕 Ajustes → "Mostrar hitboxes" (se lee al entrar al modo)
     val showHitboxes = remember { viewModel.showHitboxes() }
+    // 🆕 (2026-07-25) Ajustes → "Mostrar FPS (pelea)" (contador de cuadros por segundo)
+    val showSfFps = remember { viewModel.showSfFps() }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         // ---- Escena completa (mundo + HUD) en un Canvas ----
@@ -585,8 +589,22 @@ fun StreetFighterScreen(
         // 3-2-1 y el arranque se ven al terminar (antes se gastaban ocultos tras el CARGANDO,
         // sobre todo en gama baja e IA vs IA que decodifica dos atlas).
         LaunchedEffect(fightLoading) { viewModel.setAssetsLoadingUi(fightLoading) }
+        // 🆕 (2026-07-25) Contador de FPS del modo pelea (Ajustes → Interfaz). Mide los cuadros
+        // REALES de pantalla (withFrameNanos), no el tick del VM. Solo durante la pelea.
+        if (showSfFps && !state.inCharacterSelect && !fightLoading) {
+            SfFpsOverlay(modifier = Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 6.dp))
+        }
         if (fightLoading) {
             SfLoadingOverlay(theme = theme)
+        } else if (state.waitingForOpponentReady) {
+            // 🆕 (2026-07-25) BARRERA "AMBOS LISTOS": ya cargué mis atlas; espero a que el rival
+            // termine de cargar (PLAYER_READY) para arrancar la ronda sincronizada (punto 2).
+            SfLoadingOverlay(
+                theme = theme,
+                arcadeText = "ESPERANDO",
+                fallbackText = stringResource(R.string.sf_waiting_opponent),
+                subtitle = stringResource(R.string.sf_waiting_opponent_sub),
+            )
         }
 
         // ---- Controles de POW: joystick + diamante Xbox (ocultos en selección y en IA vs IA) ----
@@ -604,6 +622,10 @@ fun StreetFighterScreen(
             JoystickController(
                 modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
                 onRelease = viewModel::onJoystickRelease,
+                // 🆕 (2026-07-25) Respuesta INMEDIATA al toque: en la pelea los controles deben
+                // responder al instante (agacharse/caminar). Con el arrastre de siempre un tap se
+                // perdía y tocar-y-mantener no registraba hasta cruzar el touch-slop.
+                respondToTouchDown = true,
                 onMove = viewModel::onJoystickMove,
             )
             // 🆕 (2026-07-22) Guía de JOYSTICK del tutorial: gesto/dirección a marcar (↓, →, dash,
@@ -822,17 +844,26 @@ fun StreetFighterScreen(
                             (state.btMode || state.lanMode) && state.btHandshaking -> R.string.sf_bt_handshake_sub
                             state.lanMode -> R.string.sf_lan_connecting_sub
                             state.btMode -> R.string.sf_bt_connecting_sub
-                            else -> R.string.sf_mp_connecting_sub
+                            // 🆕 (2026-07-26) El aviso de "hasta un minuto" SOLO si el servidor
+                            // estaba dormido de verdad. Antes salía siempre y asustaba de gratis:
+                            // con el servicio despierto la conexión es inmediata.
+                            state.onlineWaking -> R.string.sf_mp_connecting_sub
+                            else -> R.string.sf_mp_connecting_fast
                         },
                     ),
                     onCancel = { viewModel.cancelOnline() },
                 )
                 SfOnlineStatus.WAITING_OPPONENT -> if (state.lanMode) {
-                    // SERVIDOR LOCAL: mostrar la IP a compartir (misma red Wi-Fi/hotspot)
+                    // SERVIDOR LOCAL: mostrar TODAS las IPs a compartir (misma red Wi-Fi/hotspot);
+                    // el rival prueba la alcanzable si el host tiene varias interfaces.
+                    val ips = state.lanLocalIps.ifEmpty { listOfNotNull(state.lanLocalIp) }
                     OnlineInfoOverlay(
                         title = stringResource(R.string.sf_lan_host_title),
-                        subtitle = state.lanLocalIp?.let { stringResource(R.string.sf_lan_host_sub, it) }
-                            ?: stringResource(R.string.sf_lan_no_ip),
+                        subtitle = if (ips.isNotEmpty()) {
+                            stringResource(R.string.sf_lan_host_sub, ips.joinToString("  •  "))
+                        } else {
+                            stringResource(R.string.sf_lan_no_ip)
+                        },
                         onCancel = { viewModel.cancelOnline() },
                     )
                 } else if (state.btMode) {
@@ -1179,6 +1210,9 @@ fun StreetFighterScreen(
                     showOnlineMenu = false
                     viewModel.connectLanHost(ip)
                 },
+                lanDiscovered = state.lanDiscovered,
+                onLanScanStart = viewModel::startLanDiscovery,
+                onLanScanStop = viewModel::stopLanDiscovery,
                 onDismiss = { showOnlineMenu = false },
             )
         }
@@ -1205,6 +1239,7 @@ fun StreetFighterScreen(
         // conexión); reintentar VUELVE A PEDIR los permisos si hicieran falta.
         if (state.btError != null && state.onlineStatus == SfOnlineStatus.OFF) {
             BtRetryOverlay(
+                titleRes = if (state.lanMode) R.string.sf_lan_error_title else R.string.sf_bt_error_title,
                 error = state.btError!!,
                 hintRes = if (state.lanMode) R.string.sf_lan_error_hint else R.string.sf_bt_error_hint,
                 onRetry = {
@@ -1257,6 +1292,7 @@ fun StreetFighterScreen(
                 outcome = state.arcadeOutcome,
                 step = state.arcadeStep,
                 total = state.arcadeTotal,
+                grade = state.matchGrade,
                 onContinue = viewModel::arcadeContinue,
                 onRetry = viewModel::arcadeRetry,
                 onExit = viewModel::arcadeExit,
@@ -1269,6 +1305,11 @@ fun StreetFighterScreen(
                 modifier = Modifier.align(Alignment.Center).padding(top = 120.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                // 🆕 (2026-07-25) NOTA del combate estilo SF III (solo si el jugador ganó)
+                if (state.matchGrade.isNotEmpty()) {
+                    SfGradeBadge(state.matchGrade)
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
                 // Aviso online: el rival ya pidió revancha
                 if (state.opponentWantsRematch && state.onlineStatus == SfOnlineStatus.FIGHTING) {
                     Text(
@@ -1850,6 +1891,7 @@ private fun ArcadeResultOverlay(
     outcome: SfArcadeOutcome,
     step: Int,
     total: Int,
+    grade: String,
     onContinue: () -> Unit,
     onRetry: () -> Unit,
     onExit: () -> Unit,
@@ -1863,6 +1905,11 @@ private fun ArcadeResultOverlay(
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            // 🆕 (2026-07-25) NOTA del combate estilo SF III (solo cuando el jugador ganó el escalón)
+            if (grade.isNotEmpty()) {
+                SfGradeBadge(grade)
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             when (outcome) {
                 SfArcadeOutcome.COMPLETED -> {
                     Text(
@@ -2052,8 +2099,8 @@ private fun DifficultyOption(title: String, desc: String, onClick: () -> Unit) {
 
 // ------------------------------------------------------------------
 // Overlays del MULTIJUGADOR: menú crear/unir/pública + pantallas de espera.
-// (PowButton, el botón estilo POW, ahora vive COMPARTIDO en
-// map_exterior/ui/components/PowButton.kt — pendiente 4 del AUDIT.)
+// (PowButton, el botón estilo POW, vive COMPARTIDO en ui/components/PowButton.kt —
+// 🆕 2026-07-26: se movió ahí desde map_exterior, que no era su sitio.)
 // ------------------------------------------------------------------
 
 /** Permisos runtime del ANFITRIÓN BT (Android 12+): aceptar conexiones + ser visible. */
@@ -2079,10 +2126,18 @@ private fun OnlineMenuOverlay(
     onBtScan: () -> Unit,
     onLanHost: () -> Unit,
     onLanJoin: (String) -> Unit,
+    lanDiscovered: List<SfLanGame>,
+    onLanScanStart: () -> Unit,
+    onLanScanStop: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     var code by remember { mutableStateOf("") }
     var lanIp by remember { mutableStateOf("") }
+    // 🆕 (2026-07-26) Mientras el menú online está abierto, escucha balizas LAN (autodescubrimiento).
+    DisposableEffect(Unit) {
+        onLanScanStart()
+        onDispose { onLanScanStop() }
+    }
     Box(
         modifier = Modifier.fillMaxSize().background(Color(0xF0101018)),
         contentAlignment = Alignment.Center,
@@ -2154,6 +2209,30 @@ private fun OnlineMenuOverlay(
             Spacer(modifier = Modifier.height(8.dp))
             PowButton(text = stringResource(R.string.sf_lan_host), onClick = onLanHost)
             Spacer(modifier = Modifier.height(10.dp))
+            // 🆕 (2026-07-26) AUTODESCUBRIMIENTO: partidas encontradas en la MISMA red Wi-Fi (sin
+            // teclear IP). Tocar una tarjeta se une directo por la IP de su baliza.
+            Text(
+                text = stringResource(R.string.sf_lan_discovered_label),
+                color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp, letterSpacing = 1.sp,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            if (lanDiscovered.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.sf_lan_searching),
+                    color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp,
+                )
+            } else {
+                lanDiscovered.forEach { game ->
+                    PowButton(text = "▶  ${game.name}", onClick = { onLanJoin(game.ip) })
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.sf_lan_or_ip),
+                color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = lanIp,
@@ -2353,7 +2432,7 @@ private fun JoinRequestOverlay(onAccept: () -> Unit, onReject: () -> Unit) {
 // ------------------------------------------------------------------
 
 @Composable
-private fun BtRetryOverlay(error: String, hintRes: Int, onRetry: () -> Unit, onCancel: () -> Unit) {
+private fun BtRetryOverlay(titleRes: Int, error: String, hintRes: Int, onRetry: () -> Unit, onCancel: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -2363,7 +2442,7 @@ private fun BtRetryOverlay(error: String, hintRes: Int, onRetry: () -> Unit, onC
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = stringResource(R.string.sf_bt_error_title),
+                text = stringResource(titleRes),
                 color = Color(0xFFFFB74D),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Black,
@@ -3366,11 +3445,75 @@ private fun loadStageBackground(
 }
 
 /**
+ * 🆕 (2026-07-25) Contador de FPS del modo pelea (Ajustes → Interfaz → "Mostrar FPS"). Mide los
+ * cuadros REALES de pantalla con `withFrameNanos` (no el tick del VM) y promedia cada ~0.5 s.
+ * Autocontenido: se descarta con el composable al salir de la pelea.
+ */
+@Composable
+private fun SfFpsOverlay(modifier: Modifier = Modifier) {
+    var fps by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        var frames = 0
+        var accumNs = 0L
+        var lastNs = 0L
+        while (true) {
+            withFrameNanos { ns ->
+                if (lastNs != 0L) {
+                    accumNs += ns - lastNs
+                    frames++
+                    if (accumNs >= 500_000_000L) { // promedio cada 0.5 s
+                        fps = ((frames * 1_000_000_000.0) / accumNs).toInt()
+                        frames = 0
+                        accumNs = 0L
+                    }
+                }
+                lastNs = ns
+            }
+        }
+    }
+    Text(
+        text = "FPS $fps",
+        color = Color(0xFF7CFF7C),
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+        modifier = modifier
+            .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(4.dp))
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    )
+}
+
+/**
+ * 🆕 (2026-07-25) Insignia de la NOTA del combate (E..MS) estilo SF III. Color por rango:
+ * MS/S dorado, A/B verde, C plateado, D/E rojizo apagado.
+ */
+@Composable
+private fun SfGradeBadge(grade: String) {
+    val color = when (grade) {
+        "MS", "S" -> Color(0xFFFFD24A)
+        "A", "B" -> Color(0xFF7CFF7C)
+        "C" -> Color(0xFFD0D0D0)
+        else -> Color(0xFFE08A7A)
+    }
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = stringResource(R.string.sf_grade_label),
+            color = Color(0xFFD4AF37), fontSize = 12.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Bold,
+        )
+        Text(text = grade, color = color, fontSize = 46.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp)
+    }
+}
+
+/**
  * Overlay CARGANDO con la fuente arcade POW (sf_hud_pow.png).
  * Se muestra al decodificar atlas/hojas en gama baja (entrada a pelea puede tardar).
  */
 @Composable
-private fun SfLoadingOverlay(theme: SfTheme) {
+private fun SfLoadingOverlay(
+    theme: SfTheme,
+    arcadeText: String = "CARGANDO",   // glifos A-Z 0-9 (fuente del HUD)
+    fallbackText: String = stringResource(R.string.sf_loading),
+    subtitle: String = stringResource(R.string.sf_loading_sub),
+) {
     val context = LocalContext.current
     val hud = remember(theme) {
         runCatching {
@@ -3388,19 +3531,18 @@ private fun SfLoadingOverlay(theme: SfTheme) {
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             if (hud != null) {
-                // Dibuja "CARGANDO" con la fuente del HUD (glifos A-Z)
+                // Dibuja el título con la fuente del HUD (glifos A-Z)
                 Canvas(modifier = Modifier.fillMaxWidth().height(48.dp)) {
                     val scale = minOf(size.width / SfConstants.SCENE_WIDTH, size.height / 40f)
                     val ctx = SceneCtx(scale, (size.width - SfConstants.SCENE_WIDTH * scale) / 2f, 0f, 0f, 0f)
-                    val text = "CARGANDO"
                     // 🆕 (2026-07-22) tw ya está en unidades de escena (12·sizeMul); centrar sin
                     // dividir entre scale (ese /scale era el que lo descuadraba).
-                    val tw = text.length * 12f * 2.2f
-                    drawFontText(ctx, theme, hud, text, (SfConstants.SCENE_WIDTH - tw) / 2f, 8f, 2.2f)
+                    val tw = arcadeText.length * 12f * 2.2f
+                    drawFontText(ctx, theme, hud, arcadeText, (SfConstants.SCENE_WIDTH - tw) / 2f, 8f, 2.2f)
                 }
             } else {
                 Text(
-                    text = stringResource(R.string.sf_loading),
+                    text = fallbackText,
                     color = Color(0xFFD4AF37),
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Black,
@@ -3409,7 +3551,7 @@ private fun SfLoadingOverlay(theme: SfTheme) {
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = stringResource(R.string.sf_loading_sub),
+                text = subtitle,
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 12.sp,
             )
@@ -3806,6 +3948,18 @@ private fun DrawScope.drawHud(ctx: SceneCtx, theme: SfTheme, hud: ImageBitmap, s
     drawFontText(ctx, theme, hud, state.player.id.shortName, 32f, 33f, 0.9f)
     val cpuName = state.cpu.id.shortName
     drawFontText(ctx, theme, hud, cpuName, 350f - cpuName.length * 12f * 0.9f, 33f, 0.9f)
+
+    // 🆕 (2026-07-25) GRADO de la ronda anterior (PERFECT/COMBO/SUPER/TIME) bajo la barra del
+    // GANADOR, solo durante el intro de la ronda siguiente (estilo SF III). "" = sin etiqueta.
+    if (state.showRoundIntro && state.roundResultLabel.isNotEmpty() && state.roundResultWinnerIdx in 0..1) {
+        val label = state.roundResultLabel
+        val labelScale = 0.7f
+        if (state.roundResultWinnerIdx == 0) {
+            drawFontText(ctx, theme, hud, label, 32f, 44f, labelScale)
+        } else {
+            drawFontText(ctx, theme, hud, label, 350f - label.length * 12f * labelScale, 44f, labelScale)
+        }
+    }
 
     // Marcadores P1 / P2
     drawFontText(ctx, theme, hud, "P1", 4f, 1f)

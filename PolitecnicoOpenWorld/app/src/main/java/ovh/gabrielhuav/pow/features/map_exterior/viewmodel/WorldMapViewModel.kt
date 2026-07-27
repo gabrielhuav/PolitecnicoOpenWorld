@@ -117,6 +117,8 @@ class WorldMapViewModel @javax.inject.Inject constructor(
         WorldMapState(
             controlType   = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
+            // 🆕 (2026-07-26) Gatillos L1/L2/R1/R2 del modo pelea, opcionales en el mundo (OFF).
+            showShoulderButtons = settingsRepository.getShowWorldShoulderButtons(),
             swapControls  = settingsRepository.getSwapControls(),
             selectedSkin  = settingsRepository.getPlayerSkin(),   // ← NUEVO
             npcEmojiLod   = settingsRepository.getNpcEmojiLod(),  // optimizar dibujado de NPCs (LOD)
@@ -1187,7 +1189,16 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     internal val RESCUE_MAX_DIST_DEG = 0.0012
 
     fun updateControlSettings(type: ControlType, scale: Float, swap: Boolean) {
-        _uiState.update { it.copy(controlType = type, controlsScale = scale, swapControls = swap) }
+        // 🆕 (2026-07-26) Los gatillos L/R se releen AQUÍ (no solo al crear el VM) para que el
+        // interruptor de Ajustes → Interfaz se note al volver al mapa, sin reiniciar el juego.
+        _uiState.update {
+            it.copy(
+                controlType = type,
+                controlsScale = scale,
+                swapControls = swap,
+                showShoulderButtons = settingsRepository.getShowWorldShoulderButtons(),
+            )
+        }
     }
 
     internal data class Seg(val s: GeoPoint, val e: GeoPoint,

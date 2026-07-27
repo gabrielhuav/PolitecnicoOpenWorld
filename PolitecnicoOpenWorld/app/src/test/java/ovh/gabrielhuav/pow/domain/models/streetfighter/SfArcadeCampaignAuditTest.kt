@@ -28,16 +28,18 @@ class SfArcadeCampaignAuditTest {
 
     @Test
     fun `la dificultad y la intensidad progresan hasta la final`() {
+        // 🆕 (2026-07-25) Rebalance: la IA del arcade juega un escalón POR ENCIMA de la etiqueta y
+        // sube con el avance (peleas 1-4 +1, 5-9 +1, 10-12 +2, jefes +2, FINAL +3).
         val easy = SfArcadeLadder.build(SfFighterId.ESCOMBOY, SfCpuDifficulty.BASICA, Random(1))
-        assertEquals(SfCpuDifficulty.BASICA, SfArcadeLadder.difficultyForStep(SfCpuDifficulty.BASICA, easy[0]))
-        assertEquals(SfCpuDifficulty.NORMAL, SfArcadeLadder.difficultyForStep(SfCpuDifficulty.BASICA, easy[12]))
-        assertEquals(SfCpuDifficulty.AVANZADA, SfArcadeLadder.difficultyForStep(SfCpuDifficulty.BASICA, easy[14]))
+        assertEquals(SfCpuDifficulty.NORMAL, SfArcadeLadder.difficultyForStep(SfCpuDifficulty.BASICA, easy[0]))
+        assertEquals(SfCpuDifficulty.AVANZADA, SfArcadeLadder.difficultyForStep(SfCpuDifficulty.BASICA, easy[12]))
+        assertEquals(SfCpuDifficulty.PESADILLA, SfArcadeLadder.difficultyForStep(SfCpuDifficulty.BASICA, easy[14]))
 
         val medium = SfArcadeLadder.build(SfFighterId.ESCOMGIRL, SfCpuDifficulty.NORMAL, Random(2))
-        assertEquals(SfCpuDifficulty.AVANZADA, SfArcadeLadder.difficultyForStep(SfCpuDifficulty.NORMAL, medium[12]))
+        assertEquals(SfCpuDifficulty.PESADILLA, SfArcadeLadder.difficultyForStep(SfCpuDifficulty.NORMAL, medium[12]))
         assertEquals(SfCpuDifficulty.PESADILLA, SfArcadeLadder.difficultyForStep(SfCpuDifficulty.NORMAL, medium[14]))
 
-        assertEquals(0.20f, SfArcadeLadder.intensityForStep(1, SfArcadeLadder.TOTAL_FIGHTS), FLOAT_TOLERANCE)
+        assertEquals(0.35f, SfArcadeLadder.intensityForStep(1, SfArcadeLadder.TOTAL_FIGHTS), FLOAT_TOLERANCE)
         assertEquals(1f, SfArcadeLadder.intensityForStep(SfArcadeLadder.TOTAL_FIGHTS, SfArcadeLadder.TOTAL_FIGHTS), FLOAT_TOLERANCE)
     }
 
@@ -60,7 +62,10 @@ class SfArcadeCampaignAuditTest {
         assertEquals(SfArcadeLadder.TOTAL_FIGHTS, ladder.size)
         assertEquals((1..SfArcadeLadder.TOTAL_FIGHTS).toList(), ladder.map { it.index })
         assertEquals(SfFighterId.PARAMEDICO_CRUZ_ROJA, ladder.first().rival)
-        assertEquals(SfFighterId.LA_PRESIDENTA, ladder.last().rival)
+        // 🆕 (2026-07-25) Orden invertido de jefes finales: La Presidenta (14) y YOALLI FINAL (15).
+        assertEquals(SfFighterId.LA_PRESIDENTA, ladder[ladder.size - 2].rival)
+        assertEquals(SfFighterId.YOALLI_EHECATL, ladder.last().rival)
+        assertTrue(ladder.last().isFinal)
         assertFalse(ladder.any { it.rival == player })
         assertEquals(ladder.size, ladder.map { it.rival }.distinct().size)
 

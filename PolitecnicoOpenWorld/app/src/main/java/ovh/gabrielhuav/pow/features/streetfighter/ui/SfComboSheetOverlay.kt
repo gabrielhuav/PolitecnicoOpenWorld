@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
 import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PowButton
+import ovh.gabrielhuav.pow.ui.components.PowButton
 
 /**
  * 🆕 (2026-07-21) HOJA DE COMBOS: explica TODOS los controles de combate y las rutas de

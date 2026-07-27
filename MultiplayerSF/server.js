@@ -319,6 +319,38 @@ wss.on('connection', (ws, req) => {
                 break;
             }
 
+            // 🆕 (2026-07-25) BARRERA "AMBOS LISTOS": el emisor terminó de cargar sus atlas. Relay
+            // puro al rival, que lo espera para arrancar la ronda sincronizada (gama baja tarda más
+            // en decodificar). Sin fase: llega tras FIGHT_START. Ver AUDIT_SF_MULTIPLAYER.md.
+            case 'PLAYER_READY': {
+                if (!room) break;
+                const target = (ws === room.p1) ? room.p2 : room.p1;
+                if (target && target.readyState === WebSocket.OPEN) {
+                    target.send(JSON.stringify({ type: 'PLAYER_READY' }));
+                }
+                break;
+            }
+
+            // 🆕 (2026-07-26) SEÑALIZACIÓN WebRTC — el server hace de CUPIDO, no de relay.
+            // Los 2 jugadores ya emparejados se intercambian por aquí su SDP y sus candidatos
+            // ICE para abrir una conexión DIRECTA teléfono-a-teléfono; a partir de ahí el
+            // gameplay YA NO pasa por este servidor (menos latencia y menos carga).
+            // Relay ciego: se reenvía el mensaje COMPLETO (sdp/candidate/sdpMid/sdpMLineIndex)
+            // sin interpretarlo — el server no sabe ni necesita saber de WebRTC.
+            // Si la conexión directa no se logra (NAT simétrico, ~20-30% de las redes), el
+            // cliente sigue peleando por el relay de siempre: nada de esto es obligatorio.
+            case 'SIGNAL_READY':
+            case 'SIGNAL_OFFER':
+            case 'SIGNAL_ANSWER':
+            case 'SIGNAL_ICE': {
+                if (!room) break;
+                const target = (ws === room.p1) ? room.p2 : room.p1;
+                if (target && target.readyState === WebSocket.OPEN) {
+                    target.send(JSON.stringify(msg));
+                }
+                break;
+            }
+
             case 'PLAYER_DAMAGE': {
                 if (!room) break;
                 // El daño SIEMPRE va al RIVAL del que lo manda (el receptor lo aplica a su
@@ -336,7 +368,9 @@ wss.on('connection', (ws, req) => {
             case 'ROUND_ENDED': {
                 if (!room) break;
                 room.lastActivityMs = Date.now();
-                broadcastToRoom(room, { type: 'ROUND_ENDED', winner: msg.winner });
+                // 🆕 (2026-07-25) `outcome` = grado de la ronda (PERFECT/COMBO/SUPER/TIME) para que
+                // el otro lado pinte la misma etiqueta bajo la barra del ganador.
+                broadcastToRoom(room, { type: 'ROUND_ENDED', winner: msg.winner, outcome: msg.outcome });
                 break;
             }
 

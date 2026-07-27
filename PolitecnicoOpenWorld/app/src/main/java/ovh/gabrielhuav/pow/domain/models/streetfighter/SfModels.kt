@@ -439,11 +439,15 @@ fun SfFighterState.bonusPowerIndex(): Int? =
     SF_BONUS_POWER_STATES.indexOf(this).takeIf { it >= 0 }?.plus(1)
 
 /**
- * 🆕 (2026-07-22, Fase 1 del refactor) Poderes bonus LANZABLES por el jugador. La Presidenta tiene
- * 11 pero el P11 es SOLO la metamorfosis automática (no se elige), así que su usable = count-1.
+ * 🆕 (2026-07-22, Fase 1 del refactor) Poderes bonus LANZABLES por el jugador. Los poderes de
+ * METAMORFOSIS son automáticos (no se eligen), así que se restan del total:
+ *  - La Presidenta: P11 (metamorfosis histórica → Yoalli), usable = count-1.
+ *  - 🆕 (2026-07-25) Yoalli Ehécatl: P10 (metamorfosis ACTUAL → La Presidenta, jefe FINAL del
+ *    arcade), usable = count-1. Antes P10 era lanzable; ahora es solo el disparo automático.
  */
 fun sfUsableBonusPowerCount(id: SfFighterId): Int = when (id) {
     SfFighterId.LA_PRESIDENTA -> (id.bonusPowerCount - 1).coerceAtLeast(0)
+    SfFighterId.YOALLI_EHECATL -> (id.bonusPowerCount - 1).coerceAtLeast(0)
     else -> id.bonusPowerCount
 }
 

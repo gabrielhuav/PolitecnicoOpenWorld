@@ -584,6 +584,9 @@ internal fun DiagnosticWidgetsSetting(
     coordsWidgetEnabled: Boolean,
     developerModeEnabled: Boolean,
     hitboxesEnabled: Boolean,
+    sfFpsEnabled: Boolean,
+    voiceSubtitlesEnabled: Boolean,
+    worldShouldersEnabled: Boolean,
     onCacheToggled: (Boolean) -> Unit,
     onFpsToggled: (Boolean) -> Unit,
     onZoomWidgetToggled: (Boolean) -> Unit,
@@ -591,6 +594,9 @@ internal fun DiagnosticWidgetsSetting(
     onCoordsWidgetToggled: (Boolean) -> Unit,
     onDeveloperModeToggled: (Boolean) -> Unit,
     onHitboxesToggled: (Boolean) -> Unit,
+    onSfFpsToggled: (Boolean) -> Unit,
+    onVoiceSubtitlesToggled: (Boolean) -> Unit,
+    onWorldShouldersToggled: (Boolean) -> Unit,
     currentLanguage: String,
     onLanguageChanged: (String) -> Unit
 ) {
@@ -622,6 +628,46 @@ internal fun DiagnosticWidgetsSetting(
             Switch(
                 checked = hitboxesEnabled,
                 onCheckedChange = onHitboxesToggled,
+                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
+            )
+        }
+
+        // 🆕 (2026-07-25) Mostrar FPS del modo pelea (como el del mundo abierto, pero para el combate).
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings_show_sf_fps), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.settings_show_sf_fps_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp, textAlign = TextAlign.Justify)
+            }
+            Switch(
+                checked = sfFpsEnabled,
+                onCheckedChange = onSfFpsToggled,
+                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
+            )
+        }
+
+        // 🆕 (2026-07-25) Subtítulos de las VOCES de los peleadores (special/win/etc.). Default OFF.
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings_voice_subtitles), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.settings_voice_subtitles_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp, textAlign = TextAlign.Justify)
+            }
+            Switch(
+                checked = voiceSubtitlesEnabled,
+                onCheckedChange = onVoiceSubtitlesToggled,
+                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
+            )
+        }
+
+        // 🆕 (2026-07-26) Gatillos L1/L2/R1/R2 en el MUNDO ABIERTO. Default OFF: vienen del modo
+        // pelea y allá TODAVÍA no tienen acción, así que no deben estorbar a quien no los pida.
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings_world_shoulders), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.settings_world_shoulders_desc), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp, textAlign = TextAlign.Justify)
+            }
+            Switch(
+                checked = worldShouldersEnabled,
+                onCheckedChange = onWorldShouldersToggled,
                 colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD4AF37), checkedTrackColor = Color(0xFF6B1C3A))
             )
         }

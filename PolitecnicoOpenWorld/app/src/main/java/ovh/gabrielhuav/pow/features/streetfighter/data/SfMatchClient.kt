@@ -26,6 +26,8 @@ data class SfNetMsg(
     val countdownMs: Int? = null,
     val message: String? = null,
     val winner: String? = null,
+    // 🆕 (2026-07-25) GRADO de la ronda (ROUND_ENDED): SfRoundOutcome.name (PERFECT/COMBO/SUPER/TIME).
+    val outcome: String? = null,
     // Estado del peleador (PLAYER_STATE / OPPONENT_STATE)
     val x: Float? = null,
     val y: Float? = null,
@@ -37,6 +39,13 @@ data class SfNetMsg(
     // dorada del oponente se veía siempre vacía en línea. Es OPCIONAL: un cliente viejo no
     // lo manda y el receptor conserva el valor que ya tenía.
     val meter: Int? = null,
+    // 🆕 (2026-07-26) AUDIO SINCRONIZADO: claves de los clips de VOZ que el emisor acaba de
+    // reproducir, para que su rival oiga EXACTAMENTE lo mismo (antes cada quien solo oía a su
+    // propio peleador). Solo viajan las voces de los packs, porque se eligen con `.random()`:
+    // si cada teléfono sorteara por su cuenta, ambos oirían un clip DISTINTO del mismo evento.
+    // Los SFX DETERMINISTAS (whoosh del golpe, aterrizaje, impacto) NO viajan — el receptor los
+    // deriva del `state` del snapshot, que ya viene. Opcional: un cliente viejo no lo manda.
+    val audio: List<String>? = null,
     // 🆕 SINCRONÍA DEL TIMER: solo lo manda el HOST (autoridad del reloj); el invitado lo adopta
     val timer: Int? = null,
     val fireballs: List<SfNetFireball>? = null,
@@ -44,6 +53,14 @@ data class SfNetMsg(
     val damage: Int? = null,
     val strength: String? = null,    // SfAttackStrength.name
     val atkType: String? = null,     // SfAttackType.name
+    // 🆕 (2026-07-26) SEÑALIZACIÓN WebRTC (SIGNAL_OFFER / SIGNAL_ANSWER / SIGNAL_ICE). El
+    // servidor los reenvía CIEGO al otro jugador de la sala: solo hace de cupido para que los
+    // dos teléfonos abran una conexión DIRECTA. Nada de esto toca el gameplay — si la conexión
+    // directa no se logra, la pelea sigue por el relay de siempre.
+    val sdp: String? = null,             // oferta/respuesta (SDP)
+    val candidate: String? = null,       // candidato ICE
+    val sdpMid: String? = null,          // pista a la que pertenece el candidato
+    val sdpMLineIndex: Int? = null,      // índice de la línea m= del candidato
     // Sala pública + resumen de partidas
     val position: Int? = null,       // QUEUED: lugar en la lista de espera
     val rooms: List<SfRoomSummary>? = null,
@@ -102,6 +119,24 @@ class SfMatchClient(private val gson: Gson = Gson()) : SfNetTransport {
         ws?.send(gson.toJson(payload.filterValues { it != null }))
     }
 
+    /**
+     * 🆕 (2026-07-26) Manda un mensaje de SEÑALIZACIÓN WebRTC al rival de la sala (el server lo
+     * reenvía ciego). No es parte de [SfNetTransport] a propósito: solo el transporte ONLINE
+     * hace de canal de señalización — en BT/LAN los teléfonos ya están conectados directo.
+     */
+    fun sendSignal(
+        type: String,
+        sdp: String? = null,
+        candidate: String? = null,
+        sdpMid: String? = null,
+        sdpMLineIndex: Int? = null,
+    ) = send(
+        mapOf(
+            "type" to type, "sdp" to sdp, "candidate" to candidate,
+            "sdpMid" to sdpMid, "sdpMLineIndex" to sdpMLineIndex,
+        ),
+    )
+
     override fun createRoom() = send(mapOf("type" to "CREATE_ROOM"))
     override fun joinRoom(code: String) = send(mapOf("type" to "JOIN_ROOM", "code" to code.uppercase()))
     override fun quickMatch() = send(mapOf("type" to "QUICK_MATCH"))
@@ -116,7 +151,9 @@ class SfMatchClient(private val gson: Gson = Gson()) : SfNetTransport {
     override fun selectCharacter(name: String) = send(mapOf("type" to "SELECT_CHARACTER", "character" to name))
     override fun selectMap(file: String) = send(mapOf("type" to "SELECT_MAP", "map" to file))
     override fun requestRematch() = send(mapOf("type" to "REQUEST_REMATCH"))
-    override fun sendRoundEnded(winner: String) = send(mapOf("type" to "ROUND_ENDED", "winner" to winner))
+    override fun sendReady() = send(mapOf("type" to "PLAYER_READY"))
+    override fun sendRoundEnded(winner: String, outcome: String) =
+        send(mapOf("type" to "ROUND_ENDED", "winner" to winner, "outcome" to outcome))
     override fun sendMatchEnded(winner: String) = send(mapOf("type" to "MATCH_ENDED", "winner" to winner))
 
     override fun sendDamage(damage: Int, strength: String, atkType: String) =
@@ -133,12 +170,16 @@ class SfMatchClient(private val gson: Gson = Gson()) : SfNetTransport {
         timer: Int?,
         fireballs: List<SfNetFireball>,
         meter: Int,
+        audio: List<String>,
     ) =
         send(
             mapOf(
                 "type" to "PLAYER_STATE", "x" to x, "y" to y, "state" to state,
                 "frame" to frame, "dir" to dir, "hp" to hp, "timer" to timer,
                 "fireballs" to fireballs, "meter" to meter,
+                // Vacío → null → `send` lo filtra: no engorda el snapshot de ~15 Hz.
+                // El relay de Render lo reenvía solo (hace `{...msg}`), sin redeploy.
+                "audio" to audio.ifEmpty { null },
             ),
         )
 
@@ -154,7 +195,17 @@ class SfMatchClient(private val gson: Gson = Gson()) : SfNetTransport {
          * Despierta el servicio FREE de Render (duerme tras ~15 min sin tráfico y tarda
          * hasta ~1 min en levantar): GET /status con reintentos, BLOQUEANTE (llamar en IO).
          */
-        fun warmupBlocking(wsUrl: String, maxSeconds: Int = 90): Boolean {
+        fun warmupBlocking(
+            wsUrl: String,
+            maxSeconds: Int = 90,
+            /**
+             * 🆕 (2026-07-26) Se llama UNA vez si el primer sondeo falla, o sea si el servicio
+             * estaba DORMIDO y toca esperar a que levante. Sirve para explicarle la espera al
+             * jugador. Si ya estaba despierto NO se llama: el primer sondeo acierta y no hay
+             * nada que avisar.
+             */
+            onSleeping: () -> Unit = {},
+        ): Boolean {
             val statusUrl = wsUrl.replace("wss://", "https://").replace("ws://", "http://")
                 .trimEnd('/') + "/status"
             val client = OkHttpClient.Builder()
@@ -162,11 +213,16 @@ class SfMatchClient(private val gson: Gson = Gson()) : SfNetTransport {
                 .readTimeout(10, TimeUnit.SECONDS)
                 .build()
             val deadline = System.currentTimeMillis() + maxSeconds * 1000L
+            var notified = false
             while (System.currentTimeMillis() < deadline) {
                 val ok = runCatching {
                     client.newCall(Request.Builder().url(statusUrl).build()).execute().use { it.isSuccessful }
                 }.getOrDefault(false)
                 if (ok) return true
+                if (!notified) {
+                    notified = true
+                    runCatching { onSleeping() }
+                }
                 Thread.sleep(4000)
             }
             return false

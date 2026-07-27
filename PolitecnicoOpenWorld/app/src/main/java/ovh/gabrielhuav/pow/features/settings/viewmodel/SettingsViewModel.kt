@@ -30,6 +30,9 @@ class SettingsViewModel @javax.inject.Inject constructor(private val repository:
                 showCoordsWidget = repository.getShowCoordsWidget(),
                 developerMode = repository.getDeveloperMode(),
                 showHitboxes = repository.getShowHitboxes(),
+                showSfFps = repository.getShowSfFps(),
+                showVoiceSubtitles = repository.getShowVoiceSubtitles(),
+                showWorldShoulderButtons = repository.getShowWorldShoulderButtons(),
                 musicVolume = repository.getMusicVolume(),
                 sfxVolume = repository.getSfxVolume(),
                 npcDensity = repository.getNpcDensity(),
@@ -71,6 +74,21 @@ class SettingsViewModel @javax.inject.Inject constructor(private val repository:
     fun toggleHitboxes(enabled: Boolean) {
         _state.update { it.copy(showHitboxes = enabled) }
         repository.saveShowHitboxes(enabled)
+    }
+    // 🆕 (2026-07-25) Mostrar FPS del modo pelea. Persiste al instante.
+    fun toggleSfFps(enabled: Boolean) {
+        _state.update { it.copy(showSfFps = enabled) }
+        repository.saveShowSfFps(enabled)
+    }
+    // 🆕 (2026-07-25) Subtítulos de las voces de los peleadores. Persiste al instante.
+    fun toggleVoiceSubtitles(enabled: Boolean) {
+        _state.update { it.copy(showVoiceSubtitles = enabled) }
+        repository.saveShowVoiceSubtitles(enabled)
+    }
+    // 🆕 (2026-07-26) Gatillos L1/L2/R1/R2 en el mundo abierto. Persiste al instante.
+    fun toggleWorldShoulderButtons(enabled: Boolean) {
+        _state.update { it.copy(showWorldShoulderButtons = enabled) }
+        repository.saveShowWorldShoulderButtons(enabled)
     }
 
     // Audio: persisten al instante; MainActivity los empuja en vivo al SoundManager.

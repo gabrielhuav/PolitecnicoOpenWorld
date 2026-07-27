@@ -30,7 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ovh.gabrielhuav.pow.R
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PowButton
+import ovh.gabrielhuav.pow.ui.components.PowButton
 
 /**
  * Color del BOTÓN real que hay que pulsar, deducido de la etiqueta del paso. Es el

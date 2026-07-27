@@ -55,7 +55,7 @@ import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.InteriorState
 import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.InteriorViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CoordsWidget
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
-import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickController
+import ovh.gabrielhuav.pow.ui.components.JoystickController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 

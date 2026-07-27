@@ -66,12 +66,14 @@ object SfStateMachine {
             SfFighterState.HURT_BODY_LIGHT, SfFighterState.HURT_BODY_MEDIUM, SfFighterState.HURT_BODY_HEAVY,
             SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY,
             SfFighterState.STUN,
+            SfFighterState.BLOCK_HIGH, // 🆕 (2026-07-26) soltar la guardia alta vuelve a IDLE al instante
         ) + SF_BONUS_POWER_STATES.toSet(),
         SfFighterState.WALK_FORWARD to setOf(
             SfFighterState.IDLE, SfFighterState.JUMP_FORWARD, SfFighterState.WALK_BACKWARD, SfFighterState.JUMP_LAND,
         ),
         SfFighterState.WALK_BACKWARD to setOf(
             SfFighterState.IDLE, SfFighterState.WALK_FORWARD, SfFighterState.JUMP_BACKWARD, SfFighterState.JUMP_LAND,
+            SfFighterState.BLOCK_HIGH, // 🆕 (2026-07-26) la guardia alta rebota a retroceder (responsivo)
         ),
         SfFighterState.JUMP_START to setOf(
             SfFighterState.IDLE, SfFighterState.WALK_FORWARD, SfFighterState.WALK_BACKWARD, SfFighterState.JUMP_LAND,
@@ -85,9 +87,13 @@ object SfStateMachine {
         SfFighterState.JUMP_BACKWARD to setOf(SfFighterState.JUMP_START, SfFighterState.WALK_BACKWARD),
         SfFighterState.CROUCH_DOWN to setOf(
             SfFighterState.IDLE, SfFighterState.WALK_FORWARD, SfFighterState.WALK_BACKWARD, SfFighterState.JUMP_LAND,
+            SfFighterState.BLOCK_HIGH, // 🆕 (2026-07-26) de guardia alta a agacharse/guardia baja
         ),
-        SfFighterState.CROUCH to setOf(SfFighterState.CROUCH_DOWN, SfFighterState.CROUCH_TURN),
-        SfFighterState.CROUCH_UP to setOf(SfFighterState.CROUCH),
+        SfFighterState.CROUCH to setOf(
+            SfFighterState.CROUCH_DOWN, SfFighterState.CROUCH_TURN,
+            SfFighterState.BLOCK_LOW, // 🆕 (2026-07-26) la guardia baja rebota a cuclillas (responsivo)
+        ),
+        SfFighterState.CROUCH_UP to setOf(SfFighterState.CROUCH, SfFighterState.BLOCK_LOW), // 🆕 soltar guardia baja
         SfFighterState.IDLE_TURN to setOf(
             SfFighterState.IDLE, SfFighterState.JUMP_LAND, SfFighterState.WALK_FORWARD, SfFighterState.WALK_BACKWARD,
         ),

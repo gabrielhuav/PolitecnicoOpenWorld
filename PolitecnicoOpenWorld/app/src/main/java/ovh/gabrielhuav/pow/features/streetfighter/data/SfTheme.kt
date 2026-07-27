@@ -110,7 +110,9 @@ val SF_CLASSIC_THEME = SfTheme(
     // (fuente + barra + KO + timer POW, generado con GPT). Ver GUIA / build_hud.
     imageFiles = listOf("shadow.png", "sf_decals_pow.png", "sf_hud_pow.png"),
     // "hadouken" = fallback genérico si falta special_<fighter>.ogg (voces scrapeadas X/local).
-    // Los specials por personaje se cargan dinámicamente en StreetFighterScreen.
+    // 🆕 (2026-07-26) El .ogg fue REFACTORIZADO a un sonido PROPIO de POW (conserva el nombre
+    // `hadouken.ogg` pero ya NO es el audio con copyright); se CONSERVA. Los specials por personaje
+    // se cargan dinámicamente en StreetFighterScreen.
     soundKeys = listOf(
         "light-attack", "medium-attack", "heavy-attack",
         "light-punch-hit", "medium-punch-hit", "heavy-punch-hit",

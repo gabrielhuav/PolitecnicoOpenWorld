@@ -109,7 +109,10 @@ Solo peleadors **dedicados del arcade** (`ALL_PARTICIPANTS`).
 Ver `SfArcadeLadder.build`:
 
 1 Paramédico CR · 2–4 {Pap1, Pap5, Tienda} · 5–6 {Rey, Prankedy} · 7–10 policías ·  
-11–12 {Charro, Llorona} · 13 Tzitzímime · 14 Yoalli · 15 Presidenta.
+11–12 {Charro, Llorona} · 13 Tzitzímime · **14 La Presidenta · 15 Yoalli Ehécatl (FINAL)**.
+
+> 🆕 (2026-07-25) Orden de los 2 jefes finales INVERTIDO (antes 14 Yoalli · 15 Presidenta). El
+> jefe FINAL es Yoalli, que a ≤1/4 de vida se **metamorfosea en La Presidenta** (segunda vida).
 
 Flujo UI: **peleador → Fácil/Medio/Difícil** (`ArcadeDifficultyOverlay`) → pelea.
 
