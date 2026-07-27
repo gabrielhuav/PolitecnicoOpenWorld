@@ -36,8 +36,8 @@
 **Última actualización:** 2026-07-27 · Opus 5 · rama `fase0-auditoria-kmp`
 **Ventana viva:** 2026-07-26 → 2026-07-27 · *purgar a `_ARCHIVO/` a partir del 2026-07-28*
 
-> ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: **Fases 0, 1 y 2 COMPLETAS; la 3 a medias**
-> (disco sí, red no). **Fase 4 sin empezar.** ⚠️ **NO existe app iOS todavía** — ver §4 P0.
+> ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: **Fases 0-3 COMPLETAS; la 4 a medias**
+> (prefs sí; Room KMP y Ktor NO). ⚠️ **NO existe app iOS todavía** — ver §4 P0.
 
 ## 🖥️ Rutas por PC
 
@@ -81,7 +81,7 @@ Audio del rival sincronizado, P2P por WebRTC, auditoría pre-producción (4 defe
 puerta `play-compliance` de CI. Detalle en `_ARCHIVO/HISTORIAL_sesiones_2026-07-26.md`.
 ⚠️ Lo único que sigue VIVO de ahí está en los P0 de §4 (probar multijugador + redeploy Render).
 
-## 3bis. Sesión 2026-07-27 (Opus 5) — KMP/iOS: Fase 0 + Fase 1
+## 3bis. Sesión 2026-07-27 (Opus 5) — KMP/iOS: Fases 0-3 + Fase 4 parcial + auditoría
 
 **Datos, opciones y fases: `PLAN_MIGRACION_KMP.md`.** Aquí solo lo que no puede perderse:
 - **osmdroid NO bloquea 51 archivos, sino 6** (los otros 45 solo usan `GeoPoint`). Y **el mapa por
@@ -108,15 +108,30 @@ osmdroid (mismo radio 6378137). `GeoPointParidadOsmdroidTest` compara contra osm
 **bit a bit** igual. ⚠️ Cazó que `x*x` ≠ `.pow(2)` (2 ULP): **no lo "simplifiques"**.
 La conversión al mundo osmdroid vive SOLO en `ui/GeoPointInterop.kt` (19 sitios).
 
-**FASE 3 A MEDIAS — disco SÍ, red NO.** `PowJson` (`:shared`) sustituye a Gson en saves, matrices,
-waypoints y catálogo. Gson: 21 → **16 archivos**. ⚠️ **Las opciones de `PowJson` imitan a Gson a
-propósito** (`ignoreUnknownKeys`/`encodeDefaults`/`explicitNulls=false`/`coerceInputValues`);
-tocarlas rompe saves y clientes viejos EN SILENCIO. ⚠️ **Todo campo nuevo de `GameSaveData` DEBE
-llevar default** o la partida del jugador no carga (kotlinx peta, Gson rellenaba).
-🆕 El gotcha de las **listas NULL de Gson ya NO existe** (al dar default a todo, hay constructor
-sin args): `GameSaveDataTest` actualizado; el coalesce de `restoreSaveData` queda redundante.
-**FALTA la capa de RED** (17 sitios con `Map<String,Any?>`, que kotlinx no serializa): se dejó
-aposta porque habla con los clientes 1.0.0.14 YA INSTALADOS y con los servidores Node.
+**FASE 3 COMPLETA — Gson FUERA de producción** (0 archivos; queda solo en `testImplementation`
+para los tests de compatibilidad). `PowJson` + `jsonOf`/`jsonArrayOf` en `:shared`.
+⚠️ **Las opciones de `PowJson` imitan a Gson a propósito** (`ignoreUnknownKeys`/`encodeDefaults`/
+`explicitNulls=false`/`coerceInputValues`); tocarlas rompe saves y clientes viejos EN SILENCIO.
+
+**FASE 4 A MEDIAS.** ✅ SharedPreferences → `multiplatform-settings` en los 5 repos. Se eligió
+sobre DataStore (que recomendaba el plan) porque **envuelve el fichero de prefs existente → cero
+migración**, y porque DataStore es asíncrono (volvería `suspend` ~60 lecturas hoy síncronas).
+⚠️ `SfArcadeRepository` es el ÚNICO con migración real de datos: los desbloqueos se guardaban con
+`putStringSet` (no existe en multiplatform-settings) → ahora array JSON en claves `_V2`, y
+`leerConjunto()` migra una vez desde la vieja. Sin eso, todos pierden peleadores y mapas.
+❌ **FALTAN: Room KMP y OkHttp → Ktor** (las deps de Ktor ya están declaradas, sin usar).
+
+### 🔴 AUDITORÍA de las fases 1-4 — 12 bugs REALES (ya corregidos)
+Dos clases de bug que **el compilador NO ve** y que habrían salido en producción:
+1. **`PowJson.encodeToString(x)` COMPILA y PETA EN RUNTIME** si `x` no es serializable
+   (`Map<String,Any?>` o data class sin `@Serializable`). Afectaba a **los 3 transportes de SF**
+   (habría reventado TODO el multijugador al 1er mensaje) y a **6 payloads del mapa WEB**, que es
+   el renderer POR DEFECTO. → usar `jsonOf`/`jsonArrayOf`, NUNCA `encodeToString`, con mapas.
+2. **kotlinx PETA si falta un campo sin default** (Gson lo dejaba en null/0). 8 modelos lo tenían,
+   3 de ellos de RED → un cliente viejo crasheaba al rival. **Todo campo nuevo lleva default.**
+Tests de regresión: `PayloadsSeSerializanEnRuntimeTest` (serializa de verdad) y
+`ModelosToleranJsonIncompletoTest` (todo modelo decodifica desde `{}`).
+**MEDIDO: `:app` 112 + `:shared` 49 = 161 tests, 0 fallos; assembleDebug OK; detekt exit 0.**
 
 ## 4. PENDIENTE — por prioridad
 
