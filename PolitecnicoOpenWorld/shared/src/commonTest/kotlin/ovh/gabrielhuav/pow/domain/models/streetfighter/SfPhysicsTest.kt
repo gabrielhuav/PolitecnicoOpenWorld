@@ -1,7 +1,7 @@
 package ovh.gabrielhuav.pow.domain.models.streetfighter
 
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.Test
 
 /**
  * Tests de CARACTERIZACIÓN de la cinemática de un tick (Fase 1 del refactor). Fija cómo avanzan
@@ -35,9 +35,9 @@ class SfPhysicsTest {
     @Test
     fun `el slide RESTA al avance y DECAE por su friccion`() {
         val r = SfPhysics.step(fighter(x = 0f, vx = 100f, slide = 40f, friction = 10f), 1f)
-        assertEquals("avance = (vx - slide)", 60f, r.x, 0.01f)
-        assertEquals("slide decae friccion*dt", 30f, r.slideVelocity, 0.01f)
-        assertEquals("friccion se mantiene mientras hay slide", 10f, r.slideFriction, 0.01f)
+        assertEquals(60f, r.x, 0.01f, "avance = (vx - slide)")
+        assertEquals(30f, r.slideVelocity, 0.01f, "slide decae friccion*dt")
+        assertEquals(10f, r.slideFriction, 0.01f, "friccion se mantiene mientras hay slide")
     }
 
     @Test

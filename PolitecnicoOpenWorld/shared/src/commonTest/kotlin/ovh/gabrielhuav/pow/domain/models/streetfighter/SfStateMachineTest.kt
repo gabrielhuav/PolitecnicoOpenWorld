@@ -1,9 +1,9 @@
 package ovh.gabrielhuav.pow.domain.models.streetfighter
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlin.test.Test
 
 /**
  * Tests de CARACTERIZACIÓN de la máquina de estados (Fase 1 del refactor del motor). Fijan lo que
@@ -18,9 +18,9 @@ class SfStateMachineTest {
             val expected = SfStateMachine.VALID_FROM[to] ?: emptySet()
             for (from in SfFighterState.entries) {
                 assertEquals(
-                    "canEnter($from -> $to)",
                     from in expected,
                     SfStateMachine.canEnter(from, to),
+                    "canEnter($from -> $to)",
                 )
             }
         }
@@ -29,7 +29,7 @@ class SfStateMachineTest {
     @Test
     fun `ningun conjunto de origen esta vacio (todo destino es alcanzable)`() {
         SfStateMachine.VALID_FROM.forEach { (to, from) ->
-            assertTrue("VALID_FROM[$to] no debe estar vacío", from.isNotEmpty())
+            assertTrue(from.isNotEmpty(), "VALID_FROM[$to] no debe estar vacío")
         }
     }
 
@@ -42,7 +42,7 @@ class SfStateMachineTest {
             SfFighterState.JUMP_START, SfFighterState.JUMP_UP, SfFighterState.CROUCH_DOWN,
             SfFighterState.LIGHT_PUNCH, SfFighterState.HEAVY_PUNCH, SfFighterState.LIGHT_KICK,
         ).forEach {
-            assertTrue("IDLE debe poder entrar a $it", SfStateMachine.canEnter(SfFighterState.IDLE, it))
+            assertTrue(SfStateMachine.canEnter(SfFighterState.IDLE, it), "IDLE debe poder entrar a $it")
         }
         // Y los diagonales NO (van por JUMP_START):
         assertFalse(SfStateMachine.canEnter(SfFighterState.IDLE, SfFighterState.JUMP_FORWARD))
@@ -53,7 +53,7 @@ class SfStateMachineTest {
     fun `STUN, KO y VICTORY se pueden forzar desde CUALQUIER estado`() {
         listOf(SfFighterState.STUN, SfFighterState.KO, SfFighterState.VICTORY).forEach { forced ->
             SfFighterState.entries.forEach { from ->
-                assertTrue("$forced desde $from", SfStateMachine.canEnter(from, forced))
+                assertTrue(SfStateMachine.canEnter(from, forced), "$forced desde $from")
             }
         }
     }

@@ -1,9 +1,9 @@
 package ovh.gabrielhuav.pow.domain.models.streetfighter
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlin.test.Test
 
 /**
  * Tests de CARACTERIZACIÓN de la geometría de cajas (Fase 1 del refactor). `SfBox` ya era puro
@@ -16,8 +16,8 @@ class SfBoxTest {
     fun `overlaps es true cuando se solapan y false con hueco`() {
         val a = SfBox(0f, 0f, 10f, 10f)
         assertTrue(a.overlaps(SfBox(5f, 5f, 10f, 10f)))
-        assertFalse("hueco en X", a.overlaps(SfBox(20f, 0f, 10f, 10f)))
-        assertFalse("hueco en Y", a.overlaps(SfBox(0f, 20f, 10f, 10f)))
+        assertFalse(a.overlaps(SfBox(20f, 0f, 10f, 10f)), "hueco en X")
+        assertFalse(a.overlaps(SfBox(0f, 20f, 10f, 10f)), "hueco en Y")
     }
 
     @Test

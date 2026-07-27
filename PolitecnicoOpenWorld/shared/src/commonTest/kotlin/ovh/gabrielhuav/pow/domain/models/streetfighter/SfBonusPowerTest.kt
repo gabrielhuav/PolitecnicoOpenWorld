@@ -1,9 +1,9 @@
 package ovh.gabrielhuav.pow.domain.models.streetfighter
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlin.test.Test
 
 /**
  * Tests de CARACTERIZACIÓN de los poderes bonus (Fase 1 del refactor). Fija el conteo lanzable y
@@ -18,7 +18,7 @@ class SfBonusPowerTest {
     @Test
     fun `Presidenta y Yoalli tienen un usable menos (su ultimo poder es metamorfosis)`() {
         metamorphFighters.forEach { id ->
-            assertEquals("$id", id.bonusPowerCount - 1, sfUsableBonusPowerCount(id))
+            assertEquals(id.bonusPowerCount - 1, sfUsableBonusPowerCount(id), "$id")
         }
     }
 
@@ -26,9 +26,9 @@ class SfBonusPowerTest {
     fun `el resto usa su bonusPowerCount tal cual, y nunca es negativo`() {
         SfFighterId.entries.forEach { id ->
             val usable = sfUsableBonusPowerCount(id)
-            assertTrue("$id usable >= 0", usable >= 0)
+            assertTrue(usable >= 0, "$id usable >= 0")
             if (id !in metamorphFighters) {
-                assertEquals("$id", id.bonusPowerCount, usable)
+                assertEquals(id.bonusPowerCount, usable, "$id")
             }
         }
     }

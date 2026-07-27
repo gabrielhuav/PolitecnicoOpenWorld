@@ -1649,7 +1649,7 @@ class StreetFighterViewModel @Inject constructor(
             }
             SfFighterState.WALK_FORWARD -> {
                 when {
-                    input.special != null && trySpecial(sim, idx, input.special, now) -> Unit
+                    input.special?.let { trySpecial(sim, idx, it, now) } == true -> Unit
                     !input.forward -> changeState(sim, idx, SfFighterState.IDLE, now)
                     input.up -> changeState(sim, idx, SfFighterState.JUMP_FORWARD, now)
                     input.down -> changeState(sim, idx, SfFighterState.CROUCH_DOWN, now)
@@ -1719,7 +1719,7 @@ class StreetFighterViewModel @Inject constructor(
                 }
             }
             SfFighterState.CROUCH -> {
-                if (input.special != null && trySpecial(sim, idx, input.special, now)) return
+                if (input.special?.let { trySpecial(sim, idx, it, now) } == true) return
                 // 🆕 (2026-07-21) Arsenal AGACHADO: parry bajo + los 4 golpes bajos.
                 // La barrida (patada fuerte) es el remate que derriba.
                 if (input.parry && changeState(sim, idx, SfFighterState.PARRY_LOW, now)) return
@@ -1737,8 +1737,8 @@ class StreetFighterViewModel @Inject constructor(
                     input.special != null || input.bonusPower != null
                 when {
                     wantsOffense -> {
-                        if (input.bonusPower != null && tryBonusPower(sim, idx, input.bonusPower, now)) return
-                        if (input.special != null && trySpecial(sim, idx, input.special, now)) return
+                        if (input.bonusPower?.let { tryBonusPower(sim, idx, it, now) } == true) return
+                        if (input.special?.let { trySpecial(sim, idx, it, now) } == true) return
                         if (tryAttacks(sim, idx, input, now)) return
                         if (changeState(sim, idx, SfFighterState.IDLE, now)) {
                             handleCommonNeutral(sim, idx, input, now)
@@ -2008,10 +2008,10 @@ class StreetFighterViewModel @Inject constructor(
 
     /** Transiciones comunes de estados neutros (handleIdle del JS): salto/agacharse/caminar/ataques. */
     private fun handleCommonNeutral(sim: Sim, idx: Int, input: SfInput, now: Long): Boolean {
-        if (input.bonusPower != null && tryBonusPower(sim, idx, input.bonusPower, now)) return true
+        if (input.bonusPower?.let { tryBonusPower(sim, idx, it, now) } == true) return true
         // 🆕 (2026-07-21) La SÚPER manda sobre todo lo demás (si hay medidor y arte).
         if (input.superArt && trySuperArt(sim, idx, now)) return true
-        if (input.special != null && trySpecial(sim, idx, input.special, now)) return true
+        if (input.special?.let { trySpecial(sim, idx, it, now) } == true) return true
         // 🆕 Defensa y utilidades antes de moverse: parry, agarre, burla y dashes.
         if (input.parry && changeState(sim, idx, SfFighterState.PARRY_HIGH, now)) return true
         if (input.grab && tryGrab(sim, idx, now)) return true
@@ -2173,7 +2173,7 @@ class StreetFighterViewModel @Inject constructor(
     private fun tryChainCancel(sim: Sim, idx: Int, input: SfInput, now: Long): Boolean {
         val f = sim.fighter(idx)
         if (!f.attackStruck) return false
-        if (input.special != null && trySpecial(sim, idx, input.special, now)) return true
+        if (input.special?.let { trySpecial(sim, idx, it, now) } == true) return true
         val next = when (attackMeta[f.state]?.strength) {
             SfAttackStrength.LIGHT -> when {
                 input.mediumPunch -> SfFighterState.MEDIUM_PUNCH

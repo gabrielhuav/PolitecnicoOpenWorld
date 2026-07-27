@@ -1,9 +1,9 @@
 package ovh.gabrielhuav.pow.domain.models.streetfighter
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlin.test.Test
 
 /**
  * Tests de CARACTERIZACIÓN del avance de animación (Fase 2a del refactor). Fijan la semántica
@@ -36,8 +36,8 @@ class SfAnimationTest {
     fun `avanza solo con delay positivo y timer vencido`() {
         val a = anim(4, 4)
         assertTrue(SfAnimation.shouldAdvance(a, frame = 0, timerMs = 100L, now = 101L))
-        assertFalse("timer aun no vence", SfAnimation.shouldAdvance(a, frame = 0, timerMs = 100L, now = 100L))
-        assertFalse("timer en el futuro", SfAnimation.shouldAdvance(a, frame = 0, timerMs = 100L, now = 50L))
+        assertFalse(SfAnimation.shouldAdvance(a, frame = 0, timerMs = 100L, now = 100L), "timer aun no vence")
+        assertFalse(SfAnimation.shouldAdvance(a, frame = 0, timerMs = 100L, now = 50L), "timer en el futuro")
     }
 
     @Test

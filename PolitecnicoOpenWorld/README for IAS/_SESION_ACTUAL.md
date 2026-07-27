@@ -33,11 +33,11 @@
 >
 > **Regla de oro:** si te quedas sin tokens a media tarea, actualiza ESTE archivo ANTES de parar.
 
-**Última actualización:** 2026-07-26 · Opus 5 · rama `fix-multiplayer`
+**Última actualización:** 2026-07-27 · Opus 5 · rama `fase0-auditoria-kmp`
 **Ventana viva:** 2026-07-26 → 2026-07-27 · *purgar a `_ARCHIVO/` a partir del 2026-07-28*
 
-> ➡️ **AHORA:** preparando el **release a Play** con el multijugador arreglado. El siguiente
-> cambio grande será de **arquitectura** (tocará mucho código), así que conviene publicar antes.
+> ➡️ **AHORA:** 1.0.0.14 en revisión en Play. **Fases 0 y 1 de KMP/iOS HECHAS y en verde**
+> (`PLAN_MIGRACION_KMP.md`). Existe el módulo **`:shared`**. **Siguiente: Fase 1.5 EN EL MAC.**
 
 ## 🖥️ Rutas por PC
 
@@ -90,39 +90,55 @@ es donde vive TODO el audio → el rival peleaba **mudo**. **Trampa:** los packs
 - ✅ **El relay NO necesita redeploy por esto:** hace `{...msg}` (server.js:314).
 
 ### B · P2P por WebRTC (Render = "GameRanger")
-`SfWebRtcClient` **decora** al relay: camino caliente (`PLAYER_STATE`/`PLAYER_DAMAGE`/
-`PLAYER_READY`) DIRECTO; plano de control (salas, selección, revancha, `ROUND_ENDED`/
-`MATCH_ENDED`) por el relay, porque el server los AGREGA o los DIFUNDE. **Sin TURN**: si el
-hole punching falla (~20-30%) cae solo al relay → **gratis de por vida**.
+`SfWebRtcClient` **decora** al relay: camino caliente (`PLAYER_STATE`/`PLAYER_DAMAGE`/`PLAYER_READY`)
+DIRECTO; el plano de control (salas, selección, revancha, `ROUND_ENDED`/`MATCH_ENDED`) va por el
+relay, que los AGREGA o DIFUNDE. **Sin TURN**: si falla el hole punching (~20-30%) cae al relay.
 - ⚠️ `MultiplayerSF/server.js` requiere REDEPLOY (4 casos `SIGNAL_*`), pero **la app es SEGURA
   de subir ANTES**: con el server viejo los `SIGNAL_*` se ignoran y todo sigue por el relay.
 - **Peso medido:** AAB **368.83 → 390.07 MiB** (+21.2). Límite 500 → margen ~110 MiB.
   ⚠️ NO poner `abiFilters`: quitaría x86_64, que es el del emulador (AVD "Nexus").
 
 ### C · Auditoría pre-producción — 4 defectos REALES corregidos
-1. **Pérdida de daño:** el DataChannel estaba NO fiable; `PLAYER_DAMAGE` es evento ÚNICO →
-   canal **fiable y ordenado**.
+1. **Pérdida de daño:** DataChannel NO fiable + `PLAYER_DAMAGE` evento ÚNICO → **fiable y ordenado**.
 2. **⚡ Tirón en gama baja:** `PeerConnectionFactory.initialize()` (11 MB nativos) corría en
-   **Main** → movido a hilo de trabajo, con buffer de señalización.
+   **Main** → a hilo de trabajo, con buffer de señalización.
 3. **Carrera en PARTIDA RÁPIDA:** el server manda `OPPONENT_JOINED` al host ANTES que
    `ROOM_JOINED` al invitado → nuevo `SIGNAL_READY`.
 4. **`@Volatile`** en `channel`/`peer`/`factory` (se escriben en hilos de WebRTC).
 
 ### D · CI: puerta de cumplimiento de Play (job `play-compliance`)
-Bloquea la subida si se repite un rechazo de 2026-07-22: comprueba que **existe `gh-pages`**,
-que las **2 URLs de políticas dan 200** (no 404), que traen el **correo correcto** y no el
-equivocado, y que están las **notas de versión** ES+EN. `playstore-closed-testing` depende de él.
+Bloquea la subida si se repite el rechazo de 2026-07-22: existe `gh-pages`, las **2 URLs de
+políticas dan 200** con el **correo correcto**, y están las **notas de versión** ES+EN.
 
 ### E · Gatillos L1/L2/R1/R2 opcionales (mundo + LOS 5 INTERIORES)
 Ajustes → Interfaz, **OFF por defecto** (en el mundo aún no tienen acción; `onPress` vacío a
-propósito). `ui/components/NeonButton.kt`: `NeonButton`, `NeonTriggerPair` y `WithShoulderTriggers`
-(envoltorio que evita repetir el mismo Column en 5 pantallas). Con la opción apagada la columna
-envuelve un único hijo → **el HUD queda idéntico**.
+propósito). `ui/components/NeonButton.kt`. Apagada, el HUD queda idéntico.
 - ⚠️ **TRAMPA que costó una iteración:** el `LaunchedEffect` de `AppNavGraph` que refresca el
-  mundo tenía como claves SOLO `controlType`/`controlsScale`/`swapControls`. El interruptor vive
-  en **Interfaz**, no en Controles → nunca se relanzaba y los gatillos no aparecían. Si añades
-  otro ajuste que el mundo deba leer en vivo, **agrégalo a esas claves**.
-- Los interiores lo leen al crear su VM (se crean al entrar), así que ahí basta con eso.
+  mundo tenía como claves SOLO `controlType`/`controlsScale`/`swapControls`, y el interruptor vive
+  en **Interfaz** → nunca se relanzaba. Si añades otro ajuste que el mundo lea en vivo,
+  **agrégalo a esas claves**. (Los interiores lo leen al crear su VM; ahí basta con eso.)
+
+## 3bis. Sesión 2026-07-27 (Opus 5) — KMP/iOS: Fase 0 + Fase 1
+
+**Datos, opciones y fases: `PLAN_MIGRACION_KMP.md`.** Aquí solo lo que no puede perderse:
+- **osmdroid NO bloquea 51 archivos, sino 6** (los otros 45 solo usan `GeoPoint`). Y **el mapa por
+  defecto YA es Leaflet en WebView**, no osmdroid → iOS hereda mapa sin escribir renderer.
+- **🔴 Gson en 20 archivos (5 = protocolo de red de SF)**: reflexión JVM, NO existe en iOS. Faltaba
+  en todas las tablas previas. Es la fase que puede romper saves/red de usuarios REALES.
+- **Hilt→Koin NO es obligatorio** (`:shared` no necesita DI; Android sigue con Hilt).
+
+**DECISIONES del dueño:** alcance = **juego ENTERO** (yo recomendaba SF primero; consta en el plan).
+Mapa = **Opción A**. **Tiene Mac**, no cuenta Developer. Fase 1 **sin subir Kotlin**.
+
+**FASE 1 HECHA y VERDE.** Módulo **`:shared`** (Kotlin 2.2.10 y AGP intactos), `androidTarget` + 3
+targets iOS. Con `git mv`: dominio puro de SF (7 archivos, 1235 líneas) → `commonMain`; 6 tests →
+`commonTest` (JUnit4 → `kotlin.test`). **Se conservó el paquete** → cero imports que tocar en `:app`.
+- **MEDIDO: `:app` 87 + `:shared` 44 = 131 tests, 0 fallos.** `assembleDebug` OK. detekt exit 0.
+- ⚠️ **`SfArcadeCampaignAuditTest` NO se movió** (usa `java.io.File`): se queda en `:app`.
+- ⚠️ **CI actualizado** (`pr-quality-gate.yml`): corre `:shared:testDebugUnitTest` **y** el input
+  nuevo de detekt. Sin eso CI habría corrido solo 87 tests **sin avisar**.
+- 🆕 **GOTCHA (ya en 09 §12): el smart cast NO cruza módulos** → `x.campo?.let { usa(it) } == true`.
+- ❌ **De iOS NADA verificado:** en Windows Gradle desactiva los targets iOS (aviso esperado).
 
 ## 4. PENDIENTE — por prioridad
 
@@ -131,6 +147,9 @@ envuelve un único hijo → **el HUD queda idéntico**.
    `SF-NET`). BT y LAN son lo que hay que validar sí o sí.
 2. **Redeploy de `MultiplayerSF/` en Render** para activar el P2P (no bloquea el release).
    Con 2 teléfonos en redes distintas, buscar en logcat `SF-RTC`: `DataChannel → OPEN`.
+3. **🍏 FASE 1.5 EN EL MAC** (siguiente paso de KMP): compilar `:shared` para iOS de verdad y
+   probar Compose MP + el mapa Leaflet en `WKWebView`. **Es lo que convierte en hechos las 2
+   suposiciones más caras del plan.** Sin esto, no meter más código en `:shared`.
 
 ### 🟠 P1 · AUDIO (trabajo activo)
 Ver `SF/PROMPT_traspaso_audio_subtitulos.md`:
@@ -141,14 +160,9 @@ Ver `SF/PROMPT_traspaso_audio_subtitulos.md`:
 ⚠️ **No repitas** el resumen que dice "100 % normalizados y sin faltantes": está medido y es
 **falso**. De los 80 `.ogg` solo **69 son voz**; 2 no pueden normalizarse sin comprimir.
 
-### 🟡 P2 · Separación SF ↔ mundo abierto (medido 2026-07-26)
-**Casi limpia.** SF solo importa de fuera: `R`, `BuildConfig`, la capa de datos compartida
-(`SfArcadeRepository`, `SettingsRepository`, `AuthManager`) y su propio `domain.models.
-streetfighter`. **La única fuga real:** 6 imports de 3 widgets de UI que viven en el mundo
-abierto — `PowButton` (×4), `JoystickController`, `ActionButton`, todos en
-`features/map_exterior/ui/components/`. En sentido contrario solo `CollectiblesScreen` mira a SF.
-→ **Arreglo: mover esos 3 composables a un paquete de UI neutral.** Hacerlo CON el refactor de
-arquitectura, no antes de un release (es mecánico y lo verifica el compilador).
+### ✅ P2 · Separación SF ↔ mundo abierto — **HECHA** (verificado 2026-07-27)
+`features/streetfighter` ya **no importa ninguna otra feature** (0 imports; la única mención a
+`map_exterior` es un comentario-lápida). Los widgets viven en el paquete neutral `ui/components/`.
 
 ### 🟢 P2 · Animaciones congeladas (el arte se repite, no es bug de código)
 `stun-1==stun-2==stun-3` en los 18; `bonus-7/8/9/10` estáticos en `lapresidenta`;

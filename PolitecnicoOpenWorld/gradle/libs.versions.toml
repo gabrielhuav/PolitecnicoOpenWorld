@@ -55,6 +55,11 @@ hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", ve
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+# 🍏 KMP (Fase 1 de PLAN_MIGRACION_KMP.md). Van con la MISMA versión de Kotlin/AGP que ya usa
+# el proyecto: la Fase 1 NO sube Kotlin a propósito (decisión del dueño, 2026-07-27) para no
+# mover AGP/KSP/Hilt/Compose justo después de publicar la 1.0.0.14.
+android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version = "2.3.2" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }

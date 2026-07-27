@@ -1,9 +1,9 @@
 package ovh.gabrielhuav.pow.domain.models.streetfighter
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlin.test.Test
 
 /**
  * Tests de CARACTERIZACIÓN del daño base (Fase 1 del refactor). Fija el mapeo actual: súper,
@@ -28,7 +28,7 @@ class SfDamageTest {
         )
         normales.forEach { state ->
             SfAttackStrength.entries.forEach { st ->
-                assertEquals("$state con $st", st.damage, SfDamage.forAttack(state, st))
+                assertEquals(st.damage, SfDamage.forAttack(state, st), "$state con $st")
             }
         }
     }
@@ -71,11 +71,11 @@ class SfDamageTest {
         listOf(
             SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM,
             SfFighterState.SPECIAL_1_HEAVY, SfFighterState.SUPER_ART, SfFighterState.FATALITY,
-        ).forEach { assertTrue("$it debe hacer chip", it in SfDamage.CHIP_ATTACK_STATES) }
+        ).forEach { assertTrue(it in SfDamage.CHIP_ATTACK_STATES, "$it debe hacer chip") }
 
         listOf(
             SfFighterState.LIGHT_PUNCH, SfFighterState.HEAVY_KICK, SfFighterState.SWEEP,
             SfFighterState.OVERHEAD, SfFighterState.GRAB,
-        ).forEach { assertFalse("$it NO debe hacer chip", it in SfDamage.CHIP_ATTACK_STATES) }
+        ).forEach { assertFalse(it in SfDamage.CHIP_ATTACK_STATES, "$it NO debe hacer chip") }
     }
 }

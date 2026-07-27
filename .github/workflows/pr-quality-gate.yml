@@ -53,9 +53,13 @@ jobs:
       # assembleDebug + testDebugUnitTest: (1) ARMA la app (compila, valida el grafo Hilt COMPLETO
       # y el merge de manifest/recursos — cosas que los unit tests no cubren; clave tras la Etapa 4
       # de DI), y (2) corre los tests de lógica pura. Ambos deben pasar para mergear.
+      # 🍏 `:shared:testDebugUnitTest` se agrego con el modulo KMP (Fase 1, 2026-07-27): los tests
+      # del dominio puro de SF VIVEN AHI AHORA (44 de los 131). Sin esta tarea CI solo correria 87
+      # y la perdida de cobertura pasaria desapercibida. Si mueves mas dominio a `:shared`, este
+      # reparto cambia: lo que importa es que la SUMA siga siendo el total esperado.
       - name: Build debug APK + run unit tests
         working-directory: ./PolitecnicoOpenWorld
-        run: gradle :app:assembleDebug :app:testDebugUnitTest --stacktrace
+        run: gradle :app:assembleDebug :app:testDebugUnitTest :shared:testDebugUnitTest --stacktrace
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v7
@@ -72,7 +76,8 @@ jobs:
   #   ./detekt-cli-1.23.8/bin/detekt-cli --create-baseline \
   #     --baseline PolitecnicoOpenWorld/config/detekt/baseline.xml \
   #     --config PolitecnicoOpenWorld/config/detekt/detekt.yml \
-  #     --build-upon-default-config --input PolitecnicoOpenWorld/app/src/main/java
+  #     --build-upon-default-config \
+  #     --input PolitecnicoOpenWorld/app/src/main/java,PolitecnicoOpenWorld/shared/src/commonMain/kotlin
   # Se usa la CLI (no el plugin Gradle) para NO tocar el build de la app (imposible romper assemble/bundle).
   detekt:
     runs-on: ubuntu-latest
@@ -103,7 +108,7 @@ jobs:
           "./detekt-cli-${DETEKT_VERSION}/bin/detekt-cli" \
             --config PolitecnicoOpenWorld/config/detekt/detekt.yml \
             --build-upon-default-config \
-            --input PolitecnicoOpenWorld/app/src/main/java \
+            --input PolitecnicoOpenWorld/app/src/main/java,PolitecnicoOpenWorld/shared/src/commonMain/kotlin \
             $BASELINE_ARG \
             --report sarif:detekt-results.sarif
       - name: Upload detekt SARIF

@@ -11,7 +11,19 @@ low-end performance) or doc drift.
 
 > ### ✅ ESTADO ACTUAL (2026-06-21) — esto MANDA sobre el historial de abajo
 >
-> **5 archivos pasan de 1000 líneas; NINGUNO pasa de 1500 (2026-06-22):**
+> ⚠️ **DATO STALE — CORREGIDO 2026-07-27 (medido).** La tabla de abajo es de ANTES del modo de
+> pelea (PR #136). Hoy **4 archivos pasan de 1500 líneas**, y el mayor cuadruplica ese techo:
+>
+> | Archivo | Líneas HOY |
+> |---|---:|
+> | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` | **6219** |
+> | `features/streetfighter/ui/StreetFighterScreen.kt` | **4029** |
+> | `features/interiores/zombies/ui/ZombieGameScreen.kt` | 1664 |
+> | `features/map_exterior/viewmodel/WorldMapViewModel.kt` | 1594 |
+>
+> Los 2 de SF son **el mayor riesgo técnico de la Fase 5** de `PLAN_MIGRACION_KMP.md`.
+>
+> **5 archivos pasan de 1000 líneas; NINGUNO pasa de 1500 (2026-06-22 — ver corrección arriba):**
 >
 > | Archivo | Líneas | ¿Separar? |
 > |---|---:|---|
@@ -395,6 +407,23 @@ exporta `collision_matrices.json` en el formato exacto que lee el servidor (`loa
 matrices por defecto son **border-only** hasta reemplazarse.
 
 ## 12. Otros / Misc
+
+- **🆕🍏 GOTCHA KMP — el SMART CAST muere al cruzar de módulo (2026-07-27, Fase 1):** al mover el
+  dominio puro de SF a `:shared`, `:app` dejó de compilar con 7 errores del tipo *"Smart cast to
+  'SfAttackStrength' is impossible, because 'special' is a public API property declared in different
+  module"*. **Kotlin no hace smart cast de propiedades públicas de OTRO módulo** (el otro módulo
+  podría recompilarse por separado). El idiom `if (x.campo != null && usa(x.campo))` compila mientras
+  todo vive en `:app` y **se rompe al mover el tipo a `:shared`**. Arreglo aplicado en
+  `StreetFighterViewModel.kt`: `x.campo?.let { usa(it) } == true` (semántica idéntica: si es `null`,
+  `?.let` da `null` y `== true` es `false`). **Contar con que reaparezca en cada fase** que mueva
+  modelos con campos nullable públicos. No "arreglarlo" con `!!`: eso cambia un no-op en un crash.
+- **🆕🍏 Los tests de `:shared` NO son JUnit4:** en `commonTest` se usa `kotlin.test` (en iOS no hay
+  JVM). ⚠️ **El mensaje va al FINAL, no al principio:** JUnit4 es `assertTrue(msg, cond)` y
+  kotlin.test es `assertTrue(cond, msg)`. Al mover un test hay que **invertir ese orden** o el
+  compilador se queja (o peor: en `assertEquals` de 2 args de String colaría silenciosamente).
+  Reparto actual de los **131** tests: **87 en `:app` + 44 en `:shared`** — CI corre AMBOS
+  (`pr-quality-gate.yml`); si mueves más dominio, lo que importa es que la SUMA no baje.
+
 
 - **🆕 GOTCHA SF — `SfFighterState` viaja por red como `enum.name` (2026-07-22):** los
   estados nuevos se añaden **AL FINAL del enum** y el parse remoto es defensivo
