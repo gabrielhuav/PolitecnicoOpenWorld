@@ -26,7 +26,9 @@ import java.net.Socket
 // cuando la app "no hace nada" un rato (p. ej. mientras el jugador ELIGE peleador) y MATA el
 // socket TCP → la conexión "muere en el siguiente paso" (BT no sufre esto, su radio sigue
 // activa). El WifiLock (WIFI_MODE_FULL_HIGH_PERF) mantiene la radio despierta durante la sesión.
-// NO requiere permiso nuevo (createWifiLock/acquire no piden ninguno) → sin cambio en Play.
+// ⚠️ WifiLock.acquire() REQUIERE el permiso WAKE_LOCK (normal, sin prompt de runtime, sin impacto
+// en Data Safety) — declarado en el manifest. Sin él, acquire lanza SecurityException y el lock no
+// se toma (por eso la 1ª versión no servía). El heartbeat frecuente de SfStreamPeer es el respaldo.
 class SfLanClient(private val context: Context) : SfStreamPeer() {
 
     override val roomCode: String = LAN_ROOM_CODE

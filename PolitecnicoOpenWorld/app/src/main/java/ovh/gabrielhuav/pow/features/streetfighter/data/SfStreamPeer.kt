@@ -8,6 +8,8 @@ import java.io.InputStreamReader
 import java.io.OutputStream
 import java.util.Timer
 import java.util.TimerTask
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 // BASE COMÚN de los transportes LOCALES "de stream" del modo pelea "HUELUM VS. GOYA":
 // Bluetooth RFCOMM (SfBtClient) y Servidor LAN por Wi-Fi (SfLanClient). Extraída el
@@ -47,6 +49,14 @@ abstract class SfStreamPeer(
     protected abstract fun closeTransport()
 
     @Volatile private var out: OutputStream? = null
+
+    // 🆕 (2026-07-26) TODAS las escrituras al socket van por ESTE hilo. CAUSA REAL del "muere al
+    // elegir peleador": `selectCharacter`/`sendPlayerState`/etc. se llamaban desde el HILO PRINCIPAL
+    // (UI) y una escritura de red en Main lanza NetworkOnMainThreadException → sendRaw la atrapaba y
+    // CERRABA el socket. (Los sockets Bluetooth están EXENTOS de esa regla → por eso BT sí servía;
+    // TCP no.) Un executor de UN hilo lo mueve fuera de Main Y serializa las escrituras.
+    private val writeExecutor: ExecutorService =
+        Executors.newSingleThreadExecutor { r -> Thread(r, "SfPeerWrite").apply { isDaemon = true } }
 
     // ── "server" local del HOST (lo que en online guarda la sala del relay) ──
     @Volatile private var char1: String? = null
@@ -109,7 +119,7 @@ abstract class SfStreamPeer(
                 object : TimerTask() {
                     override fun run() { sendRaw(mapOf("type" to "HEARTBEAT")) }
                 },
-                HEARTBEAT_MS, HEARTBEAT_MS,
+                HEARTBEAT_FIRST_MS, HEARTBEAT_MS,
             )
         }
     }
@@ -119,12 +129,17 @@ abstract class SfStreamPeer(
         try {
             val reader = BufferedReader(InputStreamReader(input))
             while (running) {
-                val line = reader.readLine() ?: break
+                val line = reader.readLine()
+                if (line == null) {
+                    Log.w(SF_NET_TAG, "readLoop: EOF (el peer cerró la conexión)")
+                    break
+                }
                 if (line.isBlank()) continue
                 onLine(line)
             }
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
             // caída del socket → abajo se notifica según el estado del handshake
+            Log.w(SF_NET_TAG, "readLoop: excepción de lectura (${t.javaClass.simpleName}: ${t.message})")
         }
         heartbeatTimer?.cancel()
         heartbeatTimer = null
@@ -277,6 +292,7 @@ abstract class SfStreamPeer(
         runCatching { closePeerSocket() }
         out = null
         runCatching { closeTransport() }
+        runCatching { writeExecutor.shutdownNow() } // 🆕 detiene el hilo de escritura
         listener = null
     }
 
@@ -302,25 +318,33 @@ abstract class SfStreamPeer(
     }
 
     /**
-     * Escribe una línea JSON al peer. Si la ESCRITURA falla, el enlace está muerto: se
-     * cierra el socket del peer para DESTRABAR el readLoop de inmediato (quien notifica).
-     * El HEARTBEAT de 10 s garantiza que siempre haya escrituras que puedan fallar.
+     * Encola una línea JSON al peer. La escritura REAL corre SIEMPRE en [writeExecutor] (nunca en
+     * el hilo que llama), por dos razones: (1) evita NetworkOnMainThreadException cuando el VM manda
+     * desde Main (selectCharacter/sendPlayerState/…), que era lo que CERRABA el socket al elegir
+     * peleador; (2) serializa las escrituras. Si la escritura falla, el enlace murió → se cierra el
+     * socket para destrabar el readLoop (quien notifica).
      */
     protected fun sendRaw(payload: Map<String, Any?>) {
+        // El JSON se serializa en el hilo que llama (no es red); la escritura va al executor.
         val line = gson.toJson(payload.filterValues { it != null }) + "\n"
-        val result = runCatching {
-            out?.let { o ->
-                synchronized(o) {
-                    o.write(line.toByteArray())
-                    o.flush()
+        val type = payload["type"]
+        // execute puede lanzar RejectedExecutionException si el executor ya se apagó (tras close()).
+        runCatching {
+            writeExecutor.execute {
+                val result = runCatching {
+                    out?.let { o ->
+                        synchronized(o) {
+                            o.write(line.toByteArray())
+                            o.flush()
+                        }
+                    }
+                }
+                if (result.isFailure) {
+                    val ex = result.exceptionOrNull()
+                    Log.w(SF_NET_TAG, "escritura falló ($type) → enlace muerto: ${ex?.javaClass?.simpleName}: ${ex?.message}")
+                    runCatching { closePeerSocket() }
                 }
             }
-        }
-        if (result.isFailure) {
-            // 🆕 (2026-07-25) La escritura falló = el enlace MURIÓ (típico del power-save de Wi-Fi
-            // en LAN al quedar idle en la selección de peleador). Log para diagnóstico + cierre.
-            Log.w(SF_NET_TAG, "escritura falló (${payload["type"]}) → enlace muerto: ${result.exceptionOrNull()?.message}")
-            runCatching { closePeerSocket() }
         }
     }
 
@@ -330,7 +354,12 @@ abstract class SfStreamPeer(
 
     protected companion object {
         const val COUNTDOWN_MS = 3000
-        const val HEARTBEAT_MS = 10_000L
+        // Heartbeat: mantiene vivo el socket durante las pantallas OCIOSAS (selección de peleador,
+        // espera) — durante la pelea el PLAYER_STATE ya genera tráfico constante. El "muere al elegir
+        // peleador" NO era idle sino NetworkOnMainThreadException (ver sendRaw/writeExecutor); con eso
+        // resuelto, un heartbeat moderado + WifiLock bastan. El receptor ignora "HEARTBEAT".
+        const val HEARTBEAT_FIRST_MS = 2000L
+        const val HEARTBEAT_MS = 4000L
         const val HANDSHAKE_TIMEOUT_MS = 6000L
         // 🆕 (2026-07-25) Tag de logcat para diagnosticar el enlace local (BT/LAN).
         const val SF_NET_TAG = "SF-NET"

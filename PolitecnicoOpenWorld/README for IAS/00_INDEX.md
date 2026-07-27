@@ -324,7 +324,8 @@ reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `stree
 - **🆕 Assets COMPARTIDOS SF⇄mundo (2026-07-15/17):** 3 de los 22 peleadores de "HUELUM VS. GOYA"
   se arman EN RUNTIME desde los sets del mundo (`SPRITES/PLAYER|NPC/`) — sin sheets duplicados
   en el APK: Lázaro, Granadero y Paramédico. Los otros 17 POW tienen hojas croma
-  dedicadas; Ryu/Ken solo existen en debug. Ver 07 y 09 §12.
+  dedicadas; Ryu/Ken **BORRADOS del repo (2026-07-26)** — eran huérfanos (no están en `SfFighterId`).
+  Ver 07 y 09 §12.
 - **Default map provider:** `CARTO_VOYAGER` (web, tiles reales hasta z20 / real tiles up to z20; no persistido / not persisted)
 - **Auth / Autenticación:** Firebase Auth (Google Sign-In) en `data/auth/` (`AuthManager`, `AuthSession`).
   Obligatoria para multijugador; local/Modo Historia sin login. Ambos servidores verifican el ID token

@@ -1,21 +1,42 @@
 # AUDIT · Multijugador 1v1 del modo pelea "HUELUM VS. GOYA" (2026-07-11)
 
+> **🆕 2026-07-26c (Opus 4.8) — LAN "muere al elegir peleador": CAUSA REAL (logcat definitivo):**
+> `escritura falló (SELECT_CHARACTER) → NetworkOnMainThreadException`. **NO era power-save, ni idle,
+> ni Wi-Fi.** El VM llama `transport.selectCharacter/sendPlayerState/…` desde el **HILO PRINCIPAL**, y
+> Android PROHÍBE I/O de red (TCP) en Main → lanza `NetworkOnMainThreadException`; `sendRaw` la
+> atrapaba y **CERRABA el socket** (el enlace estaba sano — los heartbeats fluían cada 1 s en ambos
+> lados). **BT sí funcionaba porque los sockets Bluetooth están EXENTOS** de esa regla de StrictMode;
+> los TCP no. **FIX:** en `SfStreamPeer` todas las escrituras van por un **`writeExecutor`
+> (single-thread)** → fuera de Main y serializadas. Se apaga en `close()`. Las hipótesis previas
+> (WifiLock/WAKE_LOCK, heartbeat frecuente) NO eran la causa; se conservan como red de seguridad
+> menor (heartbeat 4 s + WifiLock para el idle real de partidas largas). Logs de diagnóstico
+> (`heartbeat →` por-latido) retirados; se conservan `readLoop: EOF/excepción` y `escritura falló`.
+
+
+> **🆕 2026-07-26 (Opus 4.8) — LAN "muere tras elegir peleador": CAUSA CONFIRMADA por logcat:**
+> El logcat del HOST mostró: handshake OK (BT_HELLO→WELCOME→OPPONENT_JOINED) y **reconexión a los ~8 s**
+> SIN "escritura falló" en el host → el **GUEST cerraba su socket durante el IDLE** (mientras se elige
+> peleador), **ANTES del primer heartbeat (10 s)**. **Causa:** el socket TCP de LAN queda idle sin
+> tráfico ~6-8 s y Android/Wi-Fi lo MATA antes del heartbeat. BT no lo sufre (RFCOMM no idle-killea).
+> - **✅ FIX principal:** heartbeat FRECUENTE (`HEARTBEAT_FIRST_MS=1500`, `HEARTBEAT_MS=3000`, antes
+>   10 s) en `SfStreamPeer` → tráfico cada 3 s mantiene el socket vivo Y el Wi-Fi despierto durante
+>   la selección de peleador. Aplica a BT/LAN (a BT no le estorba).
+> - **✅ (complementario) WifiLock** (`WIFI_MODE_FULL_HIGH_PERF`) en `SfLanClient` (toma `Context`) —
+>   evita el power-save del Wi-Fi. Sin permiso nuevo. El WifiLock SOLO no bastó (el idle-kill del
+>   socket ocurre igual); el heartbeat frecuente es lo que lo cierra.
+> - **🐛 Mensaje equivocado corregido:** salía "SIN CONEXIÓN BLUETOOTH" en WiFi. `BtRetryOverlay`
+>   ahora recibe `titleRes` → "SIN CONEXIÓN WI-FI" (`sf_lan_error_title`) cuando `lanMode`.
+> - **🔎** `sendRaw` loguea (tag `SF-NET`) si una escritura falla.
+> - **⏭️ SIGUIENTE (pedido del dueño):** autodescubrimiento LAN por UDP broadcast (punto ④ de
+>   `_ARCHIVO/PENDIENTES_SF_2026-07-16.md`) — tras confirmar que ya no muere.
+
 > **🆕 2026-07-25b (Opus 4.8) — LAN "muere tras elegir peleador" + mensaje equivocado (dueño):**
 > - **✅ BT ahora arranca SINCRONIZADO** entre gamas distintas (la barrera "ambos listos" funcionó).
 > - **🐛 Mensaje equivocado:** al fallar el WiFi salía "SIN CONEXIÓN BLUETOOTH". `BtRetryOverlay`
 >   tenía el TÍTULO fijo a `sf_bt_error_title`; ahora recibe `titleRes` y usa `sf_lan_error_title`
 >   ("SIN CONEXIÓN WI-FI") cuando `lanMode`. (El hint ya cambiaba bien.)
-> - **🔴 CAUSA del "muere en el siguiente paso" (hipótesis fuerte):** **power-save del Wi-Fi**. Al
->   quedar IDLE en la selección de peleador, Android duerme la radio Wi-Fi y MATA el socket TCP; el
->   siguiente `SELECT_CHARACTER` falla al escribir → `OPPONENT_DISCONNECTED`. BT no sufre esto (su
->   radio sigue activa). **Fix:** `SfLanClient` toma `Context` y adquiere un **WifiLock**
->   (`WIFI_MODE_FULL_HIGH_PERF`) mientras dura la sesión (host y join); se libera en `close`. **NO
->   requiere permiso nuevo** (createWifiLock/acquire no piden ninguno) → sin cambio en Play.
-> - **🔎 Diagnóstico:** `sendRaw` ahora LOGUEA (tag `SF-NET`) cuando una escritura falla (el síntoma
->   del socket muerto). Si tras el WifiLock aún cae, el logcat `SF-NET` dirá en qué paso.
-> - **⏭️ SIGUIENTE (pedido del dueño):** autodescubrimiento LAN por UDP broadcast (encontrar los
->   juegos hosteados en la MISMA red sin teclear IP) — es el punto ④ de `_ARCHIVO/PENDIENTES_SF_2026-07-16.md`.
->   Se hace tras confirmar que la conexión ya no muere.
+> - **🔴 Hipótesis inicial (power-save):** WifiLock añadido; NO bastó (ver banner de arriba: era el
+>   idle-kill del socket, resuelto con el heartbeat frecuente).
 
 > **🆕 2026-07-25 (Opus 4.8) — BARRERA "AMBOS LISTOS" + endurecimiento LAN (⚠️ SIN COMPILAR aquí:
 > falta el gradle-wrapper.jar y Gradle 9.5; Rebuild + 2 dispositivos pendientes):**
