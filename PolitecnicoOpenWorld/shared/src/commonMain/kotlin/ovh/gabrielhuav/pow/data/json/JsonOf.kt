@@ -40,6 +40,18 @@ fun jsonOf(vararg pares: Pair<String, Any?>): String = buildJsonObject {
  */
 fun jsonOf(mapa: Map<String, Any?>): String = jsonOf(*mapa.toList().toTypedArray())
 
+/**
+ * Array JSON a partir de una lista heterogénea — el equivalente de `gson.toJson(listOf(mapOf(...)))`.
+ *
+ * ⚠️ Lo usa el **mapa WEB**, que es el renderer POR DEFECTO del juego: los payloads que se
+ * inyectan al WebView (`updateNpcs`, `updateMetro`, `updatePolice`…) son `List<Map<String, Any>>`.
+ * `PowJson.encodeToString` sobre eso COMPILA pero revienta en runtime con
+ * *"Serializer for class 'Any' is not found"*, porque kotlinx necesita los tipos en compilación.
+ * Ese fallo se coló en la Fase 3 y lo cazó la auditoría: no lo "simplifiques" de vuelta.
+ */
+fun jsonArrayOf(lista: List<Any?>): String =
+    JsonArray(lista.map { aElemento(it) }).toString()
+
 /** Convierte un valor suelto al árbol JSON. Solo acepta lo que el protocolo usa de verdad. */
 private fun aElemento(valor: Any?): JsonElement = when (valor) {
     null -> JsonPrimitive(null as String?)

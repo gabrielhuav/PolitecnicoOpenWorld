@@ -1,5 +1,8 @@
 package ovh.gabrielhuav.pow.domain.models.map
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class ActiveCollectible(
     val id: String,
     val name: String,

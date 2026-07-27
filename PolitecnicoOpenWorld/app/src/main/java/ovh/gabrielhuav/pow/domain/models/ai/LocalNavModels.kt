@@ -7,9 +7,9 @@ import kotlinx.serialization.SerialName
 // Coordenada local dentro del asset.
 @Serializable
 data class LocalNode(
-    @SerialName("id") val id: Int,
-    @SerialName("localX") val localX: Float,
-    @SerialName("localY") val localY: Float,
+    @SerialName("id") val id: Int = 0,
+    @SerialName("localX") val localX: Float = 0f,
+    @SerialName("localY") val localY: Float = 0f,
     @SerialName("isParkingSlot") val isParkingSlot: Boolean = false,
     @SerialName("description") val description: String? = null,
     // Si es true, los NPCs peatonales se detienen aquí un tiempo (bancas, cafetería, palapas…)
@@ -19,8 +19,8 @@ data class LocalNode(
 
 @Serializable
 data class LocalWay(
-    @SerialName("id") val id: Int,
-    @SerialName("nodes") val nodes: List<LocalNode>,
+    @SerialName("id") val id: Int = 0,
+    @SerialName("nodes") val nodes: List<LocalNode> = emptyList(),
     @SerialName("isForCars") val isForCars: Boolean = true,
     @SerialName("isForPeople") val isForPeople: Boolean = false
 )

@@ -10,12 +10,12 @@ import android.util.Log
 // 1. El modelo de datos actualizado con ancho y alto
 @Serializable
 data class LandmarkAssetTemplate(
-    val id: String,
-    val displayName: String,
-    val assetPath: String,
+    val id: String = "",
+    val displayName: String = "",
+    val assetPath: String = "",
     val defaultScale: Float = 0.15f,
-    val baseWidthMeters: Float,
-    val baseHeightMeters: Float
+    val baseWidthMeters: Float = 0f,
+    val baseHeightMeters: Float = 0f,
 )
 
 // 2. El Gestor que lee el JSON

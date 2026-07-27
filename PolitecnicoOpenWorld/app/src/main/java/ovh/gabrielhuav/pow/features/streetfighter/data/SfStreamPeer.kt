@@ -2,6 +2,7 @@ package ovh.gabrielhuav.pow.features.streetfighter.data
 
 import kotlinx.serialization.encodeToString
 import ovh.gabrielhuav.pow.data.json.PowJson
+import ovh.gabrielhuav.pow.data.json.jsonOf
 
 import android.util.Log
 import java.io.BufferedReader
@@ -329,7 +330,7 @@ abstract class SfStreamPeer : SfNetTransport {
      */
     protected fun sendRaw(payload: Map<String, Any?>) {
         // El JSON se serializa en el hilo que llama (no es red); la escritura va al executor.
-        val line = PowJson.encodeToString(payload.filterValues { it != null }) + "\n"
+        val line = jsonOf(payload) + "\n"
         val type = payload["type"]
         // execute puede lanzar RejectedExecutionException si el executor ya se apagó (tras close()).
         runCatching {

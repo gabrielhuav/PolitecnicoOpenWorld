@@ -10,15 +10,19 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
  * ZombieRoom actual (ya convertidas desde la fracción que envía el servidor),
  * para que el render no cambie respecto a la versión anterior.
  */
+// ⚠️ TODOS los campos con DEFAULT a proposito (Fase 3): kotlinx.serialization LANZA
+// EXCEPCION si el JSON no trae un campo sin default, mientras que Gson lo dejaba en
+// null/0. Como esto llega de la RED (o de assets), un emisor viejo o un mensaje
+// incompleto CRASHEARIA la app en vez de degradar. No quites los defaults.
 @Serializable
 data class RemoteZombiePlayer(
-    val id: String,
-    val displayName: String,
-    val x: Float,
-    val y: Float,
-    val action: PlayerAction,
-    val facingRight: Boolean,
-    val health: Float
+    val id: String = "",
+    val displayName: String = "",
+    val x: Float = 0f,
+    val y: Float = 0f,
+    val action: PlayerAction = PlayerAction.IDLE,
+    val facingRight: Boolean = false,
+    val health: Float = 0f,
 )
 
 /**

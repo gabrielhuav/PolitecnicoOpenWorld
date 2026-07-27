@@ -5,15 +5,19 @@ import kotlinx.serialization.Serializable
 enum class Direction { UP, DOWN, LEFT, RIGHT }
 enum class GameAction { A, B, X, Y }
 
+// ⚠️ TODOS los campos con DEFAULT a proposito (Fase 3): kotlinx.serialization LANZA
+// EXCEPCION si el JSON no trae un campo sin default, mientras que Gson lo dejaba en
+// null/0. Como esto llega de la RED (o de assets), un emisor viejo o un mensaje
+// incompleto CRASHEARIA la app en vez de degradar. No quites los defaults.
 @Serializable
 data class MultiplayerPlayer(
     val type: String = "PLAYER_UPDATE",
-    val id: String,
+    val id: String = "",
     val displayName: String = "",
-    val x: Double,
-    val y: Double,
-    val action: String,
-    val facingRight: Boolean,
+    val x: Double = 0.0,
+    val y: Double = 0.0,
+    val action: String = "",
+    val facingRight: Boolean = false,
     val isDriving: Boolean = false,
     val carModel: String? = null,
     val carColor: Int? = null,
@@ -21,13 +25,17 @@ data class MultiplayerPlayer(
     val health: Float = 100f
 )
 
+// ⚠️ TODOS los campos con DEFAULT a proposito (Fase 3): kotlinx.serialization LANZA
+// EXCEPCION si el JSON no trae un campo sin default, mientras que Gson lo dejaba en
+// null/0. Como esto llega de la RED (o de assets), un emisor viejo o un mensaje
+// incompleto CRASHEARIA la app en vez de degradar. No quites los defaults.
 @Serializable
 data class MultiplayerNpc(
-    val id: String,
-    val x: Double,
-    val y: Double,
-    val rotation: Float,
-    val npcType: String,
+    val id: String = "",
+    val x: Double = 0.0,
+    val y: Double = 0.0,
+    val rotation: Float = 0f,
+    val npcType: String = "",
     val ownerId: String? = null,
     val carModel: String? = null,
     val carColor: Int? = null,

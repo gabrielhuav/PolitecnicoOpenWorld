@@ -2,6 +2,7 @@ package ovh.gabrielhuav.pow.features.streetfighter.data
 
 import kotlinx.serialization.encodeToString
 import ovh.gabrielhuav.pow.data.json.PowJson
+import ovh.gabrielhuav.pow.data.json.jsonOf
 
 import kotlinx.serialization.Serializable
 
@@ -75,14 +76,18 @@ data class SfNetMsg(
 @Serializable
 data class SfRoomSummary(val code: String = "", val players: Int = 0, val phase: String = "")
 
+// ⚠️ TODOS los campos con DEFAULT a proposito (Fase 3): kotlinx.serialization LANZA
+// EXCEPCION si el JSON no trae un campo sin default, mientras que Gson lo dejaba en
+// null/0. Como esto llega de la RED (o de assets), un emisor viejo o un mensaje
+// incompleto CRASHEARIA la app en vez de degradar. No quites los defaults.
 @Serializable
 data class SfNetFireball(
-    val x: Float,
-    val y: Float,
-    val dir: Int,
-    val strength: String,
-    val state: String,               // SfFireballState.name
-    val frame: Int,
+    val x: Float = 0f,
+    val y: Float = 0f,
+    val dir: Int = 1,
+    val strength: String = "",
+    val state: String = "",          // SfFireballState.name
+    val frame: Int = 0,
 )
 
 class SfMatchClient : SfNetTransport {
@@ -123,7 +128,7 @@ class SfMatchClient : SfNetTransport {
     }
 
     private fun send(payload: Map<String, Any?>) {
-        ws?.send(PowJson.encodeToString(payload.filterValues { it != null }))
+        ws?.send(jsonOf(payload))
     }
 
     /**
