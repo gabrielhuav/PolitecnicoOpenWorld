@@ -660,6 +660,9 @@
     <string name="sf_lan_host_sub">Your room is open. Share this address with your rival (same Wi-Fi network or your hotspot):\n\n%1$s</string>
     <string name="sf_lan_no_ip">No local network detected: join a Wi-Fi network or turn on your hotspot and retry.</string>
     <string name="sf_lan_connecting_sub">Connecting to the local server…</string>
+    <string name="sf_lan_discovered_label">GAMES ON YOUR WI-FI</string>
+    <string name="sf_lan_searching">Searching for games on the same network…</string>
+    <string name="sf_lan_or_ip">…or join by typing the IP:</string>
     <string name="sf_lan_error_title">NO WI-FI CONNECTION</string>
     <string name="sf_lan_error_hint">Both phones must be on the SAME Wi-Fi network (or one on the other\'s hotspot). Check the IP shown on the host\'s screen and retry.</string>
     <!-- Round banner (arcade font: A-Z and 0-9 only) -->

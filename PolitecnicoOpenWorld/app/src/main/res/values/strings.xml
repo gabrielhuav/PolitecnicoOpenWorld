@@ -662,6 +662,9 @@
     <string name="sf_lan_host_sub">Tu sala está abierta. Comparte esta dirección con tu rival (misma red Wi-Fi o tu hotspot):\n\n%1$s</string>
     <string name="sf_lan_no_ip">No se detectó red local: conéctate a una red Wi-Fi o enciende tu hotspot y reintenta.</string>
     <string name="sf_lan_connecting_sub">Conectando con el servidor local…</string>
+    <string name="sf_lan_discovered_label">PARTIDAS EN TU RED WI-FI</string>
+    <string name="sf_lan_searching">Buscando partidas en la misma red…</string>
+    <string name="sf_lan_or_ip">…o únete tecleando la IP:</string>
     <string name="sf_lan_error_title">SIN CONEXIÓN WI-FI</string>
     <string name="sf_lan_error_hint">Ambos teléfonos deben estar en la MISMA red Wi-Fi (o uno al hotspot del otro). Verifica la IP que muestra la pantalla del anfitrión y reintenta.</string>
     <!-- Banner de rondas (fuente arcade: solo A-Z y 0-9, sin acentos ni signos) -->

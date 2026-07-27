@@ -1,5 +1,16 @@
 # AUDIT · Multijugador 1v1 del modo pelea "HUELUM VS. GOYA" (2026-07-11)
 
+> **🆕 2026-07-26d (Opus 4.8) — LAN funciona ✅ + AUTODESCUBRIMIENTO (punto ④, dueño):** con el fix
+> del hilo (26c) el Wi-Fi 1v1 ya conecta y arranca. Nuevo: **`SfLanDiscovery`** — el ANFITRIÓN emite
+> una baliza por **UDP broadcast** (`255.255.255.255:47646`, cada 1.5 s) y el INVITADO la escucha
+> (con `MulticastLock`) → ve las **partidas de la MISMA red como tarjetas tocables**, sin teclear IP
+> (se une por la IP origen del paquete). La baliza para al entrar el rival (`OPPONENT_JOINED`). VM:
+> `startLanDiscovery`/`stopLanDiscovery` + estado `lanDiscovered`; el menú online escucha mientras
+> está abierto (`DisposableEffect`). Se conserva el campo de IP manual como respaldo. Permiso nuevo:
+> **`CHANGE_WIFI_MULTICAST_STATE`** (NORMAL, sin impacto en Play, como `WAKE_LOCK`). ⚠️ Falta prueba
+> en 2 dispositivos (algunos routers bloquean broadcast → el campo de IP queda de fallback).
+
+
 > **🆕 2026-07-26c (Opus 4.8) — LAN "muere al elegir peleador": CAUSA REAL (logcat definitivo):**
 > `escritura falló (SELECT_CHARACTER) → NetworkOnMainThreadException`. **NO era power-save, ni idle,
 > ni Wi-Fi.** El VM llama `transport.selectCharacter/sendPlayerState/…` desde el **HILO PRINCIPAL**, y

@@ -11,6 +11,11 @@
          WAKE_LOCK es permiso NORMAL (install-time, sin prompt de runtime, sin impacto en Data
          Safety de Play). Lo pide WifiManager.WifiLock.acquire(). -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- 🆕 (2026-07-26) Para el MulticastLock del AUTODESCUBRIMIENTO LAN (SfLanDiscovery): sin él,
+         algunos Wi-Fi filtran los paquetes UDP broadcast y el invitado no "vería" la sala del host.
+         CHANGE_WIFI_MULTICAST_STATE es permiso NORMAL (sin prompt de runtime, sin impacto en Data
+         Safety de Play). El tráfico es efímero dispositivo-a-dispositivo en la LAN. -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
     <!-- BLUETOOTH (multijugador local de "HUELUM VS. GOYA", sin internet).
          Legacy (≤ Android 11): permisos normales, sin runtime.

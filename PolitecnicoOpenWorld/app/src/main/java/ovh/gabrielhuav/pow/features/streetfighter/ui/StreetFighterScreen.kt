@@ -115,6 +115,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.JoystickControlle
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PowButton
 import ovh.gabrielhuav.pow.features.streetfighter.data.SF_CLASSIC_THEME
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtDevice
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanGame
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfFrameCatalog
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfRoomSummary
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfSharedSheets
@@ -1205,6 +1206,9 @@ fun StreetFighterScreen(
                     showOnlineMenu = false
                     viewModel.connectLanHost(ip)
                 },
+                lanDiscovered = state.lanDiscovered,
+                onLanScanStart = viewModel::startLanDiscovery,
+                onLanScanStop = viewModel::stopLanDiscovery,
                 onDismiss = { showOnlineMenu = false },
             )
         }
@@ -2118,10 +2122,18 @@ private fun OnlineMenuOverlay(
     onBtScan: () -> Unit,
     onLanHost: () -> Unit,
     onLanJoin: (String) -> Unit,
+    lanDiscovered: List<SfLanGame>,
+    onLanScanStart: () -> Unit,
+    onLanScanStop: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     var code by remember { mutableStateOf("") }
     var lanIp by remember { mutableStateOf("") }
+    // 🆕 (2026-07-26) Mientras el menú online está abierto, escucha balizas LAN (autodescubrimiento).
+    DisposableEffect(Unit) {
+        onLanScanStart()
+        onDispose { onLanScanStop() }
+    }
     Box(
         modifier = Modifier.fillMaxSize().background(Color(0xF0101018)),
         contentAlignment = Alignment.Center,
@@ -2193,6 +2205,30 @@ private fun OnlineMenuOverlay(
             Spacer(modifier = Modifier.height(8.dp))
             PowButton(text = stringResource(R.string.sf_lan_host), onClick = onLanHost)
             Spacer(modifier = Modifier.height(10.dp))
+            // 🆕 (2026-07-26) AUTODESCUBRIMIENTO: partidas encontradas en la MISMA red Wi-Fi (sin
+            // teclear IP). Tocar una tarjeta se une directo por la IP de su baliza.
+            Text(
+                text = stringResource(R.string.sf_lan_discovered_label),
+                color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp, letterSpacing = 1.sp,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            if (lanDiscovered.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.sf_lan_searching),
+                    color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp,
+                )
+            } else {
+                lanDiscovered.forEach { game ->
+                    PowButton(text = "▶  ${game.name}", onClick = { onLanJoin(game.ip) })
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.sf_lan_or_ip),
+                color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = lanIp,

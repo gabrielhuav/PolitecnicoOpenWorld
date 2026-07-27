@@ -64,6 +64,8 @@ import ovh.gabrielhuav.pow.features.streetfighter.data.SF_CLASSIC_THEME
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtClient
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfFrameCatalog
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanClient
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanDiscovery
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanGame
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfMatchClient
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetFireball
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetMsg
@@ -820,6 +822,8 @@ class StreetFighterViewModel @Inject constructor(
     // local). Mismos mensajes/arquitectura; el VM solo habla con la interfaz.
     private var transport: SfNetTransport? = null
     private var btScanner: SfBtClient? = null   // discovery del selector "BUSCAR RIVAL"
+    // 🆕 (2026-07-26) Autodescubrimiento LAN por UDP: baliza del host + escucha del invitado.
+    private var lanDiscovery: SfLanDiscovery? = null
     @Volatile private var remoteSnapshot: SfNetMsg? = null
     private val netDamageQueue = ConcurrentLinkedQueue<SfNetMsg>()
     private var myOnlineChar: SfFighterId? = null
@@ -5234,6 +5238,7 @@ class StreetFighterViewModel @Inject constructor(
     fun startLanHost() {
         if (isOnline) return
         stopBtScanInternal()
+        lanDiscovery?.close() // cierra cualquier escucha previa antes de emitir la baliza
         val ips = SfLanClient.localIpAddresses()
         _state.value = _state.value.copy(
             onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null,
@@ -5244,14 +5249,47 @@ class StreetFighterViewModel @Inject constructor(
         val client = SfLanClient(appContext)
         transport = client
         client.startHost(makeNetListener())
+        // 🆕 (2026-07-26) Emite la baliza para que el invitado encuentre esta sala sin teclear IP.
+        lanDiscovery = SfLanDiscovery(appContext).also { it.startBeacon(android.os.Build.MODEL ?: "POW") }
     }
 
-    /** INVITADO LAN: conecta a la IP que muestra la pantalla del host. */
+    /**
+     * 🆕 (2026-07-26) INVITADO: escucha balizas LAN y va llenando `lanDiscovered` (tarjetas
+     * tocables). Se llama al abrir la sección UNIRSE de LAN; `stopLanDiscovery` al salir/unirse.
+     */
+    fun startLanDiscovery() {
+        if (isOnline) return
+        lanDiscovery?.close()
+        _state.value = _state.value.copy(lanDiscovered = emptyList())
+        lanDiscovery = SfLanDiscovery(appContext).also { disc ->
+            disc.startListening { game ->
+                // Llega en hilo de fondo → re-postear a Main y deduplicar por IP.
+                viewModelScope.launch {
+                    val cur = _state.value.lanDiscovered
+                    if (cur.none { it.ip == game.ip }) {
+                        _state.value = _state.value.copy(lanDiscovered = cur + game)
+                    }
+                }
+            }
+        }
+    }
+
+    /** Detiene la escucha/baliza LAN y limpia la lista de partidas halladas. */
+    fun stopLanDiscovery() {
+        lanDiscovery?.close()
+        lanDiscovery = null
+        if (_state.value.lanDiscovered.isNotEmpty()) {
+            _state.value = _state.value.copy(lanDiscovered = emptyList())
+        }
+    }
+
+    /** INVITADO LAN: conecta a la IP que muestra la pantalla del host (tecleada o autodescubierta). */
     fun connectLanHost(addressRaw: String) {
         if (isOnline) return
         val address = addressRaw.trim()
         if (address.isEmpty()) return
         stopBtScanInternal()
+        stopLanDiscovery() // ya elegiste una sala: deja de escuchar balizas
         _state.value = _state.value.copy(
             onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null,
             btMode = false, lanMode = true,
@@ -5279,6 +5317,8 @@ class StreetFighterViewModel @Inject constructor(
      */
     private fun onLocalLinkFailed(reason: String?) {
         val s = _state.value
+        lanDiscovery?.close()
+        lanDiscovery = null
         transport?.close()
         transport = null
         remoteSnapshot = null
@@ -5296,10 +5336,14 @@ class StreetFighterViewModel @Inject constructor(
         )
     }
 
+    // Detiene los descubrimientos LOCALES en curso (scan BT + baliza/escucha LAN). Se llama en
+    // todos los teardown/reinicio de sesión (cancelOnline, onCleared, y al arrancar host/join).
     private fun stopBtScanInternal() {
         btScanner?.stopScan()
         btScanner?.close()
         btScanner = null
+        lanDiscovery?.close()
+        lanDiscovery = null
     }
 
     /**
@@ -5364,6 +5408,7 @@ class StreetFighterViewModel @Inject constructor(
                 awaitingJoinOk = false, queueNotice = null,
             )
             "OPPONENT_JOINED" -> {
+                lanDiscovery?.stopBeacon() // 🆕 sala llena → deja de anunciarse por UDP
                 if (s.battleEnded || !s.inCharacterSelect) {
                     // Un rival NUEVO entró cuando la pelea anterior ya corrió/terminó (p. ej.
                     // en BT el host sigue aceptando tras un abandono): sala en limpio, como

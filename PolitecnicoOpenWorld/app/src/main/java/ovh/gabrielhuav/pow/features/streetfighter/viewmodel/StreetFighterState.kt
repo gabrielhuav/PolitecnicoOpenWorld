@@ -8,6 +8,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireball
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHitSplash
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtDevice
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanGame
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfRoomSummary
 
 // Estado UI inmutable del modo STREET FIGHTER. UN solo data class observado por la
@@ -195,6 +196,9 @@ data class StreetFighterState(
     // el rival pruebe la alcanzable (una sola podía ser la interfaz equivocada → "nunca empieza").
     val lanLocalIps: List<String> = emptyList(),
     val lanHostAddress: String? = null,      // (invitado) IP tecleada, para REINTENTAR
+    // 🆕 (2026-07-26) AUTODESCUBRIMIENTO: partidas LAN halladas por UDP broadcast en la misma red
+    // (el invitado las toca para unirse sin teclear IP). Se llena al abrir la sección UNIRSE de LAN.
+    val lanDiscovered: List<SfLanGame> = emptyList(),
 )
 
 /**
