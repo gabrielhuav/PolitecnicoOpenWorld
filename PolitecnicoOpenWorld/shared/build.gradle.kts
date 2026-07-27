@@ -1,29 +1,28 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 /*
- * 🍏 MÓDULO COMPARTIDO KMP — Fase 1 de "README for IAS/PLAN_MIGRACION_KMP.md".
+ * 🍏 MÓDULO COMPARTIDO KMP — Fases 1 a 4 de "README for IAS/PLAN_MIGRACION_KMP.md".
  *
- * POR QUÉ EXISTE: es el andamiaje mínimo para demostrar que KMP funciona en este proyecto SIN
- * tocar nada delicado. Hoy solo contiene el dominio PURO de "Huelum vs. Goya" (sin una sola
- * referencia a Android) y sus tests. `:app` lo consume como dependencia normal.
+ * QUÉ VIVE AQUÍ: el dominio PURO de "Huelum vs. Goya", el punto lat/lon (`GeoPoint`), el JSON
+ * (`PowJson`/`jsonOf`) y, desde la Fase 4, la BASE DE DATOS (Room), los ajustes
+ * (multiplatform-settings) y el cliente HTTP/WebSocket (Ktor).
  *
- * ⚠️ REGLA: en `commonMain` NO entra NADA de Android (ni `android.*`, ni `androidx.*`, ni Gson,
- * ni osmdroid). Si algo necesita plataforma, va por `expect/actual`, no aquí.
+ * ⚠️ REGLA: en `commonMain` NO entra NADA de Android (ni `android.*`, ni `androidx.*` que no sea
+ * multiplataforma, ni osmdroid). Si algo necesita plataforma, va por `expect/actual`.
  *
- * ⚠️ NO se sube la versión de Kotlin en esta fase (decisión del dueño, 2026-07-27): el módulo usa
- * el MISMO Kotlin 2.2.10 y AGP que el resto del proyecto. KMP no necesita Kotlin 2.4 para esto;
- * subirlo tocaría AGP/KSP/Hilt/Compose justo después de publicar la 1.0.0.14.
+ * ⚠️ NO se sube la versión de Kotlin (decisión del dueño, 2026-07-27): el módulo usa el MISMO
+ * Kotlin 2.2.10 y AGP que el resto del proyecto.
  */
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.serialization)
+    // 🍏 Fase 4: Room en un módulo KMP necesita su plugin + KSP.
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
 }
 
 kotlin {
-    sourceSets.androidMain.dependencies { implementation(libs.ktor.client.okhttp) }
-    sourceSets.iosMain.dependencies { implementation(libs.ktor.client.darwin) }
-
     androidTarget {
         compilerOptions {
             // Mismo jvmTarget que `:app` (11). Si divergen, el consumo desde app falla.
@@ -40,15 +39,23 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            // `api` y no `implementation`: `:app` usa `@Serializable` y `PowJson` directamente,
-            // así que necesita ver la librería en su propio classpath.
+            // `api` y no `implementation`: `:app` usa estos tipos directamente en su código.
             api(libs.kotlinx.serialization.json)
             // Ajustes multiplataforma: en Android envuelve el SharedPreferences EXISTENTE
-            // (cero migracion de datos); en iOS usa NSUserDefaults.
+            // (cero migración de datos); en iOS usa NSUserDefaults.
             api(libs.multiplatform.settings)
             // WebSocket multiplataforma (sustituye a OkHttp).
             api(libs.ktor.client.core)
             api(libs.ktor.client.websockets)
+            // Room multiplataforma: entidades, DAOs y la BD viven aquí desde la Fase 4.
+            api(libs.androidx.room.runtime)
+            api(libs.androidx.sqlite.bundled)
+        }
+        androidMain.dependencies {
+            implementation(libs.ktor.client.okhttp)
+        }
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
         }
         commonTest.dependencies {
             // kotlin.test: las aserciones que SÍ existen en las dos plataformas.
@@ -70,4 +77,17 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+}
+
+// Room exige un directorio de esquemas cuando se usa su plugin.
+room { schemaDirectory("$projectDir/schemas") }
+
+// ⚠️ ESTE BLOQUE VA AL FINAL, DESPUÉS de `kotlin { }`, y no es cosmético: las configuraciones
+// `kspAndroid`/`kspIosArm64`/… las CREA el plugin al declarar cada target. Si este bloque va
+// arriba, el build falla con "Configuration with name 'kspAndroid' not found".
+dependencies {
+    add("kspAndroid", libs.androidx.room.compiler)
+    add("kspIosArm64", libs.androidx.room.compiler)
+    add("kspIosSimulatorArm64", libs.androidx.room.compiler)
+    add("kspIosX64", libs.androidx.room.compiler)
 }

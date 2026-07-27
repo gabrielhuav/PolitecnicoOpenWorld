@@ -8,8 +8,11 @@ espressoCore = "3.7.0"
 lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.12.4"
 composeBom = "2024.09.00"
-# Room 2.7.0 es la primera versión compatible con KSP2 y Kotlin 2.x
-roomVersion = "2.7.0"
+# 🍏 Room 2.8.x = soporte KMP real (artefactos iosArm64 verificados). 2.7.0 fue la primera
+# compatible con KSP2/Kotlin 2.x; se sube para poder mover la BD a `:shared` (Fase 4).
+roomVersion = "2.8.4"
+# Driver SQLite empaquetado: es el que usa Room en iOS (en Android se sigue usando el del sistema).
+sqliteVersion = "2.6.0"
 preferenceKtx = "1.2.1"
 # Firebase Authentication (Google Sign-In) + plugin google-services
 firebaseBom = "33.5.1"
@@ -36,6 +39,7 @@ androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = 
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "roomVersion" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "roomVersion" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "roomVersion" }
+androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqliteVersion" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
@@ -84,3 +88,5 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 ksp = { id = "com.google.devtools.ksp", version = "2.3.2" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+# 🍏 Plugin de Room (Fase 4): necesario para generar el codigo de la BD en un modulo KMP.
+room = { id = "androidx.room", version.ref = "roomVersion" }

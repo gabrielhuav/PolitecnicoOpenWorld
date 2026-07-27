@@ -110,10 +110,10 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.6.0")
 
     // Room
-    implementation(libs.androidx.room.runtime)
+    // Room: el runtime lo aporta `:shared` (api). room-ktx aporta las extensiones de corrutinas.
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.compose.foundation)
-    ksp(libs.androidx.room.compiler)
+    // 🍏 Fase 4: el compilador de Room ya NO corre aqui — la BD vive en `:shared`.
 
     // Hilt (DI) — el compilador va por KSP (NO kapt) para no duplicar procesadores.
     implementation(libs.hilt.android)
@@ -122,8 +122,9 @@ dependencies {
 
     implementation(libs.androidx.preference.ktx)
 
-    // Dependencias para Multijugador
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // 🍏 Fase 4: OkHttp ya NO se usa directamente — el WebSocket va por Ktor (`:shared`), que en
+    // Android usa OkHttp como MOTOR (lo arrastra `ktor-client-okhttp`) y en iOS usa Darwin.
+    // ⚠️ No vuelvas a declararlo aquí: el codigo que lo importaba ya no existe.
     // 🍏 Gson ya NO va en producción (Fase 3): usa reflexión de la JVM y no existe en iOS. Se
     // queda SOLO en tests, que es donde `GameSaveCompatGsonTest` y `JsonObjectCompatGsonTest`
     // comparan el JSON nuevo contra el que producía Gson (partidas guardadas y formato de cable).

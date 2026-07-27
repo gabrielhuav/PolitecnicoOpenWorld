@@ -6,14 +6,24 @@ import ovh.gabrielhuav.pow.data.json.jsonOf
 
 import kotlinx.serialization.Serializable
 
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.Response
-import okhttp3.WebSocket
-import okhttp3.WebSocketListener
-import java.util.Timer
-import java.util.TimerTask
-import java.util.concurrent.TimeUnit
+import io.ktor.client.HttpClient
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.request.get
+import io.ktor.http.isSuccess
+import kotlinx.coroutines.runBlocking
+import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
+import io.ktor.client.plugins.websocket.WebSockets
+import io.ktor.client.plugins.websocket.webSocketSession
+import io.ktor.websocket.Frame
+import io.ktor.websocket.close
+import io.ktor.websocket.readText
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 // Cliente WebSocket del MULTIJUGADOR 1v1 del modo pelea (servidor MultiplayerSF/ en Render).
 // RELAY PURO: cada cliente simula a SU peleador; aquí solo viajan mensajes JSON.
@@ -90,45 +100,56 @@ data class SfNetFireball(
     val frame: Int = 0,
 )
 
+// 🍏 Fase 4: transporte por **Ktor** (antes OkHttp). Ktor es multiplataforma — el motor es OkHttp
+// en Android y Darwin en iOS — así que esta clase ya puede viajar a `:shared` cuando se migre el
+// modo pelea (Fase 5). El PROTOCOLO no cambia ni un byte.
 class SfMatchClient : SfNetTransport {
 
-    private val http = OkHttpClient.Builder()
-        .pingInterval(20, TimeUnit.SECONDS) // mantiene vivo el WS (Render free duerme sin tráfico)
-        .build()
-    private var ws: WebSocket? = null
-    private var heartbeatTimer: Timer? = null
+    private val alcance = CoroutineScope(SupervisorJob())
+    private val http = HttpClient {
+        install(WebSockets) {
+            // Mantiene vivo el WS (Render free duerme sin tráfico). Era `pingInterval(20 s)`.
+            pingIntervalMillis = 20_000L
+        }
+    }
+    private var ws: DefaultClientWebSocketSession? = null
+    private var latido: Job? = null
 
     fun connect(wsUrl: String, listener: SfNetTransport.Listener) {
-        val request = Request.Builder().url(wsUrl).build()
-        ws = http.newWebSocket(request, object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) {
+        alcance.launch {
+            val r = runCatching {
+                val s = http.webSocketSession(wsUrl)
+                ws = s
                 // HEARTBEAT cada 45 s: mantiene viva la SALA en fases sin tráfico
                 // (la limpieza del server expira salas a los 5 min sin mensajes)
-                heartbeatTimer = Timer(true).also { t ->
-                    t.schedule(object : TimerTask() {
-                        override fun run() { send(mapOf("type" to "HEARTBEAT")) }
-                    }, 45_000L, 45_000L)
+                latido = alcance.launch {
+                    while (isActive) {
+                        delay(45_000L)
+                        send(mapOf("type" to "HEARTBEAT"))
+                    }
                 }
                 listener.onOpen()
+                s.incoming.consumeEach { frame ->
+                    if (frame is Frame.Text) {
+                        runCatching { PowJson.decodeFromString<SfNetMsg>(frame.readText()) }
+                            .getOrNull()?.let { listener.onMessage(it) }
+                    }
+                }
             }
-
-            override fun onMessage(webSocket: WebSocket, text: String) {
-                runCatching { PowJson.decodeFromString<SfNetMsg>(text) }
-                    .getOrNull()?.let { listener.onMessage(it) }
-            }
-
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+            latido?.cancel()
+            ws = null
+            if (r.isFailure) {
+                listener.onFailure(r.exceptionOrNull()?.message ?: "conexión perdida")
+            } else {
                 listener.onClosed()
             }
-
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                listener.onFailure(t.message ?: "conexión perdida")
-            }
-        })
+        }
     }
 
     private fun send(payload: Map<String, Any?>) {
-        ws?.send(jsonOf(payload))
+        val s = ws ?: return
+        val texto = jsonOf(payload)
+        alcance.launch { runCatching { s.send(Frame.Text(texto)) } }
     }
 
     /**
@@ -196,10 +217,11 @@ class SfMatchClient : SfNetTransport {
         )
 
     override fun close() {
-        heartbeatTimer?.cancel()
-        heartbeatTimer = null
-        ws?.close(1000, "bye")
+        latido?.cancel()
+        latido = null
+        val s = ws
         ws = null
+        alcance.launch { runCatching { s?.close() } }
     }
 
     companion object {
@@ -220,23 +242,28 @@ class SfMatchClient : SfNetTransport {
         ): Boolean {
             val statusUrl = wsUrl.replace("wss://", "https://").replace("ws://", "http://")
                 .trimEnd('/') + "/status"
-            val client = OkHttpClient.Builder()
-                .connectTimeout(10, TimeUnit.SECONDS)
-                .readTimeout(10, TimeUnit.SECONDS)
-                .build()
+            // 🍏 Fase 4: sondeo con Ktor (antes OkHttp). Sigue siendo BLOQUEANTE a propósito —
+            // los call-sites lo llaman ya en un hilo de IO — así que se envuelve en runBlocking.
+            val client = HttpClient {
+                install(HttpTimeout) {
+                    connectTimeoutMillis = 10_000L
+                    requestTimeoutMillis = 10_000L
+                }
+            }
             val deadline = System.currentTimeMillis() + maxSeconds * 1000L
             var notified = false
             while (System.currentTimeMillis() < deadline) {
                 val ok = runCatching {
-                    client.newCall(Request.Builder().url(statusUrl).build()).execute().use { it.isSuccessful }
+                    runBlocking { client.get(statusUrl).status.isSuccess() }
                 }.getOrDefault(false)
-                if (ok) return true
+                if (ok) { client.close(); return true }
                 if (!notified) {
                     notified = true
                     runCatching { onSleeping() }
                 }
                 Thread.sleep(4000)
             }
+            client.close()
             return false
         }
     }
