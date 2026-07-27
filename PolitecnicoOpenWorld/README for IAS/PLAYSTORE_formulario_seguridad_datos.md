@@ -140,5 +140,35 @@ Verificado contra el manifest y las dependencias (`app/build.gradle.kts`):
 
 `.github/workflows/android-release.yml` sube el **AAB firmado a la pista `alpha` (prueba cerrada)**
 al mergear a `main`. **Producción es promoción MANUAL** en Play Console (o cambiar `tracks: alpha`
-→ `production`). El `versionName` se autoincrementa (job `bump-version`); el `versionCode` = `1000 +
-run_number`. La versión rechazada fue **code 1037**; la que pasó fue la promoción posterior.
+→ `production`). El `versionCode` = `1000 + run_number` (siempre único y creciente). El `versionName`
+**NO se autoincrementa de verdad** (el job `bump-version` no logra pushear a `main` protegida — ver §9).
+La versión rechazada fue **code 1037**; la que pasó fue la promoción posterior.
+
+## 9. 🆕 Gotchas de CI/CD: firma y versionado (2026-07-27)
+
+Aprendido tras el fallo de firma del release **1.0.0.14**:
+
+- **💥 Subir AGP puede romper la FIRMA del AAB.** El bump `agp 9.3.0 → 9.3.1` (PR #137) hizo fallar
+  `:app:signReleaseBundle` (`FinalizeBundleTask$BundleToolRunnable`). El `bundletool` que firma el
+  bundle viene **DENTRO de AGP**, así que cambiar de AGP cambia la herramienta de firma **sin tocar
+  un solo secret**. **Revertir a `9.3.0` lo arregló.** Regla: **no subas AGP a la ligera**; aunque
+  Android Studio lo sugiera y sea un parche (x.y.**z**), pruébalo en una rama con `workflow_dispatch`
+  ANTES de mergear a `main`.
+- **El fallo de firma NO es la versión.** `signReleaseBundle` corre DESPUÉS de estampar
+  versionName/versionCode; un desajuste de versión solo puede fallar en el paso de **SUBIDA a Play**
+  (code duplicado), nunca en la firma. Si falla la firma → mira keystore/AGP, no el número.
+- **🔎 Diagnóstico integrado en el workflow:** antes de compilar valida el keystore con `keytool`
+  (contraseña + alias) y corre `bundleRelease --stacktrace`, para que el error real salga a la luz en
+  vez del genérico *"A failure occurred…"*.
+- **⚠️ `bump-version` NO funciona con `main` protegida.** El job hace `git push origin main`, que la
+  rama protegida rechaza con **403** (GitHub Actions no está en el Bypass list del ruleset). Por eso el
+  `versionName` se quedó "atorado" en la versión ya publicada, y hay que **subirlo A MANO** en
+  `app/build.gradle.kts` + `distribution/whatsnew/*` antes de cada release. Para automatizarlo: guarda
+  un **`RELEASE_PAT`** (PAT del dueño, que SÍ está en el bypass; el workflow ya lo usa:
+  `token: secrets.RELEASE_PAT || secrets.GITHUB_TOKEN`) **o** mete *GitHub Actions* al Bypass list.
+- **🔑 Build MANUAL desde Android Studio — cuidado con el `versionCode`.** `build.gradle.kts` usa
+  `versionCode = getenv("APP_VERSION_CODE") ?: 12`. En CI se inyecta `1000 + run_number` (p. ej. 1040+);
+  en un build local NO existe esa env var → cae a **12**, MUY por debajo de lo ya subido, y **Play lo
+  rechaza** ("el código de versión debe ser mayor que N"). Al firmar a mano: pon un `versionCode` MAYOR
+  que el último de CI (edita el fallback o exporta `APP_VERSION_CODE`) y cambia el `versionName` a mano.
+  El `RELEASE_PAT` **no** interviene aquí: es solo para el push del auto-bump del CI, no para firmar.
