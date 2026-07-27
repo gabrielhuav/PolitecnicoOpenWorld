@@ -94,6 +94,21 @@ toma de la **posición del toque respecto al centro** y se dispara **YA** en el 
 (joystick virtual estándar), con la misma zona muerta (28%) y el bucle de 33 fps para el HOLD. Los
 botones de ataque ya eran inmediatos (`detectHoldEvent` → `awaitFirstDown`).
 
+### 🛡️ (2026-07-26) BLOQUEO "atrapado" al defender (segunda parte del bug de controles)
+
+El dueño reportó que al **hacerse para atrás para defender** los controles seguían sin responder.
+**Causa REAL:** los estados `BLOCK_HIGH`/`BLOCK_LOW` (se entra al bloquear un golpe cubriéndose) SOLO
+salían si soltabas la dirección **Y** terminaba la animación, y **no aceptaban ninguna otra acción**;
+peor aún, `BLOCK_HIGH`/`BLOCK_LOW` **no figuraban como orígenes válidos** en la tabla `validFrom`, así
+que hasta el `→ IDLE` fallaba en `changeState` → **quedabas literalmente atrapado en la pose de
+bloqueo**. Fix (`StreetFighterViewModel.runStateHandler` + `SfStateMachine.VALID_FROM`): la guardia
+ahora **rebota AL INSTANTE** al neutro correspondiente (WALK_BACKWARD si sostienes atrás / CROUCH si
+sostienes ↓ / IDLE-CROUCH_UP al soltar), estados totalmente responsivos que **vuelven a bloquear** si
+te pegan otra vez. Se añadieron `BLOCK_HIGH→{IDLE,WALK_BACKWARD,CROUCH_DOWN}` y
+`BLOCK_LOW→{CROUCH,CROUCH_UP}` a `validFrom`. El **blockstun real** lo sigue dando `hurtFreezeUntilMs`
+durante el golpe, no la animación (así que no se pierde el bloqueo). Sin tocar tests (no había
+aserciones de transiciones DESDE bloqueo).
+
 ## Cambios 2026-07-21f (Opus 4.8) — La Llorona: crouchTurn con `flipX`, hoja 09 regenerada, re-pack
 
 Cierra los tres recortes malos que quedaban de La Llorona (auditados por el dueño en

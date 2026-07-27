@@ -1843,15 +1843,23 @@ class StreetFighterViewModel @Inject constructor(
             SfFighterState.IDLE_RELAXED, SfFighterState.TALK ->
                 if (isAnimationCompleted(f)) changeState(sim, idx, SfFighterState.IDLE, now)
             // Defensa: el bloqueo se sostiene mientras se siga cubriendo.
-            SfFighterState.BLOCK_HIGH -> {
-                if (!input.backward && isAnimationCompleted(f)) {
-                    changeState(sim, idx, SfFighterState.IDLE, now)
-                }
+            // 🆕 (2026-07-26) BLOQUEO RESPONSIVO: antes exigían soltar atrás Y que la animación
+            // terminara para salir, y NO aceptaban ninguna otra acción → al cubrirse quedabas
+            // "atrapado" y los controles "no respondían". Ahora reaccionan al INSTANTE como
+            // WALK_BACKWARD/CROUCH (el blockstun real lo da hurtFreezeUntilMs durante el golpe, no
+            // esta animación). Sostener la dirección sigue cubriendo; cualquier otra intención sale ya.
+            // Terminado el hit-freeze del golpe bloqueado, la guardia REBOTA al instante al estado
+            // neutro correspondiente (WALK_BACKWARD alto / CROUCH bajo) — que son totalmente
+            // responsivos y VUELVEN a bloquear si les pegan otra vez. Así se acaba el "quedarse
+            // atrapado" en la pose de bloqueo (antes exigía terminar la animación).
+            SfFighterState.BLOCK_HIGH -> when {
+                !input.backward -> changeState(sim, idx, SfFighterState.IDLE, now)
+                input.down -> changeState(sim, idx, SfFighterState.CROUCH_DOWN, now)
+                else -> changeState(sim, idx, SfFighterState.WALK_BACKWARD, now)
             }
-            SfFighterState.BLOCK_LOW -> {
-                if (!input.down && isAnimationCompleted(f)) {
-                    changeState(sim, idx, SfFighterState.CROUCH_UP, now)
-                }
+            SfFighterState.BLOCK_LOW -> when {
+                !input.down -> changeState(sim, idx, SfFighterState.CROUCH_UP, now)
+                else -> changeState(sim, idx, SfFighterState.CROUCH, now)
             }
             SfFighterState.PARRY_HIGH -> if (isAnimationCompleted(f)) {
                 changeState(sim, idx, SfFighterState.IDLE, now)
