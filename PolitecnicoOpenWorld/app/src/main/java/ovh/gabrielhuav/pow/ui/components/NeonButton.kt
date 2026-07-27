@@ -2,16 +2,19 @@ package ovh.gabrielhuav.pow.ui.components
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.Box
 
 // GATILLOS "NEÓN ARCADE" COMPARTIDOS (2026-07-26).
 //
@@ -56,6 +59,33 @@ fun NeonButton(
  * día que se les dé función ya aparezcan con el aspecto correcto y en su sitio, sin rediseñar.
  * Mientras tanto [onPress] no hace nada y eso es intencional, no un bug.
  */
+/**
+ * Envuelve un control del HUD (joystick/D-pad o diamante) añadiéndole ARRIBA su par de gatillos
+ * cuando [enabled] es true. Con [enabled] en false NO dibuja nada extra: la columna envuelve un
+ * único hijo, así que el HUD queda EXACTAMENTE igual que antes de existir esta función.
+ *
+ * Lo usan el mundo abierto y los interiores para no repetir el mismo Column en 5 pantallas.
+ *
+ * @param isLeft de qué lado está el control (el de la izquierda lleva L1/L2; el otro R1/R2).
+ *   Ojo: depende de `swapControls`, no de una posición fija.
+ */
+@Composable
+fun WithShoulderTriggers(
+    enabled: Boolean,
+    isLeft: Boolean,
+    modifier: Modifier = Modifier,
+    scale: Float = 1f,
+    control: @Composable () -> Unit,
+) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        if (enabled) {
+            NeonTriggerPair(isLeft = isLeft, modifier = Modifier.scale(scale))
+            Spacer(modifier = Modifier.height(6.dp))
+        }
+        control()
+    }
+}
+
 @Composable
 fun NeonTriggerPair(
     isLeft: Boolean,

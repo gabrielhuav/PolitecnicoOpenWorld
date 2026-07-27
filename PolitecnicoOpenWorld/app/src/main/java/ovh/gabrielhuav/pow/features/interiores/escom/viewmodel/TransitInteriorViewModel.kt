@@ -53,6 +53,7 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
         TransitInteriorState(
             controlType = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
+            showShoulderButtons = settingsRepository.getShowWorldShoulderButtons(),
             swapControls = settingsRepository.getSwapControls(),
             selectedSkin = settingsRepository.getPlayerSkin()   // respeta la skin elegida (no siempre Lázaro)
         )

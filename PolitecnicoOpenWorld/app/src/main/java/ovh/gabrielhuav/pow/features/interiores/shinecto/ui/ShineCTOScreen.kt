@@ -69,6 +69,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsCont
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimDialog
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.ui.components.JoystickController
+import ovh.gabrielhuav.pow.ui.components.WithShoulderTriggers
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
@@ -428,13 +429,18 @@ private fun ShineCTOHud(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // 🆕 (2026-07-26) Gatillos L1/L2/R1/R2 opcionales (Ajustes → Interfaz, OFF por defecto).
+            // Con la opción apagada no dibujan NADA y el HUD queda igual que siempre.
             val movement: @Composable () -> Unit = {
+              WithShoulderTriggers(state.showShoulderButtons, isLeft = !state.swapControls, scale = effectiveScale) {
                 if (state.controlType == ControlType.DPAD)
                     DPadController(modifier = Modifier.scale(effectiveScale), onDirectionPressed = onMoveDir)
                 else
                     JoystickController(modifier = Modifier.scale(effectiveScale), onMove = onMoveAngle)
+              }
             }
             val actions: @Composable () -> Unit = {
+              WithShoulderTriggers(state.showShoulderButtons, isLeft = state.swapControls, scale = effectiveScale) {
                 ActionButtonsController(
                     modifier = Modifier.scale(effectiveScale),
                     onActionChanged = { action, pressed ->
@@ -447,6 +453,7 @@ private fun ShineCTOHud(
                     },
                     onClaimCollectiblePressed = { onInteract() }
                 )
+              }
             }
             if (state.swapControls) { actions(); movement() }
             else { movement(); actions() }

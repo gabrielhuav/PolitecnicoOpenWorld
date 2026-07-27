@@ -38,6 +38,7 @@ open class InteriorViewModel @dagger.assisted.AssistedInject constructor(
         InteriorState(
             controlType = settingsRepository.getControlType(),
             controlsScale = settingsRepository.getControlsScale(),
+            showShoulderButtons = settingsRepository.getShowWorldShoulderButtons(),
             swapControls = settingsRepository.getSwapControls(),
             showCoordsWidget = settingsRepository.getShowCoordsWidget(),
             isLoading = false

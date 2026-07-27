@@ -78,6 +78,7 @@ import ovh.gabrielhuav.pow.features.interiores.escom.viewmodel.TransitSystems
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsController
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.ui.components.JoystickController
+import ovh.gabrielhuav.pow.ui.components.WithShoulderTriggers
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
@@ -343,24 +344,32 @@ fun MetroStationInteriorScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val movement = @Composable {
-                    if (state.controlType == ControlType.DPAD)
-                        DPadController(modifier = Modifier.scale(scale), onDirectionPressed = { viewModel.moveDirection(it) })
-                    else
-                        JoystickController(modifier = Modifier.scale(scale), onMove = { viewModel.moveByAngle(it) })
+                    // 🆕 (2026-07-26) Gatillos L1/L2/R1/R2 opcionales (Ajustes → Interfaz, OFF por defecto).
+            // Con la opción apagada esto no dibuja NADA extra y el HUD queda igual que siempre.
+                    WithShoulderTriggers(state.showShoulderButtons, isLeft = !state.swapControls, scale = scale) {
+                        if (state.controlType == ControlType.DPAD)
+                            DPadController(modifier = Modifier.scale(scale), onDirectionPressed = { viewModel.moveDirection(it) })
+                        else
+                            JoystickController(modifier = Modifier.scale(scale), onMove = { viewModel.moveByAngle(it) })
+                    }
                 }
                 
                 val actions = @Composable {
-                    ActionButtonsController(
-                        modifier = Modifier.scale(scale),
-                        onActionChanged = { action, pressed ->
-                            when (action) {
-                                GameAction.A -> viewModel.setRunning(pressed)
-                                GameAction.X -> if (pressed) viewModel.interactWithHotspot()
-                                else -> {} // B y Y no tienen uso en Metro
-                            }
-                        },
-                        onClaimCollectiblePressed = { viewModel.interactWithHotspot() }
-                    )
+                    // 🆕 (2026-07-26) Gatillos L1/L2/R1/R2 opcionales (Ajustes → Interfaz, OFF por defecto).
+            // Con la opción apagada esto no dibuja NADA extra y el HUD queda igual que siempre.
+                    WithShoulderTriggers(state.showShoulderButtons, isLeft = state.swapControls, scale = scale) {
+                        ActionButtonsController(
+                            modifier = Modifier.scale(scale),
+                            onActionChanged = { action, pressed ->
+                                when (action) {
+                                    GameAction.A -> viewModel.setRunning(pressed)
+                                    GameAction.X -> if (pressed) viewModel.interactWithHotspot()
+                                    else -> {} // B y Y no tienen uso en Metro
+                                }
+                            },
+                            onClaimCollectiblePressed = { viewModel.interactWithHotspot() }
+                        )
+                    }
                 }
 
                 if (state.swapControls) { actions(); movement() } else { movement(); actions() }

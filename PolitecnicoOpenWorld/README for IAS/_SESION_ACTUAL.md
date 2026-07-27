@@ -113,6 +113,17 @@ Bloquea la subida si se repite un rechazo de 2026-07-22: comprueba que **existe 
 que las **2 URLs de políticas dan 200** (no 404), que traen el **correo correcto** y no el
 equivocado, y que están las **notas de versión** ES+EN. `playstore-closed-testing` depende de él.
 
+### E · Gatillos L1/L2/R1/R2 opcionales (mundo + LOS 5 INTERIORES)
+Ajustes → Interfaz, **OFF por defecto** (en el mundo aún no tienen acción; `onPress` vacío a
+propósito). `ui/components/NeonButton.kt`: `NeonButton`, `NeonTriggerPair` y `WithShoulderTriggers`
+(envoltorio que evita repetir el mismo Column en 5 pantallas). Con la opción apagada la columna
+envuelve un único hijo → **el HUD queda idéntico**.
+- ⚠️ **TRAMPA que costó una iteración:** el `LaunchedEffect` de `AppNavGraph` que refresca el
+  mundo tenía como claves SOLO `controlType`/`controlsScale`/`swapControls`. El interruptor vive
+  en **Interfaz**, no en Controles → nunca se relanzaba y los gatillos no aparecían. Si añades
+  otro ajuste que el mundo deba leer en vivo, **agrégalo a esas claves**.
+- Los interiores lo leen al crear su VM (se crean al entrar), así que ahí basta con eso.
+
 ## 4. PENDIENTE — por prioridad
 
 ### 🔴 P0 · Antes/durante el release
