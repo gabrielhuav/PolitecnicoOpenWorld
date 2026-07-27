@@ -1,5 +1,8 @@
 package ovh.gabrielhuav.pow.domain.models.map
 
+import kotlinx.serialization.encodeToString
+import ovh.gabrielhuav.pow.data.json.PowJson
+
 import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
 
 /**
@@ -92,7 +95,7 @@ object CampusParkingCatalog {
     fun loadCalibration(context: android.content.Context, campus: CampusParking): ParkingCalibration {
         return try {
             context.assets.open(campus.parkingCalibrationAsset).use { ins ->
-                com.google.gson.Gson().fromJson(java.io.InputStreamReader(ins), ParkingCalibration::class.java)
+                PowJson.decodeFromString<ParkingCalibration>(ins.reader().readText())
             } ?: ParkingCalibration()
         } catch (e: Exception) {
             android.util.Log.w("CampusParkingCatalog", "Sin calibración de estacionamiento para ${campus.assetMatch} (${campus.parkingCalibrationAsset}); se usa identidad.", e)

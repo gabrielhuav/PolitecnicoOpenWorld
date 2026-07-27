@@ -1,7 +1,13 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
 import android.content.Context
-import com.google.gson.JsonParser
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.float
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import ovh.gabrielhuav.pow.data.json.PowJson
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAnimFrame
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterData
@@ -73,26 +79,26 @@ object SfFrameCatalog {
     }
 
     private fun parse(json: String): SfFighterData {
-        val root = JsonParser.parseString(json).asJsonObject
+        val root = PowJson.parseToJsonElement(json).jsonObject
 
         val frames = mutableMapOf<String, SfFrameDef>()
-        for ((key, value) in root.getAsJsonObject("frames").entrySet()) {
-            val o = value.asJsonObject
+        for ((key, value) in root.getValue("frames").jsonObject) {
+            val o = value.jsonObject
             frames[key] = SfFrameDef(
-                src = o.getAsJsonArray("src").map { it.asInt },
-                origin = o.getAsJsonArray("origin").map { it.asInt },
-                push = o.getAsJsonArray("push")?.map { it.asInt },
-                hurt = o.getAsJsonArray("hurt")?.map { row -> row.asJsonArray.map { it.asInt } },
-                hit = o.getAsJsonArray("hit")?.map { it.asInt },
-                flipX = o.get("flipX")?.asBoolean ?: false,
+                src = o.getValue("src").jsonArray.map { it.jsonPrimitive.int },
+                origin = o.getValue("origin").jsonArray.map { it.jsonPrimitive.int },
+                push = o["push"]?.jsonArray?.map { it.jsonPrimitive.int },
+                hurt = o["hurt"]?.jsonArray?.map { row -> row.jsonArray.map { it.jsonPrimitive.int } },
+                hit = o["hit"]?.jsonArray?.map { it.jsonPrimitive.int },
+                flipX = o["flipX"]?.jsonPrimitive?.boolean ?: false,
             )
         }
 
         val animations = mutableMapOf<String, List<SfAnimFrame>>()
-        for ((key, value) in root.getAsJsonObject("animations").entrySet()) {
-            animations[key] = value.asJsonArray.map { step ->
-                val arr = step.asJsonArray
-                SfAnimFrame(frameKey = arr[0].asString, delay = arr[1].asInt)
+        for ((key, value) in root.getValue("animations").jsonObject) {
+            animations[key] = value.jsonArray.map { step ->
+                val arr = step.jsonArray
+                SfAnimFrame(frameKey = arr[0].jsonPrimitive.content, delay = arr[1].jsonPrimitive.int)
             }
         }
 
@@ -108,17 +114,17 @@ object SfFrameCatalog {
         }
 
         val projectileEvents = mutableMapOf<SfAttackStrength, SfProjectileEvent>()
-        val projectileRoot = root.getAsJsonObject("events")?.getAsJsonObject("projectile")
+        val projectileRoot = root["events"]?.jsonObject?.get("projectile")?.jsonObject
         if (projectileRoot != null) {
             for (strength in SfAttackStrength.entries) {
                 val key = strength.name.lowercase()
-                val event = projectileRoot.getAsJsonObject(key) ?: continue
-                val offset = event.getAsJsonArray("offset")
+                val event = projectileRoot[key]?.jsonObject ?: continue
+                val offset = event["offset"]?.jsonArray
                 projectileEvents[strength] = SfProjectileEvent(
-                    animationFrame = event.get("frame")?.asInt ?: 3,
-                    offsetX = if (offset != null && offset.size() > 0) offset[0].asFloat else 76f,
-                    offsetY = if (offset != null && offset.size() > 1) offset[1].asFloat else -57f,
-                    visualScale = event.get("scale")?.asFloat ?: 1f,
+                    animationFrame = event["frame"]?.jsonPrimitive?.int ?: 3,
+                    offsetX = if (offset != null && offset.size > 0) offset[0].jsonPrimitive.float else 76f,
+                    offsetY = if (offset != null && offset.size > 1) offset[1].jsonPrimitive.float else -57f,
+                    visualScale = event["scale"]?.jsonPrimitive?.float ?: 1f,
                 )
             }
         }

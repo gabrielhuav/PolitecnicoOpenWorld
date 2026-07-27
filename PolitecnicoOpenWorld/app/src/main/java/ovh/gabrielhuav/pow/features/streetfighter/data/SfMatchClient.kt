@@ -1,8 +1,10 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
+import kotlinx.serialization.encodeToString
+import ovh.gabrielhuav.pow.data.json.PowJson
+
 import kotlinx.serialization.Serializable
 
-import com.google.gson.Gson
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -83,7 +85,7 @@ data class SfNetFireball(
     val frame: Int,
 )
 
-class SfMatchClient(private val gson: Gson = Gson()) : SfNetTransport {
+class SfMatchClient : SfNetTransport {
 
     private val http = OkHttpClient.Builder()
         .pingInterval(20, TimeUnit.SECONDS) // mantiene vivo el WS (Render free duerme sin tráfico)
@@ -106,7 +108,7 @@ class SfMatchClient(private val gson: Gson = Gson()) : SfNetTransport {
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                runCatching { gson.fromJson(text, SfNetMsg::class.java) }
+                runCatching { PowJson.decodeFromString<SfNetMsg>(text) }
                     .getOrNull()?.let { listener.onMessage(it) }
             }
 
@@ -121,7 +123,7 @@ class SfMatchClient(private val gson: Gson = Gson()) : SfNetTransport {
     }
 
     private fun send(payload: Map<String, Any?>) {
-        ws?.send(gson.toJson(payload.filterValues { it != null }))
+        ws?.send(PowJson.encodeToString(payload.filterValues { it != null }))
     }
 
     /**

@@ -124,7 +124,11 @@ dependencies {
 
     // Dependencias para Multijugador
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.google.code.gson:gson:2.10.1")
+    // 🍏 Gson ya NO va en producción (Fase 3): usa reflexión de la JVM y no existe en iOS. Se
+    // queda SOLO en tests, que es donde `GameSaveCompatGsonTest` y `JsonObjectCompatGsonTest`
+    // comparan el JSON nuevo contra el que producía Gson (partidas guardadas y formato de cable).
+    // ⚠️ NO lo devuelvas a `implementation`: si vuelve, vuelve el bloqueo de iOS.
+    testImplementation("com.google.code.gson:gson:2.10.1")
     // 🆕 (2026-07-26) WebRTC para la pelea P2P (SfWebRtcClient): el gameplay va DIRECTO entre
     // los 2 teléfonos y Render queda solo de cupido. Se usa `io.github.webrtc-sdk` porque el
     // `org.webrtc:google-webrtc` oficial está SIN mantenimiento desde 2019.

@@ -1,8 +1,11 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
+import kotlinx.serialization.Serializable
+
 enum class Direction { UP, DOWN, LEFT, RIGHT }
 enum class GameAction { A, B, X, Y }
 
+@Serializable
 data class MultiplayerPlayer(
     val type: String = "PLAYER_UPDATE",
     val id: String,
@@ -18,6 +21,7 @@ data class MultiplayerPlayer(
     val health: Float = 100f
 )
 
+@Serializable
 data class MultiplayerNpc(
     val id: String,
     val x: Double,
@@ -44,6 +48,7 @@ data class MultiplayerNpc(
     val screamUntil: Long? = null
 )
 
+@Serializable
 internal data class ServerMessage(
     val type: String? = null,
     val id: String? = null,

@@ -1,5 +1,8 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
+import kotlinx.serialization.encodeToString
+import ovh.gabrielhuav.pow.data.json.PowJson
+
 import android.util.Log
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +24,7 @@ import kotlin.math.cos
 // público único; triggerFear vive en npcAiManager. (Activa bugfixes que antes no corrían → probar MP.)
 internal fun WorldMapViewModel.handleMultiplayerMessage(messageJson: String) {
         try {
-            val msg = gson.fromJson(messageJson, ServerMessage::class.java)
+            val msg = PowJson.decodeFromString<ServerMessage>(messageJson)
 
             when (msg.type) {
                 "SESSION_INIT" -> {

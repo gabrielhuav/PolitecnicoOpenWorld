@@ -1,9 +1,12 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
+import kotlinx.serialization.encodeToString
+import ovh.gabrielhuav.pow.data.json.PowJson
+import ovh.gabrielhuav.pow.data.json.jsonOf
+
 import android.content.Context
 import android.net.wifi.WifiManager
 import android.util.Log
-import com.google.gson.Gson
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
@@ -25,7 +28,6 @@ data class SfLanGame(val ip: String, val name: String)
 
 class SfLanDiscovery(private val context: Context) {
 
-    private val gson = Gson()
 
     // ── HOST: baliza ──
     @Volatile private var beaconRunning = false
@@ -42,7 +44,7 @@ class SfLanDiscovery(private val context: Context) {
         if (beaconRunning) return
         beaconRunning = true
         beaconThread = Thread({
-            val payload = gson.toJson(mapOf("app" to APP_TAG, "name" to hostName)).toByteArray()
+            val payload = jsonOf(mapOf("app" to APP_TAG, "name" to hostName)).toByteArray()
             runCatching {
                 DatagramSocket().use { sock ->
                     sock.broadcast = true
@@ -85,7 +87,7 @@ class SfLanDiscovery(private val context: Context) {
                         sock.receive(packet) // bloquea hasta recibir (o hasta close())
                         if (!listenRunning) break
                         val json = runCatching {
-                            gson.fromJson(String(packet.data, 0, packet.length), Map::class.java)
+                            PowJson.decodeFromString<Map<String, String>>(String(packet.data, 0, packet.length))
                         }.getOrNull() ?: continue
                         if (json["app"] != APP_TAG) continue
                         val ip = packet.address?.hostAddress ?: continue

@@ -1,9 +1,12 @@
 package ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel
 
+import kotlinx.serialization.encodeToString
+import ovh.gabrielhuav.pow.data.json.PowJson
+import ovh.gabrielhuav.pow.data.json.jsonOf
+
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -80,7 +83,6 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
     internal var exitGuideJob: Job? = null
 
     // ─── Red multijugador ──────────────────────────────────
-    internal val gson = Gson()
     internal var wsManager: WebSocketManager? = null
     internal var wsCollectorJob: Job? = null
     internal var mySessionId: String = "ZPlayer_${UUID.randomUUID()}"
@@ -242,7 +244,7 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
         if (!isMultiplayer) return
         val room = currentRoom()
         wsManager?.sendMessage(
-            gson.toJson(
+            jsonOf(
                 mapOf(
                     "type" to "JOIN_ROOM",
                     "roomId" to room.id,
@@ -260,7 +262,7 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
 
     internal fun handleServerMessage(json: String) {
         try {
-            val msg = gson.fromJson(json, ZombieServerMessage::class.java)
+            val msg = PowJson.decodeFromString<ZombieServerMessage>(json)
             when (msg.type) {
                 "SESSION_INIT" -> msg.sessionId?.let { mySessionId = it }
 
@@ -335,7 +337,7 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
         val s = _state.value
         val room = currentRoom()
         wsManager?.sendMessage(
-            gson.toJson(
+            jsonOf(
                 mapOf(
                     "type" to "PLAYER_UPDATE",
                     "displayName" to playerName,
@@ -354,7 +356,7 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
 
     internal fun sendItemPickup(itemId: String) {
         if (!isMultiplayer) return
-        wsManager?.sendMessage(gson.toJson(mapOf("type" to "ITEM_PICKUP", "itemId" to itemId)))
+        wsManager?.sendMessage(jsonOf(mapOf("type" to "ITEM_PICKUP", "itemId" to itemId)))
     }
 
     // CAPA ZOMBI: sendZombieDamage / applyServerZombieState / effectFromName / applyEffectByName /

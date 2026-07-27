@@ -1,7 +1,9 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
+import kotlinx.serialization.encodeToString
+import ovh.gabrielhuav.pow.data.json.PowJson
+
 import android.util.Log
-import com.google.gson.Gson
 import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
@@ -28,9 +30,7 @@ import java.util.concurrent.Executors
 // si una escritura falla se cierra el socket para destrabar el readLoop YA (abandono en
 // segundos). SIN foreground service: la conexión vive con la Activity (close() al salir).
 
-abstract class SfStreamPeer(
-    protected val gson: Gson = Gson(),
-) : SfNetTransport {
+abstract class SfStreamPeer : SfNetTransport {
 
     protected var listener: SfNetTransport.Listener? = null
     @Volatile protected var running = false
@@ -161,7 +161,7 @@ abstract class SfStreamPeer(
 
     /** Enruta un mensaje entrante (el HOST además AGREGA lo que en online hace el relay). */
     private fun onLine(raw: String) {
-        val msg = runCatching { gson.fromJson(raw, SfNetMsg::class.java) }.getOrNull() ?: return
+        val msg = runCatching { PowJson.decodeFromString<SfNetMsg>(raw) }.getOrNull() ?: return
         when (msg.type) {
             // ── HANDSHAKE (conexión verificada) ──
             "BT_HELLO" -> if (isHostRole && !handshaken) {
@@ -329,7 +329,7 @@ abstract class SfStreamPeer(
      */
     protected fun sendRaw(payload: Map<String, Any?>) {
         // El JSON se serializa en el hilo que llama (no es red); la escritura va al executor.
-        val line = gson.toJson(payload.filterValues { it != null }) + "\n"
+        val line = PowJson.encodeToString(payload.filterValues { it != null }) + "\n"
         val type = payload["type"]
         // execute puede lanzar RejectedExecutionException si el executor ya se apagó (tras close()).
         runCatching {

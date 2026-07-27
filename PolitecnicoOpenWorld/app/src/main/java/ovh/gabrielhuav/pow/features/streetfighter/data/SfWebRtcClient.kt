@@ -1,8 +1,10 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
+import kotlinx.serialization.encodeToString
+import ovh.gabrielhuav.pow.data.json.PowJson
+
 import android.content.Context
 import android.util.Log
-import com.google.gson.Gson
 import org.webrtc.DataChannel
 import org.webrtc.IceCandidate
 import org.webrtc.MediaConstraints
@@ -48,7 +50,6 @@ class SfWebRtcClient(
     private val relay: SfMatchClient,
     /** El HOST de la sala (p1) hace la OFERTA; el invitado contesta. Evita la colisión de glare. */
     private val isOfferer: Boolean,
-    private val gson: Gson = Gson(),
 ) : SfNetTransport {
 
     /** Listener del VM. Recibe TANTO lo que llega por el relay como lo que llega por P2P. */
@@ -280,7 +281,7 @@ class SfWebRtcClient(
 
     /** Un mensaje que llegó DIRECTO del rival. Mismo JSON que por el relay. */
     private fun onPeerLine(raw: String) {
-        val msg = runCatching { gson.fromJson(raw, SfNetMsg::class.java) }.getOrNull() ?: return
+        val msg = runCatching { PowJson.decodeFromString<SfNetMsg>(raw) }.getOrNull() ?: return
         // Autoridad del receptor, igual que en el relay: el estado que me manda mi rival es,
         // para mí, el del OPONENTE (el server hacía esta misma traducción).
         val out = if (msg.type == "PLAYER_STATE") msg.copy(type = "OPPONENT_STATE") else msg
@@ -297,7 +298,7 @@ class SfWebRtcClient(
             fallback()
             return
         }
-        val line = gson.toJson(payload.filterValues { it != null })
+        val line = PowJson.encodeToString(payload.filterValues { it != null })
         runCatching {
             sendExecutor.execute {
                 val ok = runCatching {

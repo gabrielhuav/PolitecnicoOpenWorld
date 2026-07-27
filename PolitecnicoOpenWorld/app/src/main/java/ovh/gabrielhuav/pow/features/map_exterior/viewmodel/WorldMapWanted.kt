@@ -1,5 +1,7 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
+import ovh.gabrielhuav.pow.data.json.jsonOf
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PARCIAL del WorldMapViewModel: ORQUESTACIÓN del NIVEL DE BÚSQUEDA + POLICÍA PROPIA +
 // CARJACK. El SUB-ESTADO (wantedLevel/carjackWarning/policeShots), los timers y las
@@ -149,7 +151,7 @@ internal fun WorldMapViewModel.runPoliceTick(location: GeoPoint) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 tick.destroyedIds.forEach { pid ->
-                    ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_DESTROY", "npcId" to pid)))
+                    ws.sendMessage(jsonOf(mapOf("type" to "POLICE_DESTROY", "npcId" to pid)))
                 }
                 if (doBroadcastBatch && tick.units.isNotEmpty()) {
                     val batch = tick.units.map { u ->
@@ -162,7 +164,7 @@ internal fun WorldMapViewModel.runPoliceTick(location: GeoPoint) {
                             ownerId = myPlayerUUID
                         )
                     }
-                    ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_BATCH_UPDATE", "npcs" to batch)))
+                    ws.sendMessage(jsonOf(mapOf("type" to "POLICE_BATCH_UPDATE", "npcs" to batch)))
                 }
             } catch (e: Exception) {
                 Log.e("Police", "Error difundiendo policía: ${e.message}")

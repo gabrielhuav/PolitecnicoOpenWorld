@@ -1,5 +1,7 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
+import ovh.gabrielhuav.pow.data.json.jsonOf
+
 // ───────────────────────────────────────────────────────────────────────────────────
 // PARCIAL del WorldMapViewModel: COMBATE (melee del jugador, atropello estilo
 // Midnight Club, daño por contacto de NPCs/zombis, provocación de la policía del
@@ -58,7 +60,7 @@ fun WorldMapViewModel.performPlayerAttack() {
             webSocketManager?.let { ws ->
                 viewModelScope.launch(Dispatchers.IO) {
                     deadCops.forEach { pid ->
-                        try { ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_DESTROY", "npcId" to pid))) } catch (_: Exception) {}
+                        try { ws.sendMessage(jsonOf(mapOf("type" to "POLICE_DESTROY", "npcId" to pid))) } catch (_: Exception) {}
                     }
                 }
             }
@@ -84,7 +86,7 @@ fun WorldMapViewModel.performPlayerAttack() {
                     val nh = (n.health - PLAYER_PUNCH_DAMAGE).coerceAtLeast(0f)
                     if (nh <= 0f) {
                         remoteEntities.remove(id)
-                        try { webSocketManager?.sendMessage(gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to id))) } catch (_: Exception) {}
+                        try { webSocketManager?.sendMessage(jsonOf(mapOf("type" to "NPC_DESTROY", "npcId" to id))) } catch (_: Exception) {}
                     } else {
                         remoteEntities[id] = n.copy(health = nh, aggroUntil = nowP + NpcAiManager.AGGRO_DURATION_MS)
                     }
@@ -110,7 +112,7 @@ fun WorldMapViewModel.performPlayerAttack() {
             if (isRemotePlayer) {
                 try {
                     webSocketManager?.sendMessage(
-                        gson.toJson(
+                        jsonOf(
                             mapOf(
                                 "type" to "PLAYER_DAMAGE",
                                 "targetId" to npcId,
@@ -139,7 +141,7 @@ fun WorldMapViewModel.performPlayerAttack() {
                     remoteEntities.remove(npcId)
                     try {
                         webSocketManager?.sendMessage(
-                            gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to npcId))
+                            jsonOf(mapOf("type" to "NPC_DESTROY", "npcId" to npcId))
                         )
                     } catch (e: Exception) { Log.e("Combat", "Error enviando NPC_DESTROY para npcId=$npcId", e) }
                     updateNpcsState()
@@ -219,7 +221,7 @@ internal fun WorldMapViewModel.runOverNpcs(playerLoc: GeoPoint, speed: Double, i
             remoteEntities[id] = npc.copy(health = 0f, isDying = true)
             if (giveStar) raiseWantedLevel(1)
             viewModelScope.launch { delay(1000L); remoteEntities.remove(id); updateNpcsState() }
-            try { webSocketManager?.sendMessage(gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to id))) } catch (_: Exception) {}
+            try { webSocketManager?.sendMessage(jsonOf(mapOf("type" to "NPC_DESTROY", "npcId" to id))) } catch (_: Exception) {}
         } else remoteEntities[id] = npc.copy(health = newHealth)
     }
     // Empuja un NPC al lado HACIA EL QUE YA ESTÁ (lo saca del camino del coche).

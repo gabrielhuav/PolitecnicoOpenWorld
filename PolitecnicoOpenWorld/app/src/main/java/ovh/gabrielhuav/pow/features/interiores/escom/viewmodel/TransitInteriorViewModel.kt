@@ -1,11 +1,12 @@
 package ovh.gabrielhuav.pow.features.interiores.escom.viewmodel
 
+import kotlinx.serialization.encodeToString
+import ovh.gabrielhuav.pow.data.json.PowJson
+
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,14 +70,13 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
     private val RUN_STEP = 0.008f
 
     private val prefs = context.getSharedPreferences(config.stationPrefsName(stationName), Context.MODE_PRIVATE)
-    private val gson = Gson()
 
     init {
         val savedRows = prefs.getString("matrix", null)
         val savedDoors = prefs.getString("doors", null)
 
         var initialRows = if (savedRows != null) {
-            try { gson.fromJson<List<String>>(savedRows, object : TypeToken<List<String>>() {}.type) }
+            try { PowJson.decodeFromString<List<String>>(savedRows) }
             catch (ignored: Exception) { null }
         } else null
 
@@ -84,7 +84,7 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
             try {
                 context.assets.open(config.matrixAsset).use { inp ->
                     val json = InputStreamReader(inp).readText()
-                    initialRows = gson.fromJson<List<String>>(json, object : TypeToken<List<String>>() {}.type)
+                    initialRows = PowJson.decodeFromString<List<String>>(json)
                 }
             } catch (ignored: Exception) { }
         }
@@ -98,7 +98,7 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
         gridCols = defaultRows.maxOfOrNull { it.length } ?: gridCols
 
         var initialDoors = if (savedDoors != null) {
-            try { gson.fromJson<List<ZoneDoor>>(savedDoors, object : TypeToken<List<ZoneDoor>>() {}.type) }
+            try { PowJson.decodeFromString<List<ZoneDoor>>(savedDoors) }
             catch (ignored: Exception) { null }
         } else null
 
@@ -106,7 +106,7 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
             try {
                 context.assets.open(config.waypointsAsset).use { inp ->
                     val json = InputStreamReader(inp).readText()
-                    initialDoors = gson.fromJson<List<ZoneDoor>>(json, object : TypeToken<List<ZoneDoor>>() {}.type)
+                    initialDoors = PowJson.decodeFromString<List<ZoneDoor>>(json)
                 }
             } catch (ignored: Exception) { }
         }
@@ -119,7 +119,7 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
         var initialGlobalWaypoints: List<ZoneDoor>? = null
         if (savedGlobalWaypoints != null) {
             try {
-                initialGlobalWaypoints = gson.fromJson<List<ZoneDoor>>(savedGlobalWaypoints, object : TypeToken<List<ZoneDoor>>() {}.type)
+                initialGlobalWaypoints = PowJson.decodeFromString<List<ZoneDoor>>(savedGlobalWaypoints)
             } catch (ignored: Exception) { }
         }
 
@@ -127,7 +127,7 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
             try {
                 context.assets.open(config.globalWaypointsAsset).use { inp ->
                     val json = InputStreamReader(inp).readText()
-                    initialGlobalWaypoints = gson.fromJson<List<ZoneDoor>>(json, object : TypeToken<List<ZoneDoor>>() {}.type)
+                    initialGlobalWaypoints = PowJson.decodeFromString<List<ZoneDoor>>(json)
                 }
             } catch (ignored: Exception) { }
         }
@@ -458,8 +458,8 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
 
     fun saveDesignerMatrix() {
         prefs.edit()
-            .putString("matrix", gson.toJson(_state.value.designerRows))
-            .putString("doors", gson.toJson(_state.value.doors))
+            .putString("matrix", PowJson.encodeToString(_state.value.designerRows))
+            .putString("doors", PowJson.encodeToString(_state.value.doors))
             .apply()
         _state.update { it.copy(designerDirty = false) }
     }
@@ -468,7 +468,7 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
     fun exportMatricesToUri(uri: Uri) {
         try {
             context.contentResolver.openOutputStream(uri)?.use { out ->
-                out.write(gson.toJson(_state.value.designerRows).toByteArray())
+                out.write(PowJson.encodeToString(_state.value.designerRows).toByteArray())
             }
         } catch (e: Exception) { android.util.Log.e("DetektFix", "Error atrapado", e) }
     }
@@ -476,7 +476,7 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
     fun importMatricesFromUri(uri: Uri) {
         try {
             context.contentResolver.openInputStream(uri)?.use { inp ->
-                val rows = gson.fromJson<List<String>>(InputStreamReader(inp).readText(), object : TypeToken<List<String>>() {}.type)
+                val rows = PowJson.decodeFromString<List<String>>(InputStreamReader(inp).readText())
                 if (rows != null) {
                     gridRows = rows.size
                     gridCols = rows.maxOfOrNull { it.length } ?: 0
@@ -490,7 +490,7 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
     fun exportWaypointsToUri(uri: Uri) {
         try {
             context.contentResolver.openOutputStream(uri)?.use { out ->
-                out.write(gson.toJson(_state.value.doors).toByteArray())
+                out.write(PowJson.encodeToString(_state.value.doors).toByteArray())
             }
         } catch (e: Exception) { android.util.Log.e("DetektFix", "Error atrapado", e) }
     }
@@ -498,7 +498,7 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
     fun importWaypointsFromUri(uri: Uri) {
         try {
             context.contentResolver.openInputStream(uri)?.use { inp ->
-                val ds = gson.fromJson<List<ZoneDoor>>(InputStreamReader(inp).readText(), object : TypeToken<List<ZoneDoor>>() {}.type)
+                val ds = PowJson.decodeFromString<List<ZoneDoor>>(InputStreamReader(inp).readText())
                 if (ds != null) _state.update { it.copy(doors = ds, designerDirty = true) }
             }
         } catch (e: Exception) { android.util.Log.e("DetektFix", "Error atrapado", e) }
@@ -507,7 +507,7 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
     fun exportGlobalWaypointsToUri(uri: Uri) {
         try {
             context.contentResolver.openOutputStream(uri)?.use { out ->
-                out.write(gson.toJson(_state.value.globalWaypoints).toByteArray())
+                out.write(PowJson.encodeToString(_state.value.globalWaypoints).toByteArray())
             }
         } catch (e: Exception) { android.util.Log.e("DetektFix", "Error atrapado", e) }
     }
@@ -515,7 +515,7 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
     fun importGlobalWaypointsFromUri(uri: Uri) {
         try {
             context.contentResolver.openInputStream(uri)?.use { inp ->
-                val ds = gson.fromJson<List<ZoneDoor>>(InputStreamReader(inp).readText(), object : TypeToken<List<ZoneDoor>>() {}.type)
+                val ds = PowJson.decodeFromString<List<ZoneDoor>>(InputStreamReader(inp).readText())
                 if (ds != null) {
                     _state.update { it.copy(globalWaypoints = ds, designerDirty = true) }
                     saveGlobalWaypoints()
@@ -648,7 +648,7 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
 
     fun saveGlobalWaypoints() {
         val globalPrefs = context.getSharedPreferences(config.mapGlobalPrefsName, Context.MODE_PRIVATE)
-        globalPrefs.edit().putString("global_waypoints", gson.toJson(_state.value.globalWaypoints)).apply()
+        globalPrefs.edit().putString("global_waypoints", PowJson.encodeToString(_state.value.globalWaypoints)).apply()
         _state.update { it.copy(messageToast = getLocalizedString(config.msgGlobalWaypointsSavedRes)) }
         viewModelScope.launch { delay(2000); _state.update { it.copy(messageToast = null) } }
     }

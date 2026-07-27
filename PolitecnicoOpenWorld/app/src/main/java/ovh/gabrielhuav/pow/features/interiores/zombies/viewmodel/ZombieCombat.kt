@@ -1,5 +1,7 @@
 package ovh.gabrielhuav.pow.features.interiores.zombies.viewmodel
 
+import ovh.gabrielhuav.pow.data.json.jsonOf
+
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
@@ -230,7 +232,7 @@ internal fun ZombieInteriorViewModel.showVictory() {
 internal fun ZombieInteriorViewModel.sendZombieDamage(zombieId: String, damage: Float) {
     if (!isMultiplayer) return
     wsManager?.sendMessage(
-        gson.toJson(mapOf("type" to "ZOMBIE_DAMAGE", "zombieId" to zombieId, "damage" to damage))
+        jsonOf(mapOf("type" to "ZOMBIE_DAMAGE", "zombieId" to zombieId, "damage" to damage))
     )
 }
 

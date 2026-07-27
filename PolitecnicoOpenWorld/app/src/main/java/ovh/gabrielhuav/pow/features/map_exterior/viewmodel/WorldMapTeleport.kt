@@ -1,5 +1,7 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
+import ovh.gabrielhuav.pow.data.json.jsonOf
+
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 
 // ───────────────────────────────────────────────────────────────────────────────────
@@ -94,7 +96,7 @@ fun WorldMapViewModel.teleportTo(lat: Double, lon: Double) {
     webSocketManager?.let { ws ->
         viewModelScope.launch(Dispatchers.IO) {
             clearedPolice.forEach { pid ->
-                try { ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_DESTROY", "npcId" to pid))) } catch (_: Exception) {}
+                try { ws.sendMessage(jsonOf(mapOf("type" to "POLICE_DESTROY", "npcId" to pid))) } catch (_: Exception) {}
             }
         }
     }

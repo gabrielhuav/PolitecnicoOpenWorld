@@ -1,10 +1,13 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
+import kotlinx.serialization.encodeToString
+import ovh.gabrielhuav.pow.data.json.PowJson
+import ovh.gabrielhuav.pow.data.json.jsonOf
+
 import android.content.Context
 import android.util.Log
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.viewModelScope
-import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -467,7 +470,6 @@ class WorldMapViewModel @javax.inject.Inject constructor(
 
     internal var webSocketManager: WebSocketManager? = null
     internal var messagesCollectorJob: Job? = null
-    internal val gson = Gson()
     internal var myPlayerUUID = "Player_${UUID.randomUUID()}"
     internal var myPlayerDisplayName = ""
     internal val remoteEntities = ConcurrentHashMap<String, Npc>()
@@ -1057,7 +1059,7 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                                 vehicleRotation = _uiState.value.vehicleRotation,
                                                 health = playerHealth
                                             )
-                                            ws.sendMessage(gson.toJson(myData))
+                                            ws.sendMessage(PowJson.encodeToString(myData))
 
                                             if (isServerDelegatedHost) {
                                                 val despawnsToSend = synchronized(npcAiManager.pendingDespawns) {
@@ -1067,7 +1069,7 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                                 }
 
                                                 despawnsToSend.forEach { idToRemove ->
-                                                    ws.sendMessage(gson.toJson(mapOf("type" to "NPC_DESTROY", "npcId" to idToRemove)))
+                                                    ws.sendMessage(jsonOf(mapOf("type" to "NPC_DESTROY", "npcId" to idToRemove)))
                                                 }
 
                                                 if (processedNpcs.isNotEmpty()) {
@@ -1092,7 +1094,7 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                                             screamUntil = npc.screamUntil
                                                         )
                                                     }
-                                                    ws.sendMessage(gson.toJson(mapOf("type" to "NPC_BATCH_UPDATE", "npcs" to npcBatch)))
+                                                    ws.sendMessage(jsonOf(mapOf("type" to "NPC_BATCH_UPDATE", "npcs" to npcBatch)))
                                                 }
                                             } else {
                                                 synchronized(npcAiManager.pendingDespawns) { npcAiManager.pendingDespawns.clear() }
@@ -1139,7 +1141,7 @@ class WorldMapViewModel @javax.inject.Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val jsonString = context.assets.open("CONFIG/exterior_collisions.json").bufferedReader().use { it.readText() }
-                exteriorCollisions = Gson().fromJson(jsonString, ExteriorCollisionsConfig::class.java)
+                exteriorCollisions = PowJson.decodeFromString<ExteriorCollisionsConfig>(jsonString)
 
                 npcAiManager.setExteriorCollisions(exteriorCollisions)
                 // Exponer al estado para el overlay de Debug Interiores (zonas no caminables).
