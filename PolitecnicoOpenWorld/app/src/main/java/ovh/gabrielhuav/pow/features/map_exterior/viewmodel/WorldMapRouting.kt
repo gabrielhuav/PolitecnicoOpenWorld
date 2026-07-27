@@ -1,6 +1,6 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import kotlin.math.floor
 import kotlin.math.max

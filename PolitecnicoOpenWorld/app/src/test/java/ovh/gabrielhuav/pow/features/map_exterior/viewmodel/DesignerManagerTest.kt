@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 
 /**
  * Tests del PRIMER manager con sub-estado propio (Etapa 3 de CHECKPOINT_SENIOR_refactor.md).

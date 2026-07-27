@@ -1,5 +1,7 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
+
 
 import android.content.Context
 import com.google.gson.Gson
@@ -31,7 +33,7 @@ internal fun WorldMapViewModel.collectEscomItem() {
         val loc = _uiState.value.currentLocation ?: return
         val interactionRadius = 0.00015
         val itemToCollect = _escomItems.value.find {
-            distance(loc, org.osmdroid.util.GeoPoint(it.latitude, it.longitude)) <= interactionRadius
+            distance(loc, GeoPoint(it.latitude, it.longitude)) <= interactionRadius
         }
 
         if (itemToCollect != null) {

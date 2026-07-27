@@ -1,5 +1,7 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
+
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
@@ -22,7 +24,7 @@ internal fun WorldMapViewModel.trySpawningCollectible(playerLat: Double, playerL
                     val deltaLon = (distanceMeters * Math.sin(bearing)) / (111000.0 * Math.cos(Math.toRadians(clampedLat)))
                     val offsetLat = playerLat + deltaLat
                     val offsetLon = playerLon + deltaLon
-                    val tempLoc = org.osmdroid.util.GeoPoint(offsetLat, offsetLon)
+                    val tempLoc = GeoPoint(offsetLat, offsetLon)
                     val spawnNode = getNearestPointOnNetwork(tempLoc)
                     val activeItem = ActiveCollectible(
                         id = itemToSpawn.id,
@@ -44,7 +46,7 @@ internal fun WorldMapViewModel.trySpawningCollectible(playerLat: Double, playerL
 
 
 internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, playerLon: Double) {
-        val playerGeo = org.osmdroid.util.GeoPoint(playerLat, playerLon)
+        val playerGeo = GeoPoint(playerLat, playerLon)
 
         // 1. Verificar cercanía a estaciones del metro (el catálogo/cercanía los POSEE
         // transitTeleportManager, manager 5/6; el interactionPrompt temporizado se queda aquí).
@@ -139,10 +141,10 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
         val allPossibleItems = baseItems + doorItems + npcItems
 
         val activeItem = allPossibleItems.minByOrNull {
-            playerGeo.distanceToAsDouble(org.osmdroid.util.GeoPoint(it.latitude, it.longitude))
+            playerGeo.distanceToAsDouble(GeoPoint(it.latitude, it.longitude))
         } ?: return
 
-        val itemGeo = org.osmdroid.util.GeoPoint(activeItem.latitude, activeItem.longitude)
+        val itemGeo = GeoPoint(activeItem.latitude, activeItem.longitude)
         val distanceInMeters = playerGeo.distanceToAsDouble(itemGeo)
 
         // 4. Radio de detección especial para las puertas (20 metros), gatos (4 metros) o estándar para objetos (15 metros)

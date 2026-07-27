@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.data.cache.RoadNetworkCache
 import ovh.gabrielhuav.pow.data.cache.TileCache
 import ovh.gabrielhuav.pow.data.network.WebSocketManager
@@ -317,7 +317,7 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     internal var mission1ChasePrankedyEntered = false
     // CHASE: posición EXACTA donde Prankedy desespawneó al meterse a la ESCOM. La policía del REMATE
     // se reúne AQUÍ a "platicar" (no en la puerta del objetivo, que queda unos metros más allá).
-    internal var mission1ChasePrankedyExitPoint: org.osmdroid.util.GeoPoint? = null
+    internal var mission1ChasePrankedyExitPoint: GeoPoint? = null
     // Multitud de NPCs que SALEN de la puerta de la ESCOM (hora de salida) y se despawnean al
     // salir de tu fog of war. Lista propia (no la toca NpcAiManager); se fusiona en uiState.npcs.
     internal val mission1ChaseCrowd = ConcurrentHashMap<String, Npc>()

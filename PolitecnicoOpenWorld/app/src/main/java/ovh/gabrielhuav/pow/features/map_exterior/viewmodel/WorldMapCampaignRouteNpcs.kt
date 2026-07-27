@@ -1,7 +1,7 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import androidx.compose.ui.graphics.Color
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.domain.models.map.CharacterVisualConfig
 import ovh.gabrielhuav.pow.domain.models.map.MapNode

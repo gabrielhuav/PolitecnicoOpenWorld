@@ -1,6 +1,6 @@
 package ovh.gabrielhuav.pow.domain.models.map
 
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 
 /**
  * Contrato común de una estación de transporte público (Metro, Metrobús y futuros: Suburbano,

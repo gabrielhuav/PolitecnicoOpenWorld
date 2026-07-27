@@ -196,7 +196,7 @@ internal fun NativeOsmMap(
             // usuario intente panear): la capa de dibujo Compose asume centro = jugador para
             // convertir pantalla↔coordenadas, así que el centro debe ser estable.
             if (!uiState.isUserPanningMap || uiState.showInteriorDebugOverlay) {
-                uiState.currentLocation?.let { view.controller.setCenter(it) }
+                uiState.currentLocation?.let { view.controller.setCenter(it.toOsm()) }
             }
 
             view.mapOrientation = if (uiState.isDriving) -uiState.vehicleRotation else 0f
@@ -216,7 +216,7 @@ internal fun NativeOsmMap(
                         view.setTag(ovh.gabrielhuav.pow.R.id.player_marker_tag, this)
                         view.overlays.add(this)
                     }
-                uiState.currentLocation?.let { playerMarker.position = it; playerMarker.setAlpha(1f) }
+                uiState.currentLocation?.let { playerMarker.position = it.toOsm(); playerMarker.setAlpha(1f) }
             } else {
                 (view.getTag(ovh.gabrielhuav.pow.R.id.player_marker_tag) as? Marker)?.setAlpha(0f)
             }
@@ -231,7 +231,7 @@ internal fun NativeOsmMap(
                 }
 
             if (uiState.destinationMarker != null) {
-                destMarker.position = uiState.destinationMarker
+                destMarker.position = uiState.destinationMarker.toOsm()
                 destMarker.isEnabled = true
                 destMarker.isDraggable = false
                 destMarker.setAlpha(1f)
@@ -506,7 +506,7 @@ internal fun NativeOsmMap(
                 }
 
             if (uiState.destinationMarker != null && uiState.routeWaypoints.isNotEmpty() && uiState.showDestinationRoute) {
-                routeOverlay.setPoints(uiState.routeWaypoints)
+                routeOverlay.setPoints(uiState.routeWaypoints.toOsm())
                 routeOverlay.isEnabled = true
             } else {
                 routeOverlay.isEnabled = false
@@ -525,7 +525,7 @@ internal fun NativeOsmMap(
                     view.overlays.add(0, this)
                 }
             if (uiState.campaignRouteWaypoints.isNotEmpty()) {
-                campaignRouteOverlay.setPoints(uiState.campaignRouteWaypoints)
+                campaignRouteOverlay.setPoints(uiState.campaignRouteWaypoints.toOsm())
                 campaignRouteOverlay.isEnabled = true
             } else {
                 campaignRouteOverlay.isEnabled = false
@@ -536,7 +536,7 @@ internal fun NativeOsmMap(
                 zoomDiff < 0.01 -> {}
                 zoomDiff > 1.5  -> {
                     if (!uiState.isUserPanningMap) {
-                        view.controller.animateTo(uiState.currentLocation, uiState.zoomLevel, 120L)
+                        view.controller.animateTo(uiState.currentLocation?.toOsm(), uiState.zoomLevel, 120L)
                     }
                 }
                 else            -> view.controller.setZoom(uiState.zoomLevel)
@@ -1058,7 +1058,7 @@ internal fun NativeOsmMap(
                         debugMarkerCache[b.id] = this
                         view.overlays.add(this)
                     }
-                    marker.position = b.location
+                    marker.position = b.location.toOsm()
                     marker.setAlpha(1f)
                 }
 
@@ -1071,7 +1071,7 @@ internal fun NativeOsmMap(
                         view.overlays.add(this)
                     }
                 val bb = EscomBoundingBox
-                bbox.setPoints(listOf(bb.topLeft, bb.topRight, bb.bottomRight, bb.bottomLeft, bb.topLeft))
+                bbox.setPoints(listOf(bb.topLeft, bb.topRight, bb.bottomRight, bb.bottomLeft, bb.topLeft).toOsm())
                 bbox.isEnabled = true
 
                 // CAMINOS ADICIONALES (navGraph de los landmarks): muestra por dónde se puede
@@ -1121,7 +1121,7 @@ internal fun NativeOsmMap(
                                 outlinePaint.strokeWidth = if (w.isForPeople) 5f else 7f
                                 outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
                                 outlinePaint.isAntiAlias = true
-                                setPoints(pts)
+                                setPoints(pts.toOsm())
                             }
                             interiorPathCache.add(line)
                             view.overlays.add(line)
@@ -1173,7 +1173,7 @@ internal fun NativeOsmMap(
                         metroMarkerCache[station.name] = this
                         view.overlays.add(this)
                     }
-                    marker.position = station.location
+                    marker.position = station.location.toOsm()
                     val inView = metroBox == null || (
                         station.location.latitude <= metroBox.latNorth + metroLatM &&
                         station.location.latitude >= metroBox.latSouth - metroLatM &&
@@ -1211,7 +1211,7 @@ internal fun NativeOsmMap(
                         metroZoneCache[station.name] = this
                         view.overlays.add(0, this)   // al fondo: BAJO el icono del metro
                     }
-                    zone.points = org.osmdroid.views.overlay.Polygon.pointsAsCircle(station.location, METRO_INTERACT_RADIUS_METERS)
+                    zone.points = org.osmdroid.views.overlay.Polygon.pointsAsCircle(station.location.toOsm(), METRO_INTERACT_RADIUS_METERS)
                     val inView = zoneBox == null || (
                         station.location.latitude <= zoneBox.latNorth + zLatM &&
                         station.location.latitude >= zoneBox.latSouth - zLatM &&
@@ -1257,7 +1257,7 @@ internal fun NativeOsmMap(
                         metrobusMarkerCache[station.name] = this
                         view.overlays.add(this)
                     }
-                    marker.position = station.location
+                    marker.position = station.location.toOsm()
                     val inView = metrobusBox == null || (
                         station.location.latitude <= metrobusBox.latNorth + mbLatM &&
                         station.location.latitude >= metrobusBox.latSouth - mbLatM &&
@@ -1283,7 +1283,7 @@ internal fun NativeOsmMap(
                         view.setTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag.let { it + 300 }, this)
                         view.overlays.add(this)
                     }
-                debugRouteLine.setPoints(uiState.routeDebugWaypoints)
+                debugRouteLine.setPoints(uiState.routeDebugWaypoints.toOsm())
                 debugRouteLine.isEnabled = true
 
                 // 2. Dibujar los puntitos (migas de pan) en cada nodo capturado
@@ -1306,7 +1306,7 @@ internal fun NativeOsmMap(
                         icon = dot
                         view.overlays.add(this)
                     }
-                    m.position = uiState.routeDebugWaypoints[breadcrumbCache.size]
+                    m.position = uiState.routeDebugWaypoints[breadcrumbCache.size].toOsm()
                     breadcrumbCache.add(m)
                 }
             } else {
@@ -1366,7 +1366,7 @@ internal fun NativeOsmMap(
                             outlinePaint.strokeWidth = 5f
                             outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
                             outlinePaint.isAntiAlias = true
-                            setPoints(path)
+                            setPoints(path.toOsm())
                         }
                         editOverlayCache.add(line); view.overlays.add(line)
                     }
@@ -1378,7 +1378,7 @@ internal fun NativeOsmMap(
                             outlinePaint.strokeWidth = 7f
                             outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
                             outlinePaint.isAntiAlias = true
-                            setPoints(path)
+                            setPoints(path.toOsm())
                         }
                         editOverlayCache.add(line); view.overlays.add(line)
                     }
@@ -1393,7 +1393,7 @@ internal fun NativeOsmMap(
 
             // ─── NEBLINA ANCLADA AL JUGADOR ─────────────────────────────────────
             (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag + 600) as? FogOverlay)?.let { fog ->
-                fog.player = uiState.currentLocation
+                fog.player = uiState.currentLocation?.toOsm()
                 // Solo al conducir el mapa rota; a pie la neblina puede dibujarse con el rect
                 // exacto de pantalla (sin el enorme sobredimensionado por rotación).
                 fog.rotated = uiState.isDriving

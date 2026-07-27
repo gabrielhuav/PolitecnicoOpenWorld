@@ -2,7 +2,7 @@ package ovh.gabrielhuav.pow.data.repository
 
 import android.content.Context
 import org.json.JSONObject
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.domain.models.map.MetrobusStation
 

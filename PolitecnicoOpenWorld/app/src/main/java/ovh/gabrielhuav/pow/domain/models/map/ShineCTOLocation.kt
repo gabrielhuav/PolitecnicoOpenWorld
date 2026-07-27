@@ -1,6 +1,6 @@
 package ovh.gabrielhuav.pow.domain.models.map
 
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 
 /**
  * Easter-egg recinto: ShineCTO.

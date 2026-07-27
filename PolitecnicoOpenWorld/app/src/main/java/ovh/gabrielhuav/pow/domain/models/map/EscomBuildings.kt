@@ -1,6 +1,6 @@
 package ovh.gabrielhuav.pow.domain.models.map
 
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 
 /**
  * Catálogo de los 6 edificios interiores de ESCOM.

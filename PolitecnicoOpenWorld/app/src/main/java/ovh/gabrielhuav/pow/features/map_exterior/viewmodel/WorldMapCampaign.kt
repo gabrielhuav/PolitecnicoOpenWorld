@@ -12,7 +12,7 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 // ───────────────────────────────────────────────────────────────────────────────────
 
 import kotlinx.coroutines.flow.update
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 
 // MODO HISTORIA: fija la escuela de inicio elegida en el menú de campaña.
 // A diferencia de [updateInitialLocation] (gateada por isLoadingLocation, ya
