@@ -1,10 +1,14 @@
 package ovh.gabrielhuav.pow.domain.models.map
 
+import ovh.gabrielhuav.pow.data.json.PowJson
+
+import kotlinx.serialization.Serializable
+
 import android.content.Context
 import android.util.Log
-import com.google.gson.Gson
 
 // 1. El modelo de datos actualizado con ancho y alto
+@Serializable
 data class LandmarkAssetTemplate(
     val id: String,
     val displayName: String,
@@ -32,9 +36,9 @@ object LandmarkCatalogManager {
             // Abrimos y leemos el archivo que creaste en la carpeta assets/
             val jsonString = context.assets.open("CONFIG/buildings_catalog.json").bufferedReader().use { it.readText() }
 
-            // Usamos Gson para convertir el texto JSON a una lista de objetos LandmarkAssetTemplate
-            val listType = object : com.google.gson.reflect.TypeToken<List<LandmarkAssetTemplate>>() {}.type
-            availableAssets = Gson().fromJson<List<LandmarkAssetTemplate>>(jsonString, listType) ?: emptyList()
+            // kotlinx.serialization resuelve el tipo genérico en COMPILACIÓN: ya no hace falta el
+            // TypeToken de Gson (que existía solo para esquivar el borrado de tipos de la JVM).
+            availableAssets = PowJson.decodeFromString<List<LandmarkAssetTemplate>>(jsonString)
 
             Log.d("CatalogManager", "Catálogo cargado exitosamente con ${availableAssets.size} edificios.")
         } catch (e: Exception) {

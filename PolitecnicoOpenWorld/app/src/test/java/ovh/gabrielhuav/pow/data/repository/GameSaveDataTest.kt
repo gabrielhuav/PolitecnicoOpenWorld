@@ -1,27 +1,29 @@
 package ovh.gabrielhuav.pow.data.repository
 
-import com.google.gson.Gson
+import kotlinx.serialization.encodeToString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
+import ovh.gabrielhuav.pow.data.json.PowJson
 
 /**
- * Tests de CARACTERIZACIÓN del guardado (GameSaveData ↔ Gson) — lógica pura, sin Android.
+ * Tests de CARACTERIZACIÓN del guardado (GameSaveData ↔ JSON) — lógica pura, sin Android.
  *
- * Fijan dos comportamientos de los que depende la compatibilidad con guardados VIEJOS
- * (documentados en 09 §12 y en el propio modelo):
- * 1. Campos PRIMITIVOS ausentes en el JSON → 0/false (compat automática de misiones nuevas).
- * 2. ⚠️ Gotcha Gson: una LISTA ausente queda **NULL en runtime** aunque el tipo Kotlin sea
- *    no-nulo con default (`completedMissions: List<String> = emptyList()`). Gson NO aplica
- *    los defaults de Kotlin. Por eso `restoreSaveData` hace coalesce defensivo. Este test
- *    PRUEBA que el coalesce sigue siendo necesario: si algún día se migra a kotlinx.serialization
- *    o a un TypeAdapter con defaults, este test se pone rojo y el coalesce puede retirarse.
+ * 🍏 ACTUALIZADO EN LA FASE 3 (2026-07-27): el parser ya NO es Gson, es `PowJson`
+ * (kotlinx.serialization). Ver `PLAN_MIGRACION_KMP.md`.
+ *
+ * ⚠️ **EL GOTCHA DE LAS LISTAS NULL YA NO EXISTE.** Este test afirmaba lo contrario y era CORRECTO
+ * en su momento: Gson, al construir por reflexión (sin `kotlin-adapter`), se saltaba el constructor
+ * y dejaba las listas en **null** aunque el tipo Kotlin fuese no-nulo con default — por eso
+ * `restoreSaveData` hacía un coalesce defensivo. Al migrar cambiaron DOS cosas y ambas lo arreglan:
+ *  1. `PowJson` sí aplica los valores por defecto declarados.
+ *  2. Al dar default a TODOS los campos de `GameSaveData`, Kotlin genera un constructor sin
+ *     argumentos, así que hasta Gson dejaría de usar `Unsafe` y aplicaría los defaults.
+ * El coalesce de `restoreSaveData` queda como cinturón redundante: **inofensivo, no lo quites sin
+ * mirar**, pero ya no es lo único que evita el crash.
  */
 class GameSaveDataTest {
-
-    private val gson = Gson()
 
     /** JSON mínimo estilo "guardado antiguo": solo los campos que existían al inicio. */
     private val oldSaveJson = """
@@ -40,7 +42,7 @@ class GameSaveDataTest {
 
     @Test
     fun old_save_missing_primitives_default_to_zero_false() {
-        val data = gson.fromJson(oldSaveJson, GameSaveData::class.java)
+        val data = PowJson.decodeFromString<GameSaveData>(oldSaveJson)
         // Misiones nuevas sobre guardados viejos: fase 0 = no iniciada, sin arma.
         assertEquals(0, data.mission2Phase)
         assertEquals(0, data.mission3Phase)
@@ -53,19 +55,13 @@ class GameSaveDataTest {
     }
 
     @Test
-    fun gson_gotcha_missing_list_is_NULL_at_runtime_despite_kotlin_default() {
-        val data = gson.fromJson(oldSaveJson, GameSaveData::class.java)
-        // ⚠️ ESTE es el gotcha: el tipo dice List<String> no-nulo con default, pero Gson
-        // (reflexión, sin kotlin-adapter) deja el campo NULL. El coalesce de restoreSaveData
-        // (`data.completedMissions ?: emptyList()`) es OBLIGATORIO mientras esto sea rojo…
-        // es decir, mientras esta aserción PASE. Si migras el parser y esto falla, retira
-        // el coalesce y actualiza 09 §12.
-        @Suppress("SENSELESS_COMPARISON")
-        assertTrue(data.completedMissions == null)
-        @Suppress("SENSELESS_COMPARISON")
-        assertTrue(data.nearbyNpcs == null)
-        @Suppress("SENSELESS_COMPARISON")
-        assertTrue(data.inventoryKeys == null)
+    fun listas_ausentes_ahora_llegan_VACIAS_y_no_null() {
+        // Lo contrario de lo que afirmaba este test con Gson. Si esto se pone rojo, alguien
+        // rompió los defaults de GameSaveData o cambió las opciones de PowJson.
+        val data = PowJson.decodeFromString<GameSaveData>(oldSaveJson)
+        assertEquals(emptyList<String>(), data.completedMissions)
+        assertEquals(emptyList<SavedNpc>(), data.nearbyNpcs)
+        assertEquals(emptyList<String>(), data.inventoryKeys)
     }
 
     @Test
@@ -90,7 +86,7 @@ class GameSaveDataTest {
             saveType = "MANUAL",
             savedAt = 123L
         )
-        val restored = gson.fromJson(gson.toJson(original), GameSaveData::class.java)
+        val restored = PowJson.decodeFromString<GameSaveData>(PowJson.encodeToString(original))
         assertEquals(original, restored)
     }
 }

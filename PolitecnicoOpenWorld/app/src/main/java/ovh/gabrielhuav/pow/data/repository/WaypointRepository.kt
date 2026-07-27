@@ -1,8 +1,12 @@
 // data/repository/WaypointRepository.kt
 package ovh.gabrielhuav.pow.data.repository
 
+import kotlinx.serialization.encodeToString
+import ovh.gabrielhuav.pow.data.json.PowJson
+
+import kotlinx.serialization.Serializable
+
 import android.content.Context
-import com.google.gson.Gson
 import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
 import ovh.gabrielhuav.pow.domain.models.zombie.NormRect
 import ovh.gabrielhuav.pow.domain.models.zombie.ZoneDoor
@@ -36,9 +40,9 @@ import java.io.File
 object WaypointRepository {
 
     private const val FILE_NAME = "waypoints.json"
-    private val gson = Gson()
 
     /** Una puerta serializable (coordenadas fraccionarias [0,1]). */
+    @Serializable
     data class DoorDef(
         val left: Float = 0f,
         val top: Float = 0f,
@@ -68,6 +72,7 @@ object WaypointRepository {
         }
     }
 
+    @Serializable
     private data class Store(
         val version: Int = 1,
         val rooms: MutableMap<String, List<DoorDef>> = mutableMapOf()
@@ -78,7 +83,7 @@ object WaypointRepository {
     /** Waypoints de fábrica empaquetados en assets/waypoints.json (si existe). */
     private fun readAssetStore(context: Context): Store = try {
         context.assets.open(FILE_NAME).use { input ->
-            gson.fromJson(input.reader().readText(), Store::class.java) ?: Store()
+            PowJson.decodeFromString<Store>(input.reader().readText())
         }
     } catch (e: Exception) {
         Store()
@@ -87,13 +92,13 @@ object WaypointRepository {
     private fun readStore(context: Context): Store = try {
         val f = file(context)
         if (!f.exists()) readAssetStore(context)
-        else gson.fromJson(f.readText(), Store::class.java) ?: readAssetStore(context)
+        else runCatching { PowJson.decodeFromString<Store>(f.readText()) }.getOrElse { readAssetStore(context) }
     } catch (e: Exception) {
         readAssetStore(context)
     }
 
     private fun writeStore(context: Context, store: Store) {
-        runCatching { file(context).writeText(gson.toJson(store)) }
+        runCatching { file(context).writeText(PowJson.encodeToString(store)) }
     }
 
     /** Todas las puertas guardadas (roomId -> lista de ZoneDoor). */
@@ -112,12 +117,12 @@ object WaypointRepository {
     }
 
     /** JSON completo (para copiarlo / compartirlo). */
-    fun exportJson(context: Context): String = gson.toJson(readStore(context))
+    fun exportJson(context: Context): String = PowJson.encodeToString(readStore(context))
 
     /** Importa un JSON completo (sobrescribe el archivo local). */
     fun importJson(context: Context, json: String) {
         runCatching {
-            val s = gson.fromJson(json, Store::class.java) ?: return
+            val s = PowJson.decodeFromString<Store>(json)
             writeStore(context, s)
         }
     }

@@ -1,5 +1,7 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
+import kotlinx.serialization.Serializable
+
 import com.google.gson.Gson
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -15,6 +17,7 @@ import java.util.concurrent.TimeUnit
 // El VM registra un Listener; los callbacks llegan en el hilo de OkHttp (el VM decide el hilo).
 
 /** Mensaje de red laxo (Gson: campos ausentes → null), cliente ⇄ servidor. */
+@Serializable
 data class SfNetMsg(
     val type: String? = null,
     val code: String? = null,
@@ -67,8 +70,10 @@ data class SfNetMsg(
     val queue: Int? = null,          // jugadores esperando sala pública
 )
 
-data class SfRoomSummary(val code: String, val players: Int, val phase: String)
+@Serializable
+data class SfRoomSummary(val code: String = "", val players: Int = 0, val phase: String = "")
 
+@Serializable
 data class SfNetFireball(
     val x: Float,
     val y: Float,

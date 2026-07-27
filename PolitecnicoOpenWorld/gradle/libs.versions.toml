@@ -20,6 +20,9 @@ googleServices = "4.4.2"
 # matriz Hilt del momento (Hilt usa KSP aquí, NO kapt). hilt-navigation-compose da hiltViewModel().
 hilt = "2.57.1"
 hiltNavigationCompose = "1.2.0"
+# 🍏 kotlinx.serialization (Fase 3). 1.9.0 es la última que NO exige subir Kotlin por encima
+# del 2.2.10 que usa el proyecto (la Fase 1 decidió no mover Kotlin todavía).
+kotlinxSerialization = "1.9.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -51,6 +54,8 @@ play-services-auth = { group = "com.google.android.gms", name = "play-services-a
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hilt" }
 hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
+# 🍏 JSON multiplataforma (Fase 3). Vive en `:shared` y `:app` lo hereda por `api(...)`.
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -60,6 +65,9 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 # mover AGP/KSP/Hilt/Compose justo después de publicar la 1.0.0.14.
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+# 🍏 Fase 3: sustituye a Gson, que usa reflexión de la JVM y NO existe en iOS. El plugin va con la
+# MISMA versión de Kotlin (lo genera el compilador), por eso `version.ref = "kotlin"`.
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version = "2.3.2" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }

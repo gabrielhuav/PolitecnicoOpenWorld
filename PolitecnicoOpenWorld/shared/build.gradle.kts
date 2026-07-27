@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -35,6 +36,11 @@ kotlin {
     iosX64()            // simulador en Mac Intel
 
     sourceSets {
+        commonMain.dependencies {
+            // `api` y no `implementation`: `:app` usa `@Serializable` y `PowJson` directamente,
+            // así que necesita ver la librería en su propio classpath.
+            api(libs.kotlinx.serialization.json)
+        }
         commonTest.dependencies {
             // kotlin.test: las aserciones que SÍ existen en las dos plataformas.
             // (En `:app` los tests siguen siendo JUnit4; aquí no puede serlo — no hay JVM en iOS.)

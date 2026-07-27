@@ -6,6 +6,7 @@ plugins {
     // 🍏 KMP: el classpath se declara aquí; se aplican en shared/ (ver PLAN_MIGRACION_KMP.md).
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.kotlin.multiplatform) apply false
+    alias(libs.plugins.kotlin.serialization) apply false
     // KSP debe declararse aquí también con apply false
     alias(libs.plugins.ksp) apply false
     // Hilt (DI) — se aplica en app/; el classpath del plugin se declara aquí con apply false.
