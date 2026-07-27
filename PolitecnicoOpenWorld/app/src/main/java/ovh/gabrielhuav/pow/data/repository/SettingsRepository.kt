@@ -1,7 +1,8 @@
 package ovh.gabrielhuav.pow.data.repository
 
 import android.content.Context
-import android.content.SharedPreferences
+import com.russhwolf.settings.SharedPreferencesSettings
+import com.russhwolf.settings.Settings
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
@@ -42,7 +43,13 @@ class SettingsRepository(context: Context) {
         const val NPC_DENSITY_MAX = 1.6f
     }
 
-    private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    // 🍏 Fase 4: `Settings` (multiplatform-settings) en vez de tocar `SharedPreferences` directo.
+    // ⚠️ ENVUELVE EL MISMO FICHERO de siempre (`PREFS_NAME`), así que **los ajustes que ya tiene
+    // el jugador se conservan tal cual**: no hay migración de datos ni se pierde nada. El día que
+    // esta clase se mueva a `:shared`, lo único que cambia es quién construye el `Settings`
+    // (en iOS, `NSUserDefaultsSettings`).
+    private val settings: Settings =
+        SharedPreferencesSettings(context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE))
 
     // Por defecto el LOD de emojis se activa SOLO en gama baja (se puede cambiar en Ajustes).
     private val lowRamDefault: Boolean = try {
@@ -53,119 +60,115 @@ class SettingsRepository(context: Context) {
 
     fun saveControlsSettings(type: ControlType, scale: Float, swap: Boolean) {
         val clampedScale = scale.coerceIn(SCALE_MIN, SCALE_MAX)
-        prefs.edit().apply {
-            putString(KEY_CONTROL_TYPE, type.name)
-            putFloat(KEY_CONTROLS_SCALE, clampedScale)
-            putBoolean(KEY_SWAP_CONTROLS, swap)
-            apply()
-        }
+        settings.putString(KEY_CONTROL_TYPE, type.name)
+        settings.putFloat(KEY_CONTROLS_SCALE, clampedScale)
+        settings.putBoolean(KEY_SWAP_CONTROLS, swap)
     }
 
     fun getControlType(): ControlType {
         val defaultType = ControlType.JOYSTICK
-        val saved = prefs.getString(KEY_CONTROL_TYPE, defaultType.name) ?: defaultType.name
+        val saved = settings.getString(KEY_CONTROL_TYPE, defaultType.name)
         return runCatching { ControlType.valueOf(saved) }.getOrElse {
-            prefs.edit().putString(KEY_CONTROL_TYPE, defaultType.name).apply()
+            settings.putString(KEY_CONTROL_TYPE, defaultType.name)
             defaultType
         }
     }
 
-    fun getControlsScale(): Float = prefs.getFloat(KEY_CONTROLS_SCALE, 1.0f).coerceIn(SCALE_MIN, SCALE_MAX)
+    fun getControlsScale(): Float = settings.getFloat(KEY_CONTROLS_SCALE, 1.0f).coerceIn(SCALE_MIN, SCALE_MAX)
 
-    fun getSwapControls(): Boolean = prefs.getBoolean(KEY_SWAP_CONTROLS, false)
+    fun getSwapControls(): Boolean = settings.getBoolean(KEY_SWAP_CONTROLS, false)
 
     // ─── Skin del jugador ────────────────────────────────────────────────
 
     /** Persiste la skin elegida entre sesiones. */
     fun savePlayerSkin(skin: PlayerSkin) {
-        prefs.edit().putString(KEY_PLAYER_SKIN, skin.name).apply()
+        settings.putString(KEY_PLAYER_SKIN, skin.name)
     }
 
     /** Devuelve la skin guardada, o LAZARO si no hay ninguna o es inválida. */
     fun getPlayerSkin(): PlayerSkin {
-        val saved = prefs.getString(KEY_PLAYER_SKIN, PlayerSkin.LAZARO.name)
-            ?: PlayerSkin.LAZARO.name
+        val saved = settings.getString(KEY_PLAYER_SKIN, PlayerSkin.LAZARO.name)
         return runCatching { PlayerSkin.valueOf(saved) }.getOrElse { PlayerSkin.LAZARO }
     }
 
     // ─── Red vial ────────────────────────────────────────────────────────
 
     fun saveShowRoadNetwork(show: Boolean) {
-        prefs.edit().putBoolean(KEY_SHOW_ROAD_NETWORK, show).apply()
+        settings.putBoolean(KEY_SHOW_ROAD_NETWORK, show)
     }
 
-    fun getShowRoadNetwork(): Boolean = prefs.getBoolean(KEY_SHOW_ROAD_NETWORK, true)
+    fun getShowRoadNetwork(): Boolean = settings.getBoolean(KEY_SHOW_ROAD_NETWORK, true)
 
     // ─── Jugabilidad: población de NPCs ──────────────────────────────────────
 
     /** Multiplicador de densidad de NPCs elegido por el usuario (se combina con gama/ciudad). */
-    fun getNpcDensity(): Float = prefs.getFloat(KEY_NPC_DENSITY, 1.0f).coerceIn(NPC_DENSITY_MIN, NPC_DENSITY_MAX)
+    fun getNpcDensity(): Float = settings.getFloat(KEY_NPC_DENSITY, 1.0f).coerceIn(NPC_DENSITY_MIN, NPC_DENSITY_MAX)
     fun saveNpcDensity(v: Float) {
-        prefs.edit().putFloat(KEY_NPC_DENSITY, v.coerceIn(NPC_DENSITY_MIN, NPC_DENSITY_MAX)).apply()
+        settings.putFloat(KEY_NPC_DENSITY, v.coerceIn(NPC_DENSITY_MIN, NPC_DENSITY_MAX))
     }
 
     /** ¿Dibujar los NPCs lejanos como emoji ("Optimizar dibujado de NPCs")? Default = isLowRamDevice. */
-    fun getNpcEmojiLod(): Boolean = prefs.getBoolean(KEY_NPC_EMOJI_LOD, lowRamDefault)
+    fun getNpcEmojiLod(): Boolean = settings.getBoolean(KEY_NPC_EMOJI_LOD, lowRamDefault)
     fun saveNpcEmojiLod(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_NPC_EMOJI_LOD, enabled).apply()
+        settings.putBoolean(KEY_NPC_EMOJI_LOD, enabled)
     }
 
     /** ¿Dibujar TODOS los NPCs como emoji ("Optimizar para gama baja")? Default = false. */
-    fun getNpcFullEmoji(): Boolean = prefs.getBoolean(KEY_NPC_FULL_EMOJI, false)
+    fun getNpcFullEmoji(): Boolean = settings.getBoolean(KEY_NPC_FULL_EMOJI, false)
     fun saveNpcFullEmoji(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_NPC_FULL_EMOJI, enabled).apply()
+        settings.putBoolean(KEY_NPC_FULL_EMOJI, enabled)
     }
 
     // ─── Interfaz: widget de nivel de zoom ───────────────────────────────────
 
-    fun getShowZoomWidget(): Boolean = prefs.getBoolean(KEY_SHOW_ZOOM_WIDGET, false)
+    fun getShowZoomWidget(): Boolean = settings.getBoolean(KEY_SHOW_ZOOM_WIDGET, false)
     fun saveShowZoomWidget(show: Boolean) {
-        prefs.edit().putBoolean(KEY_SHOW_ZOOM_WIDGET, show).apply()
+        settings.putBoolean(KEY_SHOW_ZOOM_WIDGET, show)
     }
 
     // ─── Interfaz: velocímetro (visible solo al conducir). Default = activado. ──
 
-    fun getShowSpeedometer(): Boolean = prefs.getBoolean(KEY_SHOW_SPEEDOMETER, true)
+    fun getShowSpeedometer(): Boolean = settings.getBoolean(KEY_SHOW_SPEEDOMETER, true)
     fun saveShowSpeedometer(show: Boolean) {
-        prefs.edit().putBoolean(KEY_SHOW_SPEEDOMETER, show).apply()
+        settings.putBoolean(KEY_SHOW_SPEEDOMETER, show)
     }
 
     // ─── Interfaz: widget de coordenadas (X/Y/Z, global e interiores). Default = oculto. ──
 
-    fun getShowCoordsWidget(): Boolean = prefs.getBoolean(KEY_SHOW_COORDS_WIDGET, false)
+    fun getShowCoordsWidget(): Boolean = settings.getBoolean(KEY_SHOW_COORDS_WIDGET, false)
     fun saveShowCoordsWidget(show: Boolean) {
-        prefs.edit().putBoolean(KEY_SHOW_COORDS_WIDGET, show).apply()
+        settings.putBoolean(KEY_SHOW_COORDS_WIDGET, show)
     }
 
     // ─── Interfaz: Modo Desarrollador. Default = desactivado. ──
     // Cuando está activo, la UI revela botones/opciones de prueba que se ocultarán
     // en la versión final del juego.
 
-    fun getDeveloperMode(): Boolean = prefs.getBoolean(KEY_DEVELOPER_MODE, false)
+    fun getDeveloperMode(): Boolean = settings.getBoolean(KEY_DEVELOPER_MODE, false)
     fun saveDeveloperMode(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_DEVELOPER_MODE, enabled).apply()
+        settings.putBoolean(KEY_DEVELOPER_MODE, enabled)
     }
 
     // ─── 🆕 Modo pelea: dibujar HITBOXES (push/hurt/hit) sobre los peleadores, estilo
     // Minecraft (F3+B). Default = desactivado. Útil para ver dónde "vive" cada asset. ──
 
-    fun getShowHitboxes(): Boolean = prefs.getBoolean(KEY_SHOW_HITBOXES, false)
+    fun getShowHitboxes(): Boolean = settings.getBoolean(KEY_SHOW_HITBOXES, false)
     fun saveShowHitboxes(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_SHOW_HITBOXES, enabled).apply()
+        settings.putBoolean(KEY_SHOW_HITBOXES, enabled)
     }
 
     // ─── 🆕 (2026-07-25) Modo pelea: contador de FPS en pantalla (como ya existía en el mundo
     // abierto). Default = desactivado. Útil para medir la fluidez en gama baja. ──
-    fun getShowSfFps(): Boolean = prefs.getBoolean(KEY_SHOW_SF_FPS, false)
+    fun getShowSfFps(): Boolean = settings.getBoolean(KEY_SHOW_SF_FPS, false)
     fun saveShowSfFps(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_SHOW_SF_FPS, enabled).apply()
+        settings.putBoolean(KEY_SHOW_SF_FPS, enabled)
     }
 
     // ─── 🆕 (2026-07-25) Subtítulos de las VOCES de los peleadores (frases de special/win/etc.).
     // Default = APAGADO (decisión del dueño). El jugador los prende en Ajustes si los quiere. ──
-    fun getShowVoiceSubtitles(): Boolean = prefs.getBoolean(KEY_SHOW_VOICE_SUBTITLES, false)
+    fun getShowVoiceSubtitles(): Boolean = settings.getBoolean(KEY_SHOW_VOICE_SUBTITLES, false)
     fun saveShowVoiceSubtitles(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_SHOW_VOICE_SUBTITLES, enabled).apply()
+        settings.putBoolean(KEY_SHOW_VOICE_SUBTITLES, enabled)
     }
 
     // ─── 🆕 (2026-07-26) GATILLOS L1/L2/R1/R2 en el MUNDO ABIERTO. Nacieron en el modo pelea,
@@ -173,34 +176,34 @@ class SettingsRepository(context: Context) {
     // hacen nada, así que el default es APAGADO: quien no los prenda no ve ningún botón nuevo.
     // ⚠️ Cuando se les dé función, quitar el aviso "aún sin función" de la descripción. ──
     fun getShowWorldShoulderButtons(): Boolean =
-        prefs.getBoolean(KEY_SHOW_WORLD_SHOULDERS, false)
+        settings.getBoolean(KEY_SHOW_WORLD_SHOULDERS, false)
     fun saveShowWorldShoulderButtons(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_SHOW_WORLD_SHOULDERS, enabled).apply()
+        settings.putBoolean(KEY_SHOW_WORLD_SHOULDERS, enabled)
     }
 
     // ─── Tutorial de controles (optativo): se ofrece UNA vez al entrar por primera vez al
     // mapa exterior / a un interior; después queda disponible en Ajustes → Controles. ──
 
-    fun getTutorialExteriorSeen(): Boolean = prefs.getBoolean(KEY_TUTORIAL_EXTERIOR_SEEN, false)
+    fun getTutorialExteriorSeen(): Boolean = settings.getBoolean(KEY_TUTORIAL_EXTERIOR_SEEN, false)
     fun saveTutorialExteriorSeen() {
-        prefs.edit().putBoolean(KEY_TUTORIAL_EXTERIOR_SEEN, true).apply()
+        settings.putBoolean(KEY_TUTORIAL_EXTERIOR_SEEN, true)
     }
 
-    fun getTutorialInteriorSeen(): Boolean = prefs.getBoolean(KEY_TUTORIAL_INTERIOR_SEEN, false)
+    fun getTutorialInteriorSeen(): Boolean = settings.getBoolean(KEY_TUTORIAL_INTERIOR_SEEN, false)
     fun saveTutorialInteriorSeen() {
-        prefs.edit().putBoolean(KEY_TUTORIAL_INTERIOR_SEEN, true).apply()
+        settings.putBoolean(KEY_TUTORIAL_INTERIOR_SEEN, true)
     }
 
     // ─── Audio: volumen de música y efectos (0f..1f). Default = 1.0 (máximo). ──
 
-    fun getMusicVolume(): Float = prefs.getFloat(KEY_MUSIC_VOLUME, 1.0f).coerceIn(0f, 1f)
+    fun getMusicVolume(): Float = settings.getFloat(KEY_MUSIC_VOLUME, 1.0f).coerceIn(0f, 1f)
     fun saveMusicVolume(v: Float) {
-        prefs.edit().putFloat(KEY_MUSIC_VOLUME, v.coerceIn(0f, 1f)).apply()
+        settings.putFloat(KEY_MUSIC_VOLUME, v.coerceIn(0f, 1f))
     }
 
-    fun getSfxVolume(): Float = prefs.getFloat(KEY_SFX_VOLUME, 1.0f).coerceIn(0f, 1f)
+    fun getSfxVolume(): Float = settings.getFloat(KEY_SFX_VOLUME, 1.0f).coerceIn(0f, 1f)
     fun saveSfxVolume(v: Float) {
-        prefs.edit().putFloat(KEY_SFX_VOLUME, v.coerceIn(0f, 1f)).apply()
+        settings.putFloat(KEY_SFX_VOLUME, v.coerceIn(0f, 1f))
     }
 
     // ─── Idioma / i18n ───────────────────────────────────────────────────────
@@ -208,17 +211,17 @@ class SettingsRepository(context: Context) {
     // del sistema. Se aplica envolviendo el Context en MainActivity.attachBaseContext
     // (ver i18n/LocaleHelper.kt); al cambiarlo se recrea la Activity.
 
-    fun getLanguage(): String = prefs.getString(KEY_LANGUAGE, "") ?: ""
+    fun getLanguage(): String = settings.getString(KEY_LANGUAGE, "")
     fun saveLanguage(tag: String) {
-        prefs.edit().putString(KEY_LANGUAGE, tag).apply()
+        settings.putString(KEY_LANGUAGE, tag)
     }
 
     // ─── Nombre de jugador (multijugador) ────────────────────────────────────
     // Se recuerda entre sesiones para no reescribirlo cada vez. Al iniciar sesión con
     // Google, si está vacío se prellena con el nombre de la cuenta.
 
-    fun getPlayerName(): String = prefs.getString(KEY_PLAYER_NAME, "") ?: ""
+    fun getPlayerName(): String = settings.getString(KEY_PLAYER_NAME, "")
     fun savePlayerName(name: String) {
-        prefs.edit().putString(KEY_PLAYER_NAME, name).apply()
+        settings.putString(KEY_PLAYER_NAME, name)
     }
 }

@@ -1,6 +1,8 @@
 package ovh.gabrielhuav.pow.data.repository
 
 import android.content.Context
+import com.russhwolf.settings.SharedPreferencesSettings
+import com.russhwolf.settings.Settings
 
 // Posición/medidas del CUADRO DE TEXTO de un panel del cómic, como FRACCIONES de la
 // pantalla (0..1): dónde empieza (topFrac), qué alto ocupa (heightFrac) y el tamaño de
@@ -18,12 +20,14 @@ data class StoryBoxLayout(
 // se usa el default del catálogo (ComicPanel).
 class StoryLayoutRepository(context: Context) {
 
-    private val prefs = context.applicationContext
-        .getSharedPreferences("pow_story_layout", Context.MODE_PRIVATE)
+    // 🍏 Fase 4: mismo fichero de prefs, API multiplataforma.
+    private val prefs: Settings = SharedPreferencesSettings(
+        context.applicationContext.getSharedPreferences("pow_story_layout", Context.MODE_PRIVATE),
+    )
 
     /** Layout guardado para el panel `index`, o el `default` si no hay ajuste. */
     fun layoutFor(index: Int, default: StoryBoxLayout): StoryBoxLayout {
-        if (!prefs.contains("top_$index")) return default
+        if (!prefs.hasKey("top_$index")) return default
         return StoryBoxLayout(
             topFrac = prefs.getFloat("top_$index", default.topFrac),
             heightFrac = prefs.getFloat("h_$index", default.heightFrac),
@@ -34,23 +38,19 @@ class StoryLayoutRepository(context: Context) {
 
     /** Guarda el ajuste del panel `index`. */
     fun save(index: Int, layout: StoryBoxLayout) {
-        prefs.edit()
-            .putFloat("top_$index", layout.topFrac)
-            .putFloat("h_$index", layout.heightFrac)
-            .putFloat("font_$index", layout.fontSp)
-            .putFloat("w_$index", layout.widthFrac)
-            .apply()
+        prefs.putFloat("top_$index", layout.topFrac)
+        prefs.putFloat("h_$index", layout.heightFrac)
+        prefs.putFloat("font_$index", layout.fontSp)
+        prefs.putFloat("w_$index", layout.widthFrac)
     }
 
     /** Aplica el mismo ajuste a TODOS los paneles (0 hasta count-1). */
     fun saveAll(count: Int, layout: StoryBoxLayout) {
-        val e = prefs.edit()
         for (i in 0 until count) {
-            e.putFloat("top_$i", layout.topFrac)
-                .putFloat("h_$i", layout.heightFrac)
-                .putFloat("font_$i", layout.fontSp)
-                .putFloat("w_$i", layout.widthFrac)
+            prefs.putFloat("top_$i", layout.topFrac)
+            prefs.putFloat("h_$i", layout.heightFrac)
+            prefs.putFloat("font_$i", layout.fontSp)
+            prefs.putFloat("w_$i", layout.widthFrac)
         }
-        e.apply()
     }
 }

@@ -23,6 +23,13 @@ hiltNavigationCompose = "1.2.0"
 # 🍏 kotlinx.serialization (Fase 3). 1.9.0 es la última que NO exige subir Kotlin por encima
 # del 2.2.10 que usa el proyecto (la Fase 1 decidió no mover Kotlin todavía).
 kotlinxSerialization = "1.9.0"
+# 🍏 Fase 4. multiplatform-settings ENVUELVE el SharedPreferences que ya existe en Android
+# (SharedPreferencesSettings) -> los ajustes del jugador se conservan SIN migrar nada. En iOS usa
+# NSUserDefaults. Se eligio sobre DataStore (que recomendaba el plan) por eso y porque DataStore
+# es asincrono: obligaria a volver suspend ~60 lecturas que hoy son sincronas.
+multiplatformSettings = "1.3.0"
+# Ktor sustituye a OkHttp (WebSocket del multijugador). Motor OkHttp en Android, Darwin en iOS.
+ktor = "3.5.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -56,6 +63,11 @@ hilt-compiler = { module = "com.google.dagger:hilt-android-compiler", version.re
 hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 # 🍏 JSON multiplataforma (Fase 3). Vive en `:shared` y `:app` lo hereda por `api(...)`.
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+multiplatform-settings = { module = "com.russhwolf:multiplatform-settings", version.ref = "multiplatformSettings" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-websockets = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -4,6 +4,8 @@ import kotlinx.serialization.encodeToString
 import ovh.gabrielhuav.pow.data.json.PowJson
 
 import android.content.Context
+import com.russhwolf.settings.SharedPreferencesSettings
+import com.russhwolf.settings.Settings
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -69,11 +71,14 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
     private val WALK_STEP = 0.004f
     private val RUN_STEP = 0.008f
 
-    private val prefs = context.getSharedPreferences(config.stationPrefsName(stationName), Context.MODE_PRIVATE)
+    // 🍏 Fase 4: mismo fichero de prefs por estación, API multiplataforma.
+    private val prefs: Settings = SharedPreferencesSettings(
+        context.getSharedPreferences(config.stationPrefsName(stationName), Context.MODE_PRIVATE),
+    )
 
     init {
-        val savedRows = prefs.getString("matrix", null)
-        val savedDoors = prefs.getString("doors", null)
+        val savedRows = prefs.getStringOrNull("matrix")
+        val savedDoors = prefs.getStringOrNull("doors")
 
         var initialRows = if (savedRows != null) {
             try { PowJson.decodeFromString<List<String>>(savedRows) }
@@ -113,8 +118,10 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
 
         val defaultDoors = initialDoors ?: config.defaultDoors
 
-        val globalPrefs = context.getSharedPreferences(config.mapGlobalPrefsName, Context.MODE_PRIVATE)
-        val savedGlobalWaypoints = globalPrefs.getString("global_waypoints", null)
+        val globalPrefs = SharedPreferencesSettings(
+            context.getSharedPreferences(config.mapGlobalPrefsName, Context.MODE_PRIVATE),
+        )
+        val savedGlobalWaypoints = globalPrefs.getStringOrNull("global_waypoints")
 
         var initialGlobalWaypoints: List<ZoneDoor>? = null
         if (savedGlobalWaypoints != null) {
@@ -457,10 +464,8 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
     }
 
     fun saveDesignerMatrix() {
-        prefs.edit()
-            .putString("matrix", PowJson.encodeToString(_state.value.designerRows))
-            .putString("doors", PowJson.encodeToString(_state.value.doors))
-            .apply()
+        prefs.putString("matrix", PowJson.encodeToString(_state.value.designerRows))
+        prefs.putString("doors", PowJson.encodeToString(_state.value.doors))
         _state.update { it.copy(designerDirty = false) }
     }
 
@@ -647,8 +652,10 @@ class TransitInteriorViewModel @dagger.assisted.AssistedInject constructor(
     }
 
     fun saveGlobalWaypoints() {
-        val globalPrefs = context.getSharedPreferences(config.mapGlobalPrefsName, Context.MODE_PRIVATE)
-        globalPrefs.edit().putString("global_waypoints", PowJson.encodeToString(_state.value.globalWaypoints)).apply()
+        val globalPrefs = SharedPreferencesSettings(
+            context.getSharedPreferences(config.mapGlobalPrefsName, Context.MODE_PRIVATE),
+        )
+        globalPrefs.putString("global_waypoints", PowJson.encodeToString(_state.value.globalWaypoints))
         _state.update { it.copy(messageToast = getLocalizedString(config.msgGlobalWaypointsSavedRes)) }
         viewModelScope.launch { delay(2000); _state.update { it.copy(messageToast = null) } }
     }

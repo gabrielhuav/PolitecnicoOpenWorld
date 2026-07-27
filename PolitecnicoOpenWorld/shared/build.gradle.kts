@@ -21,6 +21,9 @@ plugins {
 }
 
 kotlin {
+    sourceSets.androidMain.dependencies { implementation(libs.ktor.client.okhttp) }
+    sourceSets.iosMain.dependencies { implementation(libs.ktor.client.darwin) }
+
     androidTarget {
         compilerOptions {
             // Mismo jvmTarget que `:app` (11). Si divergen, el consumo desde app falla.
@@ -40,6 +43,12 @@ kotlin {
             // `api` y no `implementation`: `:app` usa `@Serializable` y `PowJson` directamente,
             // así que necesita ver la librería en su propio classpath.
             api(libs.kotlinx.serialization.json)
+            // Ajustes multiplataforma: en Android envuelve el SharedPreferences EXISTENTE
+            // (cero migracion de datos); en iOS usa NSUserDefaults.
+            api(libs.multiplatform.settings)
+            // WebSocket multiplataforma (sustituye a OkHttp).
+            api(libs.ktor.client.core)
+            api(libs.ktor.client.websockets)
         }
         commonTest.dependencies {
             // kotlin.test: las aserciones que SÍ existen en las dos plataformas.
