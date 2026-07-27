@@ -36,8 +36,8 @@
 **Última actualización:** 2026-07-27 · Opus 5 · rama `fase0-auditoria-kmp`
 **Ventana viva:** 2026-07-26 → 2026-07-27 · *purgar a `_ARCHIVO/` a partir del 2026-07-28*
 
-> ➡️ **AHORA:** 1.0.0.14 en revisión en Play. **Fases 0 y 1 de KMP/iOS HECHAS y en verde**
-> (`PLAN_MIGRACION_KMP.md`). Existe el módulo **`:shared`**. **Siguiente: Fase 1.5 EN EL MAC.**
+> ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: **Fases 0, 1 y 2 COMPLETAS; la 3 a medias**
+> (disco sí, red no). **Fase 4 sin empezar.** ⚠️ **NO existe app iOS todavía** — ver §4 P0.
 
 ## 🖥️ Rutas por PC
 
@@ -75,48 +75,11 @@ README for IAS/
 
 **Antes de delegar:** rutas absolutas, comando exacto, cómo se verifica, y qué NO tocar.
 
-## 3. Sesión 2026-07-26 (Opus 5) — audio en red + P2P + puerta de Play
+## 3. Sesión 2026-07-26 — PURGADA (salió en la 1.0.0.14)
 
-**Compilado, 131 tests verdes, detekt sin issues nuevos, `bundleRelease` OK.**
-
-### A · Audio del rival sincronizado (BT + LAN + online)
-**Causa:** `applyRemoteSnapshot` asigna `sim.p1.state` DIRECTO, saltándose `changeState()`, que
-es donde vive TODO el audio → el rival peleaba **mudo**. **Trampa:** los packs eligen con
-`.random()`, así que disparar el audio localmente habría sonado un clip DISTINTO en cada lado.
-- **VIAJAN** (campo `audio` nuevo y opcional en `SfNetMsg`): voces de ataque/dolor/poder/
-  victoria/derrota/intro/metamorfosis + chasquido del **parry**.
-- **SE DERIVAN** del `state` (`emitRemoteStateSfx`): whoosh, aterrizaje, mareo.
-- **NO se tocan** los impactos `*-hit`: ya sonaban en ambos lados.
-- ✅ **El relay NO necesita redeploy por esto:** hace `{...msg}` (server.js:314).
-
-### B · P2P por WebRTC (Render = "GameRanger")
-`SfWebRtcClient` **decora** al relay: camino caliente (`PLAYER_STATE`/`PLAYER_DAMAGE`/`PLAYER_READY`)
-DIRECTO; el plano de control (salas, selección, revancha, `ROUND_ENDED`/`MATCH_ENDED`) va por el
-relay, que los AGREGA o DIFUNDE. **Sin TURN**: si falla el hole punching (~20-30%) cae al relay.
-- ⚠️ `MultiplayerSF/server.js` requiere REDEPLOY (4 casos `SIGNAL_*`), pero **la app es SEGURA
-  de subir ANTES**: con el server viejo los `SIGNAL_*` se ignoran y todo sigue por el relay.
-- **Peso medido:** AAB **368.83 → 390.07 MiB** (+21.2). Límite 500 → margen ~110 MiB.
-  ⚠️ NO poner `abiFilters`: quitaría x86_64, que es el del emulador (AVD "Nexus").
-
-### C · Auditoría pre-producción — 4 defectos REALES corregidos
-1. **Pérdida de daño:** DataChannel NO fiable + `PLAYER_DAMAGE` evento ÚNICO → **fiable y ordenado**.
-2. **⚡ Tirón en gama baja:** `PeerConnectionFactory.initialize()` (11 MB nativos) corría en
-   **Main** → a hilo de trabajo, con buffer de señalización.
-3. **Carrera en PARTIDA RÁPIDA:** el server manda `OPPONENT_JOINED` al host ANTES que
-   `ROOM_JOINED` al invitado → nuevo `SIGNAL_READY`.
-4. **`@Volatile`** en `channel`/`peer`/`factory` (se escriben en hilos de WebRTC).
-
-### D · CI: puerta de cumplimiento de Play (job `play-compliance`)
-Bloquea la subida si se repite el rechazo de 2026-07-22: existe `gh-pages`, las **2 URLs de
-políticas dan 200** con el **correo correcto**, y están las **notas de versión** ES+EN.
-
-### E · Gatillos L1/L2/R1/R2 opcionales (mundo + LOS 5 INTERIORES)
-Ajustes → Interfaz, **OFF por defecto** (en el mundo aún no tienen acción; `onPress` vacío a
-propósito). `ui/components/NeonButton.kt`. Apagada, el HUD queda idéntico.
-- ⚠️ **TRAMPA que costó una iteración:** el `LaunchedEffect` de `AppNavGraph` que refresca el
-  mundo tenía como claves SOLO `controlType`/`controlsScale`/`swapControls`, y el interruptor vive
-  en **Interfaz** → nunca se relanzaba. Si añades otro ajuste que el mundo lea en vivo,
-  **agrégalo a esas claves**. (Los interiores lo leen al crear su VM; ahí basta con eso.)
+Audio del rival sincronizado, P2P por WebRTC, auditoría pre-producción (4 defectos) y la
+puerta `play-compliance` de CI. Detalle en `_ARCHIVO/HISTORIAL_sesiones_2026-07-26.md`.
+⚠️ Lo único que sigue VIVO de ahí está en los P0 de §4 (probar multijugador + redeploy Render).
 
 ## 3bis. Sesión 2026-07-27 (Opus 5) — KMP/iOS: Fase 0 + Fase 1
 
@@ -138,7 +101,22 @@ targets iOS. Con `git mv`: dominio puro de SF (7 archivos, 1235 líneas) → `co
 - ⚠️ **CI actualizado** (`pr-quality-gate.yml`): corre `:shared:testDebugUnitTest` **y** el input
   nuevo de detekt. Sin eso CI habría corrido solo 87 tests **sin avisar**.
 - 🆕 **GOTCHA (ya en 09 §12): el smart cast NO cruza módulos** → `x.campo?.let { usa(it) } == true`.
-- ❌ **De iOS NADA verificado:** en Windows Gradle desactiva los targets iOS (aviso esperado).
+
+**FASE 2 HECHA.** `GeoPoint` propio en `:shared` → **osmdroid pasa de 51 archivos a 7**. Se llama
+IGUAL a propósito: en los 45 archivos solo cambió la línea del `import`. Fórmulas = port LITERAL de
+osmdroid (mismo radio 6378137). `GeoPointParidadOsmdroidTest` compara contra osmdroid real y sale
+**bit a bit** igual. ⚠️ Cazó que `x*x` ≠ `.pow(2)` (2 ULP): **no lo "simplifiques"**.
+La conversión al mundo osmdroid vive SOLO en `ui/GeoPointInterop.kt` (19 sitios).
+
+**FASE 3 A MEDIAS — disco SÍ, red NO.** `PowJson` (`:shared`) sustituye a Gson en saves, matrices,
+waypoints y catálogo. Gson: 21 → **16 archivos**. ⚠️ **Las opciones de `PowJson` imitan a Gson a
+propósito** (`ignoreUnknownKeys`/`encodeDefaults`/`explicitNulls=false`/`coerceInputValues`);
+tocarlas rompe saves y clientes viejos EN SILENCIO. ⚠️ **Todo campo nuevo de `GameSaveData` DEBE
+llevar default** o la partida del jugador no carga (kotlinx peta, Gson rellenaba).
+🆕 El gotcha de las **listas NULL de Gson ya NO existe** (al dar default a todo, hay constructor
+sin args): `GameSaveDataTest` actualizado; el coalesce de `restoreSaveData` queda redundante.
+**FALTA la capa de RED** (17 sitios con `Map<String,Any?>`, que kotlinx no serializa): se dejó
+aposta porque habla con los clientes 1.0.0.14 YA INSTALADOS y con los servidores Node.
 
 ## 4. PENDIENTE — por prioridad
 
@@ -150,6 +128,10 @@ targets iOS. Con `git mv`: dominio puro de SF (7 archivos, 1235 líneas) → `co
 3. **🍏 FASE 1.5 EN EL MAC** (siguiente paso de KMP): compilar `:shared` para iOS de verdad y
    probar Compose MP + el mapa Leaflet en `WKWebView`. **Es lo que convierte en hechos las 2
    suposiciones más caras del plan.** Sin esto, no meter más código en `:shared`.
+   ⚠️ **EXPECTATIVA A CORREGIR: en el Mac todavía NO se puede "probar todo".** Las Fases 1-4 NO
+   producen una app iOS: no hay UI compartida (Fase 5) ni proyecto iOS (Fase 6). Hoy en el Mac
+   solo se puede **compilar `:shared` para iOS y correr sus 49 tests**. Es un hito real, pero no
+   hay nada que mirar en pantalla hasta la Fase 6.
 
 ### 🟠 P1 · AUDIO (trabajo activo)
 Ver `SF/PROMPT_traspaso_audio_subtitulos.md`:
