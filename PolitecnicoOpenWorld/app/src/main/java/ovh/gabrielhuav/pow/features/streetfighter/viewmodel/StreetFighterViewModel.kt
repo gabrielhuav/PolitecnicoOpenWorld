@@ -79,9 +79,9 @@ import kotlin.random.Random
 
 internal const val SF_STOP_SPECIALS_EVENT = "__sf_stop_specials__"
 
-private const val AUDIO_SHOWCASE_GAP_MS = 500L
-private const val AUDIO_SHOWCASE_FALLBACK_MS = 5000L
-private val SHOWCASE_SPEEDS = listOf(1f, 2f, 4f)
+internal const val AUDIO_SHOWCASE_GAP_MS = 500L
+internal const val AUDIO_SHOWCASE_FALLBACK_MS = 5000L
+internal val SHOWCASE_SPEEDS = listOf(1f, 2f, 4f)
 
 // ViewModel del modo STREET FIGHTER: port fiel de Fighter.js/BattleScene.js/Fireball.js.
 // - requestAnimationFrame → coroutine a ~60 fps con dt medido y RELOJ DE JUEGO VIRTUAL
@@ -96,7 +96,7 @@ private val SHOWCASE_SPEEDS = listOf(1f, 2f, 4f)
 class StreetFighterViewModel @Inject constructor(
     @ApplicationContext internal val appContext: Context,
     // 🆕 (2026-07-21) Recompensa de ARCADE en DIFÍCIL: el coleccionable del rival vencido.
-    private val collectibleRepo: ovh.gabrielhuav.pow.data.repository.CollectibleRepository,
+    internal val collectibleRepo: ovh.gabrielhuav.pow.data.repository.CollectibleRepository,
 ) : ViewModel() {
 
     internal val _state = MutableStateFlow(StreetFighterState())
@@ -106,17 +106,9 @@ class StreetFighterViewModel @Inject constructor(
     internal val _soundEvents = MutableSharedFlow<String>(extraBufferCapacity = 32)
     val soundEvents: SharedFlow<String> = _soundEvents.asSharedFlow()
 
-    private var audioShowcaseJob: Job? = null
+    internal var audioShowcaseJob: Job? = null
 
-    /**
-     * SFX del especial/bonus por peleador: `special_<sf_fighter_id_lower>.ogg`
-     * (pipeline tools/scrape_sf_voices.py + pack_sf_character_sfx.py).
-     * La View hace fallback a `hadouken` si falta el asset.
-     */
-    private fun specialSfxKey(id: SfFighterId): String = "special_${id.name.lowercase()}"
-
-    /** Frases special (ES/EN + HUD) de los 21 peleadores. Lazy desde assets. */
-    private val specialPhrases by lazy {
+    internal val specialPhrases by lazy {
         ovh.gabrielhuav.pow.features.streetfighter.data.SfSpecialPhrases.load(appContext)
     }
 
@@ -125,8 +117,8 @@ class StreetFighterViewModel @Inject constructor(
     // una lista de LÍNEAS (archivo `special_*` + frase); se elige una al azar. Se reproducen por la
     // ruta "special_*" (MediaPlayer en la Screen, apto para clips largos). Policías: HOMBRE y
     // GRANADERO comparten intro/attack (win difiere: granadero = "3 de diana"); igual MUJER/GRANADERA.
-    private data class SfVoiceLine(val file: String, val phrase: String = "")
-    private class SfVoicePack(
+    internal data class SfVoiceLine(val file: String, val phrase: String = "")
+    internal class SfVoicePack(
         val intro: List<SfVoiceLine> = emptyList(),
         val attack: List<SfVoiceLine> = emptyList(),
         val hurt: List<SfVoiceLine> = emptyList(),
@@ -136,7 +128,7 @@ class StreetFighterViewModel @Inject constructor(
         val lowHp: List<SfVoiceLine> = emptyList(),
     )
 
-    private val sfVoicePacks: Map<SfFighterId, SfVoicePack> = run {
+    internal val sfVoicePacks: Map<SfFighterId, SfVoicePack> = run {
         // HOMBRE: policía + granadero comparten intro y ATTACK; el WIN difiere.
         val hIntro = SfVoiceLine("special_pol_h_intro", "¡Está prohibido beber en la vía pública!")
         val hAttack = SfVoiceLine("special_pol_h_attack", "Buenas joven, ¿si sabe porque lo detuvimos?")
@@ -303,8 +295,8 @@ class StreetFighterViewModel @Inject constructor(
     // suena AL AZAR cuando un peleadór HOMBRE golpea y NO tiene voz de ataque propia. El ENEMIGO
     // (índice 1) lo emite más seguido; el jugador (índice 0) muy rara vez (para no saturar tu voz).
     // Archivo: special_male_attack_grunt.ogg (del "ZA ZA", seg 8-10).
-    private val maleGruntClip = "special_male_attack_grunt"
-    private val sfMaleFighters = setOf(
+    internal val maleGruntClip = "special_male_attack_grunt"
+    internal val sfMaleFighters = setOf(
         SfFighterId.PRANKEDY, SfFighterId.SENOR_TIENDA, SfFighterId.PAPARAZZI_1, SfFighterId.PAPARAZZI_5,
         SfFighterId.REY_GRUPERO, SfFighterId.ESCOMBOY, SfFighterId.CHARRO_NEGRO, SfFighterId.LAZARO,
         SfFighterId.POLICIA_CDMX_HOMBRE, SfFighterId.POLICIA_GRANADERO_HOMBRE, SfFighterId.GRANADERO,
@@ -313,273 +305,28 @@ class StreetFighterViewModel @Inject constructor(
 
     // 🆕 (2026-07-18s) Peleadores SIN voz a propósito (special_<id>.ogg borrado por el dueño):
     // su poder especial suena con el hadouken genérico. La auditoría NO los marca como faltantes.
-    private val sfVoicelessFighters = setOf(
+    internal val sfVoicelessFighters = setOf(
         SfFighterId.LAZARO, SfFighterId.PARAMEDICO, SfFighterId.PRANKEDY,
     )
 
     /** Emite un clip de voz `special_<name>.ogg` si el asset existe. true = se emitió. */
-    private fun emitVoiceClip(name: String): Boolean {
-        if (!sfAssetExists("STREETFIGHTER/SOUNDS/$name.ogg")) return false
-        _soundEvents.tryEmit(name)
-        // 🆕 (2026-07-26) Si es la voz de MI peleador en una pelea en red, se encola para que
-        // el rival reproduzca EL MISMO clip (ver pendingNetAudio).
-        if (netAudioCapture) queueNetAudio(name)
-        return true
-    }
+    internal val voiceSubtitlesEnabled = SettingsRepository(appContext).getShowVoiceSubtitles()
 
-    /**
-     * 🆕 (2026-07-26) Corre [block] capturando las voces que emita, para mandarlas por red.
-     * Solo captura las del peleador LOCAL (índice 0) y solo en pelea en red: la voz del rival
-     * la manda ÉL, y en un jugador no hay a quién mandársela. Reentrante-seguro (restaura el
-     * valor previo) por si un emit* llama a otro (emitWinVoice → emitSpecialVoice).
-     */
-    // ⚡ GAMA BAJA: `inline` a propósito. Se llama desde `changeState`, que corre varias veces por
-    // segundo y por peleador; sin inline cada llamada ASIGNA un lambda (captura nf/idx/now) y eso
-    // es basura para el GC en un teléfono lento. Inline = cero asignaciones.
-    private inline fun withNetAudioCapture(idx: Int, block: () -> Unit) {
-        if (idx != 0 || !inOnlineFight) {
-            block()
-            return
-        }
-        val previous = netAudioCapture
-        netAudioCapture = true
-        try {
-            block()
-        } finally {
-            netAudioCapture = previous
-        }
-    }
-
-    /** Encola una clave de voz para el próximo PLAYER_STATE (con tope, por si no se envía). */
-    private fun queueNetAudio(name: String) {
-        if (pendingNetAudio.size >= NET_AUDIO_MAX_PER_SNAPSHOT) return
-        pendingNetAudio.add(name)
-    }
-
-    /** Solo A-Z/0-9 para la fuente pixel del HUD (acentos/ñ/puntuación → simplificados). */
-    private fun sfHudSanitize(s: String): String = s.uppercase(java.util.Locale.ROOT)
-        .replace('Á', 'A').replace('É', 'E').replace('Í', 'I').replace('Ó', 'O').replace('Ú', 'U')
-        .replace('Ñ', 'N').replace('Ü', 'U')
-        .replace(Regex("[^A-Z0-9 ]"), " ").replace(Regex("\\s+"), " ").trim()
-
-    /** Fija el subtítulo (frase) por un tiempo proporcional a su longitud. */
-    // 🆕 (2026-07-22) SUBTÍTULOS: voice_phrases.json curado (64 `es` + track `en`). El delimitador
-    // '|' separa tramos sincronizados con la voz; ver setVoiceSubtitle.
-    // 🆕 (2026-07-25) Ahora son OPTATIVOS desde Ajustes → Interfaz (default APAGADO, decisión del
-    // dueño). Se lee una vez al crear el VM (se reentra al modo para aplicar un cambio).
-    private val voiceSubtitlesEnabled = SettingsRepository(appContext).getShowVoiceSubtitles()
-
-    private fun setVoiceSubtitle(phrase: String, now: Long) {
-        if (!voiceSubtitlesEnabled) return
-        // 🆕 (2026-07-22) TRAMOS '|' SECUENCIADOS: se sanea CADA tramo por separado (sfHudSanitize
-        // borraría el '|') y se re-une con '|'. La Screen muestra UN tramo A LA VEZ, avanzando con
-        // el tiempo: la ventana [start,until] se reparte por igual entre los tramos (sincronía con
-        // la voz). La duración total ~ largo del texto, con un mínimo legible por tramo.
-        val segments = phrase.split('|')
-            .map { sfHudSanitize(it) }
-            .filter { it.isNotBlank() }
-        if (segments.isEmpty()) return
-        val hud = segments.joinToString("|")
-        val perSegment = 900L // mínimo legible por tramo (ms)
-        val total = maxOf(1600L + hud.length * 70L, segments.size * perSegment).coerceIn(2000L, 9000L)
-        _state.update {
-            it.copy(
-                specialSubtitleHud = hud,
-                specialSubtitleStartMs = now,
-                specialSubtitleUntilMs = now + total,
-            )
-        }
-    }
-
-    // 🆕 (2026-07-20) Catálogo de frases POR CLIP (voice_phrases.json): el "lugar único"
-    // donde el dueño cura la frase de cada audio. Si un clip tiene frase curada, MANDA
-    // sobre la inline de SfVoiceLine. Se muestra en el HUD desde el 2026-07-22.
-    private val voicePhrases by lazy {
+    internal val voicePhrases by lazy {
         ovh.gabrielhuav.pow.features.streetfighter.data.SfVoicePhrases.load(appContext)
     }
 
     /** Emite una LÍNEA del evento (al azar) + su subtítulo si tiene frase (catálogo > inline). */
-    private fun emitVoiceLines(lines: List<SfVoiceLine>, now: Long): Boolean {
-        if (lines.isEmpty()) return false
-        val line = lines.random()
-        if (!emitVoiceClip(line.file)) return false
-        val phrase = voicePhrases[line.file]?.textForLang(java.util.Locale.getDefault().language)
-            ?: line.phrase
-        if (phrase.isNotBlank()) setVoiceSubtitle(phrase, now)
-        return true
-    }
-
-    /** Voz de VICTORIA del peleadór (pack WIN; si no tiene, su voz de special). */
-    private fun emitWinVoice(id: SfFighterId, now: Long) {
-        val p = sfVoicePacks[id]
-        if (p != null && emitVoiceLines(p.win, now)) return
-        emitSpecialVoice(id, now)
-    }
-
-    /** 🆕 Voz de DERROTA del peleadór (pack LOSS; si no tiene, silencio — no hay fallback). */
-    private fun emitLossVoice(id: SfFighterId, now: Long) {
-        val p = sfVoicePacks[id] ?: return
-        emitVoiceLines(p.loss, now)
-    }
-
-    // Anti-spam de voces por índice (no repetir en menos del intervalo).
-    private val lastHurtVoiceMs = LongArray(2) { 0L }
-    private val lastAttackVoiceMs = LongArray(2) { 0L }
-    private val lowHpVoiceTriggered = BooleanArray(2) { false }
+    internal val lastHurtVoiceMs = LongArray(2) { 0L }
+    internal val lastAttackVoiceMs = LongArray(2) { 0L }
+    internal val lowHpVoiceTriggered = BooleanArray(2) { false }
     // 🆕 (2026-07-19c) Sin cooldown en hurt para permitir interrupción inmediata en combos
-    private val hurtVoiceCooldownMs = 0L
-    private val attackVoiceCooldownMs = 4200L
+    internal val hurtVoiceCooldownMs = 0L
+    internal val attackVoiceCooldownMs = 4200L
 
     /** Voz de DAÑO (pack HURT, variante al azar) con cooldown por índice.
      * Si la vida baja del 25% (<= 50 de 200) y tiene audio de lowHp de una sola vez, lo prioriza. */
-    private fun emitHurtVoice(id: SfFighterId, idx: Int, hitPoints: Int, now: Long) {
-        val i = idx.coerceIn(0, 1)
-        val pack = sfVoicePacks[id] ?: return
-
-        // 25% de 200 HP = 50 HP. Prioriza lowHp si no se ha disparado aún.
-        if (hitPoints <= 50 && pack.lowHp.isNotEmpty() && !lowHpVoiceTriggered[i]) {
-            if (emitVoiceLines(pack.lowHp, now)) {
-                lowHpVoiceTriggered[i] = true
-                lastHurtVoiceMs[i] = now
-                return
-            }
-        }
-
-        val lines = pack.hurt
-        if (lines.isEmpty()) return
-        if (now - lastHurtVoiceMs[i] < hurtVoiceCooldownMs) return
-        if (emitVoiceLines(lines, now)) lastHurtVoiceMs[i] = now
-    }
-
-    /** Voz de ATAQUE (pack ATTACK, grito + frase al golpear) con cooldown por índice.
-     * Si el peleadór NO tiene voz de ataque propia y es HOMBRE, a veces suena el grito por
-     * defecto (enemigo = más seguido; jugador = raro). */
-    private fun emitAttackVoice(id: SfFighterId, idx: Int, now: Long) {
-        val i = idx.coerceIn(0, 1)
-        val isPoliceMale = (id == SfFighterId.POLICIA_CDMX_HOMBRE || id == SfFighterId.POLICIA_GRANADERO_HOMBRE || id == SfFighterId.GRANADERO)
-        if (isPoliceMale) {
-            // "special_pol_h_attack" solo debe sonar ciertas veces (30% de chance) y no se repite seguido
-            val rolledPhrase = Random.nextFloat() < 0.30f
-            val elapsed = now - lastAttackVoiceMs[i]
-            if (rolledPhrase && elapsed >= attackVoiceCooldownMs) {
-                val lines = sfVoicePacks[id]?.attack.orEmpty()
-                if (emitVoiceLines(lines, now)) {
-                    lastAttackVoiceMs[i] = now
-                    return
-                }
-            }
-            // Fallback por defecto: grito genérico que sí puede sonar repetido (no bloquea/actualiza lastAttackVoiceMs)
-            emitVoiceClip(maleGruntClip)
-            return
-        }
-
-        // Si tiene sus propios especiales/clips de ataque (como Charro Negro, Llorona, Señor de la Tienda, etc.),
-        // SIEMPRE los usa (se sobreponen a los genéricos) y no se bloquean por el cooldown largo de frase.
-        val lines = sfVoicePacks[id]?.attack.orEmpty()
-        if (lines.isNotEmpty()) {
-            if (emitVoiceLines(lines, now)) {
-                lastAttackVoiceMs[i] = now
-            }
-            return
-        }
-
-        if (now - lastAttackVoiceMs[i] < attackVoiceCooldownMs) return
-        // 🆕 (2026-07-18u) Grito masculino por defecto (solo hombres sin voz de ataque propia).
-        if (id in sfMaleFighters) {
-            val chance = if (i == 0) 0.10f else 0.35f // jugador raro / enemigo más seguido
-            if (Random.nextFloat() < chance && emitVoiceClip(maleGruntClip)) {
-                lastAttackVoiceMs[i] = now
-            }
-        }
-    }
-
-    /** Voz de PRESENTACIÓN al arrancar la pelea (solo si el pack tiene intro). */
-    private fun emitIntroVoice(id: SfFighterId, now: Long) {
-        emitVoiceLines(sfVoicePacks[id]?.intro.orEmpty(), now)
-    }
-
-    /** Emite SFX + subtítulo del special (pack POWER si lo tiene; si no, su special_<id> + frase JSON). */
-    private fun emitSpecialVoice(id: SfFighterId, now: Long) {
-        val p = sfVoicePacks[id]
-        if (p != null && emitVoiceLines(p.power, now)) return
-        _soundEvents.tryEmit(specialSfxKey(id))
-        // 🆕 (2026-07-26) El grito del special también viaja: aunque `specialSfxKey` sea
-        // derivable del id, se emite desde 4 transiciones distintas y capturarlo aquí evita
-        // duplicar esa lógica en el receptor (y que suene dos veces si me equivoco).
-        if (netAudioCapture) queueNetAudio(specialSfxKey(id))
-        val phrase = specialPhrases[id] ?: return
-        // 🆕 (2026-07-21g) Usaba phraseEs FIJO: la traducción `phrase_en` del catálogo no se
-        // mostraba nunca, ni con el juego en inglés. Mismo criterio que emitVoiceLines.
-        setVoiceSubtitle(phrase.textForLang(java.util.Locale.getDefault().language), now)
-    }
-
-    /** Reproduce otra vez la voz completa del peleador visible en el showcase. */
-    fun replayCurrentShowcaseAudio() {
-        if (!gauntletActive || !showcaseMode) return
-        emitSpecialVoice(_state.value.player.id, gameNow)
-    }
-
-    /** Recorre las 21 voces completas respetando la duración real de cada OGG. */
-    fun startAudioShowcase() {
-        if (audioShowcaseJob?.isActive == true) return
-        val fighters = SfArcadeLadder.ALL_PARTICIPANTS.filter { it in specialPhrases }
-        _soundEvents.tryEmit(SF_STOP_SPECIALS_EVENT)
-        audioShowcaseJob = viewModelScope.launch {
-            try {
-                fighters.forEachIndexed { index, id ->
-                    val phrase = specialPhrases.getValue(id)
-                    _state.update {
-                        it.copy(
-                            audioShowcaseRunning = true,
-                            audioShowcaseIndex = index + 1,
-                            audioShowcaseTotal = fighters.size,
-                            audioShowcaseFighter = id,
-                            audioShowcasePhrase = phrase.phraseEs,
-                        )
-                    }
-                    _soundEvents.emit(specialSfxKey(id))
-                    delay(specialAudioDurationMs(id) + AUDIO_SHOWCASE_GAP_MS)
-                }
-            } finally {
-                _state.update {
-                    it.copy(
-                        audioShowcaseRunning = false,
-                        audioShowcaseIndex = 0,
-                        audioShowcaseTotal = 0,
-                        audioShowcaseFighter = null,
-                        audioShowcasePhrase = "",
-                    )
-                }
-            }
-        }
-    }
-
-    /** Detiene el recorrido auditivo y también el MediaPlayer que esté hablando. */
-    fun stopAudioShowcase() {
-        audioShowcaseJob?.cancel()
-        audioShowcaseJob = null
-        _soundEvents.tryEmit(SF_STOP_SPECIALS_EVENT)
-    }
-
-    private fun specialAudioDurationMs(id: SfFighterId): Long {
-        val fallbackMs = specialPhrases[id]?.subtitleMs ?: AUDIO_SHOWCASE_FALLBACK_MS
-        return runCatching {
-            val retriever = MediaMetadataRetriever()
-            try {
-                appContext.assets.openFd("STREETFIGHTER/SOUNDS/${specialSfxKey(id)}.ogg").use { fd ->
-                    retriever.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
-                }
-                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                    ?.toLongOrNull()
-                    ?: fallbackMs
-            } finally {
-                retriever.release()
-            }
-        }.getOrDefault(fallbackMs)
-    }
-
-    // 🆕 Progreso del ARCADE (guardado LOCAL). Define qué peleadores/mapas están desbloqueados.
-    private val arcadeRepo = SfArcadeRepository(appContext)
+    internal val arcadeRepo = SfArcadeRepository(appContext)
 
     // 🆕 Gama baja: tick más lento (~30 fps) y menos trabajo por segundo (ver SfDeviceTier).
     private val lowEndDevice: Boolean = appContext.isSfLowEnd()
@@ -641,24 +388,24 @@ class StreetFighterViewModel @Inject constructor(
     fun unlockedMaps(): Set<String> = arcadeRepo.unlockedMaps()
 
     // Estado interno de la escalera de arcade en curso (la lista pesada NO va al UiState).
-    private var arcadeLadder: List<SfArcadeLadder.Step> = emptyList()
-    private var arcadeMapCurrent: String? = null
+    internal var arcadeLadder: List<SfArcadeLadder.Step> = emptyList()
+    internal var arcadeMapCurrent: String? = null
     /** Dificultad elegida al iniciar arcade (Fácil/Medio/Difícil → mapas día/noche/apocalipsis). */
-    private var arcadeChosenDifficulty: SfCpuDifficulty = SfCpuDifficulty.NORMAL
-    private var arcadePlayer: SfFighterId = SfFighterId.ESCOMBOY
+    internal var arcadeChosenDifficulty: SfCpuDifficulty = SfCpuDifficulty.NORMAL
+    internal var arcadePlayer: SfFighterId = SfFighterId.ESCOMBOY
     // 🆕 (2026-07-22) Derrotas SEGUIDAS en arcade: solo se retrocede un escalón a la 3ª (se
     // reinicia al ganar y al empezar una campaña). Antes se retrocedía en CADA derrota.
-    private var arcadeLossStreak = 0
+    internal var arcadeLossStreak = 0
 
     // Frame data por peleador (cache perezoso por identidad; soporta CUALQUIER SfFighterId)
     private val dataCache = mutableMapOf<SfFighterId, SfFighterData>()
-    private fun dataFor(f: SfFighter): SfFighterData =
+    internal fun dataFor(f: SfFighter): SfFighterData =
         dataCache.getOrPut(f.id) { SfFrameCatalog.load(appContext, f.id) }
 
     // ---- reloj de juego virtual ----
     private var loopJob: Job? = null
     private var lastRealMs = 0L
-    private var gameNow = 0L            // ms de JUEGO (no avanza en pausa)
+    internal var gameNow = 0L            // ms de JUEGO (no avanza en pausa)
     // 🆕 (2026-07-22) La Screen avisa si el overlay CARGANDO está visible: el reloj de JUEGO se
     // CONGELA mientras carga. Si no, en gama baja el 3-2-1 y hasta el arranque se gastan OCULTOS
     // tras el "CARGANDO" (la pelea "empieza antes de verla"). Al cargar, gameNow queda en 0.
@@ -749,7 +496,7 @@ class StreetFighterViewModel @Inject constructor(
     private val lastHpSeen = intArrayOf(-1, -1)
     private var lastDamageMs = 0L
     private var lastStalemateLogMs = -100000L
-    private val assetIssues = LinkedHashSet<String>() // problemas detectados (deduplicados)
+    internal val assetIssues = LinkedHashSet<String>() // problemas detectados (deduplicados)
     private val stuckLimitMs = 1800L      // un estado transitorio congelado más de esto = asset roto
     private val stalemateMs = 12000L      // sin daño de nadie más de esto = estancamiento sospechoso
     /** Estados TRANSITORIOS que DEBEN completar; si se congelan, la hoja del peleador está mal. */
@@ -768,8 +515,8 @@ class StreetFighterViewModel @Inject constructor(
     ) + SF_BONUS_POWER_STATES + SF_NEW_MOVE_STATES
 
     // 🆕 AUTOJUEGO (gauntlet): cola de parejas a pelear en IA vs IA, encadenadas automáticamente.
-    private var gauntletActive = false
-    private data class GauntletFight(
+    internal var gauntletActive = false
+    internal data class GauntletFight(
         val player: SfFighterId,
         val rival: SfFighterId,
         val difficulty: SfCpuDifficulty = SfCpuDifficulty.PESADILLA,
@@ -777,29 +524,29 @@ class StreetFighterViewModel @Inject constructor(
         val mapFile: String? = null,
     )
 
-    private val gauntletQueue = ArrayDeque<GauntletFight>()
-    private var gauntletTotal = 0
-    private var gauntletDone = 0
-    private var gauntletKoRounds = 0
-    private var gauntletTimeoutRounds = 0
-    private val gauntletFightCapMs = 325000L // tres rounds de 99 s + intros/transiciones
+    internal val gauntletQueue = ArrayDeque<GauntletFight>()
+    internal var gauntletTotal = 0
+    internal var gauntletDone = 0
+    internal var gauntletKoRounds = 0
+    internal var gauntletTimeoutRounds = 0
+    internal val gauntletFightCapMs = 325000L // tres rounds de 99 s + intros/transiciones
     // Tope de la pelea EN CURSO: en campaña depende de la dificultad; en showcase se calcula
     // por pasos para no cortar HURT/KO/VICTORY ni las metamorfosis con un TIMEOUT falso.
-    private var gauntletFightCapCurMs = 60000L
+    internal var gauntletFightCapCurMs = 60000L
     // 🆕 SHOWCASE: variante del gauntlet que recorre TODAS las animaciones + sonidos de cada
     // peleador (script de moves), para QA visual/auditiva de los assets (watchStuck loguea los rotos).
-    private var showcaseMode = false
-    private var gauntletCampaignMode = false
-    private var showcaseStep = 0
-    private var showcaseStepUntilMs = 0L
-    private var showcaseFiredStep = -1
-    private var showcaseSpeed = 1f
+    internal var showcaseMode = false
+    internal var gauntletCampaignMode = false
+    internal var showcaseStep = 0
+    internal var showcaseStepUntilMs = 0L
+    internal var showcaseFiredStep = -1
+    internal var showcaseSpeed = 1f
     // Ventana por animación: > stuckLimitMs (1800) para que watchStuck alcance a REGISTRAR y
     // rescatar una anim atascada antes de que el guion fuerce el siguiente estado (y > cooldown
     // de special/bonus). 🆕 2026-07-18j: era 1600 y enmascaraba atascos en los pasos forzados.
-    private val showcaseStepMs = 2000L
+    internal val showcaseStepMs = 2000L
     // Estado que el paso actual del guion FUERZA (bypass de validFrom); null = paso por input.
-    private var showcaseForcedState: SfFighterState? = null
+    internal var showcaseForcedState: SfFighterState? = null
 
     // ---- batalla ----
     private var hurtFreezeUntilMs = 0L  // hit-freeze (FighterStruckDelay)
@@ -879,7 +626,7 @@ class StreetFighterViewModel @Inject constructor(
     //  · los impactos (`*-hit`) NO se tocan: ya suenan en AMBOS lados (atacante y receptor).
     internal val pendingNetAudio = mutableListOf<String>()
     // Solo se captura mientras corre la voz del peleador LOCAL en una pelea en red.
-    private var netAudioCapture = false
+    internal var netAudioCapture = false
     // Último estado del rival ya sonorizado (para detectar la TRANSICIÓN, no el estado sostenido).
     internal var lastRemoteSfxState: SfFighterState? = null
     internal var myOnlineChar: SfFighterId? = null
@@ -898,7 +645,7 @@ class StreetFighterViewModel @Inject constructor(
     internal var countdownJob: Job? = null
     internal var roomsRefreshJob: Job? = null   // refresca LIST_ROOMS mientras estás en la lista de espera
     internal val isOnline: Boolean get() = _state.value.onlineStatus != SfOnlineStatus.OFF
-    private val inOnlineFight: Boolean get() = _state.value.onlineStatus == SfOnlineStatus.FIGHTING
+    internal val inOnlineFight: Boolean get() = _state.value.onlineStatus == SfOnlineStatus.FIGHTING
 
     // ⚠️ `internal`, no `private`: las constantes las leen los PARCIALES del VM
     // (StreetFighterNet.kt y siguientes), que son extensiones en el mismo paquete.
@@ -1297,7 +1044,7 @@ class StreetFighterViewModel @Inject constructor(
     // 🆕 (2026-07-22, Fase 2a) La lógica de avance de animación vive en SfAnimation (puro,
     // testeable en JVM). Estas funciones quedan como ENVOLTORIOS que pasan animOf(f):
     // mismos nombres y firmas → cero cambios en sus call sites, comportamiento idéntico.
-    private fun withAnimationFrame(f: SfFighter, frame: Int, now: Long): SfFighter {
+    internal fun withAnimationFrame(f: SfFighter, frame: Int, now: Long): SfFighter {
         val anim = animOf(f)
         val idx = SfAnimation.frameIndex(anim, frame)
         return f.copy(
@@ -1633,7 +1380,7 @@ class StreetFighterViewModel @Inject constructor(
         }
     }
 
-    private fun logAssetIssue(msg: String) {
+    internal fun logAssetIssue(msg: String) {
         if (assetIssues.add(msg)) android.util.Log.w("SF-DIAG", msg)
     }
 
@@ -3287,319 +3034,14 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     /** Snapshot ligero de la pelea arcade (ids + rondas). apply() = no bloquea UI. */
-    private fun persistArcadeSession(s: StreetFighterState = _state.value) {
-        if (!s.arcadeActive || arcadeLadder.isEmpty()) return
-        arcadeRepo.saveSession(
-            SfArcadeRepository.ArcadeSession(
-                playerId = arcadePlayer.name,
-                step = s.arcadeStep,
-                total = s.arcadeTotal,
-                ladderRivals = arcadeLadder.map { it.rival.name },
-                mapFile = s.arcadeMapFile,
-                playerRoundWins = s.playerRoundWins,
-                cpuRoundWins = s.cpuRoundWins,
-                difficulty = s.cpuDifficulty.name,
-                baseDifficulty = arcadeChosenDifficulty.name,
-                paused = true,
-            ),
-        )
-    }
-
-    /**
-     * 🆕 (2026-07-20) CHECKPOINT ENTRE PELEAS: al decidirse un combate se guarda la campaña
-     * apuntando al SIGUIENTE escalón a jugar (ganó → +1; perdió → −1, piso 1) con marcador
-     * 0-0. Antes aquí se BORRABA la sesión → cerrar la app en la pantalla GANASTE/PERDISTE
-     * perdía la campaña entera (escalera re-aleatorizada desde el escalón 1).
-     */
-    private fun persistArcadeCheckpoint(nextStep: Int) {
-        if (arcadeLadder.isEmpty()) return
-        val idx = nextStep.coerceIn(1, arcadeLadder.size)
-        val stepData = arcadeLadder[idx - 1]
-        arcadeRepo.saveSession(
-            SfArcadeRepository.ArcadeSession(
-                playerId = arcadePlayer.name,
-                step = idx,
-                total = arcadeLadder.size,
-                ladderRivals = arcadeLadder.map { it.rival.name },
-                mapFile = stepData.mapFile,
-                playerRoundWins = 0,
-                cpuRoundWins = 0,
-                difficulty = arcadeDifficultyForStep(stepData).name,
-                baseDifficulty = arcadeChosenDifficulty.name,
-                paused = true,
-            ),
-        )
-    }
-
-    /**
-     * Retoma la pelea arcade guardada (si hay). Devuelve true si se restauró.
-     * Reconstruye la escalera desde los ids guardados (sin re-aleatorizar).
-     */
-    fun resumeArcadeSession(): Boolean {
-        val ses = arcadeRepo.loadSession() ?: return false
-        val player = runCatching { SfFighterId.valueOf(ses.playerId) }.getOrNull() ?: return false
-        val rivals = ses.ladderRivals.mapNotNull { n ->
-            runCatching { SfFighterId.valueOf(n) }.getOrNull()
-        }
-        if (rivals.isEmpty() || ses.step !in 1..rivals.size) return false
-        arcadePlayer = player
-        val savedDiff = runCatching { SfCpuDifficulty.valueOf(ses.difficulty) }
-            .getOrDefault(SfCpuDifficulty.NORMAL)
-        // 🆕 (2026-07-20) La BASE elegida viaja en la sesión (v2). Solo las sesiones viejas
-        // caen a la inferencia (con pérdida: un guardado en jefe inflaba la base y cambiaba
-        // las reglas de desbloqueo y la iluminación de los mapas).
-        arcadeChosenDifficulty = runCatching { SfCpuDifficulty.valueOf(ses.baseDifficulty) }
-            .getOrNull()
-            ?: when (savedDiff) {
-                SfCpuDifficulty.PESADILLA -> SfCpuDifficulty.AVANZADA
-                else -> savedDiff
-            }
-        arcadeLadder = rivals.mapIndexed { i, rival ->
-            val n = i + 1
-            SfArcadeLadder.Step(
-                index = n,
-                rival = rival,
-                mapFile = SfStageCatalog.mapForRival(rival, arcadeChosenDifficulty),
-                isBoss = n >= rivals.size - 2,
-                isFinal = n == rivals.size,
-            )
-        }
-        arcadeMapCurrent = ses.mapFile
-            ?: arcadeLadder.getOrNull(ses.step - 1)?.mapFile
-            ?: SfArcadeLadder.MAP_FIRST
-        val stepData = arcadeLadder[ses.step - 1]
-        val diff = savedDiff
-        resetInternals()
-        cpuIntensity = if (arcadeLadder.size > 1) {
-            0.20f + 0.80f * (ses.step - 1).toFloat() / (arcadeLadder.size - 1)
-        } else {
-            1f
-        }
-        roundIntroUntilMs = ROUND_INTRO_MS
-        val base = StreetFighterState()
-        _state.value = base.copy(
-            player = base.player.copy(id = player),
-            cpu = base.cpu.copy(id = stepData.rival),
-            inCharacterSelect = false,
-            showRoundIntro = true,
-            isPaused = true, // reanuda con overlay PAUSA (Continuar)
-            cpuDifficulty = diff,
-            arcadeActive = true,
-            arcadeStep = ses.step,
-            arcadeTotal = ses.total.coerceAtLeast(rivals.size),
-            arcadeRival = stepData.rival,
-            arcadeMapFile = arcadeMapCurrent,
-            playerRoundWins = ses.playerRoundWins.coerceIn(0, ROUNDS_TO_WIN),
-            cpuRoundWins = ses.cpuRoundWins.coerceIn(0, ROUNDS_TO_WIN),
-            arcadeOutcome = SfArcadeOutcome.NONE,
-        )
-        return true
-    }
-
-    // ------------------------------------------------------------------
-    // 🆕 (2026-07-21) TUTORIAL INTERACTIVO (hoja de combos "PROBAR")
-    // Lecciones GUIADAS con validación: la pantalla pide un movimiento y solo se avanza
-    // cuando el jugador lo ejecuta. El rival es un MUÑECO inerte (no ataca ni se mueve),
-    // que es el estándar de los modos entrenamiento: deja concentrarse en la ejecución.
-    // ------------------------------------------------------------------
-
-    /** Lecciones de la sesión (universales + la de firma del peleador elegido). */
-    private var tutorialCombos: List<SfCombo> = emptyList()
-    private var tutorialFlashUntilMs = 0L
-    private var tutorialErrorUntilMs = 0L
+    internal var tutorialCombos: List<SfCombo> = emptyList()
+    internal var tutorialFlashUntilMs = 0L
+    internal var tutorialErrorUntilMs = 0L
     // 🆕 (2026-07-22) Hasta cuándo corre la cuenta 3-2-1 de la lección recién cargada.
-    private var tutorialLessonReadyMs = 0L
+    internal var tutorialLessonReadyMs = 0L
 
     /** ¿Este combate es el tutorial? (lo consultan el tick y la IA para inhibir al muñeco). */
     internal val inTutorial: Boolean get() = _state.value.tutorialActive
-
-    /**
-     * Arranca el tutorial con el peleador elegido (de los DESBLOQUEADOS). El rival es el
-     * muñeco: se usa el mismo peleador para no depender de otro set de assets.
-     */
-    fun startTutorial(playerId: SfFighterId) {
-        val lang = java.util.Locale.getDefault().language
-        // Currículum COMPLETO: primero los BÁSICOS (un movimiento por lección) y después
-        // los combos. Se filtran los que este peleador no puede hacer (sin arte propia).
-        // Se filtra por ARTE, no por recursos: el medidor de la súper se llena durante la
-        // propia lección pegándole al muñeco (con `canPerform` estas lecciones se caían).
-        val probe = _state.value.player.copy(id = playerId)
-        tutorialCombos = SfCombos.curriculum(appContext, playerId)
-            .filter { combo -> combo.steps.all { hasArtFor(probe, it) } }
-            .ifEmpty { SfCombos.basics(appContext) }
-        resetInternals()
-        val base = StreetFighterState()
-        _state.value = base.copy(
-            player = base.player.copy(id = playerId),
-            cpu = base.cpu.copy(id = playerId),
-            inCharacterSelect = false,
-            tutorialActive = true,
-            tutorialTotal = tutorialCombos.size,
-            // El muñeco no debe morir: la vida no baja en tutorial (ver applyAttackHit)
-            displayTime = SfConstants.BATTLE_TIME,
-        )
-        loadTutorialLesson(0, lang)
-    }
-
-    /** Carga la lección `index` (o marca completado si se acabaron). */
-    private fun loadTutorialLesson(index: Int, langTag: String) {
-        val combo = tutorialCombos.getOrNull(index)
-        if (combo == null) {
-            _state.update { it.copy(tutorialCompleted = true, tutorialFlash = "") }
-            return
-        }
-        _state.update {
-            it.copy(
-                tutorialLesson = index,
-                tutorialTitle = combo.name(langTag),
-                tutorialHint = combo.hint(langTag),
-                tutorialSteps = combo.steps.map(::actionLabel),
-                tutorialStepIndex = 0,
-                tutorialFlash = "",
-                tutorialCompleted = false,
-            )
-        }
-    }
-
-    /** Etiqueta corta y legible de cada acción (la pinta la hoja de combos y el tutorial). */
-    // 🆕 (2026-07-22, pedido del dueño) Etiquetas referidas a los CONTROLES ACTUALES:
-    // cada paso nombra el BOTÓN físico (X/Y/B/A/P/G/T/S) y/o el gesto de joystick exacto.
-    // ⚠️ Los substrings "PUÑO LIGERO/MEDIO/FUERTE", "PATADA", "PARRY", "AGARRE", "SÚPER",
-    // "BURLA" y "FATALITY" los usan chipColor (color del chip) y sfButtonForLabel (glow
-    // del botón) — no los rompas al reformular.
-    private fun actionLabel(action: SfComboAction): String = when (action) {
-        SfComboAction.LIGHT_PUNCH -> "PUÑO LIGERO (X)"
-        SfComboAction.MEDIUM_PUNCH -> "PUÑO MEDIO (Y)"
-        SfComboAction.HEAVY_PUNCH -> "PUÑO FUERTE (B)"
-        SfComboAction.LIGHT_KICK -> "PATADA LIGERA (A)"
-        SfComboAction.MEDIUM_KICK -> "PATADA MEDIA (→ + A)"
-        SfComboAction.HEAVY_KICK -> "PATADA FUERTE (← + A)"
-        SfComboAction.CROUCH_PUNCH -> "↓ + PUÑO (X)"
-        SfComboAction.CROUCH_KICK -> "↓ + PATADA (A)"
-        SfComboAction.CROUCH_HEAVY_PUNCH -> "↓ + PUÑO FUERTE (B)"
-        SfComboAction.SWEEP -> "BARRIDA: ↓ ← + PATADA (A)"
-        SfComboAction.LONG_KICK -> "→ + PATADA FUERTE"
-        SfComboAction.OVERHEAD -> "→ + PUÑO MEDIO (Y)"
-        SfComboAction.AIR_PUNCH -> "SALTA Y PUÑO (X)"
-        SfComboAction.AIR_KICK -> "SALTA Y PATADA (A)"
-        SfComboAction.DASH_FORWARD -> "DOBLE TOQUE →"
-        SfComboAction.DASH_BACKWARD -> "DOBLE TOQUE ←"
-        SfComboAction.PARRY -> "PARRY (L1)"
-        SfComboAction.GRAB -> "AGARRE (R1, PEGADO)"
-        SfComboAction.TAUNT -> "BURLA (L2)"
-        SfComboAction.SPECIAL -> "↓ ↘ → + PUÑO"
-        SfComboAction.SUPER_ART -> "SÚPER (R2, MEDIDOR LLENO)"
-        SfComboAction.JUMP -> "SALTAR (JOYSTICK ↑)"
-        SfComboAction.CROUCH -> "AGACHARSE (JOYSTICK ↓)"
-        SfComboAction.WALK_FORWARD -> "CAMINAR ADELANTE (JOYSTICK →)"
-        SfComboAction.RUN -> "TRAS EL DASH, SOSTÉN → (CORRER)"
-        SfComboAction.BLOCK_HIGH -> "MANTENER ATRÁS (CUBRIRSE)"
-        SfComboAction.FATALITY -> "FATALITY: CORRE Y PULSA R2"
-    }
-
-    /**
-     * Valida el paso en curso: se llama cada tick con el estado real del jugador. Si entró
-     * al estado que pedía la lección, avanza; al completar los pasos, pasa a la siguiente.
-     */
-    private fun tickTutorial(sim: Sim, now: Long) {
-        val s = _state.value
-        if (!s.tutorialActive || s.tutorialCompleted) return
-        // 🆕 (2026-07-22) Cuenta 3-2-1 entre lecciones: NO se revisa input (evita el "ESE NO ERA"
-        // por seguir apretando del paso anterior). El número se muestra en tutorialFlash.
-        if (now < tutorialLessonReadyMs) {
-            val n = (((tutorialLessonReadyMs - now) + 999L) / 1000L).toInt()
-            _state.update { it.copy(tutorialFlash = n.toString(), tutorialError = "") }
-            return
-        }
-        if (s.tutorialFlash.isNotEmpty() && now > tutorialFlashUntilMs) {
-            _state.update { it.copy(tutorialFlash = "", tutorialError = "") }
-        }
-        // 🆕 (2026-07-22) FIX: el "ESE NO ERA" (tutorialError) se pinta con flash VACÍO, así que la
-        // línea de arriba nunca lo limpiaba y se quedaba fijo. Se borra por su propio cooldown.
-        if (s.tutorialError.isNotEmpty() && now > tutorialErrorUntilMs) {
-            _state.update { it.copy(tutorialError = "") }
-        }
-        val combo = tutorialCombos.getOrNull(s.tutorialLesson) ?: return
-        val expected = combo.steps.getOrNull(s.tutorialStepIndex) ?: return
-        val playerState = sim.p0.state
-        if (playerState !in stateForAction(expected)) {
-            // 🆕 (2026-07-21) FEEDBACK DE ERROR: si hizo OTRO movimiento reconocible, se le
-            // dice cuál fue y cuál tocaba, en vez de dejarlo adivinando por qué no avanza.
-            reportTutorialMistake(playerState, expected, now)
-            return
-        }
-        // Paso acertado
-        val nextStep = s.tutorialStepIndex + 1
-        tutorialFlashUntilMs = now + TUTORIAL_FLASH_MS
-        if (nextStep < combo.steps.size) {
-            _state.update {
-                it.copy(tutorialStepIndex = nextStep, tutorialFlash = "OK", tutorialError = "")
-            }
-        } else {
-            _state.update {
-                it.copy(tutorialStepIndex = nextStep, tutorialFlash = "COMPLETO", tutorialError = "")
-            }
-            loadTutorialLesson(s.tutorialLesson + 1, java.util.Locale.getDefault().language)
-            tutorialLessonReadyMs = now + TUTORIAL_LESSON_COUNTDOWN_MS // 🆕 pausa 3-2-1 antes de la nueva
-        }
-    }
-
-    /**
-     * 🆕 (2026-07-21) Explica el ERROR: traduce el estado que SÍ ejecutó a su etiqueta y lo
-     * contrasta con el que pedía la lección. Solo se avisa de acciones RECONOCIBLES (no de
-     * estar quieto o caminando), y con cooldown para no llenar la pantalla de mensajes.
-     */
-    private fun reportTutorialMistake(
-        actual: SfFighterState,
-        expected: SfComboAction,
-        now: Long,
-    ) {
-        if (now < tutorialErrorUntilMs) return
-        val didAction = SfComboAction.entries.firstOrNull { action ->
-            action != expected && actual in stateForAction(action) &&
-                action !in setOf(SfComboAction.WALK_FORWARD, SfComboAction.BLOCK_HIGH)
-        } ?: return
-        tutorialErrorUntilMs = now + TUTORIAL_ERROR_COOLDOWN_MS
-        tutorialFlashUntilMs = now + TUTORIAL_ERROR_COOLDOWN_MS
-        _state.update {
-            it.copy(
-                tutorialError = "${actionLabel(didAction)} → ${actionLabel(expected)}",
-                tutorialFlash = "",
-            )
-        }
-    }
-
-    /** Saltar a la siguiente lección sin completarla. */
-    fun tutorialSkipLesson() {
-        if (!_state.value.tutorialActive) return
-        loadTutorialLesson(
-            _state.value.tutorialLesson + 1,
-            java.util.Locale.getDefault().language,
-        )
-    }
-
-    /** Repetir la lección en curso desde el primer paso. */
-    fun tutorialRestartLesson() {
-        if (!_state.value.tutorialActive) return
-        loadTutorialLesson(_state.value.tutorialLesson, java.util.Locale.getDefault().language)
-    }
-
-    /** Salir del tutorial al menú de modos. */
-    fun exitTutorial() {
-        tutorialCombos = emptyList()
-        resetInternals()
-        _state.value = StreetFighterState()
-    }
-
-    /** Combos que se listan en la HOJA (para la View; ya resueltos al idioma). */
-    fun comboSheet(id: SfFighterId): List<Triple<String, String, List<String>>> {
-        val lang = java.util.Locale.getDefault().language
-        return SfCombos.forFighter(appContext, id).map { combo ->
-            Triple(combo.name(lang), combo.hint(lang), combo.steps.map(::actionLabel))
-        }
-    }
-
-    /** Descarta la pelea a medias (el usuario elige "Nueva partida"). */
     fun discardArcadeSession() {
         arcadeRepo.clearSession()
     }
@@ -3673,666 +3115,17 @@ class StreetFighterViewModel @Inject constructor(
      * en video / espectáculo. Copia de [startBattle] con `aiVsAi = true`. Solo OFFLINE.
      * `a` = índice 0 (izquierda), `b` = índice 1 (derecha). buildPlayerInput NO se usa.
      */
-    fun startAiVsAi(
-        a: SfFighterId,
-        b: SfFighterId,
-        difficulty: SfCpuDifficulty = SfCpuDifficulty.PESADILLA,
-        intensity: Float = 1f,
-    ) {
-        resetInternals()
-        // Intensidad al máximo (igual que la final del arcade); resetInternals la deja en 0
-        cpuIntensity = intensity.coerceIn(0f, 1f)
-        // 🆕 (2026-07-18n) DESNIVEL ALEATORIO: dos peleadores iguales se esquivan sin fin y nadie
-        // gana. Se le baja la dificultad a UNO al azar (1–2 escalones) → el otro conecta y gana.
-        // Se re-aleatoriza en cada pelea (revancha/gauntlet) para que el ganador varíe.
-        val strongIndex: Int
-        if (gauntletCampaignMode) {
-            // Auditoría de campañas: P0 (Jugador) gana SIEMPRE para avanzar la escalera.
-            cpuDiffOverride[0] = SfCpuDifficulty.PESADILLA
-            cpuDiffOverride[1] = SfCpuDifficulty.BASICA
-            strongIndex = 0
-        } else {
-            val weak = Random.nextInt(2)
-            val steps = 1 + Random.nextInt(2)
-            val weakDiff = SfCpuDifficulty.entries[(difficulty.ordinal - steps).coerceAtLeast(0)]
-            cpuDiffOverride[weak] = weakDiff
-            cpuDiffOverride[1 - weak] = difficulty
-            strongIndex = 1 - weak
-        }
-        // 🆕 (2026-07-22) El escenario es el HOGAR del peleador con la IA MÁS avanzada (no ESCOM).
-        val strongFighter = if (strongIndex == 0) a else b
-        roundIntroUntilMs = ROUND_INTRO_MS // banner "RONDA 1 / PELEA" (gameNow arranca en 0)
-        val base = StreetFighterState()
-        _state.value = base.copy(
-            player = base.player.copy(id = a),
-            cpu = base.cpu.copy(id = b),
-            inCharacterSelect = false,
-            showRoundIntro = true,
-            cpuDifficulty = difficulty,
-            aiVsAi = true,
-            arcadeMapFile = SfStageCatalog.mapForRival(strongFighter, difficulty),
-        )
-    }
-
-    // ------------------------------------------------------------------
-    // 🆕 AUTOJUEGO (gauntlet): recorre muchas peleas IA vs IA seguidas para PROBAR a todos los
-    // peleadores y volcar un reporte de assets rotos (atascos/estancamientos detectados por
-    // watchStuck/watchStalemate). Al terminar escribe un .txt y muestra el reporte en pantalla.
-    // ------------------------------------------------------------------
-
-    /** Bot 1: TODOS contra TODOS (round-robin). ~N² peleas — déjalo corriendo/grabando. */
-    fun startGauntletRoundRobin() {
-        showcaseMode = false
-        gauntletCampaignMode = false
-        val roster = SfArcadeLadder.ALL_PARTICIPANTS
-        val q = ArrayDeque<GauntletFight>()
-        val lightings = SfStageCatalog.Lighting.entries
-        var mapIndex = 0
-        for (a in roster) {
-            for (b in roster) {
-                if (a != b) {
-                    val stage = SfStageCatalog.ALL_STAGES[mapIndex % SfStageCatalog.ALL_STAGES.size]
-                    val lighting = lightings[(mapIndex / SfStageCatalog.ALL_STAGES.size) % lightings.size]
-                    val mapFile = stage.file(lighting)
-                    mapIndex++
-                    q.add(GauntletFight(a, b, mapFile = mapFile))
-                }
-            }
-        }
-        beginGauntlet(q)
-    }
-
-    /**
-     * Bot 3: SHOWCASE de assets — cada peleador recorre TODAS sus animaciones (caminar, saltar,
-     * agacharse, giros, los 6 golpes, especial L/M/F, poderes y 🆕 2026-07-18j: también los
-     * HURT_*, KO, VICTORY y la metamorfosis de La Presidenta) reproduciendo sus sonidos, para
-     * verlos/oírlos y detectar los rotos. Además corre una AUDITORÍA ESTÁTICA por peleadór
-     * (animaciones faltantes/vacías, frames rotos, .ogg del special y SFX del tema).
-     * Recorre TODOS los peleadores. (No es pelea real.)
-     */
-    fun startShowcase() {
-        showcaseMode = true
-        gauntletCampaignMode = false
-        showcaseSpeed = 1f
-        val q = ArrayDeque<GauntletFight>()
-        SfArcadeLadder.ALL_PARTICIPANTS.forEach {
-            q.add(GauntletFight(it, it)) // Espejo: se ve la animación en ambos.
-        }
-        beginGauntlet(q)
-    }
-
-    /** Bot 2: las 9 campañas completas (3 protagonistas × 3 dificultades), 135 peleas reales. */
-    fun startGauntletArcade() {
-        showcaseMode = false
-        gauntletCampaignMode = true
-        val difficulties = listOf(
-            SfCpuDifficulty.BASICA,
-            SfCpuDifficulty.NORMAL,
-            SfCpuDifficulty.AVANZADA,
-        )
-        val q = ArrayDeque<GauntletFight>()
-        SfArcadeLadder.STARTERS.forEach { player ->
-            difficulties.forEach { difficulty ->
-                val ladder = SfArcadeLadder.build(player, difficulty)
-                ladder.forEach { step ->
-                    q.add(
-                        GauntletFight(
-                            player = player,
-                            rival = step.rival,
-                            difficulty = SfArcadeLadder.difficultyForStep(difficulty, step),
-                            intensity = SfArcadeLadder.intensityForStep(step.index, ladder.size),
-                            mapFile = step.mapFile,
-                        ),
-                    )
-                }
-            }
-        }
-        beginGauntlet(q)
-    }
-
-    private fun beginGauntlet(q: ArrayDeque<GauntletFight>) {
-        assetIssues.clear()
-        gauntletQueue.clear()
-        gauntletQueue.addAll(q)
-        gauntletTotal = q.size
-        gauntletDone = 0
-        gauntletKoRounds = 0
-        gauntletTimeoutRounds = 0
-        gauntletActive = true
-        _state.update { it.copy(gauntletFinished = false, gauntletReport = emptyList(), gauntletReportPath = null) }
-        if (showcaseMode) auditThemeSounds() // 🆕 SFX compartidos del tema (una vez por corrida)
-        startNextGauntletFight()
-    }
-
-    private fun startNextGauntletFight() {
-        val next = gauntletQueue.removeFirstOrNull()
-        if (next == null) {
-            finishGauntlet()
-            return
-        }
-        gauntletDone++
-        startAiVsAi(next.player, next.rival, next.difficulty, next.intensity)
-        gauntletActive = true
-        if (showcaseMode) {
-            showcaseStep = -1 // el primer tick lo sube a 0 (paso "caminar")
-            showcaseStepUntilMs = 0L
-            showcaseFiredStep = -2
-            showcaseForcedState = null
-            // Cap POR PASOS: el guion completo (con extras/metamorfosis) supera los 60 s fijos
-            gauntletFightCapCurMs = (showcaseTotalSteps(next.player) + 3L) * showcaseStepMs + 4000L
-            // 🆕 Auditoría estática del peleadór (anims + frames + special_<id>.ogg)
-            auditFighterAssets(next.player)
-        } else {
-            gauntletFightCapCurMs = gauntletFightCapMs
-        }
-        // 🆕 (2026-07-18k) Cada pelea del autojuego usa el MAPA HOGAR del peleadór en turno:
-        // showcase = hogar de DÍA del peleadór mostrado (se ve claro para QA); gauntlets IA vs IA
-        // = hogar del rival en su variante APOCALIPSIS (acorde a PESADILLA). Así el bot también
-        // recorre/prueba los fondos.
-        val mapFile = if (showcaseMode) {
-            SfStageCatalog.homeStage(next.player).file(SfStageCatalog.Lighting.DAY)
-        } else {
-            next.mapFile ?: SfStageCatalog.mapForRival(next.rival, next.difficulty)
-        }
-        _state.update {
-            it.copy(
-                gauntletRunning = true,
-                gauntletProgress = "$gauntletDone/$gauntletTotal",
-                showcaseRunning = showcaseMode,
-                showcaseSpeed = showcaseSpeed,
-                gauntletMapFile = mapFile,
-            )
-        }
-    }
-
-    /**
-     * SALTAR (View): da por terminado el bloque del peleador actual y avanza en el siguiente
-     * tick. No basta con cortar la pose: el tope temporal también debe quedar satisfecho para
-     * que el showcase no espere el resto del guion con el personaje inmóvil.
-     */
-    fun skipShowcaseFighter() {
-        if (!gauntletActive || !showcaseMode) return
-        showcaseForcedState = null
-        showcaseStep = showcaseTotalSteps(_state.value.player.id) + 1
-        showcaseFiredStep = showcaseStep
-        showcaseStepUntilMs = _state.value.gameTimeMs
-    }
-
-    /** Termina solo la animación actual y conserva al mismo peleador para el paso siguiente. */
-    fun skipToNextShowcaseAnimation() {
-        if (!gauntletActive || !showcaseMode) return
-        val now = _state.value.gameTimeMs
-        showcaseForcedState = null
-        showcaseFiredStep = -2
-        showcaseStepUntilMs = now
-        _state.update {
-            it.copy(
-                player = resetShowcaseFighter(it.player, now),
-                cpu = resetShowcaseFighter(it.cpu, now),
-            )
-        }
-    }
-
-    /** Retrocede a la animación anterior en el showcase. */
-    fun goToPreviousShowcaseAnimation() {
-        if (!gauntletActive || !showcaseMode) return
-        val now = _state.value.gameTimeMs
-        showcaseForcedState = null
-        showcaseFiredStep = -2
-        // Restamos 2 porque la simulación incrementará 1 de forma inmediata
-        showcaseStep = (showcaseStep - 2).coerceAtLeast(-1)
-        showcaseStepUntilMs = now
-        _state.update {
-            it.copy(
-                player = resetShowcaseFighter(it.player, now),
-                cpu = resetShowcaseFighter(it.cpu, now),
-            )
-        }
-    }
-
-    /** Alterna 1x → 2x → 4x para acelerar el showcase visual o autojuego en curso. */
-    fun cycleShowcaseSpeed() {
-        if (!gauntletActive) return
-        val index = SHOWCASE_SPEEDS.indexOf(showcaseSpeed).coerceAtLeast(0)
-        showcaseSpeed = SHOWCASE_SPEEDS[(index + 1) % SHOWCASE_SPEEDS.size]
-        _state.update { it.copy(showcaseSpeed = showcaseSpeed) }
-    }
-
-    private fun resetShowcaseFighter(fighter: SfFighter, now: Long): SfFighter =
-        withAnimationFrame(
-            fighter.copy(
-                state = SfFighterState.IDLE,
-                velocityX = 0f,
-                velocityY = 0f,
-                slideVelocity = 0f,
-                slideFriction = 0f,
-                attackStruck = false,
-                fireballFired = false,
-                y = SfConstants.STAGE_FLOOR,
-            ),
-            frame = 0,
-            now = now,
-        )
-
-    /** Se llama al inicio del tick: encadena la siguiente pelea al terminar el combate o al vencer el tope. */
-    private fun maybeAdvanceGauntlet(now: Long): Boolean {
-        val showcaseDone = showcaseMode && showcaseStep > showcaseTotalSteps(_state.value.player.id)
-        val ended = matchOver && now >= endMenuAtMs
-        val timedOut = now >= gauntletFightCapCurMs
-        if (!showcaseDone && !ended && !timedOut) return false
-        if (timedOut && !ended && !showcaseDone) {
-            val s = _state.value
-            logAssetIssue(
-                "TIMEOUT ${s.player.id.name} vs ${s.cpu.id.name}: la pelea no terminó en " +
-                    "${gauntletFightCapCurMs / 1000}s (posible atasco/estancamiento)",
-            )
-        }
-        startNextGauntletFight()
-        return true
-    }
-
-    private fun finishGauntlet() {
-        gauntletActive = false
-        showcaseMode = false
-        gauntletCampaignMode = false
-        val issues = assetIssues.toList()
-        val path = writeGauntletReport(issues)
-        _state.update {
-            it.copy(
-                gauntletRunning = false,
-                showcaseRunning = false,
-                gauntletMapFile = null,
-                gauntletFinished = true,
-                gauntletReport = issues,
-                gauntletReportPath = path,
-                inCharacterSelect = true, // al terminar, vuelve al selector (con el reporte encima)
-            )
-        }
-    }
-
-    private fun writeGauntletReport(issues: List<String>): String? = runCatching {
-        val dir = appContext.getExternalFilesDir(null) ?: appContext.filesDir
-        val stamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
-        val file = java.io.File(dir, "sf_diagnostico_$stamp.txt")
-        val header = "POW — Diagnóstico IA vs IA (autojuego)\n" +
-            "Peleas: $gauntletDone/$gauntletTotal\n" +
-            "Rondas por KO: $gauntletKoRounds\n" +
-            "Rondas por tiempo: $gauntletTimeoutRounds\n" +
-            "Problemas: ${issues.size}\n\n"
-        file.writeText(header + if (issues.isEmpty()) "Sin problemas detectados." else issues.joinToString("\n"))
-        file.absolutePath
-    }.getOrNull()
-
-    /** Detiene el gauntlet en curso y muestra el reporte con lo detectado hasta ahora. */
-    fun stopGauntlet() {
-        if (!gauntletActive) return
-        gauntletQueue.clear()
-        finishGauntlet()
-    }
-
-    /** Cierra el overlay del reporte del gauntlet. */
-    fun dismissGauntletReport() {
-        _state.update { it.copy(gauntletFinished = false) }
-    }
-
     /**
      * 🆕 (2026-07-18j) Estados EXTRA del showcase tras los poderes: inalcanzables por input.
      * Orden pensado: giros primero (terminan en IDLE/CROUCH→sube solo), luego los 6 HURT,
      * y al final KO (queda tendido) → VICTORY (se levanta a celebrar).
      */
-    private val showcaseExtraStates = listOf(
+    internal val showcaseExtraStates = listOf(
         SfFighterState.IDLE_TURN, SfFighterState.CROUCH_TURN,
         SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_HEAD_MEDIUM, SfFighterState.HURT_HEAD_HEAVY,
         SfFighterState.HURT_BODY_LIGHT, SfFighterState.HURT_BODY_MEDIUM, SfFighterState.HURT_BODY_HEAVY,
         SfFighterState.KO, SfFighterState.VICTORY,
     )
-
-    /**
-     * Último índice de paso del showcase para [id]: 0..12 = moves por input, 13.. = poderes,
-     * luego [showcaseExtraStates] forzados y — SOLO Yoalli Ehécatl — la metamorfosis final
-     * (BONUS_POWER_10 → termina convertida en La Presidenta).
-     */
-    private fun showcaseTotalSteps(id: SfFighterId): Int =
-        12 + usableBonusPowerCount(id) + showcaseExtraStates.size +
-            // 🆕 (2026-07-25) el paso extra de metamorfosis ahora es de Yoalli (→ La Presidenta)
-            (if (id == SfFighterId.YOALLI_EHECATL) 1 else 0)
-
-    /**
-     * Input SCRIPTED del showcase: avanza un paso cada [showcaseStepMs] y ejecuta la animación
-     * correspondiente (una vez por paso). Los botones son de un tick (fireNow); las direcciones se
-     * sostienen. Los pasos EXTRA no emiten input: dejan el estado en [showcaseForcedState] y el
-     * tick lo aplica con [forceShowcaseState]. watchStuck detecta las animaciones que no terminan.
-     */
-    private fun showcaseInput(now: Long, f: SfFighter): SfInput {
-        val id = f.id
-        if (now >= showcaseStepUntilMs) {
-            showcaseStep++
-            showcaseStepUntilMs = now + showcaseStepMs
-        }
-        val step = showcaseStep
-        // 🆕 (2026-07-18k) Los pasos de UN toque (salto/golpes/specials/poderes) esperan a que
-        // el peleadór esté en IDLE para disparar: p. ej. el SALTO se PERDÍA porque el input caía
-        // mientras aún subía del agachado (CROUCH→CROUCH_UP) y JUMP_START no es válido desde ahí.
-        // Los pasos sostenidos (0..2) y los forzados (extras) disparan de inmediato.
-        val oneShotStep = step in 3..(12 + usableBonusPowerCount(id))
-        val fireNow = step != showcaseFiredStep &&
-            (!oneShotStep || f.state == SfFighterState.IDLE)
-        if (fireNow) showcaseFiredStep = step
-        return when (step) {
-            0 -> SfInput(forward = true)
-            1 -> SfInput(backward = true)
-            2 -> SfInput(down = true)
-            3 -> if (fireNow) SfInput(up = true) else SfInput()
-            4 -> if (fireNow) SfInput(lightPunch = true) else SfInput()
-            5 -> if (fireNow) SfInput(mediumPunch = true) else SfInput()
-            6 -> if (fireNow) SfInput(heavyPunch = true) else SfInput()
-            7 -> if (fireNow) SfInput(lightKick = true) else SfInput()
-            8 -> if (fireNow) SfInput(mediumKick = true) else SfInput()
-            9 -> if (fireNow) SfInput(heavyKick = true) else SfInput()
-            10 -> if (fireNow) SfInput(special = SfAttackStrength.LIGHT) else SfInput()
-            11 -> if (fireNow) SfInput(special = SfAttackStrength.MEDIUM) else SfInput()
-            12 -> if (fireNow) SfInput(special = SfAttackStrength.HEAVY) else SfInput()
-            else -> {
-                val usable = usableBonusPowerCount(id)
-                val bp = step - 12 // paso 13 → poder 1
-                if (bp in 1..usable) {
-                    if (fireNow) SfInput(bonusPower = bp) else SfInput()
-                } else {
-                    // 🆕 Pasos FORZADOS: giros, HURT_*, KO, VICTORY y metamorfosis (Yoalli→Presidenta)
-                    if (fireNow) {
-                        val extraIdx = step - 13 - usable
-                        showcaseForcedState = when {
-                            extraIdx in showcaseExtraStates.indices -> showcaseExtraStates[extraIdx]
-                            extraIdx == showcaseExtraStates.size &&
-                                id == SfFighterId.YOALLI_EHECATL -> SfFighterState.BONUS_POWER_10
-                            else -> null
-                        }
-                    }
-                    SfInput()
-                }
-            }
-        }
-    }
-
-    /**
-     * 🆕 (2026-07-18j) Fuerza un estado del guion del showcase saltándose validFrom (QA de
-     * assets, no gameplay). Si la animación NO existe en el JSON del peleadór, lo reporta y
-     * no fuerza nada (evita el crash de animOf con getValue).
-     */
-    private fun forceShowcaseState(sim: Sim, idx: Int, st: SfFighterState, now: Long) {
-        val f = sim.fighter(idx)
-        if (dataFor(f).animations[st.jsKey].isNullOrEmpty()) {
-            logAssetIssue("FALTA ANIM ${f.id.name}: ${st.jsKey}")
-            return
-        }
-        var nf = f.copy(
-            state = st, velocityX = 0f, velocityY = 0f,
-            slideVelocity = 0f, slideFriction = 0f,
-            attackStruck = false, fireballFired = false,
-            y = SfConstants.STAGE_FLOOR,
-        )
-        nf = withAnimationFrame(nf, 0, now)
-        sim.setFighter(idx, nf)
-        // 🆕 (2026-07-18k) AUDIO del guion: los estados forzados NO pasan por applyAttackHit/
-        // changeState, así que su sonido se emite aquí reutilizando los .ogg correctos del tema
-        // (pedido del dueño: mejor repetir un audio correcto que dejar la animación muda).
-        // Solo idx 0: el guion es espejo y emitir dos veces duplicaba el volumen.
-        // 🆕 (2026-07-18o/p) Voz de DAÑO del pack en el showcase (bypass del cooldown, es demo).
-        if (idx == 0 && st in SF_HURT_STATES) {
-            emitVoiceLines(sfVoicePacks[nf.id]?.hurt.orEmpty(), now)
-        }
-        if (idx == 0) when (st) {
-            SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_BODY_LIGHT ->
-                _soundEvents.tryEmit("light-punch-hit")
-            SfFighterState.HURT_HEAD_MEDIUM, SfFighterState.HURT_BODY_MEDIUM ->
-                _soundEvents.tryEmit("medium-punch-hit")
-            SfFighterState.HURT_HEAD_HEAVY, SfFighterState.HURT_BODY_HEAVY ->
-                _soundEvents.tryEmit("heavy-punch-hit")
-            SfFighterState.KO -> {
-                _soundEvents.tryEmit("heavy-kick-hit") // golpe final (thud)
-                emitLossVoice(nf.id, now) // 🆕 voz de derrota del perdedor
-            }
-            SfFighterState.VICTORY -> emitWinVoice(nf.id, now) // su voz al celebrar (policía = WIN)
-            SfFighterState.BONUS_POWER_11 -> emitSpecialVoice(nf.id, now) // metamorfosis
-            else -> Unit // giros: sin SFX (tampoco lo tienen en pelea real)
-        }
-    }
-
-    /**
-     * 🆕 AUDITORÍA ESTÁTICA por peleadór (2026-07-18j): recorre TODAS las claves de animación
-     * esperadas (SfFighterState.jsKey, poderes solo hasta su bonusPowerCount) y reporta las que
-     * FALTEN o estén vacías, y las que referencien frames inexistentes; además verifica la voz
-     * de su special (special_<id>.ogg). Corre al armar cada peleadór del showcase.
-     */
-    private fun auditFighterAssets(id: SfFighterId) {
-        val data = runCatching { SfFrameCatalog.load(appContext, id) }.getOrElse {
-            logAssetIssue("JSON ILEGIBLE ${id.name} (${id.jsonAsset}): ${it.message}")
-            return
-        }
-        for (st in SfFighterState.entries) {
-            val bonusIdx = st.bonusPowerIndex()
-            if (bonusIdx != null && bonusIdx > id.bonusPowerCount) continue // poderes que no tiene
-            val anim = data.animations[st.jsKey]
-            if (anim.isNullOrEmpty()) {
-                logAssetIssue("FALTA ANIM ${id.name}: ${st.jsKey}")
-                continue
-            }
-            anim.forEach { fr ->
-                if (fr.frameKey !in data.frames) {
-                    logAssetIssue("FRAME ROTO ${id.name}: ${st.jsKey} usa '${fr.frameKey}' y no existe")
-                }
-            }
-            val visibleSteps = anim.filter { it.delay >= 0 }
-            val uniqueSources = visibleSteps.mapNotNull { frame ->
-                data.frames[frame.frameKey]?.src
-            }.distinct()
-            if (visibleSteps.size >= 3 && uniqueSources.size == 1) {
-                logAssetIssue(
-                    "ANIM RELLENO ${id.name}: ${st.jsKey} repite una sola pose " +
-                        "en ${visibleSteps.size} pasos",
-                )
-            }
-        }
-        // 🆕 (2026-07-18o/p/q) Voz del peleadór: si tiene PACK, verifica cada LÍNEA (archivo .ogg)
-        // de todos sus eventos; si no, su special_<id>.ogg.
-        val pack = sfVoicePacks[id]
-        if (pack != null) {
-            (pack.intro + pack.attack + pack.hurt + pack.power + pack.win).forEach { line ->
-                if (!sfAssetExists("STREETFIGHTER/SOUNDS/${line.file}.ogg")) {
-                    logAssetIssue("FALTA VOZ ${line.file}.ogg (${id.name})")
-                }
-            }
-        } else if (id !in sfVoicelessFighters &&
-            !sfAssetExists("STREETFIGHTER/SOUNDS/${specialSfxKey(id)}.ogg")
-        ) {
-            logAssetIssue("FALTA SONIDO ${specialSfxKey(id)}.ogg (${id.name})")
-        }
-    }
-
-    /** 🆕 Verifica los .ogg COMPARTIDOS del tema (golpes/impactos/land/hadouken) + música. */
-    private fun auditThemeSounds() {
-        SF_CLASSIC_THEME.soundKeys.forEach { key ->
-            if (!sfAssetExists("${SF_CLASSIC_THEME.soundsDir}$key.ogg")) {
-                logAssetIssue("FALTA SFX DEL TEMA: $key.ogg")
-            }
-        }
-        if (!sfAssetExists(SF_CLASSIC_THEME.soundsDir + SF_CLASSIC_THEME.musicFile)) {
-            logAssetIssue("FALTA MUSICA DEL TEMA: ${SF_CLASSIC_THEME.musicFile}")
-        }
-        // 🆕 (2026-07-18k) Música por progresión (lobby + pistas de batalla de Prankedy)
-        (listOfNotNull(SF_CLASSIC_THEME.lobbyMusic.takeIf { it.isNotBlank() }) +
-            SF_CLASSIC_THEME.battleMusic).forEach { m ->
-            if (!sfAssetExists(SF_CLASSIC_THEME.soundsDir + m)) {
-                logAssetIssue("FALTA MUSICA (progresión): $m")
-            }
-        }
-        // 🆕 (2026-07-18u) Grito de ataque masculino por defecto (pendiente: "ZA ZA" seg 8-10).
-        if (!sfAssetExists("STREETFIGHTER/SOUNDS/$maleGruntClip.ogg")) {
-            logAssetIssue("FALTA (opcional) $maleGruntClip.ogg — grito de ataque masculino por defecto")
-        }
-    }
-
-    /** ¿Existe el asset? (open+close barato; solo se usa en auditorías puntuales). */
-    private fun sfAssetExists(path: String): Boolean =
-        runCatching { appContext.assets.open(path).close() }.isSuccess
-
-    // ------------------------------------------------------------------
-    // 🆕 MODO ARCADE (escalera de 11 peleas, OFFLINE). Ver SfArcadeLadder + SfArcadeRepository.
-    // Todos los personajes/mapas empiezan bloqueados; se desbloquean derrotando rivales.
-    // ------------------------------------------------------------------
-
-    /**
-     * Arranca el arcade: peleadór + dificultad **Fácil / Medio / Difícil**.
-     * - Fácil (BASICA) → mapas de **día** del rival
-     * - Medio (NORMAL) → mapas de **noche**
-     * - Difícil (AVANZADA/PESADILLA) → **noche apocalíptica**
-     * La IA base es la elegida; en jefes/final sube un escalón (cap PESADILLA).
-     */
-    fun startArcade(playerId: SfFighterId, difficulty: SfCpuDifficulty = SfCpuDifficulty.NORMAL) {
-        arcadePlayer = playerId
-        arcadeLossStreak = 0 // 🆕 campaña nueva: racha de derrotas a cero
-        // PESADILLA del selector de práctica se trata como Difícil (apocalipsis + IA dura)
-        arcadeChosenDifficulty = when (difficulty) {
-            SfCpuDifficulty.PESADILLA -> SfCpuDifficulty.AVANZADA
-            else -> difficulty
-        }
-        arcadeLadder = SfArcadeLadder.build(playerId, arcadeChosenDifficulty)
-        arcadeMapCurrent = arcadeLadder.firstOrNull()?.mapFile
-            ?: SfStageCatalog.mapForRival(SfFighterId.PARAMEDICO_CRUZ_ROJA, arcadeChosenDifficulty)
-        startArcadeStep(1)
-    }
-
-    /** Prepara y arranca la pelea del escalón `step` (1..TOTAL). */
-    private fun startArcadeStep(step: Int) {
-        if (arcadeLadder.isEmpty()) return
-        val idx = step.coerceIn(1, arcadeLadder.size)
-        val stepData = arcadeLadder[idx - 1]
-        // Mapa del rival (ya con iluminación según dificultad elegida)
-        arcadeMapCurrent = stepData.mapFile
-            ?: SfStageCatalog.mapForRival(stepData.rival, arcadeChosenDifficulty)
-        resetInternals()
-        // Intensidad sube por fase (piso 0.2) encima de la dificultad elegida
-        cpuIntensity = SfArcadeLadder.intensityForStep(idx, arcadeLadder.size)
-        roundIntroUntilMs = ROUND_INTRO_MS // banner "RONDA 1 / PELEA"
-        val base = StreetFighterState()
-        _state.value = base.copy(
-            player = base.player.copy(id = arcadePlayer),
-            cpu = base.cpu.copy(id = stepData.rival),
-            inCharacterSelect = false,
-            showRoundIntro = true,
-            cpuDifficulty = arcadeDifficultyForStep(stepData),
-            arcadeActive = true,
-            arcadeStep = idx,
-            arcadeTotal = arcadeLadder.size,
-            arcadeRival = stepData.rival,
-            arcadeMapFile = arcadeMapCurrent,
-            arcadeOutcome = SfArcadeOutcome.NONE,
-        )
-    }
-
-    /**
-     * Dificultad de la pelea = base elegida (Fácil/Medio/Difícil) + escalones en jefes.
-     * Mapas ya se fijaron con [arcadeChosenDifficulty] al construir la escalera.
-     */
-    private fun arcadeDifficultyForStep(step: SfArcadeLadder.Step): SfCpuDifficulty =
-        SfArcadeLadder.difficultyForStep(arcadeChosenDifficulty, step)
-
-    /**
-     * Fin del COMBATE en arcade (offline): si GANASTE, desbloquea según la DIFICULTAD ELEGIDA y
-     * guarda el progreso; si perdiste, marca la derrota. El overlay lo dibuja la View según
-     * `arcadeOutcome`. Lo llama endRound cuando alguien llega a ROUNDS_TO_WIN.
-     *
-     * 🆕 (2026-07-18) REGLAS DE DESBLOQUEO por [arcadeChosenDifficulty] (decisión del dueño):
-     *  - FÁCIL (BASICA)   → SOLO el MAPA del rival (día). El peleadór NO se desbloquea.
-     *  - MEDIO (NORMAL)   → el PELEADÓR + su mapa (noche). Es el mínimo para tener al personaje.
-     *  - DIFÍCIL (AVANZADA/apocalíptica) → NADA por ahora (próximamente: animaciones/poderes).
-     * La escalera SIEMPRE avanza al ganar (independiente del desbloqueo).
-     */
-    private fun handleArcadeMatchEnd(winnerIdx: Int) {
-        val s = _state.value
-        val step = arcadeLadder.getOrNull(s.arcadeStep - 1) ?: return
-        val outcome = if (winnerIdx == 0) {
-            when (arcadeChosenDifficulty) {
-                SfCpuDifficulty.BASICA -> {
-                    // Solo el mapa del rival (variante de la pelea = día)
-                    step.mapFile?.let { arcadeRepo.unlockMap(it) }
-                }
-                SfCpuDifficulty.NORMAL -> {
-                    // Peleadór + su mapa (noche): mínimo para desbloquear al personaje
-                    arcadeRepo.unlockFighter(step.rival.name)
-                    step.mapFile?.let { arcadeRepo.unlockMap(it) }
-                }
-                else -> {
-                    // 🆕 (2026-07-21) DIFÍCIL (AVANZADA/PESADILLA): además del avance, gana
-                    // el COLECCIONABLE del rival (Menú principal → Coleccionables →
-                    // PELEADORES), con su historia. Antes esta dificultad no daba NADA.
-                    arcadeRepo.unlockFighter(step.rival.name)
-                    step.mapFile?.let { arcadeRepo.unlockMap(it) }
-                    viewModelScope.launch {
-                        runCatching { collectibleRepo.unlockFighterCollectible(step.rival.name) }
-                    }
-                }
-            }
-            arcadeRepo.setLadderStep(s.arcadeStep)
-            arcadeLossStreak = 0 // 🆕 ganar CORTA la racha de derrotas
-            if (s.arcadeStep >= arcadeLadder.size) SfArcadeOutcome.COMPLETED else SfArcadeOutcome.WON
-        } else {
-            arcadeLossStreak++ // 🆕 solo se retrocede a la 3ª derrota SEGUIDA (ver arcadeRetry)
-            SfArcadeOutcome.LOST
-        }
-        // 🆕 (2026-07-20) La campaña SOBREVIVE el cierre de la app: checkpoint al siguiente
-        // escalón (mismo que tomaría Continuar/Reintentar). Solo la final completada limpia.
-        when (outcome) {
-            SfArcadeOutcome.COMPLETED -> arcadeRepo.clearSession()
-            SfArcadeOutcome.WON -> persistArcadeCheckpoint(s.arcadeStep + 1)
-            // 🆕 (2026-07-22) Retrocede el checkpoint SOLO a la 3ª derrota seguida; si no, se queda.
-            else -> persistArcadeCheckpoint(
-                if (arcadeLossStreak >= 3) (s.arcadeStep - 1).coerceAtLeast(1) else s.arcadeStep,
-            )
-        }
-        _state.value = _state.value.copy(arcadeOutcome = outcome)
-    }
-
-    /** CONTINUAR tras ganar un escalón → siguiente rival (o salir si era la final). */
-    fun arcadeContinue() {
-        val s = _state.value
-        if (!s.arcadeActive) return
-        if (s.arcadeOutcome == SfArcadeOutcome.COMPLETED) { arcadeExit(); return }
-        startArcadeStep(s.arcadeStep + 1)
-    }
-
-    /**
-     * REINTENTAR tras perder. 🆕 (2026-07-22) Solo retrocede un escalón tras **3 derrotas
-     * SEGUIDAS**; si no, reintenta el MISMO rival. Ganar reinicia la racha.
-     */
-    fun arcadeRetry() {
-        val s = _state.value
-        if (!s.arcadeActive) return
-        val target = if (arcadeLossStreak >= 3) {
-            arcadeLossStreak = 0
-            (s.arcadeStep - 1).coerceAtLeast(1)
-        } else {
-            s.arcadeStep
-        }
-        startArcadeStep(target)
-    }
-
-    /** Salir del arcade → volver al selector de personaje (fresco). */
-    fun arcadeExit() {
-        // Pelea A MEDIAS (sin resultado): guarda su snapshot por si el usuario vuelve.
-        // 🆕 (2026-07-20) Con resultado ya decidido NO se re-guarda: el checkpoint correcto
-        // (siguiente escalón, 0-0) lo dejó handleArcadeMatchEnd — re-guardar aquí metía el
-        // marcador 2-x de la pelea terminada y al retomar acababa en una sola ronda.
-        val s = _state.value
-        if (s.arcadeActive && s.arcadeOutcome == SfArcadeOutcome.NONE && !s.showEndMenu) {
-            persistArcadeSession(s)
-        }
-        arcadeLadder = emptyList()
-        resetInternals()
-        _state.value = StreetFighterState()
-    }
-
-    /** Reinicio de todos los relojes/colas internos (resetGameState del JS). */
     internal fun resetInternals() {
         gameNow = 0L
         lastRealMs = SystemClock.elapsedRealtime()

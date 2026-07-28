@@ -3,6 +3,28 @@ package ovh.gabrielhuav.pow.features.streetfighter.ui
 // 🆕 Fase 5: EXTENSIONES del VM extraídas a `StreetFighterNet.kt` (multijugador). Al vivir en
 // otro paquete, la Screen las necesita IMPORTADAS una a una — es el mismo patrón que ya usan
 // las pantallas del mundo abierto con los parciales del WorldMapViewModel (ver 09 §0).
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.cycleShowcaseSpeed
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.dismissGauntletReport
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.goToPreviousShowcaseAnimation
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.skipShowcaseFighter
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.skipToNextShowcaseAnimation
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startAiVsAi
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startGauntletArcade
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startGauntletRoundRobin
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startShowcase
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.stopGauntlet
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.replayCurrentShowcaseAudio
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.stopAudioShowcase
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.arcadeContinue
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.arcadeExit
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.arcadeRetry
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.comboSheet
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.exitTutorial
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.resumeArcadeSession
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startArcade
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startTutorial
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.tutorialRestartLesson
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.tutorialSkipLesson
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.cancelBtScan
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.cancelOnline
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.chooseMapOnline
