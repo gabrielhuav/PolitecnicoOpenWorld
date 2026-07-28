@@ -75,21 +75,17 @@ default**. Los fijan `PayloadsSeSerializanEnRuntimeTest` y `ModelosToleranJsonIn
 
 ## 3ter. Sesión 2026-07-27 (Opus 5, EN EL MAC) — 🍏 1ª compilación iOS de la historia
 
-**✅ MEDIDO: `:shared` compila, enlaza y sus 49 tests PASAN en el simulador** (`tests=49 failures=0
-errors=0 skipped=0`, contado en `shared/build/test-results/iosSimulatorArm64Test`). Klib real
-(`native_targets=ios_simulator_arm64`, `compiler_version=2.2.10`); Room generó su `actual` de
+**✅ `:shared` compila, enlaza y sus 49 tests PASAN en el simulador.** Room generó su `actual` de
 `PowDatabaseConstructor` y los 5 DAO `_Impl` sin tocar nada.
-**Android sigue verde: 112 + 49 = 161 tests, 0 fallos, `assembleDebug` OK.**
 
 ⚠️ **El runtime del simulador lo instala XCODE, no un DMG a mano** (`xcodebuild -downloadPlatform
 iOS`; quedó iOS 26.5). Un DMG bajado con Safari queda en cuarentena y los tests mueren con
 `dyld_sim mmap() of segment failed` + `Abort trap` (134), que NO parece un problema de permisos.
 
-**4 arreglos de código, mínimos. El PORQUÉ de cada uno en `09_CONVENTIONS_GOTCHAS.md` §🍏 KMP/iOS:**
+**4 arreglos, mínimos. El PORQUÉ de cada uno en `09_CONVENTIONS_GOTCHAS.md` §🍏 KMP/iOS:**
 `MapTileDao` → `suspend` (Room lo exige fuera de Android) con el `runBlocking` en `TileCache`;
-`import kotlin.concurrent.Volatile`; `@OptIn(ExperimentalForeignApi::class)`; y 21 nombres de test sin `(`, `)` ni `,`.
-
-✅ **Ktor: el freno de la ABI YA NO EXISTE** — al subir Kotlin a 2.3.21 (§3quater) volvió a 3.5.1.
+`import kotlin.concurrent.Volatile`; `@OptIn(ExperimentalForeignApi::class)`; y 21 nombres de test
+sin `(`, `)` ni `,`. ✅ El freno de la ABI de Ktor desapareció al subir Kotlin (§3quater).
 
 ⚠️ **`gradle-wrapper.jar` está en `.gitignore` → NO viene por git** y `./gradlew` muere con
 `ClassNotFoundException: GradleWrapperMain`. Se regenera con el Gradle cacheado en
@@ -100,12 +96,9 @@ iOS`; quedó iOS 26.5). Un DMG bajado con Safari queda en cuarentena y los tests
 `WorldMapLeafletHtml.kt` movido a `:shared` con `git mv` **conservando el paquete** → `:app` no
 cambió ni un import; solo pasó de `internal` a público. `:shared` produce ahora un **framework**
 (`baseName="Shared"`). App iOS en **`iosApp/`** (SwiftUI + `WKWebView`), salida de la plantilla de
-Xcode y renombrada — **no** se escribió el `.pbxproj` a mano.
-**MEDIDO: compila, arranca, pinta el mapa y responde a pinch-zoom. Android sigue en 161 tests, 0
-fallos.** ⚠️ El framework hay que generarlo ANTES de abrir Xcode
+Xcode y renombrada — **no** se escribió el `.pbxproj` a mano. Pinta el mapa y responde a pinch-zoom.
+⚠️ El framework hay que generarlo ANTES de abrir Xcode
 (`:shared:linkDebugFrameworkIosSimulatorArm64`) o sale `No such module 'Shared'`.
-🔴 **Deuda ya conocida:** el HTML tiene 5 rutas `file:///android_asset/…` cableadas que **en iOS no
-existen**. Hoy no se nota porque la app no inyecta datos; al inyectarlos saldrán imágenes rotas.
 
 ❌ **DESMENTIDO del guion:** `URLForDirectory(...)` estaba BIEN (solo faltaba el opt-in), y en
 `iosMain` hay UN fichero → el motor Darwin de Ktor **sigue sin ejercitarse**. ⚠️ **Qué NO prueba
@@ -128,8 +121,25 @@ Ktor 3.3.3 → **3.5.1** (desbloqueado) · serialization → 1.11.0 · Compose B
   primera junto a KMP), con el target dentro de `kotlin { android { … } }`.
 - ⚠️⚠️ **LA TAREA DE TESTS DE `:shared` CAMBIÓ DE NOMBRE:** `testDebugUnitTest` →
   **`testAndroidHostTest`**. Con el viejo, Gradle dice 'task not found'. Ya corregido en CI.
-- ⚠️ **iOS NO se verificó aquí** (Windows no compila Kotlin/Native): la Mac debe re-correr
-  `:shared:iosSimulatorArm64Test` y el framework, porque el plugin de Android del módulo cambió.
+- ✅ **iOS RE-VERIFICADO en el Mac tras el salto** (era el riesgo abierto): el `.klib` se regenera
+  entero con 2.3.21 y aun así **49 tests, 0 fallos**; framework relinkado y el mapa igual en el
+  simulador. **El cambio de plugin de `:shared` no rompió iOS.**
+
+## 3quinquies. Sesión 2026-07-27 (Opus 5, Mac) — deudas de la Fase 1.5 cerradas
+
+**MEDIDO tras estos cambios: iOS 49 tests · Android `:app` 112 + `:shared` 49 = 161, 0 fallos.**
+- **Assets del mapa parametrizados.** `buildHtml` gana `assetBaseUrl`, **con el valor de Android por
+  defecto** → `WorldMapScreenWeb.kt` no cambió y producción se comporta igual. Las 5 rutas
+  `file:///android_asset/` pasan a una var JS `POW_ASSETS`; iOS inyecta `pow-asset:///`, que
+  resuelve un `WKURLSchemeHandler` desde el bundle.
+  ⚠️ **Hoy ese handler devuelve 404 para todo Y ESTÁ BIEN**: los assets no se empaquetan hasta la
+  Fase 6 (ODR). Queda resuelto el CAMINO, no el contenido; **sin datos inyectados, servir un asset
+  no se ha probado de punta a punta**.
+- **El proyecto Xcode ya no es solo-simulador:** `FRAMEWORK_SEARCH_PATHS` condicionado por SDK
+  (`[sdk=iphonesimulator*]` → `iosSimulatorArm64`, `[sdk=iphoneos*]` → `iosArm64`). Sin eso,
+  compilar para un iPhone real moría con `No such module 'Shared'` sin explicar por qué.
+- ⚠️ **`:app:createDebugApkListingFileRedirect` puede fallar** diciendo que falta
+  `output-metadata.json` **cuando el fichero existe**. Transitorio (AGP 9): repite el build.
 
 ## 4. PENDIENTE — por prioridad
 
@@ -138,12 +148,12 @@ Ktor 3.3.3 → **3.5.1** (desbloqueado) · serialization → 1.11.0 · Compose B
    `SF-NET`). BT y LAN son lo que hay que validar sí o sí.
 2. **Redeploy de `MultiplayerSF/` en Render** para activar el P2P (no bloquea el release).
    Con 2 teléfonos en redes distintas, buscar en logcat `SF-RTC`: `DataChannel → OPEN`.
-3. **🍏 FASE 5 — UI compartida (Compose Multiplatform).** Lo único entre el mapa y un juego
-   jugable en iOS. ✅ **La subida de Kotlin YA ESTÁ HECHA** (§3quater: 2.3.21, y 2.4 es imposible
-   por KSP). ⚠️ **Primero la Mac debe re-verificar iOS**: el plugin de Android de `:shared` cambió.
-   ⚠️ Antes hay 2 deudas baratas de la Fase 1.5: las rutas `file:///android_asset/` del mapa
-   (rompen los overlays en iOS) y el proyecto Xcode, que hoy solo apunta al framework de
-   **simulador**. Detalle en `iosApp/README.md`.
+3. **🍏 FASE 5 (2/2) — mover la UI a `commonMain` con Compose Multiplatform.** Lo ÚNICO que queda
+   entre el mapa y un juego jugable en iOS. ✅ Ya están hechos **la subida de Kotlin** (§3quater),
+   **la re-verificación de iOS** y **las 2 deudas de la Fase 1.5** (§3quinquies): la red de
+   seguridad existe en las DOS plataformas, así que esto ya no se hace a ciegas.
+   ⚠️ El bulto son las ~14 000 líneas de `StreetFighterViewModel`/`StreetFighterScreen` y el muro
+   de `android.graphics`. **Exige el compilador de iOS delante** → sesión de Mac.
 
 ### 🟠 P1 · AUDIO (trabajo activo) — ver `SF/PROMPT_traspaso_audio_subtitulos.md`
 **29 clips demasiado largos** para su evento y **5 fuera de −16 ±2 LUFS** → **Gemini 3.6** (con los
@@ -153,8 +163,7 @@ segundos exactos del dueño). **Faltan `attack`/`hurt`** en 6 peleadores → el 
 
 ### 🟢 P2 · Animaciones congeladas (el arte se repite, **no es bug de código**)
 `stun-1==stun-2==stun-3` en los 18; `bonus-7/8/9/10` estáticos en `lapresidenta`; `run-4==run-5` en
-4; `forwards-3==forwards-4` en 3; `throw-2==throw-3` en 3; `super-4==super-5` en `charronegro` y
-`senortienda`.
+4; `forwards-3==forwards-4` en 3; `throw-2==throw-3` en 3; `super-4==super-5` en 2.
 
 ### 🔵 P2b · Motor compartido — Fases 1, 2a y 2b hechas; sigue **2c**
 Siguiente: núcleo de `updateStageConstraints` (empuje de pushboxes) → `SfPhysics`; luego el

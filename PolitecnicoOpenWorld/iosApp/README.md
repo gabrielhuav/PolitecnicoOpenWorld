@@ -37,16 +37,24 @@ es la MISMA función Kotlin que usa `WorldMapScreenWeb.kt` en Android. Solo exis
 El proyecto salió de la plantilla vacía de Xcode y se renombró, en lugar de escribir un
 `project.pbxproj` a mano.
 
+## Assets: `pow-asset://`
+
+El HTML del mapa es COMPARTIDO con Android, donde las imágenes cuelgan de `file:///android_asset/`
+— un esquema que en iOS **no existe**. En vez de bifurcar el HTML, el prefijo se parametrizó:
+`buildHtml(assetBaseUrl:)`, con el valor de Android por defecto para que producción no cambie.
+iOS pasa `pow-asset:///` y lo resuelve `PowAssetSchemeHandler` (en `ContentView.swift`).
+
+⚠️ **Hoy ese handler devuelve 404 para todo, y es lo correcto:** los 358 MB de assets aún no se
+empaquetan en el bundle iOS — eso es la Fase 6, con On-Demand Resources por el límite de 200 MB por
+datos móviles. Lo que está resuelto es **el camino**, no el contenido. Como la app todavía no
+inyecta datos en el mapa, **servir un asset de verdad no se ha probado de punta a punta.**
+
 ## Lo que falta (y no es poco)
 
-1. **Solo simulador.** `FRAMEWORK_SEARCH_PATHS` apunta a `iosSimulatorArm64`. Para dispositivo real
-   hace falta el de `iosArm64` y, lo suyo, una fase de script que llame a Gradle sola.
-2. 🔴 **Los overlays con assets NO van a funcionar.** El HTML tiene 5 rutas
-   `file:///android_asset/…` cableadas (landmarks, coleccionables, iconos de metro/metrobús y
-   sprites de NPC). En iOS ese esquema no existe. Hace falta un `WKURLSchemeHandler` que sirva los
-   assets desde el bundle, o reescribir esas rutas. **El mapa base se ve porque esta app no le
-   inyecta datos todavía**; en cuanto se le pasen landmarks o NPCs, saldrán imágenes rotas.
-3. **No hay puente JS ↔ nativo.** En Android el diálogo lo hace `MapJsBridge`; aquí no hay nada, así
-   que el mapa es de solo lectura.
-4. **No hay juego.** Ni menús, ni combates, ni controles: eso es la Fase 5 (Compose Multiplatform,
-   que exige subir Kotlin) y la Fase 6.
+1. **El framework no se construye solo.** Falta una fase de script que llame a Gradle desde Xcode.
+   Hoy hay que acordarse de lanzarlo a mano (ver arriba). Los `FRAMEWORK_SEARCH_PATHS` **sí** están
+   condicionados por SDK, así que simulador y dispositivo real cogen cada uno el suyo.
+2. **No hay puente JS ↔ nativo.** En Android el diálogo lo hace `MapJsBridge`; aquí no hay nada, así
+   que el mapa es de solo lectura: no recibe jugador, ni NPCs, ni landmarks.
+3. **No hay juego.** Ni menús, ni combates, ni controles: eso es la Fase 5 (mover la UI a
+   Compose Multiplatform) y la Fase 6.

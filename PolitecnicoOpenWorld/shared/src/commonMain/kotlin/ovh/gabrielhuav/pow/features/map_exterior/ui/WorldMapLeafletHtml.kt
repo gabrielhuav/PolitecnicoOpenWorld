@@ -11,9 +11,20 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
  * dentro de un `WebView`.
  *
  * ⚠️ Pasó de `internal` a **público** porque `internal` NO cruza módulos: desde `:app` no se vería.
- * Es el único cambio que sufrió el fichero al migrarlo; el HTML/JS no se tocó.
+ *
+ * @param assetBaseUrl prefijo del que cuelgan las imágenes del mapa (landmarks, coleccionables,
+ *   iconos de transporte y sprites de NPC). **El defecto es el de Android a propósito**: así
+ *   `WorldMapScreenWeb.kt` sigue llamando igual y la app en producción no cambia de comportamiento.
+ *   Antes estaba cableado `file:///android_asset/` en 5 sitios, un esquema que **en iOS no existe**
+ *   — las imágenes salían rotas en cuanto se inyectaban datos. iOS pasa aquí su propio esquema,
+ *   servido por un `WKURLSchemeHandler` (ver `iosApp/`).
  */
-fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
+fun buildHtml(
+    lat: Double,
+    lng: Double,
+    zoom: Int,
+    assetBaseUrl: String = "file:///android_asset/",
+): String = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -47,7 +58,11 @@ fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 <body>
     <div id="map-wrapper"><div id="map"></div><div id="fog"></div></div>
     <script>
-        var map = L.map('map', { 
+        // Prefijo de los assets, inyectado por la plataforma. En Android es 'file:///android_asset/'
+        // (lo de siempre); en iOS, un esquema propio que resuelve un WKURLSchemeHandler.
+        var POW_ASSETS = '$assetBaseUrl';
+
+        var map = L.map('map', {
             zoomControl: false,
             attributionControl: false,
             dragging: true,   // arrastre SIEMPRE disponible: paridad con los mapas nativos
@@ -346,7 +361,7 @@ fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
             }
 
             data.forEach(function(lm) {
-                var pUrl = 'file:///android_asset/' + lm.assetPath;
+                var pUrl = POW_ASSETS + lm.assetPath;
                 var exactWidthMeters = lm.widthMeters * lm.scale;
                 var exactHeightMeters = lm.heightMeters * lm.scale;
 
@@ -418,7 +433,7 @@ fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
             collectibleMarkers = {};
 
             data.forEach(function(col) {
-                var pUrl = 'file:///android_asset/' + col.assetPath;
+                var pUrl = POW_ASSETS + col.assetPath;
                 var containerSize = 20;
                 var iconSize = 14;
                 var html = '<div style="position:relative; width:' + containerSize + 'px; height:' + containerSize + 'px; display:flex; justify-content:center; align-items:center;">' +
@@ -460,7 +475,7 @@ fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 }
                 if (metroMarkers[s.name]) { metroMarkers[s.name].setLatLng([s.lat, s.lng]); return; }
                 var sz = 26;
-                var html = '<img src="file:///android_asset/TRANSIT/METRO/icon.webp" ' +
+                var html = '<img src="' + POW_ASSETS + 'TRANSIT/METRO/icon.webp" ' +
                            'style="width:' + sz + 'px; height:' + sz + 'px; transform:translate(-50%,-50%); display:block;">';
                 var icon = L.divIcon({ html: html, className: '', iconSize: [0,0] });
                 metroMarkers[s.name] = L.marker([s.lat, s.lng], { icon: icon, interactive: false, zIndexOffset: 400 }).addTo(map);
@@ -492,7 +507,7 @@ fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                 }
                 if (metrobusMarkers[s.name]) { metrobusMarkers[s.name].setLatLng([s.lat, s.lng]); return; }
                 var sz = 26;
-                var html = '<img src="file:///android_asset/TRANSIT/METROBUS/icon.png" ' +
+                var html = '<img src="' + POW_ASSETS + 'TRANSIT/METROBUS/icon.png" ' +
                            'style="width:' + sz + 'px; height:' + sz + 'px; transform:translate(-50%,-50%); display:block;">';
                 var icon = L.divIcon({ html: html, className: '', iconSize: [0,0] });
                 metrobusMarkers[s.name] = L.marker([s.lat, s.lng], { icon: icon, interactive: false, zIndexOffset: 400 }).addTo(map);
@@ -609,7 +624,7 @@ fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
                             html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%); width:'+finalW+'px; height:'+finalH+'px; display:flex; align-items:center; justify-content:center; font-size:'+Math.round(finalH*0.85)+'px; line-height:1;">' + nameTagHtml + hbHtml + em + '</div>';
                         }
                     } else {
-                        var pUrl = 'file:///android_asset/SPRITES/ICONS/' + npc.drawable + '.svg';
+                        var pUrl = POW_ASSETS + 'SPRITES/ICONS/' + npc.drawable + '.svg';
                         html = '<div class="npc-c" style="position:absolute; transform: translate(-50%, -50%) rotate(0deg); width:24px; height:24px;">' + nameTagHtml + hbHtml + '<img src="'+pUrl+'" style="width:100%; height:100%; display:block;"></div>';
                     }
                     var icon = L.divIcon({ html: html, className: '', iconSize: [0, 0] });
