@@ -27,7 +27,7 @@
    política de comentarios y los campos "⚠️ LO POSEE XManager").
 6. Si el asistente necesita un archivo concreto, búscalo en la tabla "Key files" (archivo 04/05)
    y pásale solo ese.
-7. **Tras cualquier cambio, actualiza estos docs (00–10)** y, si es user-facing, el README **público** de la raíz del repo (ver 09). Los **178 tests** (112 en `:app` + 66 en `:shared`) deben seguir en verde.
+7. **Tras cualquier cambio, actualiza estos docs (00–10)** y, si es user-facing, el README **público** de la raíz del repo (ver 09). Los **216 tests** (112 en `:app` + 104 en `:shared`) deben seguir en verde.
 
 **EN:**
 1. Upload/paste this whole folder (or just the relevant files) to the assistant.
@@ -83,6 +83,7 @@
 | — | `PLAYSTORE_formulario_seguridad_datos.md` | 🛡️ **Play Store: formulario de Seguridad de los datos + políticas.** Valores EXACTOS aprobados, errores que nos rechazaron y checklist antes de cada envío. **Léelo antes de tocar la ficha o subir versión.** |
 | — | `ARRANQUE_MAC_iOS.md` | 🍏 **EMPIEZA AQUÍ si estás en el MAC.** Guion exacto de la primera compilación de `:shared` para iOS: rutas, JDK, comandos y dónde va a fallar. Las Fases 1-4 se hicieron en Windows, donde iOS NO compila. |
 | — | `PLAN_MIGRACION_KMP.md` | 🍏 **Migración a Kotlin Multiplatform / iOS — el plan global.** Acoplamiento MEDIDO, estado de las libs KMP, decisión del mapa y qué NO se puede portar. **Estado: Fases 0-4 COMPLETAS y verdes; falta la 5 (la UI) y la 6 (assets).** |
+| — | `SETUP_PC_NUEVA.md` | 🖥️ **Poner el repo a compilar en una PC Windows nueva.** Los 4 archivos que NO viajan por git (⚠️ `gradle-wrapper.jar` bloquea hasta `gradlew`), la prueba de humo y cómo se verifica iOS desde Windows. |
 | — | `PLAN_SF_EN_iOS.md` | 🥊🍏 **Cómo hacer que el modo pelea corra en iOS** — el trozo concreto de la Fase 5. Bloqueadores contados archivo por archivo y 6 pasos, cada uno verificable en el simulador. ⚠️ **Se ejecuta EN EL MAC.** |
 
 ### 🌎 `MUNDO/` — mundo libre POW

@@ -24,23 +24,21 @@
 | PC | Raíz del PROYECTO (aquí están `gradlew` y `tools/`) |
 |---|---|
 | **Laptop** (referencia) | `C:\Users\gabri\AndroidStudioProjects\PolitecnicoOpenWorld\PolitecnicoOpenWorld` |
+| **Escritorio** | ⚠️ **DESCONOCIDA — la 1ª IA que trabaje ahí debe ESCRIBIRLA AQUÍ** |
 | **🍏 Mac** (iOS) | `/Users/gabrielhuav/Documents/GitHub/PolitecnicoOpenWorld/PolitecnicoOpenWorld` |
 
 ⚠️ **La carpeta es doble**: el proyecto Gradle está DENTRO del repo, en `PolitecnicoOpenWorld/`; las
 rutas de los docs son **relativas a la raíz**. El GEN de sprites vive FUERA, en `..\newSFAssets\GEN_*`.
+🆕 **PC nueva → `SETUP_PC_NUEVA.md`.** ⚠️ `gradle-wrapper.jar` NO viaja por git y sin él `gradlew` ni
+arranca; `secrets.properties` tampoco (vacío vale). detekt-cli SÍ está versionado.
 
-## 1. Organización
+## 1. Organización y delegación
 
-Mapa completo en **`00_INDEX.md`**. No te saltes **`10_ARQUITECTURA_SEPARACION.md`** (dónde vive
-cada cosa) ni **`09_CONVENTIONS_GOTCHAS.md`**; y **`PLAYSTORE_formulario_seguridad_datos.md`**
-antes de tocar la ficha. `SF/` = peleas · `MUNDO/` = mundo libre · `_ARCHIVO/` = histórico, NO tareas.
-
-## 2. A quién delegar
-
-**Alta** (refactors grandes, lo que ya falló dos veces) → **Sol 5.6 / Fable 5** · **Media** (feature
-acotada, un módulo) → **Opus 4.8/5** · **Baja** (pipeline existente, repetitivo) → **Gemini 3.6**.
-**Antes de delegar:** rutas absolutas, comando exacto, cómo se verifica, qué NO tocar y, si es una IA
-pequeña, **`10_ARQUITECTURA_SEPARACION.md`** para que se oriente sola.
+Mapa en **`00_INDEX.md`**. No te saltes **`10_ARQUITECTURA_SEPARACION.md`** (dónde vive cada cosa)
+ni **`09_CONVENTIONS_GOTCHAS.md`**; y **`PLAYSTORE_formulario_seguridad_datos.md`** antes de tocar
+la ficha. `SF/` = peleas · `MUNDO/` = mundo libre · `_ARCHIVO/` = histórico, NO tareas.
+**Delegar:** alta dificultad → **Sol 5.6 / Fable 5** · media → **Opus 4.8/5** · baja → **Gemini 3.6**.
+Pásales rutas absolutas, comando exacto, cómo se verifica, qué NO tocar y el `10_...` para orientarse.
 
 ## 3bis. Fases 0-4 COMPLETAS (detalle en `PLAN_MIGRACION_KMP.md` y `git log`)
 
@@ -60,10 +58,9 @@ pequeña, **`10_ARQUITECTURA_SEPARACION.md`** para que se oriente sola.
 
 `WorldMapLeafletHtml.kt` en `:shared`, que produce el framework `Shared`; la app iOS está en
 `iosApp/` (SwiftUI + `WKWebView`).
-- ⚠️ **El runtime del simulador lo instala XCODE** (`xcodebuild -downloadPlatform iOS`), no un DMG a
-  mano: queda en cuarentena y los tests mueren con `Abort trap` (134). **Genera el framework ANTES
-  de abrir Xcode** (en el Mac) o sale `No such module 'Shared'`. Y **`gradle-wrapper.jar` está en
-  `.gitignore`**: al regenerarlo, revierte `gradlew`/`.bat`/`.properties` y deja solo el `.jar`.
+- ⚠️ **El runtime del simulador lo instala XCODE** (no un DMG a mano: queda en cuarentena y los
+  tests mueren con `Abort trap` 134). **Genera el framework ANTES de abrir Xcode** (en el Mac) o
+  sale `No such module 'Shared'`. Y `gradle-wrapper.jar` no viaja por git → `SETUP_PC_NUEVA.md`.
 - 🔴 **Deuda:** los assets aún no se empaquetan en el bundle → el handler de iOS devuelve 404.
 
 ## 3quater-septies. Kotlin 2.3.21 · AGP 9 · refactor · motor compartido (cerrados)
@@ -156,8 +153,11 @@ poder gritar porque su intro, terminada hace rato, sigue apuntada como en curso.
    Hechos: catálogo de modos, Compose MP (con el framework enlazando), assets, gráficos, audio,
    ViewModel, cerrojo, `org.json` fuera y el port de `SfSharedSheets`/`SfFrameCatalog`.
    **Falta el bulto: bajar la UI a `commonMain` (~14 000 líneas) y meter los 107 MB en el bundle.**
-   ⚠️ Eso ya sí conviene hacerlo **en el Mac**: cada pantalla portada hay que verla en el simulador,
-   y aquí solo se puede type-checkear. Pendiente menor: `SfArcadeRepository` (ver §3decies).
+   ⚠️ **Eso se hace EN EL MAC**: cada pantalla portada hay que VERLA en el simulador; en Windows
+   solo se type-checkea.
+4. **🖥️ Lo ÚNICO que le queda a Windows: `SfArcadeRepository`** (§3decies). Necesita emulador
+   Android para probar el ida y vuelta de guardar/cargar, y en el Mac **no hay AVD**. Se puede hacer
+   EN PARALELO con el Mac: son archivos distintos. ⚠️ Misma rama → `git pull` antes de cada push.
 
 ### 🟠 P1 · AUDIO (activo) — ver `SF/PROMPT_traspaso_audio_subtitulos.md`
 **29 clips demasiado largos** y **5 fuera de −16 ±2 LUFS** → **Gemini 3.6** (con los segundos del
@@ -173,8 +173,8 @@ que dice "100 % normalizados y sin faltantes": está medido y es **falso** (de l
 `SfEngine` como esqueleto y los modos como estrategia. Plan: `SF/PLAN_refactor_motor_compartido.md`.
 
 ### ⚪ P3 · Bloqueado en el dueño / deuda conocida
-- **Mapas UAM Azcapotzalco y Cuajimalpa:** faltan vídeos nuevos → `tools/build_map_backgrounds.py`.
-- **Arte V2 de La Presidenta + metamorfosis nuevas:** croma en `tools\_para_corregir\` sin importar.
+- **Mapas UAM Azcapotzalco y Cuajimalpa:** faltan vídeos → `tools/build_map_backgrounds.py`. Y el
+  **arte V2 de La Presidenta + metamorfosis**: croma en `tools\_para_corregir\` sin importar.
 - **detekt NO está a 0:** 5 smells preexistentes (`CachingWebViewClient`, `NpcAiManager`,
   `RoadRouter`, `CatSpriteManager` ×2). Varios docs dicen "0 smells" y es **falso**. Y
   `07_OTHER_FEATURES.md` (87 KB) mezcla menú/ajustes con SF; esa parte debería migrar a `SF/`.
