@@ -1,7 +1,6 @@
 package ovh.gabrielhuav.pow.features.streetfighter.viewmodel
 
 import android.content.Context
-import android.media.MediaMetadataRetriever
 import android.os.SystemClock
 import android.util.Log
 // 🍏 `PowViewModel` (`:shared`) en vez de `androidx.lifecycle.ViewModel`. En Android **ES** un

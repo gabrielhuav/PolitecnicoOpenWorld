@@ -1,6 +1,6 @@
 package ovh.gabrielhuav.pow.features.streetfighter.viewmodel
 
-import android.media.MediaMetadataRetriever
+import ovh.gabrielhuav.pow.platform.audio.PowAudio
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
@@ -267,19 +267,8 @@ fun StreetFighterViewModel.stopAudioShowcase() {
 
 internal fun StreetFighterViewModel.specialAudioDurationMs(id: SfFighterId): Long {
     val fallbackMs = specialPhrases[id]?.subtitleMs ?: AUDIO_SHOWCASE_FALLBACK_MS
-    return runCatching {
-        val retriever = MediaMetadataRetriever()
-        try {
-            appContext.assets.openFd("STREETFIGHTER/SOUNDS/${specialSfxKey(id)}.ogg").use { fd ->
-                retriever.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
-            }
-            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                ?.toLongOrNull()
-                ?: fallbackMs
-        } finally {
-            retriever.release()
-        }
-    }.getOrDefault(fallbackMs)
+    // 🍏 Fase 5: la lectura de duración pasa por `PowAudio`, que en iOS usa `AVAudioPlayer.duration`.
+    return PowAudio.duracionMs("STREETFIGHTER/SOUNDS/${specialSfxKey(id)}.ogg") ?: fallbackMs
 }
 
 // 🆕 Progreso del ARCADE (guardado LOCAL). Define qué peleadores/mapas están desbloqueados.

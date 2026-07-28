@@ -52,9 +52,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.BitmapRegionDecoder
 import android.graphics.Rect
-import android.media.AudioAttributes
-import android.media.MediaPlayer
-import android.media.SoundPool
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -160,6 +157,9 @@ import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanGame
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfFrameCatalog
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfRoomSummary
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfSharedSheets
+import ovh.gabrielhuav.pow.domain.streetfighter.SfVocesReglas
+import ovh.gabrielhuav.pow.platform.audio.PowAudio
+import ovh.gabrielhuav.pow.platform.audio.PowClip
 import ovh.gabrielhuav.pow.platform.imagen.PowImagen
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfArcadeOutcome
@@ -184,116 +184,52 @@ import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterViewMod
 // (2026-07-15) El modo es PÚBLICO; el Modo Desarrollador solo desbloquea a RYU/KEN
 // (roster gateado por el VM: selectableFighters).
 
-private fun getFighterPrefix(key: String): String {
-    var clean = key.removeSuffix(".ogg").removeSuffix(".mp3")
-    while (clean.isNotEmpty() && (clean.last().isDigit() || clean.last() == '_')) {
-        clean = clean.dropLast(1)
-    }
-    val suffixes = listOf("hurt", "attack", "win", "power", "intro")
-    for (s in suffixes) {
-        if (clean.endsWith(s)) {
-            clean = clean.removeSuffix(s)
-            break
+/**
+ * Reproduce una voz o pieza larga completa; los efectos cortos van por SoundPool, que trunca los
+ * archivos extensos.
+ *
+ * 🍏 Fase 5: la MECÁNICA (qué se interrumpe y qué no) ya NO vive aquí — está en
+ * `SfVocesReglas`, en `:shared`, con tests que fijan las cuatro reglas afinadas de oído. Aquí solo
+ * queda ejecutar la decisión con `PowAudio`, que funciona igual en Android y en iOS.
+ *
+ * ⚠️ Si vas a tocar CUÁNDO se corta una voz, el sitio es `SfVocesReglas`, no este archivo.
+ */
+private fun playSfSpecial(
+    assetPath: String,
+    activePlayers: MutableMap<String, PowClip>,
+): Boolean {
+    val decision = SfVocesReglas.decidir(assetPath, activePlayers.keys.toSet())
+    if (decision.saltar) return false
+    decision.aDetener.forEach { clave ->
+        activePlayers.remove(clave)?.let { clip ->
+            // Se quita el aviso ANTES de parar: si no, `detener()` podría disparar el callback y
+            // este intentaría borrar del mapa una entrada que ya no existe.
+            runCatching { clip.alTerminar(null) }
+            runCatching { clip.detener() }
+            runCatching { clip.liberar() }
         }
     }
-    while (clean.isNotEmpty() && clean.last() == '_') {
-        clean = clean.dropLast(1)
-    }
-    return clean
-}
 
-private fun isSpecialPowerAudio(key: String): Boolean {
-    val clean = key.removeSuffix(".ogg").removeSuffix(".mp3").lowercase()
-    if (clean.contains("power") || clean.contains("electricity")) return true
-    // 🆕 (2026-07-19) Se excluye 'win' para proteger las voces de victoria y evitar que se corten por gritos o daños comunes
-    val suffixes = listOf("hurt", "attack", "intro")
-    for (s in suffixes) {
-        if (clean.endsWith(s) || clean.contains("_$s")) return false
+    val clip = PowAudio.cargarPista(assetPath) ?: return false
+    // El aviso de fin es lo que MANTIENE VIVO el mapa: sin él, las voces terminadas seguirían
+    // contando como "sonando" y las reglas de interrupción se degradarían poco a poco (un peleador
+    // dejaría de gritar porque su intro, acabada hace rato, sigue apuntada como en curso).
+    clip.alTerminar {
+        if (activePlayers[assetPath] === clip) activePlayers.remove(assetPath)
+        runCatching { clip.liberar() }
     }
+    activePlayers[assetPath] = clip
+    clip.reproducir()
     return true
 }
 
-/** Reproduce una voz o pieza larga completa; SoundPool puede truncar archivos extensos. */
-private fun playSfSpecial(
-    context: Context,
-    assetPath: String,
-    activePlayers: MutableMap<String, MediaPlayer>,
-): Boolean {
-    // 🆕 Interrumpir cualquier audio del mismo personaje que ya se esté reproduciendo.
-    // 🆕 (2026-07-19b) FIX: un HURT en curso NO se corta por un ATAQUE del mismo peleadór (antes
-    // el contraataque tras recuperarse cortaba su propio quejido → "el hurt no suena"). Solo otro
-    // HURT lo reinicia (= te pegaron otra vez).
-    // 🆕 (2026-07-19c) Un ataque especial en curso (isSpecialPowerAudio) NUNCA se detiene por otras acciones.
-    // 🆕 (2026-07-22) La INTRO ("Está prohibido beber en vía pública", ~15 s) DEBE terminar:
-    // (a) nunca la corta otra voz del mismo peleadór, y (b) mientras suena, las voces nuevas
-    // de ESE peleadór se SALTAN (no se encima el grito de ataque). Otro clip de intro sí la
-    // reemplaza (re-disparo de ronda nueva).
-    val newName = assetPath.substringAfterLast('/')
-    val newPrefix = getFighterPrefix(newName)
-    val newIsHurt = newName.contains("_hurt")
-    val newIsIntro = newName.contains("_intro")
-    if (!newIsIntro) {
-        val introPlaying = activePlayers.keys.any { key ->
-            val kf = key.substringAfterLast('/')
-            kf.contains("_intro") && getFighterPrefix(kf) == newPrefix
-        }
-        if (introPlaying) return false
-    }
-    val keysToStop = activePlayers.keys.filter { key ->
-        val kf = key.substringAfterLast('/')
-        !isSpecialPowerAudio(kf) && !kf.contains("_intro") &&
-        getFighterPrefix(kf) == newPrefix && (newIsHurt || !kf.contains("_hurt"))
-    }
-    keysToStop.forEach { key ->
-        activePlayers.remove(key)?.let { current ->
-            runCatching { if (current.isPlaying) current.stop() }
-            runCatching { current.release() }
-        }
-    }
-
-    // 🆕 (2026-07-18r) RE-DISPARO: si el MISMO clip ya suena, lo cortamos y lo volvemos a
-    // lanzar desde el inicio (antes se ignoraba mientras sonaba → "no se repetía" al re-atacar).
-    activePlayers.remove(assetPath)?.let { current ->
-        runCatching { if (current.isPlaying) current.stop() }
-        runCatching { current.release() }
-    }
-    val player = MediaPlayer()
-    val result = runCatching {
-        player.setAudioAttributes(
-            AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_GAME)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                .build(),
-        )
-        context.assets.openFd(assetPath).use { fd ->
-            player.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
-        }
-        player.setOnCompletionListener { completed ->
-            activePlayers.remove(assetPath, completed)
-            completed.release()
-        }
-        player.setOnErrorListener { failed, _, _ ->
-            activePlayers.remove(assetPath, failed)
-            failed.release()
-            true
-        }
-        activePlayers[assetPath] = player
-        player.prepare()
-        player.start()
-    }
-    if (result.isFailure) {
-        activePlayers.remove(assetPath, player)
-        runCatching { player.release() }
-    }
-    return result.isSuccess
-}
-
-private fun releaseSfSpecials(activePlayers: MutableMap<String, MediaPlayer>) {
-    val players = activePlayers.values.toList()
+private fun releaseSfSpecials(activePlayers: MutableMap<String, PowClip>) {
+    val clips = activePlayers.values.toList()
     activePlayers.clear()
-    players.forEach { player ->
-        runCatching { if (player.isPlaying) player.stop() }
-        runCatching { player.release() }
+    clips.forEach { clip ->
+        runCatching { clip.alTerminar(null) }
+        runCatching { clip.detener() }
+        runCatching { clip.liberar() }
     }
 }
 
@@ -458,62 +394,36 @@ fun StreetFighterScreen(
         assetsLoading = false
     }
 
-    // ---- Sonidos del tema (SoundPool efectos + MediaPlayer música) ----
-    val soundPool = remember {
-        SoundPool.Builder()
-            // Más streams: golpes + specials por personaje a la vez (IA vs IA)
-            .setMaxStreams(8)
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_GAME)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build(),
-            )
-            .build()
-    }
+    // ---- Sonidos del tema (🍏 Fase 5: efectos y música por `PowAudio`, igual en Android e iOS) ----
+    // En Android `cargarEfecto` sigue siendo SoundPool por debajo (baja latencia para los golpes) y
+    // `cargarPista` sigue siendo MediaPlayer. La distinción se mantiene A PROPÓSITO: fusionarlas
+    // obligaría a elegir un solo motor para todo y la app de Android sonaría peor.
+    //
     // Base theme SFX + special_<fighter> por los peleadores del match (y Yoalli si hay metamorfosis).
     // Faltantes se omiten; el collect cae a "hadouken" si no hay special del id.
-    val soundIds = remember(theme) {
+    val soundClips = remember(theme) {
         theme.soundKeys.distinct().mapNotNull { key ->
-            runCatching {
-                context.assets.openFd("${theme.soundsDir}$key.ogg").use { fd ->
-                    key to soundPool.load(fd, 1)
-                }
-            }.getOrNull()
+            PowAudio.cargarEfecto("${theme.soundsDir}$key.ogg")?.let { key to it }
         }.toMap()
     }
-    val activeSpecialPlayers = remember { mutableMapOf<String, MediaPlayer>() }
-    val activeStreams = remember { mutableMapOf<String, Int>() }
-    LaunchedEffect(soundIds) {
+    val activeSpecialPlayers = remember { mutableMapOf<String, PowClip>() }
+    LaunchedEffect(soundClips) {
         viewModel.soundEvents.collect { key ->
             if (key == SF_STOP_SPECIALS_EVENT) {
                 releaseSfSpecials(activeSpecialPlayers)
             } else if (key.startsWith("special_")) {
                 val played = playSfSpecial(
-                    context = context,
                     assetPath = "${theme.soundsDir}$key.ogg",
                     activePlayers = activeSpecialPlayers,
                 )
-                if (!played) {
-                    val fallbackId = soundIds["hadouken"]
-                    fallbackId?.let { pid ->
-                        activeStreams["hadouken"]?.let { lastStream ->
-                            soundPool.stop(lastStream)
-                        }
-                        val streamId = soundPool.play(pid, 1f, 1f, 1, 0, 1f)
-                        activeStreams["hadouken"] = streamId
-                    }
-                }
+                // Si el especial no sonó (no existe el clip, o las reglas de voz lo saltaron), cae
+                // al "hadouken" genérico para que el ataque no quede mudo.
+                if (!played) soundClips["hadouken"]?.reproducir()
             } else {
-                val poolId = soundIds[key] ?: soundIds["hadouken"]
-                poolId?.let { pid ->
-                    val finalKey = if (soundIds.containsKey(key)) key else "hadouken"
-                    activeStreams[finalKey]?.let { lastStream ->
-                        soundPool.stop(lastStream)
-                    }
-                    val streamId = soundPool.play(pid, 1f, 1f, 1, 0, 1f)
-                    activeStreams[finalKey] = streamId
-                }
+                // El mapa `activeStreams` de antes YA NO HACE FALTA: `reproducir()` corta por dentro
+                // el flujo previo del mismo clip (ver `EfectoSoundPool`), que es exactamente lo que
+                // hacía aquí el `soundPool.stop(lastStream)` a mano.
+                (soundClips[key] ?: soundClips["hadouken"])?.reproducir()
             }
         }
     }
@@ -547,26 +457,27 @@ fun StreetFighterScreen(
             }
         }
     }
-    val musicPlayer = remember { MediaPlayer() }
     // (Re)carga y arranca la pista cuando cambia la selección (lobby ⇄ batalla / nivel).
-    LaunchedEffect(musicFileForState) {
-        runCatching {
-            musicPlayer.reset()
-            context.assets.openFd(theme.soundsDir + musicFileForState).use { fd ->
-                musicPlayer.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
-            }
-            musicPlayer.isLooping = true
-            musicPlayer.setVolume(theme.musicVolume, theme.musicVolume)
-            musicPlayer.prepare()
-            musicPlayer.start()
+    //
+    // ⚠️ Antes era UN solo `MediaPlayer` reutilizado con `reset()`; ahora se crea un clip por pista
+    // y **el anterior se libera en el `onDispose`**. Si no se liberase, cada cambio de escalón en
+    // el arcade dejaría vivo el reproductor viejo y las pistas se encimarían.
+    val musicPlayer = remember { mutableStateOf<PowClip?>(null) }
+    DisposableEffect(musicFileForState) {
+        val clip = PowAudio.cargarPista(theme.soundsDir + musicFileForState)
+        musicPlayer.value = clip
+        clip?.reproducir(volumen = theme.musicVolume, bucle = true)
+        onDispose {
+            musicPlayer.value = null
+            runCatching { clip?.detener() }
+            runCatching { clip?.liberar() }
         }
     }
     DisposableEffect(Unit) {
         onDispose {
-            runCatching { musicPlayer.stop() }
-            musicPlayer.release()
             releaseSfSpecials(activeSpecialPlayers)
-            soundPool.release()
+            // La música la libera su propio efecto (arriba). Aquí van los efectos cortos.
+            soundClips.values.forEach { runCatching { it.liberar() } }
         }
     }
 
@@ -578,11 +489,14 @@ fun StreetFighterScreen(
             when (event) {
                 androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> {
                     viewModel.forcePause()
-                    runCatching { if (musicPlayer.isPlaying) musicPlayer.pause() }
+                    runCatching { musicPlayer.value?.detener() }
                     releaseSfSpecials(activeSpecialPlayers)
                 }
                 androidx.lifecycle.Lifecycle.Event.ON_RESUME -> {
-                    runCatching { musicPlayer.start() }
+                    // `detener()` rebobina, así que al volver la pista arranca desde el principio.
+                    // Es un cambio respecto al `pause()`/`start()` de antes; se acepta porque la
+                    // música es en bucle y nadie nota dónde reengancha.
+                    runCatching { musicPlayer.value?.reproducir(theme.musicVolume, bucle = true) }
                 }
                 else -> Unit
             }

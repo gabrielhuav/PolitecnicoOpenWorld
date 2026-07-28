@@ -5,6 +5,8 @@ import android.util.Log
 import dagger.hilt.android.HiltAndroidApp
 import ovh.gabrielhuav.pow.platform.assets.AssetsDeAndroid
 import ovh.gabrielhuav.pow.platform.assets.PowAssets
+import ovh.gabrielhuav.pow.platform.audio.AudioDeAndroid
+import ovh.gabrielhuav.pow.platform.audio.PowAudio
 
 /**
  * Application de POW. Punto único de inicialización temprana del proceso.
@@ -24,6 +26,7 @@ class PowApplication : Application() {
         // ⚠️ ANTES QUE NADA: si una pantalla llegara a pedir un asset con esto sin instalar, el
         // fallo es inmediato y con un mensaje que dice justo esta línea.
         PowAssets.instalar(AssetsDeAndroid(this))
+        PowAudio.instalar(AudioDeAndroid(this))
         try {
             com.google.firebase.FirebaseApp.initializeApp(this)
         } catch (e: Exception) {

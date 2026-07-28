@@ -2,6 +2,7 @@ package ovh.gabrielhuav.pow.platform.audio
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.MediaMetadataRetriever
 import android.media.MediaPlayer
 import android.media.SoundPool
 
@@ -48,6 +49,22 @@ class AudioDeAndroid(context: Context, maxFlujos: Int = 8) : PowAudioFuente {
         PistaMediaPlayer(player)
     }.getOrNull()
 
+    /**
+     * `MediaMetadataRetriever` es lo que ya usaba el juego. ⚠️ El `release()` va en `finally`: si se
+     * escapa una excepción sin soltarlo, se filtra un recurso nativo en cada consulta.
+     */
+    override fun duracionMs(ruta: String): Long? = runCatching {
+        val lector = MediaMetadataRetriever()
+        try {
+            app.assets.openFd(ruta).use { fd ->
+                lector.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
+            }
+            lector.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+        } finally {
+            lector.release()
+        }
+    }.getOrNull()
+
     override fun liberarTodo() {
         runCatching { pool.release() }
     }
@@ -65,6 +82,11 @@ private class EfectoSoundPool(private val pool: SoundPool, private val id: Int) 
     private var flujo: Int = 0
 
     override fun reproducir(volumen: Float, bucle: Boolean) {
+        // ⚠️ PARAR EL FLUJO ANTERIOR NO ES OPCIONAL. `SoundPool.play` abre un flujo NUEVO cada vez,
+        // así que sin esto dos golpes seguidos del mismo sonido se SOLAPARÍAN y sonaría a eco. El
+        // código original lo hacía a mano (`activeStreams[key]` → `soundPool.stop(...)` antes de
+        // cada `play`); aquí se cumple el contrato de `reproducir`: siempre reinicia.
+        detener()
         // El 4º parámetro es prioridad y el 5º el número de REPETICIONES: -1 = infinito, 0 = una vez.
         flujo = pool.play(id, volumen, volumen, 1, if (bucle) -1 else 0, 1f)
     }
@@ -86,11 +108,39 @@ private class EfectoSoundPool(private val pool: SoundPool, private val id: Int) 
      * efecto de golpe nadie consulta esto, y quien necesite saberlo debe usar una pista.
      */
     override val reproduciendo: Boolean get() = false
+
+    /**
+     * ⚠️ SoundPool **no avisa del fin de un flujo**: no hay ningún listener equivalente. Se ignora
+     * en vez de simular el aviso con un temporizador basado en la duración, que quedaría desfasado
+     * en cuanto alguien tocara la velocidad de reproducción.
+     *
+     * No es una limitación que moleste: el gancho existe para las VOCES, y las voces son pistas
+     * ([cargarPista]), no efectos — precisamente porque SoundPool trunca los archivos largos.
+     */
+    override fun alTerminar(accion: (() -> Unit)?) = Unit
 }
 
 private class PistaMediaPlayer(private val player: MediaPlayer) : PowClip {
 
     private var liberado = false
+
+    override fun alTerminar(accion: (() -> Unit)?) {
+        if (liberado) return
+        if (accion == null) {
+            player.setOnCompletionListener(null)
+            player.setOnErrorListener(null)
+            return
+        }
+        player.setOnCompletionListener { accion() }
+        // El MISMO gancho para el error, que es lo que ya hacía `playSfSpecial`: si un clip
+        // revienta a mitad, hay que sacarlo del mapa igual que si hubiera acabado bien; si no, se
+        // queda ahí bloqueando las interrupciones para siempre.
+        // `true` = "el error queda atendido"; con `false`, MediaPlayer lo reenviaría como fatal.
+        player.setOnErrorListener { _, _, _ ->
+            accion()
+            true
+        }
+    }
 
     override fun reproducir(volumen: Float, bucle: Boolean) {
         if (liberado) return

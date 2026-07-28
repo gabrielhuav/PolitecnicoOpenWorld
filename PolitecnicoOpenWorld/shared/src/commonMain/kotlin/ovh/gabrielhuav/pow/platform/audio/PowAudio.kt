@@ -30,6 +30,27 @@ interface PowClip {
 
     /** `true` mientras el clip está sonando. */
     val reproduciendo: Boolean
+
+    /**
+     * Instala el aviso de FIN de clip. Pasa `null` para quitarlo.
+     *
+     * POR QUÉ HACE FALTA: `playSfSpecial` lleva un mapa de voces sonando (`activePlayers`) y decide
+     * qué se puede interrumpir mirando **quién sigue ahí dentro**. Sin un aviso de fin, ese mapa no
+     * se vacía nunca: las voces terminadas seguirían contando como "sonando" y las reglas de
+     * interrupción se irían degradando poco a poco — el peleador dejaría de poder gritar porque su
+     * intro, que acabó hace un minuto, sigue apuntada como en curso.
+     *
+     * ⚠️ **SE AVISA IGUAL SI TERMINA BIEN QUE SI FALLA**, y es deliberado: en Android el código
+     * tenía `setOnCompletionListener` y `setOnErrorListener` haciendo **exactamente lo mismo**
+     * (quitarse del mapa y liberarse). Un solo gancho evita que una implementación futura avise en
+     * un caso y no en el otro, que es como se cuela una fuga silenciosa. Si algún día hace falta
+     * distinguirlos, hay que añadir el parámetro AQUÍ y en las dos implementaciones a la vez.
+     *
+     * ⚠️ NO se garantiza en qué hilo llega. Quien lo use no debe tocar UI directamente desde dentro.
+     *
+     * ⚠️ En bucle ([reproducir] con `bucle = true`) esto **no se dispara nunca**: el clip no termina.
+     */
+    fun alTerminar(accion: (() -> Unit)?)
 }
 
 /** De dónde salen los clips. Una implementación por plataforma. */
@@ -43,6 +64,18 @@ interface PowAudioFuente {
 
     /** Pieza LARGA (música, voces). Devuelve `null` si el asset no está. */
     fun cargarPista(ruta: String): PowClip?
+
+    /**
+     * Duración de un clip en milisegundos, SIN reproducirlo. `null` si no se puede averiguar.
+     *
+     * POR QUE ESTA AQUI y no en `PowClip`: es un dato del ARCHIVO, no de una reproducción en curso.
+     * El juego lo usa para cuadrar cuánto tiempo deja un subtítulo en pantalla, y para eso hay que
+     * saberlo ANTES de que suene nada.
+     *
+     * ⚠️ Devuelve `null` en vez de 0 a proposito: quien llama tiene un valor de respaldo (el
+     * `subtitleMs` de la frase) y un 0 lo haria parpadear en vez de usar el respaldo.
+     */
+    fun duracionMs(ruta: String): Long?
 
     /** Suelta todo lo que la fuente tenga abierto (SoundPool, sesiones de audio…). */
     fun liberarTodo()
@@ -71,6 +104,7 @@ object PowAudio : PowAudioFuente {
 
     override fun cargarEfecto(ruta: String): PowClip? = activa().cargarEfecto(ruta)
     override fun cargarPista(ruta: String): PowClip? = activa().cargarPista(ruta)
+    override fun duracionMs(ruta: String): Long? = activa().duracionMs(ruta)
     override fun liberarTodo() = activa().liberarTodo()
 }
 
