@@ -12,12 +12,11 @@
 > falta**) · actualiza PENDIENTE · comprueba las 200 líneas. Si te quedas sin tokens a media
 > tarea, **actualiza ESTE archivo ANTES de parar**.
 
-**Última actualización:** 2026-07-27 · Opus 5 · rama `fase0-auditoria-kmp`
-**Ventana viva:** 2026-07-26 → 2026-07-27 · *purgar a `_ARCHIVO/` a partir del 2026-07-28*
+**Última actualización:** 2026-07-27 · Opus 5 · rama `fase0-auditoria-kmp` · *purgar §3 el 07-28*
 
 > ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: **Fases 0-4 COMPLETAS y verdes.**
-> 🍏 **iOS ARRANCA** (49 tests + mapa Leaflet en el simulador, §3ter) y **Kotlin ya está en 2.3.21**
-> (§3quater). Siguiente: **Fase 5 propiamente dicha** — Compose MP y la UI a `commonMain`.
+> 🍏 iOS arranca (§3ter) · Kotlin 2.3.21 (§3quater) · **REFACTOR GRANDE hecho** (§3quinquies).
+> Siguiente: **auditar y probar en el Mac**, luego Compose MP y la UI a `commonMain`.
 
 ## 🖥️ Rutas por PC
 
@@ -33,32 +32,27 @@ FUERA del repo en `..\newSFAssets\GEN_*`.
 
 ## 1. Organización
 
-El mapa completo de `README for IAS/` está en **`00_INDEX.md`**. Lo que no puedes saltarte:
-**`09_CONVENTIONS_GOTCHAS.md`** (OBLIGATORIO antes de tocar código) y
-**`PLAYSTORE_formulario_seguridad_datos.md`** (ANTES de tocar la ficha o subir versión).
-`SF/` = "Huelum vs. Goya" (empieza por `SF/00_SF_INDEX.md`) · `MUNDO/` = mundo libre ·
-`_ARCHIVO/` = histórico YA EJECUTADO, referencia y **NO** tareas.
+Mapa completo en **`00_INDEX.md`**. No te saltes **`10_ARQUITECTURA_SEPARACION.md`** (dónde vive
+cada cosa) ni **`09_CONVENTIONS_GOTCHAS.md`**; y **`PLAYSTORE_formulario_seguridad_datos.md`**
+antes de tocar la ficha. `SF/` = peleas · `MUNDO/` = mundo libre · `_ARCHIVO/` = histórico, NO tareas.
 
 ## 2. A quién delegar
 
-| Dificultad | IA | Cuándo |
-|---|---|---|
-| **Alta** | **Sol 5.6** · **Fable 5** | Refactors grandes, varios módulos, sistemas nuevos, algo que ya falló dos veces, slicer/packer. |
-| **Media** | **Opus 4.8 / 5** | Features acotadas, auditorías, `tools/`, bug localizado, un solo módulo. |
-| **Baja** | **Gemini 3.6** | Regenerar assets con pipeline existente, recortes de audio con instrucciones exactas, aplicar CSV, tareas repetitivas. |
-
-**Antes de delegar:** rutas absolutas, comando exacto, cómo se verifica, y qué NO tocar.
+**Alta** (refactors grandes, sistemas nuevos, lo que ya falló dos veces) → **Sol 5.6 / Fable 5** ·
+**Media** (feature acotada, auditoría, un solo módulo) → **Opus 4.8/5** · **Baja** (regenerar
+assets con pipeline existente, tareas repetitivas) → **Gemini 3.6**.
+**Antes de delegar:** rutas absolutas, comando exacto, cómo se verifica y qué NO tocar.
+🆕 Para que una IA pequeña se oriente sola, pásale **`10_ARQUITECTURA_SEPARACION.md`**.
 
 ## 3. Sesión 2026-07-26 — PURGADA (salió en la 1.0.0.14)
 
 Detalle en `_ARCHIVO/HISTORIAL_sesiones_2026-07-26.md`. ⚠️ Lo único VIVO de ahí está en los P0 de
 §4 (probar multijugador + redeploy Render).
 
-## 3bis. Sesión 2026-07-27 (Opus 5) — KMP/iOS: Fases 0-4 COMPLETAS + auditoría
+## 3bis. Fases 0-4 COMPLETAS + auditoría (detalle en `PLAN_MIGRACION_KMP.md` y `git log`)
 
-**Qué se hizo** (detalle en `PLAN_MIGRACION_KMP.md` y `git log`): `:shared`; `GeoPoint` propio
-(osmdroid: de 51 archivos a 7); Gson fuera con `PowJson`; Fase 4 = `multiplatform-settings` +
-Room 2.8.4 KMP + Ktor. **DECISIONES:** juego ENTERO, mapa Opción A. **Trampas VIVAS:**
+`:shared`; `GeoPoint` propio (osmdroid: 51 → 7 archivos); Gson fuera con `PowJson`; Fase 4 =
+`multiplatform-settings` + Room 2.8.4 KMP + Ktor. **Trampas VIVAS:**
 - ⚠️ **NO cambies la ruta de la BD** (`filesDir/databases/pow_roads.db`) ni el driver de Android
   (el bundled es solo para iOS): se perdería caché y landmarks del Diseñador.
 - ⚠️ **`PowJson` imita a Gson a propósito**; tocarlo rompe saves y clientes viejos EN SILENCIO.
@@ -67,42 +61,29 @@ Room 2.8.4 KMP + Ktor. **DECISIONES:** juego ENTERO, mapa Opción A. **Trampas V
   **Ktor sin `HttpTimeout`** y ping 25s/20s: evitan que se caiga la partida.
 - ⚠️ **`dependencies { add("kspAndroid"…) }` va DESPUÉS de `kotlin { }`** en `shared/build.gradle.kts`.
 
-### 🔴 AUDITORÍA de las fases 1-4 — 12 bugs REALES (corregidos)
-Dos clases que **el compilador NO ve**: (1) `PowJson.encodeToString(x)` COMPILA y **PETA EN
-RUNTIME** si `x` no es serializable → con mapas usa `jsonOf`/`jsonArrayOf`, **NUNCA**
-`encodeToString`; (2) **kotlinx PETA si falta un campo sin default** → **todo campo nuevo lleva
-default**. Los fijan `PayloadsSeSerializanEnRuntimeTest` y `ModelosToleranJsonIncompletoTest`.
+### 🔴 AUDITORÍA fases 1-4 — 12 bugs que el compilador NO ve (corregidos)
+(1) `PowJson.encodeToString(x)` COMPILA y **PETA EN RUNTIME** si `x` no es serializable → con
+mapas usa `jsonOf`/`jsonArrayOf`. (2) **kotlinx PETA si falta un campo sin default** → **todo
+campo nuevo lleva default**. Los fijan `PayloadsSeSerializanEnRuntimeTest` y
+`ModelosToleranJsonIncompletoTest`.
 
-## 3ter. Sesión 2026-07-27 (Opus 5, EN EL MAC) — 🍏 1ª compilación iOS de la historia
+## 3ter. Sesión 2026-07-27 (Opus 5, EN EL MAC) — 🍏 iOS arranca + Fase 1.5
 
-**✅ `:shared` compila, enlaza y sus 49 tests PASAN en el simulador.** Room generó su `actual` de
-`PowDatabaseConstructor` y los 5 DAO `_Impl` sin tocar nada.
-
-⚠️ **El runtime del simulador lo instala XCODE, no un DMG a mano** (`xcodebuild -downloadPlatform
-iOS`; quedó iOS 26.5). Un DMG bajado con Safari queda en cuarentena y los tests mueren con
-`dyld_sim mmap() of segment failed` + `Abort trap` (134), que NO parece un problema de permisos.
-
-**4 arreglos, mínimos. El PORQUÉ de cada uno en `09_CONVENTIONS_GOTCHAS.md` §🍏 KMP/iOS:**
-`MapTileDao` → `suspend` (Room lo exige fuera de Android) con el `runBlocking` en `TileCache`;
-`import kotlin.concurrent.Volatile`; `@OptIn(ExperimentalForeignApi::class)`; y 21 nombres de test
-sin `(`, `)` ni `,`. ✅ El freno de la ABI de Ktor desapareció al subir Kotlin (§3quater).
-
-⚠️ **`gradle-wrapper.jar` está en `.gitignore` → NO viene por git** y `./gradlew` muere con
-`ClassNotFoundException: GradleWrapperMain`. Se regenera con el Gradle cacheado en
-`~/.gradle/wrapper/dists/`: `.../bin/gradle wrapper --gradle-version 9.5.0`. OJO: eso reescribe
-`gradlew`/`.bat`/`.properties` → **revierte esos 3, quédate solo con el .jar**.
-
-### ✅ FASE 1.5 HECHA — el mapa del juego CORRE EN iOS (visto en el simulador)
-`WorldMapLeafletHtml.kt` movido a `:shared` con `git mv` **conservando el paquete** → `:app` no
-cambió ni un import; solo pasó de `internal` a público. `:shared` produce ahora un **framework**
-(`baseName="Shared"`). App iOS en **`iosApp/`** (SwiftUI + `WKWebView`), salida de la plantilla de
-Xcode y renombrada — **no** se escribió el `.pbxproj` a mano. Pinta el mapa y responde a pinch-zoom.
-⚠️ El framework hay que generarlo ANTES de abrir Xcode
-(`:shared:linkDebugFrameworkIosSimulatorArm64`) o sale `No such module 'Shared'`.
-
-❌ **DESMENTIDO del guion:** `URLForDirectory(...)` estaba BIEN (solo faltaba el opt-in), y en
-`iosMain` hay UN fichero → el motor Darwin de Ktor **sigue sin ejercitarse**. ⚠️ **Qué NO prueba
-este hito:** los 49 tests son **dominio puro**; NO tocan Room, Ktor ni Settings en iOS.
+**✅ `:shared` compila, enlaza y sus 49 tests PASAN en el simulador**; Room generó su `actual` sin
+tocar nada. **✅ El mapa Leaflet del juego CORRE en iOS** (visto en pantalla, con pinch-zoom):
+`WorldMapLeafletHtml.kt` vive en `:shared`, `:shared` produce un framework (`baseName="Shared"`)
+y la app iOS está en `iosApp/` (SwiftUI + `WKWebView`).
+- ⚠️ **El runtime del simulador lo instala XCODE** (`xcodebuild -downloadPlatform iOS`), no un DMG
+  a mano: el DMG queda en cuarentena y los tests mueren con `Abort trap` (134), que NO parece un
+  problema de permisos.
+- ⚠️ **Genera el framework ANTES de abrir Xcode** (`:shared:linkDebugFrameworkIosSimulatorArm64`)
+  o sale `No such module 'Shared'`.
+- ⚠️ **`gradle-wrapper.jar` está en `.gitignore` → NO viene por git.** Se regenera con el Gradle
+  cacheado; eso reescribe `gradlew`/`.bat`/`.properties` → **revierte esos 3, quédate con el .jar**.
+- ⚠️ **Qué NO prueba este hito:** los 49 tests son **dominio puro**; NO tocan Room, Ktor ni
+  Settings en iOS. Y el motor Darwin de Ktor sigue sin ejercitarse.
+- 🔴 **Deuda:** las 5 rutas `file:///android_asset/` ya están parametrizadas, pero el handler
+  de iOS devuelve 404 (los assets no se empaquetan hasta la Fase 6).
 
 ## 3quater. Sesión 2026-07-27 (Opus 5, Windows) — ⬆️ Kotlin 2.3.21 + DSL de AGP 9
 
@@ -140,6 +121,24 @@ Ktor 3.3.3 → **3.5.1** (desbloqueado) · serialization → 1.11.0 · Compose B
   compilar para un iPhone real moría con `No such module 'Shared'` sin explicar por qué.
 - ⚠️ **`:app:createDebugApkListingFileRedirect` puede fallar** diciendo que falta
   `output-metadata.json` **cuando el fichero existe**. Transitorio (AGP 9): repite el build.
+
+## 3quinquies. Sesión 2026-07-27 (Opus 5, Windows) — 🧹 REFACTOR de tamaño + doc para IAs
+
+**MEDIDO: 161 tests (112 `:app` + 49 `:shared`), 0 fallos; `assembleDebug` OK; detekt exit 0**
+tras CADA extracción, no solo al final.
+- **`StreetFighterViewModel` 6220 → 2299** en 8 parciales por dominio (red, IA de la CPU,
+  combate, máquina de estados, arcade, voces, tutorial, gauntlet/QA).
+- **`StreetFighterScreen` 4029 → 1902** (renderer de escena, overlays de menú, overlays online).
+- **`ZombieGameScreen` 1664 → 1343** (barra del Diseñador, piezas de escena).
+- 🆕 **`10_ARQUITECTURA_SEPARACION.md`**: tabla "quiero cambiar X → archivo Y", el patrón
+  PARCIAL con sus 4 reglas y los 6 errores caros. **Pensado para que Gemini 3.6 pueda trabajar.**
+- ⚠️ **Patrón PARCIAL** (extensiones del VM, mismo paquete): los CAMPOS se quedan en la clase;
+  `private` → `internal` solo lo que el parcial necesite; **NUNCA recrees en la clase una función
+  que vive en un parcial** (quedan gemelas y gana la clase EN SILENCIO).
+- ⚠️ **NO se puede mover** una extensión declarada dentro de la clase sobre otro tipo
+  (`SfInput.hasAttackOrSpecial`): doble receptor. Se queda como miembro; está avisado.
+- ⚠️ 3 trampas del refactor, en `10` §8: **LF vs CRLF** (el split sale mal y quedan ficheros de 20
+  líneas), **KDoc partido** por cortar a mitad de `/**`, y el **`inline fun` que pierde el receptor**.
 
 ## 4. PENDIENTE — por prioridad
 
@@ -184,17 +183,18 @@ esqueleto `SfEngine` y modos como estrategia. **Exige sesión CON compilador.** 
 ```bash
 ./gradlew :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest
 ```
+En Windows `.\gradlew.bat`. En el Mac, antes:
+`export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`.
+⚠️ La tarea de `:shared` es **`testAndroidHostTest`**, NO `testDebugUnitTest` (cambió con AGP 9).
+⚠️ **Son 161 tests: 112 `:app` + 49 `:shared`** (contando los XML de `build/test-results`).
+Los "131" y los "47" de docs viejos son **stale**.
 
-(En Windows, `.\gradlew.bat`. En el Mac, antes:
-`export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`.)
-
+**detekt — usa EXACTAMENTE la invocación de CI** (desde la raíz del repo):
 ```bash
-..\detekt-cli-1.23.8\bin\detekt-cli.bat --config "config\detekt\detekt.yml" --input "app\src\main\java"
+./detekt-cli-1.23.8/bin/detekt-cli --config PolitecnicoOpenWorld/config/detekt/detekt.yml --build-upon-default-config --input PolitecnicoOpenWorld/app/src/main/java,PolitecnicoOpenWorld/shared/src/commonMain/kotlin --baseline PolitecnicoOpenWorld/config/detekt/baseline.xml
 ```
-
-⚠️ **NO** uses `--build-upon-default-config` en detekt: sube el conteo a 16 con reglas que el repo
-no adoptó. El baseline correcto son **5 smells preexistentes**.
-⚠️ **Son 161 tests: 112 en `:app` + 49 en `:shared`** (MEDIDO en el Mac 2026-07-27 contando los XML
-de `build/test-results`). Los "131" y los "47" de docs viejos son **stale**.
+Debe salir **exit 0**. ⚠️ Un doc viejo decía "NO uses `--build-upon-default-config`": eso era de
+antes del baseline. **CI SÍ lo usa**, con el baseline, que es lo que perdona la deuda vieja.
+⚠️ El input incluye `:shared`: sin él, el módulo compartido no se analiza.
 
 `git status` debe mostrar **solo** lo que tocaste. Y **actualiza este archivo** antes de terminar.

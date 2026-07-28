@@ -9,19 +9,28 @@ low-end performance) or doc drift.
 
 ## 0. Archivos GRANDES (>1000 líneas) — plan de separación
 
-> ### ✅ ESTADO ACTUAL (2026-06-21) — esto MANDA sobre el historial de abajo
+> ## ✅ ESTADO REAL (2026-07-27, tras el refactor de la Fase 5) — esto MANDA
 >
-> ⚠️ **DATO STALE — CORREGIDO 2026-07-27 (medido).** La tabla de abajo es de ANTES del modo de
-> pelea (PR #136). Hoy **4 archivos pasan de 1500 líneas**, y el mayor cuadruplica ese techo:
+> Los dos monstruos del modo pelea se partieron por DOMINIO. `StreetFighterViewModel` pasó de
+> **6220 a 2299** líneas y `StreetFighterScreen` de **4029 a 1902**.
 >
-> | Archivo | Líneas HOY |
+> | Archivo | Líneas |
 > |---|---:|
-> | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` | **6219** |
-> | `features/streetfighter/ui/StreetFighterScreen.kt` | **4029** |
-> | `features/interiores/zombies/ui/ZombieGameScreen.kt` | 1664 |
-> | `features/map_exterior/viewmodel/WorldMapViewModel.kt` | 1594 |
+> | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` | 2299 |
+> | `features/streetfighter/ui/StreetFighterScreen.kt` | 1902 |
+> | `features/map_exterior/viewmodel/WorldMapViewModel.kt` | 1596 |
+> | `features/map_exterior/ui/WorldMapScreen.kt` | 1463 |
+> | `features/map_exterior/ui/NativeOsmMap.kt` | 1458 |
+> | `features/interiores/zombies/ui/ZombieGameScreen.kt` | 1343 |
+> | `features/streetfighter/ui/SfSceneRenderer.kt` | 1225 |
+> | `AppNavGraph.kt` | 1175 |
+> | `features/interiores/zombies/viewmodel/ZombieInteriorViewModel.kt` | 1165 |
 >
-> Los 2 de SF son **el mayor riesgo técnico de la Fase 5** de `PLAN_MIGRACION_KMP.md`.
+> **➡️ El mapa de qué hay en cada archivo está en `10_ARQUITECTURA_SEPARACION.md`**, con la receta
+> de extracción y las 3 trampas que costaron tiempo (finales de línea LF/CRLF, KDoc partido por
+> la mitad, y el `inline fun` que pierde el receptor).
+>
+> *(Lo de abajo es el historial de 2026-06: los tamaños de ARRIBA son los vigentes.)*
 >
 > **5 archivos pasan de 1000 líneas; NINGUNO pasa de 1500 (2026-06-22 — ver corrección arriba):**
 >

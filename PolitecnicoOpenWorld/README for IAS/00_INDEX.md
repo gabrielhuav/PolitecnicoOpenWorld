@@ -18,7 +18,7 @@
 
 **ES (ORDEN DE LECTURA para una IA nueva — sobre todo si es poco potente):**
 1. `GUIA_mantenimiento_no_senior.md` ← EMPIEZA AQUÍ (las 7 reglas + chuleta + qué NO hacer).
-2. Este índice (mapa de archivos) + `09_CONVENTIONS_GOTCHAS.md` COMPLETO.
+2. **`10_ARQUITECTURA_SEPARACION.md`** (dónde vive cada cosa) + `09_CONVENTIONS_GOTCHAS.md` COMPLETO.
 3. El doc del feature que vayas a tocar (03-08 / CAMPAIGN) y su tabla "Key files".
 4. Si vas a REFACTORIZAR: `CHECKPOINT_SENIOR_refactor.md` (programa 2026-07-04 TERMINADO Y
    AUDITADO: managers+fachada, Hilt, tests, detekt — ahí está la receta y lo que NO se movió).
@@ -27,14 +27,14 @@
    política de comentarios y los campos "⚠️ LO POSEE XManager").
 6. Si el asistente necesita un archivo concreto, búscalo en la tabla "Key files" (archivo 04/05)
    y pásale solo ese.
-7. **Tras cualquier cambio, actualiza estos docs (00–09)** y, si es user-facing, el README **público** de la raíz del repo (ver 09). Los tests (84, `app/src/test`) deben seguir en verde.
+7. **Tras cualquier cambio, actualiza estos docs (00–10)** y, si es user-facing, el README **público** de la raíz del repo (ver 09). Los **161 tests** (112 en `:app` + 49 en `:shared`) deben seguir en verde.
 
 **EN:**
 1. Upload/paste this whole folder (or just the relevant files) to the assistant.
 2. Give it the task and tell it to **follow MVVM and the conventions in file 09**.
 3. If it needs a specific source file, find it in the "Key files" table (file 04/05) and pass
    only that one.
-4. **After any change, update these docs (00–09)** and, if user-facing, the **public** root README (see 09).
+4. **After any change, update these docs (00–10)** and, if user-facing, the **public** root README (see 09).
 
 ---
 
@@ -79,6 +79,7 @@
 | 02 | `02_DATA_LAYER.md` | Room (DB v8), DAOs, entidades, cachés, repos, red / Room, DAOs, entities, caches, repos, network |
 | 07 | `07_OTHER_FEATURES.md` | Menú principal, ajustes, ShineCTO, coleccionables (+ 🥊 SF; ⚠️ su parte de SF debería migrar a `SF/`) |
 | 09 | `09_CONVENTIONS_GOTCHAS.md` | Convenciones, reglas de gama baja, protocolo de actualización de docs |
+| 10 | `10_ARQUITECTURA_SEPARACION.md` | 🧭 **¿EN QUÉ ARCHIVO TOCO ESTO?** Mapa de la separación tras el refactor de la Fase 5: los 2 módulos, MVVM, el patrón PARCIAL, tabla de "quiero cambiar X → archivo Y" y los 6 errores que más caro salen. **Pensado para que hasta una IA pequeña pueda trabajar aquí.** |
 | — | `PLAYSTORE_formulario_seguridad_datos.md` | 🛡️ **Play Store: formulario de Seguridad de los datos + políticas.** Valores EXACTOS aprobados, errores que nos rechazaron y checklist antes de cada envío. **Léelo antes de tocar la ficha o subir versión.** |
 | — | `ARRANQUE_MAC_iOS.md` | 🍏 **EMPIEZA AQUÍ si estás en el MAC.** Guion exacto de la primera compilación de `:shared` para iOS: rutas, JDK, comandos y dónde va a fallar. Las Fases 1-4 se hicieron en Windows, donde iOS NO compila. |
 | — | `PLAN_MIGRACION_KMP.md` | 🍏 **Migración a Kotlin Multiplatform / iOS — Fase 0 (auditoría).** Acoplamiento real MEDIDO, estado verificado de las libs KMP, decisión del mapa y qué NO se puede portar. **Estado: esperando decisión del dueño (§11); no se ha migrado nada.** |
