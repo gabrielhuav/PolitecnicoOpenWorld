@@ -197,5 +197,4 @@ docs viejos son **stale**. ⚠️ Si tocas `commonTest`, pasa **`bash tools/chec
 ```
 Debe salir **exit 0**. ⚠️ Un doc viejo decía "NO uses `--build-upon-default-config`": era de antes
 del baseline. **CI SÍ lo usa.** ⚠️ El input incluye `:shared`, o no se analiza el módulo compartido.
-
 `git status` debe mostrar **solo** lo que tocaste. Y **actualiza este archivo** antes de terminar.
