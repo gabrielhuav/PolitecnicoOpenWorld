@@ -22,7 +22,7 @@ class SfPhysicsTest {
     ).copy(y = y, velocityX = vx, velocityY = vy, slideVelocity = slide, slideFriction = friction)
 
     @Test
-    fun `la posicion X avanza por la velocidad, segun el encaramiento`() {
+    fun `la posicion X avanza por la velocidad segun el encaramiento`() {
         assertEquals(100f, SfPhysics.step(fighter(x = 0f, vx = 100f, dir = SfDirection.RIGHT), 1f).x, 0.01f)
         assertEquals(-100f, SfPhysics.step(fighter(x = 0f, vx = 100f, dir = SfDirection.LEFT), 1f).x, 0.01f)
     }
@@ -41,7 +41,7 @@ class SfPhysicsTest {
     }
 
     @Test
-    fun `al agotarse el slide, la friccion se pone a cero`() {
+    fun `al agotarse el slide la friccion se pone a cero`() {
         val r = SfPhysics.step(fighter(slide = 5f, friction = 10f), 1f)
         assertEquals(0f, r.slideVelocity, 0.01f)
         assertEquals(0f, r.slideFriction, 0.01f)

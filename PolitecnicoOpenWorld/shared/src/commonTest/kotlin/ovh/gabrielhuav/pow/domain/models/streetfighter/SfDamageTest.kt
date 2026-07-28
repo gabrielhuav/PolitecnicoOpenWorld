@@ -13,7 +13,7 @@ import kotlin.test.Test
 class SfDamageTest {
 
     @Test
-    fun `super, fatality y agarre usan su dano propio (no la fuerza)`() {
+    fun `super fatality y agarre usan su dano propio - no la fuerza`() {
         assertEquals(SfConstants.SUPER_ART_DAMAGE, SfDamage.forAttack(SfFighterState.SUPER_ART, SfAttackStrength.LIGHT))
         assertEquals(SfConstants.FATALITY_DAMAGE, SfDamage.forAttack(SfFighterState.FATALITY, SfAttackStrength.LIGHT))
         assertEquals(SfConstants.THROW_DAMAGE, SfDamage.forAttack(SfFighterState.GRAB, SfAttackStrength.HEAVY))
@@ -41,7 +41,7 @@ class SfDamageTest {
     }
 
     @Test
-    fun `ATTACK_META da fuerza y tipo, y los no-ataques no estan`() {
+    fun `ATTACK_META da fuerza y tipo y los no-ataques no estan`() {
         assertEquals(SfAttackStrength.LIGHT, SfDamage.ATTACK_META.getValue(SfFighterState.LIGHT_PUNCH).strength)
         assertEquals(SfAttackType.PUNCH, SfDamage.ATTACK_META.getValue(SfFighterState.LIGHT_PUNCH).type)
         assertEquals(SfAttackStrength.HEAVY, SfDamage.ATTACK_META.getValue(SfFighterState.SWEEP).strength)
@@ -52,7 +52,7 @@ class SfDamageTest {
     }
 
     @Test
-    fun `bloqueo - los normales hacen 0 y el chip es base entre 6 (min 1)`() {
+    fun `bloqueo - los normales hacen 0 y el chip es base entre 6 - min 1`() {
         assertEquals(0, SfDamage.resolvedDamage(20, blocked = true, chipAttack = false, comboHits = 1))
         assertEquals(20 / 6, SfDamage.resolvedDamage(20, blocked = true, chipAttack = true, comboHits = 1))
         assertEquals(1, SfDamage.resolvedDamage(3, blocked = true, chipAttack = true, comboHits = 1))
@@ -67,7 +67,7 @@ class SfDamageTest {
     }
 
     @Test
-    fun `CHIP_ATTACK_STATES son especial, super y fatality (no los normales)`() {
+    fun `CHIP_ATTACK_STATES son especial super y fatality - no los normales`() {
         listOf(
             SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM,
             SfFighterState.SPECIAL_1_HEAVY, SfFighterState.SUPER_ART, SfFighterState.FATALITY,

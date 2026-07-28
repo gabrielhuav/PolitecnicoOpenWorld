@@ -3,6 +3,7 @@ package ovh.gabrielhuav.pow.data.local.room
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSUserDomainMask
@@ -14,9 +15,11 @@ import platform.Foundation.NSUserDomainMask
  * Aquí NO hay datos previos que conservar (iOS es instalación nueva), así que la única regla es
  * usar siempre la misma ruta.
  *
- * ⚠️ **SIN VERIFICAR TODAVÍA**: este archivo no se ha compilado nunca — Kotlin/Native no compila
- * targets iOS en Windows, que es donde se escribió. Es lo primero que hay que probar en el Mac.
+ * ✅ **VERIFICADO EN EL MAC (2026-07-27):** compila y enlaza para `iosSimulatorArm64`. La firma de
+ * `URLForDirectory(...)` resultó ser CORRECTA tal cual estaba escrita — lo único que faltaba era el
+ * opt-in de abajo, porque toda la interoperabilidad con Objective-C de Kotlin/Native lo exige.
  */
+@OptIn(ExperimentalForeignApi::class)
 internal actual fun crearPowDatabaseBuilder(contexto: Any?): RoomDatabase.Builder<PowDatabase> {
     val documentos = NSFileManager.defaultManager.URLForDirectory(
         directory = NSDocumentDirectory,

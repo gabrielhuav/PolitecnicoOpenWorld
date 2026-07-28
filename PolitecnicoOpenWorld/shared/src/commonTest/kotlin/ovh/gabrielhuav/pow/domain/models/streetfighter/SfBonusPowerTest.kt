@@ -16,14 +16,14 @@ class SfBonusPowerTest {
     private val metamorphFighters = setOf(SfFighterId.LA_PRESIDENTA, SfFighterId.YOALLI_EHECATL)
 
     @Test
-    fun `Presidenta y Yoalli tienen un usable menos (su ultimo poder es metamorfosis)`() {
+    fun `Presidenta y Yoalli tienen un usable menos - su ultimo poder es metamorfosis`() {
         metamorphFighters.forEach { id ->
             assertEquals(id.bonusPowerCount - 1, sfUsableBonusPowerCount(id), "$id")
         }
     }
 
     @Test
-    fun `el resto usa su bonusPowerCount tal cual, y nunca es negativo`() {
+    fun `el resto usa su bonusPowerCount tal cual y nunca es negativo`() {
         SfFighterId.entries.forEach { id ->
             val usable = sfUsableBonusPowerCount(id)
             assertTrue(usable >= 0, "$id usable >= 0")

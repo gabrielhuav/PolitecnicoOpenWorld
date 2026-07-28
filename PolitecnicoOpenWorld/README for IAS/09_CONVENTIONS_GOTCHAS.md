@@ -1342,3 +1342,48 @@ puedes actualizar los docs, **la tarea no está terminada — dilo explícitamen
   `VehicleDpadButton`, joystick). `repeatingClickable` ganó `onPress:(Boolean)` para el resalte/feedback 1×/toque.
 - **No** añade un toggle de Ajustes propio: el sonido se controla con el slider **Efectos** (Audio) y la
   vibración con los ajustes hápticos del sistema. (Si se quisiera un toggle dedicado, iría en Ajustes→Interfaz.)
+
+## 🍏 KMP / iOS — lo que compila en Android y NO compila en Kotlin/Native
+
+**Medido en la 1ª compilación real de `:shared` para iOS (Mac, 2026-07-27).** Las Fases 1-4 se
+escribieron en Windows, donde los targets iOS ni se configuran: nada de esto se podía ver. Si tocas
+`shared/`, estas 4 reglas te ahorran la tarde.
+
+1. **Los DAO de Room en `commonMain` tienen que ser `suspend`.** Room solo admite DAOs bloqueantes
+   si el source set es de Android; fuera de ahí KSP corta con *"Only suspend functions are allowed
+   in DAOs declared in source sets targeting non-Android platforms"*. Si el llamador es un callback
+   síncrono de framework que no puedes volver `suspend`, el `runBlocking` va **en la clase puente
+   del lado `:app`**, no en el DAO (ver `TileCache` ↔ `MapTileDao`).
+2. **`@Volatile` necesita `import kotlin.concurrent.Volatile` explícito.** En JVM entraba solo por
+   el import por defecto `kotlin.jvm.*`, que en Native no existe. En JVM el multiplataforma es un
+   typealias del de siempre, así que Android no cambia.
+3. **Toda interoperabilidad con Objective-C exige `@OptIn(ExperimentalForeignApi::class)`**, aunque
+   la firma que uses sea correcta. El error *"This declaration needs opt-in"* NO significa que la
+   API esté mal escrita.
+4. **Los nombres de test con backticks NO admiten `(`, `)` ni `,`** en Kotlin/Native (*"Name
+   contains illegal characters"*), y en JVM sí. Al escribir tests en `commonTest`, usa ` - ` en vez
+   de paréntesis y quita las comas.
+
+⚠️ **Y la trampa que no es de código: la ABI de las klibs.** Las librerías multiplataforma publican
+klibs de Kotlin/Native con una `abi_version` fija, y **no son compatibles hacia adelante**: un
+compilador 2.2.10 no puede leer una klib de ABI 2.3.0. Cuando pasa, el mensaje MIENTE — dice
+`KLIB resolver: Could not find "...klib"`, como si faltara el fichero, y el fichero está ahí. Para
+diagnosticarlo, lee el manifiesto de la klib:
+
+```bash
+unzip -p <ruta>.klib default/manifest | grep -E "abi_version|compiler_version"
+```
+
+Esto NO se ve en Android (los artefactos JVM son bytecode y no tienen esa puerta), así que una
+dependencia puede llevar semanas "funcionando" y romper iOS el día que se compile. Fue el caso de
+Ktor 3.5.1 → hubo que bajar a **3.3.3**; el tope de cada librería está anotado en
+`gradle/libs.versions.toml`.
+
+⚠️ **El runtime del simulador lo instala XCODE, nunca un DMG a mano.** Si se registra con
+`xcrun simctl runtime add` desde un `.dmg` descargado con el navegador, queda en `/private/tmp` con
+`com.apple.quarantine` y macOS **no ejecuta código desde ahí**: los tests mueren con
+`dyld_sim mmap() of segment failed` + `Abort trap` (exit 134), que no parece un problema de permisos
+por ningún lado. La vía buena es `xcodebuild -downloadPlatform iOS` (o Xcode → Settings →
+Components); un runtime bien instalado tiene su `Image Path` bajo `/System/Library/AssetsV2/…`, no
+bajo `/private/tmp`. Para quitar uno viejo, `xcrun simctl runtime delete <id>` — nunca a mano, que
+deja registros huérfanos en CoreSimulator.

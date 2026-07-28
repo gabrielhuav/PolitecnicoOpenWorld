@@ -1,5 +1,11 @@
 package ovh.gabrielhuav.pow.data.auth
 
+// ⚠️ Este import NO es opcional aunque en Android compilara sin él: allí `@Volatile` entraba por
+// el import por defecto `kotlin.jvm.*`, que en Kotlin/Native no existe (fallaba con "Unresolved
+// reference 'Volatile'" en la 1ª compilación iOS, Mac 2026-07-27). `kotlin.concurrent.Volatile` es
+// el multiplataforma y en JVM es un typealias del de siempre: Android se comporta EXACTAMENTE igual.
+import kotlin.concurrent.Volatile
+
 /**
  * Sesión de autenticación COMPARTIDA (singleton de proceso).
  *

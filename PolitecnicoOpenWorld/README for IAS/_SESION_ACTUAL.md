@@ -2,13 +2,11 @@
 
 > ## Qué es este archivo
 >
-> El proyecto lo trabajan **varias IAs distintas** (Opus, Fable, Sol, Gemini…) que **no
-> comparten memoria entre sí ni entre sesiones**. Cada una empieza de cero. Este archivo es el
-> **único punto de traspaso**: lo que esté aquí es lo que sabrá la siguiente; lo que no, se
-> pierde y se reinventa (o se alucina).
->
-> Por eso vale más que un changelog: es **memoria operativa**. No cuenta la historia del
-> proyecto — cuenta **en qué estado quedó todo y qué sigue**.
+> El proyecto lo trabajan **varias IAs distintas** (Opus, Fable, Sol, Gemini…) que **no comparten
+> memoria entre sí ni entre sesiones**. Cada una empieza de cero. Este archivo es el **único punto
+> de traspaso**: lo que esté aquí es lo que sabrá la siguiente; lo que no, se pierde y se reinventa
+> (o se alucina). Es **memoria operativa**, no un changelog: cuenta **en qué estado quedó todo y
+> qué sigue**.
 >
 > ## Reglas de mantenimiento (obligatorias)
 >
@@ -24,47 +22,38 @@
 > 5. **Marca lo MEDIDO vs lo SUPUESTO.** Varios docs de este repo afirmaban cosas falsas
 >    ("0 smells", "47 tests", "AAB 434 MiB"). Si lo verificaste, dilo; si no, dilo también.
 >
-> ## Cómo cerrar una sesión (haz esto ANTES de quedarte sin tokens)
+> ## Cómo cerrar una sesión (ANTES de quedarte sin tokens)
 >
-> 1. Purga a `_ARCHIVO/` lo que ya pasó de la ventana de 2 días.
-> 2. Reescribe la sección de sesión con lo tuyo: qué cambió, qué se verificó y **qué falta**.
-> 3. Actualiza **PENDIENTE por prioridad**: lo que quede a medias tiene que estar ahí o se pierde.
-> 4. Comprueba que sigues bajo las 200 líneas.
->
+> Purga a `_ARCHIVO/` lo que pasó de la ventana · reescribe tu sección (qué cambió, qué se
+> verificó, **qué falta**) · actualiza **PENDIENTE por prioridad** · comprueba las 200 líneas.
 > **Regla de oro:** si te quedas sin tokens a media tarea, actualiza ESTE archivo ANTES de parar.
 
 **Última actualización:** 2026-07-27 · Opus 5 · rama `fase0-auditoria-kmp`
 **Ventana viva:** 2026-07-26 → 2026-07-27 · *purgar a `_ARCHIVO/` a partir del 2026-07-28*
 
 > ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: **Fases 0-4 COMPLETAS y verdes.**
-> ⚠️ **De iOS NO hay nada compilado aún** → siguiente paso EN EL MAC: `ARRANQUE_MAC_iOS.md`.
+> 🍏 **iOS ARRANCA: 49 tests en verde + FASE 1.5 HECHA** — el mapa Leaflet del juego corre en el
+> simulador (visto en pantalla, 2026-07-27). Ver §3ter. Siguiente: **Fase 5** (Compose MP).
 
 ## 🖥️ Rutas por PC
 
-| PC | Raíz del PROYECTO (aquí están `gradlew.bat` y `tools/`) |
+| PC | Raíz del PROYECTO (aquí están `gradlew` y `tools/`) |
 |---|---|
 | **Laptop** (referencia) | `C:\Users\gabri\AndroidStudioProjects\PolitecnicoOpenWorld\PolitecnicoOpenWorld` |
 | **Escritorio** | *distinta — COMPLETAR con la real* |
 | **🍏 Mac** (iOS) | `/Users/gabrielhuav/Documents/GitHub/PolitecnicoOpenWorld/PolitecnicoOpenWorld` |
 
-Solo cambia el prefijo absoluto: todas las rutas de los docs son **relativas a la raíz**.
-El GEN de sprites vive FUERA del repo en `..\newSFAssets\GEN_*`.
+⚠️ **La carpeta es doble**: el proyecto Gradle está DENTRO del repo, en `PolitecnicoOpenWorld/`.
+Solo cambia el prefijo: las rutas de los docs son **relativas a la raíz**. El GEN de sprites vive
+FUERA del repo en `..\newSFAssets\GEN_*`.
 
 ## 1. Organización
 
-```
-README for IAS/
-  _SESION_ACTUAL.md      <- ESTE archivo. Empieza aquí SIEMPRE.
-  00_INDEX.md            índice / mapa de archivos
-  01_ARCHITECTURE.md     arquitectura compartida
-  02_DATA_LAYER.md       Room, DAOs, repos, red
-  07_OTHER_FEATURES.md   menú, ajustes, coleccionables
-  09_CONVENTIONS_GOTCHAS.md   ⚠️ OBLIGATORIO antes de tocar código
-  PLAYSTORE_formulario_seguridad_datos.md  🛡️ ANTES de tocar la ficha o subir versión
-  MUNDO/                 🌎 mundo libre POW
-  SF/                    🥊 "Huelum vs. Goya" (empieza por SF/00_SF_INDEX.md)
-  _ARCHIVO/              histórico YA EJECUTADO. Referencia, NO tareas.
-```
+El mapa completo de `README for IAS/` está en **`00_INDEX.md`**. Lo que no puedes saltarte:
+**`09_CONVENTIONS_GOTCHAS.md`** (OBLIGATORIO antes de tocar código) y
+**`PLAYSTORE_formulario_seguridad_datos.md`** (ANTES de tocar la ficha o subir versión).
+`SF/` = "Huelum vs. Goya" (empieza por `SF/00_SF_INDEX.md`) · `MUNDO/` = mundo libre ·
+`_ARCHIVO/` = histórico YA EJECUTADO, referencia y **NO** tareas.
 
 ## 2. A quién delegar
 
@@ -78,62 +67,77 @@ README for IAS/
 
 ## 3. Sesión 2026-07-26 — PURGADA (salió en la 1.0.0.14)
 
-Audio del rival sincronizado, P2P por WebRTC, auditoría pre-producción (4 defectos) y la
-puerta `play-compliance` de CI. Detalle en `_ARCHIVO/HISTORIAL_sesiones_2026-07-26.md`.
-⚠️ Lo único que sigue VIVO de ahí está en los P0 de §4 (probar multijugador + redeploy Render).
+Detalle en `_ARCHIVO/HISTORIAL_sesiones_2026-07-26.md`. ⚠️ Lo único VIVO de ahí está en los P0 de
+§4 (probar multijugador + redeploy Render).
 
 ## 3bis. Sesión 2026-07-27 (Opus 5) — KMP/iOS: Fases 0-4 COMPLETAS + auditoría
 
-**Datos, opciones y fases: `PLAN_MIGRACION_KMP.md`.** Aquí solo lo que no puede perderse:
-- **osmdroid NO bloquea 51 archivos, sino 6** (los otros 45 solo usan `GeoPoint`). Y **el mapa por
-  defecto YA es Leaflet en WebView**, no osmdroid → iOS hereda mapa sin escribir renderer.
-- **🔴 Gson en 20 archivos (5 = red de SF)**: reflexión JVM, NO existe en iOS. Faltaba en las tablas.
-- **Hilt→Koin NO es obligatorio** (`:shared` no necesita DI; Android sigue con Hilt).
-
-**DECISIONES del dueño:** alcance = **juego ENTERO** (yo recomendaba SF primero; consta en el plan).
-Mapa = **Opción A**. **Tiene Mac + Xcode**, no cuenta Developer. **Sin subir Kotlin** hasta la Fase 5.
-
-**FASE 1 HECHA.** Módulo **`:shared`** (Kotlin 2.2.10 y AGP intactos), `androidTarget` + 3 targets
-iOS. Dominio puro de SF y 6 tests movidos con `git mv`; **se conservó el paquete** → cero imports
-que tocar en `:app`. ⚠️ `SfArcadeCampaignAuditTest` se queda en `:app` (usa `java.io.File`).
-⚠️ **CI** (`pr-quality-gate.yml`) corre `:shared:testDebugUnitTest` **y** el input nuevo de detekt;
-sin eso habría corrido de menos **sin avisar**.
-🆕 **GOTCHA (09 §12): el smart cast NO cruza módulos** → `x.campo?.let { usa(it) } == true`.
-
-**FASE 2 HECHA.** `GeoPoint` propio en `:shared` → **osmdroid pasa de 51 archivos a 7**. Se llama
-IGUAL a propósito: en los 45 archivos solo cambió la línea del `import`. Fórmulas = port LITERAL de
-osmdroid (mismo radio 6378137); `GeoPointParidadOsmdroidTest` sale **bit a bit** igual.
-⚠️ Cazó que `x*x` ≠ `.pow(2)` (2 ULP): **no lo "simplifiques"**. La conversión a osmdroid vive
-SOLO en `ui/GeoPointInterop.kt` (19 sitios).
-
-**FASE 3 COMPLETA — Gson FUERA de producción** (queda solo en `testImplementation`, para los tests
-de compatibilidad). `PowJson` + `jsonOf`/`jsonArrayOf` en `:shared`. ⚠️ **Las opciones de `PowJson`
-imitan a Gson a propósito** (`ignoreUnknownKeys`/`encodeDefaults`/`explicitNulls=false`/
-`coerceInputValues`); tocarlas rompe saves y clientes viejos EN SILENCIO.
-
-**FASE 4 COMPLETA.** ✅ SharedPreferences → `multiplatform-settings` (elegido sobre DataStore:
-**envuelve el fichero de prefs existente → cero migración**; DataStore es asíncrono y volvería
-`suspend` ~60 lecturas). ✅ **Room 2.8.4 KMP** en `:shared`. ✅ **Ktor** en vez de OkHttp.
-⚠️ `SfArcadeRepository` es el ÚNICO con migración real de datos: los desbloqueos usaban
-`putStringSet` (no existe en multiplatform-settings) → array JSON en claves `_V2` + `leerConjunto()`
-migra una vez desde la vieja. Sin eso, todos pierden peleadores y mapas.
-⚠️ **NO cambies la ruta de la BD** (`filesDir/databases/pow_roads.db`) ni el driver de Android
-(SQLite del sistema; el bundled es solo para iOS): se perdería caché y landmarks del Diseñador.
-⚠️ **Ktor: sin `HttpTimeout` sobre el socket** (OkHttp los tenía a 0) y ping 25s/20s — no son
-decorativos: evitan que se caiga la partida en los ratos sin tráfico y despiertan Render.
-⚠️ **`dependencies { add("kspAndroid"…) }` va DESPUÉS de `kotlin { }`** en `shared/build.gradle.kts`.
+**Qué se hizo** (detalle en `PLAN_MIGRACION_KMP.md` y `git log`): `:shared` con `androidTarget` + 3
+targets iOS; `GeoPoint` propio (osmdroid: de 51 archivos a 7); Gson fuera de producción con
+`PowJson`; Fase 4 = `multiplatform-settings` + Room 2.8.4 KMP + Ktor. **DECISIONES:** juego ENTERO,
+mapa Opción A, **sin subir Kotlin** hasta la Fase 5. **Las trampas que siguen vivas:**
+- ⚠️ **NO cambies la ruta de la BD** (`filesDir/databases/pow_roads.db`) ni el driver de Android
+  (SQLite del sistema; el bundled es solo para iOS): se perdería caché y landmarks del Diseñador.
+- ⚠️ **`PowJson` imita a Gson a propósito** (`ignoreUnknownKeys`/`encodeDefaults`/`explicitNulls=
+  false`/`coerceInputValues`); tocarlo rompe saves y clientes viejos EN SILENCIO.
+- ⚠️ **`SfArcadeRepository` es el ÚNICO con migración real de datos** (`putStringSet` → array JSON
+  en `_V2`). Sin ella, todos pierden peleadores y mapas.
+- ⚠️ **Fórmulas de `GeoPoint` = port LITERAL de osmdroid**: `x*x` ≠ `.pow(2)` (2 ULP), no lo
+  "simplifiques". ⚠️ **Ktor sin `HttpTimeout`** y ping 25s/20s: evitan que se caiga la partida.
+- ⚠️ **`dependencies { add("kspAndroid"…) }` va DESPUÉS de `kotlin { }`** en `shared/build.gradle.kts`.
 
 ### 🔴 AUDITORÍA de las fases 1-4 — 12 bugs REALES (ya corregidos)
 Dos clases de bug que **el compilador NO ve** y que habrían salido en producción:
-1. **`PowJson.encodeToString(x)` COMPILA y PETA EN RUNTIME** si `x` no es serializable
-   (`Map<String,Any?>` o data class sin `@Serializable`). Afectaba a **los 3 transportes de SF**
-   (habría reventado TODO el multijugador al 1er mensaje) y a **6 payloads del mapa WEB**, que es
-   el renderer POR DEFECTO. → usar `jsonOf`/`jsonArrayOf`, NUNCA `encodeToString`, con mapas.
-2. **kotlinx PETA si falta un campo sin default** (Gson lo dejaba en null/0). 8 modelos lo tenían,
-   3 de ellos de RED → un cliente viejo crasheaba al rival. **Todo campo nuevo lleva default.**
-Tests de regresión: `PayloadsSeSerializanEnRuntimeTest` (serializa de verdad) y
-`ModelosToleranJsonIncompletoTest` (todo modelo decodifica desde `{}`).
-**MEDIDO: `:app` 112 + `:shared` 49 = 161 tests, 0 fallos; assembleDebug OK; detekt exit 0.**
+1. **`PowJson.encodeToString(x)` COMPILA y PETA EN RUNTIME** si `x` no es serializable. Afectaba a
+   los 3 transportes de SF y a 6 payloads del mapa WEB → con mapas usa `jsonOf`/`jsonArrayOf`,
+   **NUNCA `encodeToString`**.
+2. **kotlinx PETA si falta un campo sin default** (Gson lo dejaba en null/0) → un cliente viejo
+   crasheaba al rival. **Todo campo nuevo lleva default.** Los fija
+   `PayloadsSeSerializanEnRuntimeTest` y `ModelosToleranJsonIncompletoTest`.
+
+## 3ter. Sesión 2026-07-27 (Opus 5, EN EL MAC) — 🍏 1ª compilación iOS de la historia
+
+**✅ MEDIDO: `:shared` compila, enlaza y sus 49 tests PASAN en el simulador** (`tests=49 failures=0
+errors=0 skipped=0`, contado en `shared/build/test-results/iosSimulatorArm64Test`). Klib real
+(`native_targets=ios_simulator_arm64`, `compiler_version=2.2.10`); Room generó su `actual` de
+`PowDatabaseConstructor` y los 5 DAO `_Impl` sin tocar nada.
+**Android sigue verde: 112 + 49 = 161 tests, 0 fallos, `assembleDebug` OK.**
+
+⚠️ **El runtime del simulador lo instala XCODE, no un DMG a mano.** Costó media sesión: un
+`simctl runtime add` desde un DMG bajado con Safari queda en cuarentena en `/private/tmp` y los
+tests mueren con `dyld_sim mmap() of segment failed` + `Abort trap` (134), que NO parece permisos.
+Arreglo: `xcodebuild -downloadPlatform iOS` (quedó **iOS 26.5**) + `xcrun simctl runtime delete`.
+
+**4 arreglos de código, mínimos. El PORQUÉ de cada uno en `09_CONVENTIONS_GOTCHAS.md` §🍏 KMP/iOS:**
+`MapTileDao` → `suspend` (Room lo exige fuera de Android) con el `runBlocking` en `TileCache`;
+`import kotlin.concurrent.Volatile`; `@OptIn(ExperimentalForeignApi::class)`; y 21 nombres de test sin `(`, `)` ni `,`.
+
+⚠️ **Ktor 3.5.1 → 3.3.3, y NO lo subas con Kotlin en 2.2.10.** Las klibs de Ktor ≥3.4.0 son ABI
+2.3.0 y nuestro compilador no las lee. El error MIENTE: dice `KLIB resolver: Could not find
+"...klib"` y el fichero está ahí. Room, sqlite, serialization y settings sí son compatibles.
+
+⚠️ **`gradle-wrapper.jar` está en `.gitignore` → NO viene por git** y `./gradlew` muere con
+`ClassNotFoundException: GradleWrapperMain`. Se regenera con el Gradle cacheado en
+`~/.gradle/wrapper/dists/`: `.../bin/gradle wrapper --gradle-version 9.5.0`. OJO: eso reescribe
+`gradlew`/`.bat`/`.properties` → **revierte esos 3, quédate solo con el .jar**.
+
+### ✅ FASE 1.5 HECHA — el mapa del juego CORRE EN iOS (visto en el simulador)
+`WorldMapLeafletHtml.kt` movido a `:shared` con `git mv` **conservando el paquete** → `:app` no
+cambió ni un import; solo pasó de `internal` a público. `:shared` produce ahora un **framework**
+(`baseName="Shared"`). App iOS en **`iosApp/`** (SwiftUI + `WKWebView`), salida de la plantilla de
+Xcode y renombrada — **no** se escribió el `.pbxproj` a mano.
+**MEDIDO: compila, arranca, pinta el mapa y responde a pinch-zoom. Android sigue en 161 tests, 0
+fallos.** ⚠️ El framework hay que generarlo ANTES de abrir Xcode
+(`:shared:linkDebugFrameworkIosSimulatorArm64`) o sale `No such module 'Shared'`.
+🔴 **Deuda ya conocida:** el HTML tiene 5 rutas `file:///android_asset/…` cableadas que **en iOS no
+existen**. Hoy no se nota porque la app no inyecta datos; al inyectarlos saldrán imágenes rotas.
+
+❌ **DESMENTIDO del guion:** la firma de `URLForDirectory(...)` en `PowDatabase.ios.kt` estaba BIEN;
+solo faltaba el opt-in. Y en `iosMain` hay **UN** fichero: el motor Darwin de Ktor es una línea de
+dependencia, no código → sigue **sin ejercitarse**. ⚠️ **Qué NO prueba este hito:** los 49 tests son
+**dominio puro** (GeoPoint + 6 de SF), no tocan Room ni Ktor ni Settings. Prueban que el módulo
+compila, enlaza y que el dominio se comporta igual — **no** que la BD o la red funcionen en iOS.
+Eso no se sabrá hasta la Fase 1.5.
 
 ## 4. PENDIENTE — por prioridad
 
@@ -142,37 +146,29 @@ Tests de regresión: `PayloadsSeSerializanEnRuntimeTest` (serializa de verdad) y
    `SF-NET`). BT y LAN son lo que hay que validar sí o sí.
 2. **Redeploy de `MultiplayerSF/` en Render** para activar el P2P (no bloquea el release).
    Con 2 teléfonos en redes distintas, buscar en logcat `SF-RTC`: `DataChannel → OPEN`.
-3. **🍏 EN EL MAC: seguir `ARRANQUE_MAC_iOS.md`** (guion exacto). Primero
-   `./gradlew :shared:iosSimulatorArm64Test`. Luego la Fase 1.5 (siguiente paso de KMP): compilar `:shared` para iOS de verdad y
-   probar Compose MP + el mapa Leaflet en `WKWebView`. **Es lo que convierte en hechos las 2
-   suposiciones más caras del plan.** Sin esto, no meter más código en `:shared`.
-   ⚠️ **EXPECTATIVA A CORREGIR: en el Mac todavía NO se puede "probar todo".** Las Fases 1-4 NO
-   producen una app iOS: no hay UI compartida (Fase 5) ni proyecto iOS (Fase 6). Hoy en el Mac
-   solo se puede **compilar `:shared` para iOS y correr sus 49 tests**. Es un hito real, pero no
-   hay nada que mirar en pantalla hasta la Fase 6.
+3. **🍏 FASE 5 — UI compartida (Compose Multiplatform).** Es la fase GRANDE y la única que queda
+   entre el mapa y un juego jugable en iOS. **Exige subir Kotlin 2.2.10 → ~2.4.x** moviendo AGP,
+   KSP, Hilt y Compose **en su propio commit**. ⚠️ Al subir Kotlin, **sube también Ktor** (hoy
+   clavado en 3.3.3 por la ABI de las klibs, §3ter).
+   ⚠️ Antes de eso hay 2 deudas de la Fase 1.5, más baratas: las rutas `file:///android_asset/`
+   del mapa (rompen los overlays en iOS) y el proyecto Xcode, que hoy solo apunta al framework de
+   **simulador**. Detalle en `iosApp/README.md`.
 
-### 🟠 P1 · AUDIO (trabajo activo)
-Ver `SF/PROMPT_traspaso_audio_subtitulos.md`:
-- **29 clips demasiado largos** para su evento → **Gemini 3.6** con segundos exactos del dueño.
-- **5 clips fuera de −16 ±2 LUFS** → **Gemini 3.6**.
-- **Faltan `attack`/`hurt`** en 6 peleadores → el dueño graba.
-
+### 🟠 P1 · AUDIO (trabajo activo) — ver `SF/PROMPT_traspaso_audio_subtitulos.md`
+**29 clips demasiado largos** para su evento y **5 fuera de −16 ±2 LUFS** → **Gemini 3.6** (con los
+segundos exactos del dueño). **Faltan `attack`/`hurt`** en 6 peleadores → el dueño graba.
 ⚠️ **No repitas** el resumen que dice "100 % normalizados y sin faltantes": está medido y es
 **falso**. De los 80 `.ogg` solo **69 son voz**; 2 no pueden normalizarse sin comprimir.
 
-### ✅ P2 · Separación SF ↔ mundo abierto — **HECHA** (verificado 2026-07-27)
-`features/streetfighter` ya **no importa ninguna otra feature** (0 imports; la única mención a
-`map_exterior` es un comentario-lápida). Los widgets viven en el paquete neutral `ui/components/`.
+### 🟢 P2 · Animaciones congeladas (el arte se repite, **no es bug de código**)
+`stun-1==stun-2==stun-3` en los 18; `bonus-7/8/9/10` estáticos en `lapresidenta`; `run-4==run-5` en
+4; `forwards-3==forwards-4` en 3; `throw-2==throw-3` en 3; `super-4==super-5` en `charronegro` y
+`senortienda`.
 
-### 🟢 P2 · Animaciones congeladas (el arte se repite, no es bug de código)
-`stun-1==stun-2==stun-3` en los 18; `bonus-7/8/9/10` estáticos en `lapresidenta`;
-`run-4==run-5` en 4; `forwards-3==forwards-4` en 3; `throw-2==throw-3` en 3;
-`super-4==super-5` en `charronegro` y `senortienda`.
-
-### 🔵 P2b · Motor compartido — Fase 1 hecha y auditada; Fase 2a+2b hechas; sigue 2c
+### 🔵 P2b · Motor compartido — Fases 1, 2a y 2b hechas; sigue **2c**
 Siguiente: núcleo de `updateStageConstraints` (empuje de pushboxes) → `SfPhysics`; luego el
-esqueleto `SfEngine` y modos como estrategia. **Exige sesión CON compilador.** Plan completo:
-`SF/PLAN_refactor_motor_compartido.md`. Historial: `_ARCHIVO/HISTORIAL_sesiones_2026-07-22.md`.
+esqueleto `SfEngine` y modos como estrategia. **Exige sesión CON compilador.** Plan:
+`SF/PLAN_refactor_motor_compartido.md`.
 
 ### ⚪ P3 · Bloqueado en el dueño / deuda conocida
 - **Mapas UAM Azcapotzalco y Cuajimalpa:** faltan vídeos nuevos → `tools/build_map_backgrounds.py`.
@@ -180,21 +176,25 @@ esqueleto `SfEngine` y modos como estrategia. **Exige sesión CON compilador.** 
 - **detekt NO está a 0:** 5 smells preexistentes (`CachingWebViewClient`, `NpcAiManager`,
   `RoadRouter`, `CatSpriteManager` ×2). Varios docs dicen "0 smells" y es **falso**.
 - `07_OTHER_FEATURES.md` (87 KB) mezcla menú/ajustes con SF; su parte de SF debería migrar a `SF/`.
-- **Paparazzi 5** tiene un audio que es de Paparazzi 1; **Señor de la tienda** tiene un tramo con
-  voz de Prankedy; **La Tzitzimime** mal recortada. Los 3 requieren al dueño.
+- **Paparazzi 5** tiene audio de Paparazzi 1; **Señor de la tienda** tiene un tramo con voz de
+  Prankedy; **La Tzitzimime** mal recortada. Los 3 requieren al dueño.
 
 ## 5. Verificación antes de cerrar CUALQUIER sesión
 
 ```bash
-.\gradlew.bat compileDebugKotlin testDebugUnitTest
+./gradlew :app:assembleDebug :app:testDebugUnitTest :shared:testDebugUnitTest
 ```
+
+(En Windows, `.\gradlew.bat`. En el Mac, antes:
+`export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`.)
 
 ```bash
 ..\detekt-cli-1.23.8\bin\detekt-cli.bat --config "config\detekt\detekt.yml" --input "app\src\main\java"
 ```
 
-⚠️ **NO** uses `--build-upon-default-config` en detekt: sube el conteo a 16 con reglas que el
-repo no adoptó. El baseline correcto son **5 smells preexistentes**.
-⚠️ **`testDebugUnitTest` son 131 tests** (docs viejos decían 47: dato stale).
+⚠️ **NO** uses `--build-upon-default-config` en detekt: sube el conteo a 16 con reglas que el repo
+no adoptó. El baseline correcto son **5 smells preexistentes**.
+⚠️ **Son 161 tests: 112 en `:app` + 49 en `:shared`** (MEDIDO en el Mac 2026-07-27 contando los XML
+de `build/test-results`). Los "131" y los "47" de docs viejos son **stale**.
 
 `git status` debe mostrar **solo** lo que tocaste. Y **actualiza este archivo** antes de terminar.

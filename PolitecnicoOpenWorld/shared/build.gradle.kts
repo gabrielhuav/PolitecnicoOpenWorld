@@ -30,12 +30,23 @@ kotlin {
         }
     }
 
-    // Los 3 targets de iOS. OJO: Kotlin/Native NO compila iOS en Windows — en este PC solo se
-    // CONFIGURAN (la compilación real de iOS exige macOS). Se declaran desde ya porque el dueño
-    // sí tiene Mac, y así el módulo está listo cuando se trabaje allí.
-    iosArm64()          // dispositivo real
-    iosSimulatorArm64() // simulador en Mac con Apple Silicon
-    iosX64()            // simulador en Mac Intel
+    // Los 3 targets de iOS. En Windows solo se CONFIGURAN (Kotlin/Native no compila iOS allí);
+    // en el Mac compilan de verdad — verificado el 2026-07-27, con los 49 tests pasando.
+    // 🍏 Fase 1.5: además del .klib, cada target produce un FRAMEWORK que Xcode pueda importar.
+    // Sin este bloque `binaries.framework` no hay nada que enlazar desde la app iOS.
+    listOf(
+        iosArm64(),          // dispositivo real
+        iosSimulatorArm64(), // simulador en Mac con Apple Silicon
+        iosX64(),            // simulador en Mac Intel
+    ).forEach { target ->
+        target.binaries.framework {
+            // `Shared` es el nombre con el que se importa desde Swift: `import Shared`.
+            baseName = "Shared"
+            // Estático: mete el código dentro del binario de la app y evita tener que firmar y
+            // empaquetar un framework dinámico aparte. Para una librería de este tamaño, sobra.
+            isStatic = true
+        }
+    }
 
     sourceSets {
         commonMain.dependencies {

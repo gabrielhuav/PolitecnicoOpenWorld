@@ -21,7 +21,7 @@ class SfBoxTest {
     }
 
     @Test
-    fun `tocarse en el borde NO cuenta como solape (comparacion estricta)`() {
+    fun `tocarse en el borde NO cuenta como solape - comparacion estricta`() {
         val a = SfBox(0f, 0f, 10f, 10f)
         assertFalse(a.overlaps(SfBox(10f, 0f, 10f, 10f))) // pegadas en X
         assertFalse(a.overlaps(SfBox(0f, 10f, 10f, 10f))) // pegadas en Y

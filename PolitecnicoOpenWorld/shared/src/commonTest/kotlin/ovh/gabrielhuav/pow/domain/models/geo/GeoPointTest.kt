@@ -21,7 +21,7 @@ class GeoPointTest {
     private val unaMicra = 1e-6
 
     @Test
-    fun `distancias de referencia (fijadas contra osmdroid)`() {
+    fun `distancias de referencia - fijadas contra osmdroid`() {
         val escom = GeoPoint(19.504603, -99.145985)
         assertEquals(8125.845981694266, escom.distanceToAsDouble(GeoPoint(19.432608, -99.133209)), unaMicra)
         assertEquals(69.80955058413535, escom.distanceToAsDouble(GeoPoint(19.505, -99.1465)), unaMicra)
@@ -30,7 +30,7 @@ class GeoPointTest {
     }
 
     @Test
-    fun `mismo punto da 0 y nunca NaN (el min(1) del asin)`() {
+    fun `mismo punto da 0 y nunca NaN - el min 1 del asin`() {
         val p = GeoPoint(19.504603, -99.145985)
         assertEquals(0.0, p.distanceToAsDouble(p), 0.0)
         // Puntos casi idénticos: es donde el redondeo podría meter >1 en asin y devolver NaN.
@@ -47,14 +47,14 @@ class GeoPointTest {
     }
 
     @Test
-    fun `usa el radio ECUATORIAL de osmdroid, no el medio`() {
+    fun `usa el radio ECUATORIAL de osmdroid y no el medio`() {
         // 6378137 (WGS84 ecuatorial), NO 6371000 (radio medio). Cambiarlo movería TODAS las
         // distancias del juego ~0.1%: radios de interacción, aggro de NPCs, rutas.
         assertEquals(6378137.0, GeoPoint.RADIUS_EARTH_METERS, 0.0)
     }
 
     @Test
-    fun `es un valor por contenido (equals de data class)`() {
+    fun `es un valor por contenido - equals de data class`() {
         assertEquals(GeoPoint(19.5, -99.1), GeoPoint(19.5, -99.1))
         assertEquals(GeoPoint(19.5, -99.1).hashCode(), GeoPoint(19.5, -99.1).hashCode())
     }

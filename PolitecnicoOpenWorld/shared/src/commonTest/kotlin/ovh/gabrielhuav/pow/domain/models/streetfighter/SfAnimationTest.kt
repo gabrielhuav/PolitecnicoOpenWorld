@@ -16,7 +16,7 @@ class SfAnimationTest {
         delays.mapIndexed { i, d -> SfAnimFrame(frameKey = "f-$i", delay = d) }
 
     @Test
-    fun `fijar un frame mas alla del final hace WRAP a 0 (bucle)`() {
+    fun `fijar un frame mas alla del final hace WRAP a 0 - bucle`() {
         val a = anim(4, 4, 4)
         assertEquals(0, SfAnimation.frameIndex(a, 3))
         assertEquals(0, SfAnimation.frameIndex(a, 7))
@@ -41,7 +41,7 @@ class SfAnimationTest {
     }
 
     @Test
-    fun `TRANSITION (0) y FREEZE (-1) nunca avanzan solos`() {
+    fun `TRANSITION 0 y FREEZE -1 nunca avanzan solos`() {
         assertFalse(SfAnimation.shouldAdvance(anim(0, 4), frame = 0, timerMs = 0L, now = 9999L))
         assertFalse(SfAnimation.shouldAdvance(anim(-1, 4), frame = 0, timerMs = 0L, now = 9999L))
     }
@@ -58,7 +58,7 @@ class SfAnimationTest {
     }
 
     @Test
-    fun `completa en el ULTIMO frame aunque no haya -1 (fix hojas compartidas)`() {
+    fun `completa en el ULTIMO frame aunque no haya -1 - fix hojas compartidas`() {
         assertTrue(SfAnimation.isCompleted(anim(4, 4, 4), frame = 2))
         assertFalse(SfAnimation.isCompleted(anim(4, 4, 4), frame = 1))
     }

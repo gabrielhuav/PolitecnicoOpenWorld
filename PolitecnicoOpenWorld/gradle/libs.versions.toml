@@ -32,7 +32,20 @@ kotlinxSerialization = "1.9.0"
 # es asincrono: obligaria a volver suspend ~60 lecturas que hoy son sincronas.
 multiplatformSettings = "1.3.0"
 # Ktor sustituye a OkHttp (WebSocket del multijugador). Motor OkHttp en Android, Darwin en iOS.
-ktor = "3.5.1"
+#
+# ⚠️ **NO SUBAS DE 3.3.3 MIENTRAS KOTLIN SIGA EN 2.2.10.** Medido en el Mac (2026-07-27) leyendo
+# el `default/manifest` de las klibs publicadas en Maven Central:
+#   Ktor 3.4.0 y superiores -> abi_version=2.3.0 (compiladas con Kotlin 2.3.x)
+#   Ktor 3.3.3 y anteriores -> abi_version=2.2.0 (Kotlin 2.2.x)  <- la que soporta nuestro 2.2.10
+# La ABI de las klibs de Kotlin/Native NO es compatible hacia adelante: un compilador 2.2.10 no
+# puede leer una klib de ABI 2.3.0. Con 3.5.1 el build de iOS moria con un mensaje ENGAÑOSO,
+# "KLIB resolver: Could not find ...ktor-client-websockets...klib", que parece un fichero que falta
+# y en realidad es la libreria descartada por ABI incompatible.
+#
+# Esto NO se veia en Android: los artefactos JVM son bytecode y no tienen esa puerta de ABI. Por
+# eso 3.5.1 llevaba semanas "funcionando" en Windows. Cuando se suba Kotlin (Fase 5), esta version
+# sube con el, en el MISMO commit que AGP/KSP/Hilt/Compose.
+ktor = "3.3.3"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }

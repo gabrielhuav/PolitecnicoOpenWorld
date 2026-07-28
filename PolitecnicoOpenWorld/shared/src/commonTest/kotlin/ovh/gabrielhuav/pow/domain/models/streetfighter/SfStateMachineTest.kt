@@ -27,14 +27,14 @@ class SfStateMachineTest {
     }
 
     @Test
-    fun `ningun conjunto de origen esta vacio (todo destino es alcanzable)`() {
+    fun `ningun conjunto de origen esta vacio - todo destino es alcanzable`() {
         SfStateMachine.VALID_FROM.forEach { (to, from) ->
             assertTrue(from.isNotEmpty(), "VALID_FROM[$to] no debe estar vacío")
         }
     }
 
     @Test
-    fun `desde IDLE se puede caminar, saltar, agacharse y golpear`() {
+    fun `desde IDLE se puede caminar saltar agacharse y golpear`() {
         // Nota (caracterización): los saltos DIAGONALES (JUMP_FORWARD/BACKWARD) NO salen directo
         // de IDLE — pasan por JUMP_START o desde caminar. IDLE solo entra directo a JUMP_UP.
         listOf(
@@ -50,7 +50,7 @@ class SfStateMachineTest {
     }
 
     @Test
-    fun `STUN, KO y VICTORY se pueden forzar desde CUALQUIER estado`() {
+    fun `STUN KO y VICTORY se pueden forzar desde CUALQUIER estado`() {
         listOf(SfFighterState.STUN, SfFighterState.KO, SfFighterState.VICTORY).forEach { forced ->
             SfFighterState.entries.forEach { from ->
                 assertTrue(SfStateMachine.canEnter(from, forced), "$forced desde $from")
@@ -59,13 +59,13 @@ class SfStateMachineTest {
     }
 
     @Test
-    fun `se puede atacar saliendo de la CARRERA (RUN)`() {
+    fun `se puede atacar saliendo de la CARRERA - RUN`() {
         assertTrue(SfStateMachine.canEnter(SfFighterState.RUN, SfFighterState.LIGHT_PUNCH))
         assertTrue(SfStateMachine.canEnter(SfFighterState.RUN, SfFighterState.HEAVY_KICK))
     }
 
     @Test
-    fun `la CARRERA solo continua un dash, nunca desde parado`() {
+    fun `la CARRERA solo continua un dash y nunca desde parado`() {
         assertTrue(SfStateMachine.canEnter(SfFighterState.DASH_FORWARD, SfFighterState.RUN))
         assertFalse(SfStateMachine.canEnter(SfFighterState.IDLE, SfFighterState.RUN))
         assertFalse(SfStateMachine.canEnter(SfFighterState.WALK_FORWARD, SfFighterState.RUN))

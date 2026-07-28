@@ -1,6 +1,19 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
-internal fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
+/**
+ * 🍏 HTML del mapa Leaflet — **COMPARTIDO Android + iOS** (Fase 1.5 de `PLAN_MIGRACION_KMP.md`).
+ *
+ * Este fichero vivía en `:app` y se movió a `:shared` con `git mv` **conservando el paquete**: por
+ * eso `WorldMapScreenWeb.kt` lo sigue llamando sin tocar ni una línea de imports.
+ *
+ * Es Kotlin PURO: 929 líneas y **cero imports**. Ahí está la apuesta del plan — el mapa del juego
+ * no se reescribe para iOS, se reutiliza tal cual dentro de un `WKWebView`, igual que en Android va
+ * dentro de un `WebView`.
+ *
+ * ⚠️ Pasó de `internal` a **público** porque `internal` NO cruza módulos: desde `:app` no se vería.
+ * Es el único cambio que sufrió el fichero al migrarlo; el HTML/JS no se tocó.
+ */
+fun buildHtml(lat: Double, lng: Double, zoom: Int): String = """
 <!DOCTYPE html>
 <html>
 <head>

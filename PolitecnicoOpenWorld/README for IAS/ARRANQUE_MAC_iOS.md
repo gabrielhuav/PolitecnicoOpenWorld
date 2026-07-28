@@ -2,10 +2,23 @@
 
 **Creado:** 2026-07-27 · **Rama:** `fase0-auditoria-kmp` · **Contexto:** `PLAN_MIGRACION_KMP.md`
 
-> **Para qué es este archivo.** Las Fases 1-4 se hicieron en **Windows**, donde Kotlin/Native
+> # ✅ EJECUTADO Y COMPLETADO — 2026-07-27
+>
+> **Este guion ya se cumplió.** `:shared` compila, enlaza y **pasa sus 49 tests en el simulador**
+> (medido: `tests=49 failures=0 errors=0`). Se conserva como referencia histórica; **el estado
+> actual y el siguiente paso están en `_SESION_ACTUAL.md` §3ter**, no aquí.
+>
+> **Lo que este documento predijo MAL** (corregido abajo en cada punto):
+> - La firma de `URLForDirectory(...)` estaba **BIEN**; solo faltaba `@OptIn(ExperimentalForeignApi)`.
+> - `PowDatabaseConstructor` **no dio ningún problema**: Room lo generó a la primera.
+> - Ktor Darwin no es código en `iosMain` (solo una dependencia) → **sigue sin ejercitarse**.
+> - Los 4 fallos REALES no estaban en la lista: DAOs de Room que deben ser `suspend`, la **ABI de
+>   las klibs de Ktor**, `@Volatile` sin import, y los nombres de test con `(`/`)`/`,`.
+>   Todos explicados en `09_CONVENTIONS_GOTCHAS.md` §🍏 KMP/iOS.
+
+> **Para qué era este archivo.** Las Fases 1-4 se hicieron en **Windows**, donde Kotlin/Native
 > **no puede compilar para iOS** (Gradle desactiva los targets y lo dice en cada build). Así que
-> hay código iOS en el repo que **NUNCA se ha compilado**. Este documento es el guion exacto de la
-> primera sesión en el Mac. No inventes pasos: sigue estos y anota lo que falle.
+> había código iOS en el repo que **NUNCA se había compilado**.
 
 ---
 
