@@ -12,11 +12,12 @@
 > falta**) · actualiza PENDIENTE · comprueba las 200 líneas. Si te quedas sin tokens a media
 > tarea, **actualiza ESTE archivo ANTES de parar**.
 
-**Última actualización:** 2026-07-28 · Opus 5 · rama `fase0-auditoria-kmp` · *purgar §3bis el 07-30*
+**Última actualización:** 2026-07-28 · Opus 5 (Mac) · rama `fase0-auditoria-kmp` · *purgar §3bis el 07-30*
 
 > ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: **Fases 0-4 completas; la 5 EN MARCHA (190
-> tests).** 🍏 iOS = solo modo pelea (§3octies) · **Compose MP + gráficos/audio/assets
-> portados** (§3nonies). **Siguiente: `PLAN_SF_EN_iOS.md` §4 — el paso 1 se hace desde Windows.**
+> tests).** 🍏 iOS = solo modo pelea (§3octies) · Compose MP portado y **su CHECKPOINT YA VERIFICADO
+> EN EL MAC: el framework enlaza de verdad** (§3nonies). **Siguiente: `PLAN_SF_EN_iOS.md` §4 paso 1
+> (`org.json` → kotlinx), que se hace desde Windows.**
 
 ## 🖥️ Rutas por PC
 
@@ -40,8 +41,8 @@ antes de tocar la ficha. `SF/` = peleas · `MUNDO/` = mundo libre · `_ARCHIVO/`
 
 **Alta** (refactors grandes, lo que ya falló dos veces) → **Sol 5.6 / Fable 5** · **Media** (feature
 acotada, un módulo) → **Opus 4.8/5** · **Baja** (pipeline existente, repetitivo) → **Gemini 3.6**.
-**Antes de delegar:** rutas absolutas, comando exacto, cómo se verifica y qué NO tocar. Para que una
-IA pequeña se oriente sola, pásale **`10_ARQUITECTURA_SEPARACION.md`**.
+**Antes de delegar:** rutas absolutas, comando exacto, cómo se verifica, qué NO tocar y, si es una IA
+pequeña, **`10_ARQUITECTURA_SEPARACION.md`** para que se oriente sola.
 
 ## 3bis. Fases 0-4 COMPLETAS (detalle en `PLAN_MIGRACION_KMP.md` y `git log`)
 
@@ -52,9 +53,8 @@ IA pequeña se oriente sola, pásale **`10_ARQUITECTURA_SEPARACION.md`**.
 - ⚠️ **`PowJson` imita a Gson a propósito**; tocarlo rompe saves y clientes viejos EN SILENCIO.
   **`SfArcadeRepository`** es el ÚNICO con migración real de datos (`putStringSet` → JSON `_V2`).
 - ⚠️ **`GeoPoint` = port LITERAL de osmdroid**: `x*x` ≠ `.pow(2)`, no lo "simplifiques". Y **Ktor
-  sin `HttpTimeout`** con ping 25s/20s: evitan que se caiga la partida.
-- ⚠️ **`dependencies { add("kspAndroid"…) }` va DESPUÉS de `kotlin { }`** en `shared/build.gradle.kts`.
-
+  sin `HttpTimeout`** con ping 25s/20s: evitan que se caiga la partida. Y **`dependencies
+  { add("kspAndroid"…) }` va DESPUÉS de `kotlin { }`** en `shared/build.gradle.kts`.
 - 🔴 **Dos bugs que el compilador NO ve:** `PowJson.encodeToString(x)` COMPILA y **PETA EN RUNTIME**
   si `x` no es serializable → con mapas usa `jsonOf`/`jsonArrayOf`; y **kotlinx PETA si falta un
   campo sin default** → todo campo nuevo lleva default. Los fijan
@@ -64,12 +64,11 @@ IA pequeña se oriente sola, pásale **`10_ARQUITECTURA_SEPARACION.md`**.
 
 `WorldMapLeafletHtml.kt` en `:shared`, que produce un framework (`baseName="Shared"`); la app iOS
 está en `iosApp/` (SwiftUI + `WKWebView`).
-- ⚠️ **El runtime del simulador lo instala XCODE** (`xcodebuild -downloadPlatform iOS`), no un DMG
-  a mano: el DMG queda en cuarentena y los tests mueren con `Abort trap` (134).
+- ⚠️ **El runtime del simulador lo instala XCODE** (`xcodebuild -downloadPlatform iOS`), no un DMG a
+  mano: queda en cuarentena y los tests mueren con `Abort trap` (134).
 - ⚠️ **Genera el framework ANTES de abrir Xcode** (`:shared:linkDebugFrameworkIosSimulatorArm64`,
-  **en el Mac**) o sale `No such module 'Shared'`.
-- ⚠️ **`gradle-wrapper.jar` está en `.gitignore` → NO viene por git.** Al regenerarlo, revierte
-  `gradlew`/`.bat`/`.properties` y quédate solo con el `.jar`.
+  **en el Mac**) o sale `No such module 'Shared'`. Y **`gradle-wrapper.jar` está en `.gitignore`**:
+  no viene por git; al regenerarlo, revierte `gradlew`/`.bat`/`.properties` y deja solo el `.jar`.
 - 🔴 **Deuda:** los assets aún no se empaquetan en el bundle → el handler de iOS devuelve 404.
 
 ## 3quater. ⬆️ Kotlin 2.3.21 + DSL de AGP 9 (cerrado; trampas que siguen VIVAS)
@@ -77,43 +76,37 @@ está en `iosApp/` (SwiftUI + `WKWebView`).
 Kotlin **2.2.10 → 2.3.21** · KSP **2.3.10** · Hilt **2.60.1** · Ktor **3.5.1** · Compose BOM **2026.06**.
 - ⚠️⚠️ **NO SE PUEDE SUBIR A KOTLIN 2.4: KSP NO EXISTE para 2.4** (medido: 0 versiones). Y aquí KSP
   es obligatorio (Hilt + Room). **2.3.21 es el techo real.** No pierdas una sesión intentándolo.
-- ⚠️ **Lo caro fue el DSL de AGP 9**, no Kotlin: con `newDsl=false` el script NO compila; con
-  `true`, `kotlin-android` es incompatible. Única vía: **`android.builtInKotlin=true`** (`:app` ya
-  NO aplica `kotlin-android`; `kotlinOptions` → `compilerOptions`), y `:shared` con
+- ⚠️ **Lo caro fue el DSL de AGP 9**, no Kotlin. Única vía: **`android.builtInKotlin=true`** (`:app`
+  ya NO aplica `kotlin-android`; `kotlinOptions` → `compilerOptions`), y `:shared` con
   **`com.android.kotlin.multiplatform.library`** (AGP 9 ya no admite `com.android.library` con KMP).
 - ⚠️⚠️ **Los tests de `:shared` son `testAndroidHostTest`**, NO `testDebugUnitTest` (cambió con AGP 9).
-- ✅ iOS re-verificado en el Mac tras el salto: el `.klib` se regenera entero y sigue verde.
 
 ## 3quinquies-septies. Refactor de tamaño · motor compartido · auditoría en Mac (cerrados)
 
 Detalle en `10_ARQUITECTURA_SEPARACION.md` y `git log`. **Trampas que siguen VIVAS:**
 - ⚠️ **Patrón PARCIAL:** los CAMPOS se quedan en la clase; **NUNCA recrees en la clase una función
-  de un parcial** (gana la clase EN SILENCIO). Y no se puede mover una extensión sobre otro tipo
-  declarada dentro de la clase (doble receptor). Trampas del extractor en `10` §8.
-- ⚠️ **DOS constantes que me inventé y habrían cambiado el juego EN SILENCIO** (cazadas al
-  contrastar contra el original): `DRAIN_PER_SEC` es **200f** (puse 60f) y el tope de cámara lleva
-  **`+ STAGE_PADDING`**. Ahora las fijan tests, porque el compilador no las ve.
+  de un parcial** (gana la clase EN SILENCIO). Ni muevas una extensión sobre otro tipo declarada
+  dentro de la clase (doble receptor). Trampas del extractor en `10` §8.
+- ⚠️ **DOS constantes inventadas que habrían cambiado el juego EN SILENCIO**: `DRAIN_PER_SEC` es
+  **200f** y el tope de cámara lleva **`+ STAGE_PADDING`**. Ahora las fijan tests.
 - 🆕 **GUARDA mecánica** `tools/check_kmp_test_names.sh` en el `pr-quality-gate`: los nombres de
-  test con `(` `)` `,` compilan en la JVM y rompen Kotlin/Native. **Documentarlo NO bastó — pasó
-  tres veces, la última en mis propios tests dos horas después de escribir la guarda.**
+  test con `(` `)` `,` compilan en la JVM y rompen Native. **Documentarlo NO bastó: pasó 3 veces.**
 
 ## 3octies. 🍏 iOS = SOLO el modo pelea (decisión del dueño, 07-27)
 
 En iOS el menú principal muestra **únicamente AJUSTES, COLECCIONABLES y HUELUM VS. GOYA**. Mundo
 Libre, Modo Historia y Multijugador se **esconden**. **MEDIDO: `:app` 112 + `:shared` 72 = 184
 tests, 0 fallos; detekt exit 0; PROBADO en el emulador — el menú de Android sigue idéntico.**
-- El catálogo vive en **`PowModos.kt`** (`:shared`, dominio). **Lo único `expect/actual` es
-  `plataformaActual`**; qué modos hay es lógica PURA → **la regla de iOS se testea desde Android**,
-  sin Mac. `PowModosTest` (6) se pone rojo si alguien añade un modo a iOS: obliga a confirmar que
-  FUNCIONA en el simulador, no solo que el botón aparece. La UI solo pregunta `PowModo.X.disponible()`.
+- El catálogo vive en **`PowModos.kt`** (`:shared`). **Lo único `expect/actual` es
+  `plataformaActual`**; qué modos hay es lógica PURA → **la regla de iOS se testea desde Android**.
+  `PowModosTest` se pone rojo si alguien añade un modo a iOS: obliga a confirmar que FUNCIONA en el
+  simulador, no solo que el botón aparece. La UI solo pregunta `PowModo.X.disponible()`.
 - ⚠️ **Esconder el botón NO porta el modo.** Que el menú de iOS liste "Huelum vs. Goya" no lo hace
   jugable allí: **SF son 14 618 líneas y siguen atadas a Android** (9 archivos `context.assets`,
   6 `android.graphics`, 3 `android.media`, 4 ViewModel, +107 MB de assets sin empaquetar).
-- 🆕 **`PLAN_SF_EN_iOS.md`** = el desglose medido y el orden de ataque (6 pasos, cada uno
-  verificable en el simulador). **Se ejecuta EN EL MAC**: todo lo que queda es Compose
-  Multiplatform, assets y audio de iOS, y **nada de eso compila en Windows**.
-- 🆕 La guarda de nombres de test **cazó 2 comas en `PowModosTest` a las 2 h de existir**, en
-  Windows y en 2 segundos. Mismo error que ya tenía gotcha escrito.
+- 🆕 **`PLAN_SF_EN_iOS.md`** = el desglose medido y el orden de ataque. ⚠️ **Su §4 decía que todo
+  exige Mac y eso quedó DESMENTIDO** por §3nonies: los pasos 1-3 se hacen y se type-checkean desde
+  Windows; solo el simulador y el link del framework necesitan Mac.
 
 ## 3nonies. 🍏🥊 Fase 5 EN MARCHA — Compose MP y el muro de `android.graphics`, cruzado
 
@@ -124,8 +117,8 @@ Apple resueltos (`NSBundle`, `AVAudioPlayer`). **El type-check de iOS ya no exig
   SUCCESSFUL y **no crea nada** (ni el directorio de salida). NO lo uses como prueba.
 
 **MEDIDO: `:app` 112 + `:shared` 78 = 190 tests, 0 fallos; detekt exit 0.** Y **PROBADO EN EL
-EMULADOR**: pelea ROBOT vs PARAMED CR, los dos de set COMPARTIDO — o sea con las hojas armadas en
-runtime por el código recién portado. Bien ancladas, sin espejar, con daño y sin errores en logcat.
+EMULADOR**: pelea ROBOT vs PARAMED CR, ambos de set COMPARTIDO (hojas armadas en runtime por el
+código recién portado): bien ancladas, sin espejar, con daño y sin errores en logcat.
 
 Nuevo en `:shared`: `PowImagen` (todo `android.graphics`), `PowAudio`, `PowAssets`, `PowViewModel`,
 `PowCerrojo`; y `SfSharedSheets` + `SfFrameCatalog` ya viven en `commonMain`.
@@ -144,6 +137,15 @@ Nuevo en `:shared`: `PowImagen` (todo `android.graphics`), `PowAudio`, `PowAsset
   es reescritura a kotlinx, no cambio de import. **Son el mejor punto de entrada siguiente y NO
   hacen falta ni Mac ni Xcode.**
 
+### ✅ CHECKPOINT DE COMPOSE MP — VERIFICADO EN EL MAC (07-28). El plan es viable.
+**El framework ENLAZA de verdad con Compose dentro** (lo que en Windows solo fingía): 251 MB de
+archivo estático con **153 682 símbolos de Compose**; ya enlazado, la app pesa **66 MB** (debug, sin
+strip). **78 tests en el simulador, 0 fallos** — `PowModosTest` (6) y `PowAssetsTest` (6) corrieron
+en iOS por 1ª vez. `iosApp` arranca y sigue pintando el mapa. Enlazar tarda ~3 min y come 4 GB.
+- ⚠️ **HALLAZGO: el `deployment target` de 16.0 se queda corto.** El linker avisa de que la ICU que
+  trae Compose MP **está compilada para iOS 18.5**. En el simulador (26.5) es solo un warning, pero
+  fija el **mínimo real de iOS del juego muy por encima de 16** — decisión de la Fase 6, no mía.
+
 ## 4. PENDIENTE — por prioridad
 
 ### 🔴 P0 · Antes/durante el release
@@ -155,8 +157,6 @@ Nuevo en `:shared`: `PowImagen` (todo `android.graphics`), `PowAudio`, `PowAsset
    Hechos ya: catálogo de modos, Compose MP, assets/audio/gráficos/ViewModel/cerrojo y el port de
    `SfSharedSheets`+`SfFrameCatalog`. Falta: los 3 de `org.json`, que el VM herede de
    `PowViewModel`, bajar la UI a `commonMain` (~14 000 líneas) y meter los 107 MB en el bundle.
-   ⚠️ **Ya NO todo exige Mac**: los pasos 1-3 del guion se hacen y se verifican desde Windows.
-   Solo el simulador y el link del framework necesitan el Mac.
 
 ### 🟠 P1 · AUDIO (activo) — ver `SF/PROMPT_traspaso_audio_subtitulos.md`
 **29 clips demasiado largos** y **5 fuera de −16 ±2 LUFS** → **Gemini 3.6** (con los segundos del
