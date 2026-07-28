@@ -1,29 +1,37 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 /*
- * 🍏 MÓDULO COMPARTIDO KMP — Fases 1 a 4 de "README for IAS/PLAN_MIGRACION_KMP.md".
+ * 🍏 MÓDULO COMPARTIDO KMP — Fases 1 a 5 de "README for IAS/PLAN_MIGRACION_KMP.md".
  *
  * QUÉ VIVE AQUÍ: el dominio PURO de "Huelum vs. Goya", el punto lat/lon (`GeoPoint`), el JSON
- * (`PowJson`/`jsonOf`) y, desde la Fase 4, la BASE DE DATOS (Room), los ajustes
- * (multiplatform-settings) y el cliente HTTP/WebSocket (Ktor).
+ * (`PowJson`/`jsonOf`), la BASE DE DATOS (Room), los ajustes (multiplatform-settings), el cliente
+ * WebSocket (Ktor) y el generador del mapa Leaflet.
  *
  * ⚠️ REGLA: en `commonMain` NO entra NADA de Android (ni `android.*`, ni `androidx.*` que no sea
  * multiplataforma, ni osmdroid). Si algo necesita plataforma, va por `expect/actual`.
- *
- * ⚠️ NO se sube la versión de Kotlin (decisión del dueño, 2026-07-27): el módulo usa el MISMO
- * Kotlin 2.2.10 y AGP que el resto del proyecto.
  */
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
-    alias(libs.plugins.android.library)
+    // ⚠️ `com.android.kotlin.multiplatform.library`, NO `com.android.library`: desde AGP 9 esta
+    // última es INCOMPATIBLE con el plugin de KMP y el build falla al aplicarla.
+    alias(libs.plugins.android.kmp.library)
     alias(libs.plugins.kotlin.serialization)
-    // 🍏 Fase 4: Room en un módulo KMP necesita su plugin + KSP.
+    // Room en un módulo KMP necesita su plugin + KSP.
     alias(libs.plugins.ksp)
     alias(libs.plugins.room)
 }
 
 kotlin {
-    androidTarget {
+    // El target de Android ya NO se declara con `androidTarget()` + un bloque `android { }`
+    // aparte: el plugin de KMP de AGP lo configura todo aquí dentro.
+    android {
+        namespace = "ovh.gabrielhuav.pow.shared"
+        compileSdk = 36
+        minSdk = 24
+
+        // Los tests de `commonTest` que corren en la JVM del host (los 49 de siempre).
+        withHostTestBuilder {}.configure {}
+
         compilerOptions {
             // Mismo jvmTarget que `:app` (11). Si divergen, el consumo desde app falla.
             jvmTarget.set(JvmTarget.JVM_11)
@@ -73,20 +81,6 @@ kotlin {
             // (En `:app` los tests siguen siendo JUnit4; aquí no puede serlo — no hay JVM en iOS.)
             implementation(kotlin("test"))
         }
-    }
-}
-
-android {
-    namespace = "ovh.gabrielhuav.pow.shared"
-    compileSdk = 36
-
-    defaultConfig {
-        minSdk = 24
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
     }
 }
 

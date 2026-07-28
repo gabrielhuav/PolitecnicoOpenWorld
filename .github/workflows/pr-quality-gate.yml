@@ -53,13 +53,15 @@ jobs:
       # assembleDebug + testDebugUnitTest: (1) ARMA la app (compila, valida el grafo Hilt COMPLETO
       # y el merge de manifest/recursos — cosas que los unit tests no cubren; clave tras la Etapa 4
       # de DI), y (2) corre los tests de lógica pura. Ambos deben pasar para mergear.
-      # 🍏 `:shared:testDebugUnitTest` se agrego con el modulo KMP (Fase 1, 2026-07-27): los tests
-      # del dominio puro de SF VIVEN AHI AHORA (44 de los 131). Sin esta tarea CI solo correria 87
-      # y la perdida de cobertura pasaria desapercibida. Si mueves mas dominio a `:shared`, este
-      # reparto cambia: lo que importa es que la SUMA siga siendo el total esperado.
+      # 🍏 Tests del modulo KMP `:shared` (dominio puro de SF + GeoPoint). Hoy el reparto es
+      # 112 en `:app` + 49 en `:shared` = 161. Si mueves mas dominio a `:shared`, el reparto
+      # cambia: lo que importa es que la SUMA no baje.
+      # ⚠️ LA TAREA SE LLAMA `testAndroidHostTest`, NO `testDebugUnitTest`: cambio en la Fase 5
+      # al pasar a `com.android.kotlin.multiplatform.library` (AGP 9 ya no admite
+      # `com.android.library` junto a KMP). Con el nombre viejo, Gradle falla con 'task not found'.
       - name: Build debug APK + run unit tests
         working-directory: ./PolitecnicoOpenWorld
-        run: gradle :app:assembleDebug :app:testDebugUnitTest :shared:testDebugUnitTest --stacktrace
+        run: gradle :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest --stacktrace
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v7

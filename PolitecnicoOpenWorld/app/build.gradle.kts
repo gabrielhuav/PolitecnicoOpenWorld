@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
+    // 🍏 Fase 5: `kotlin-android` YA NO se aplica — AGP 9 trae Kotlin integrado
+    // (`android.builtInKotlin=true`). Aplicarlo aqui rompe con el DSL nuevo de AGP.
     alias(libs.plugins.kotlin.compose)
     // 🍏 Fase 3: hace falta AQUÍ además de en `:shared` porque hay clases `@Serializable` en
     // ambos módulos (el plugin genera el serializador al compilar cada uno).
@@ -72,8 +73,12 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
+    // 🍏 Fase 5: `kotlinOptions` quedo deprecado en Kotlin 2.3 -> DSL de `compilerOptions`.
+    // Sigue siendo JVM 11, el MISMO que `:shared`: si divergen, el consumo entre modulos falla.
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        }
     }
     buildFeatures {
         compose = true
