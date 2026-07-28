@@ -15,8 +15,8 @@
 **Última actualización:** 2026-07-27 · Opus 5 · rama `fase0-auditoria-kmp` · *purgar §3 el 07-28*
 
 > ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: **Fases 0-4 COMPLETAS y verdes.**
-> 🍏 iOS arranca (§3ter) · Kotlin 2.3.21 (§3quater) · **REFACTOR GRANDE hecho** (§3quinquies).
-> Siguiente: **auditar y probar en el Mac**, luego Compose MP y la UI a `commonMain`.
+> 🍏 iOS arranca (§3ter) · Kotlin 2.3.21 (§3quater) · refactor de tamaño (§3quinquies) ·
+> **motor compartido avanzando** (§3sexies: 178 tests). Siguiente: **auditar en el Mac**.
 
 ## 🖥️ Rutas por PC
 
@@ -106,39 +106,32 @@ Ktor 3.3.3 → **3.5.1** (desbloqueado) · serialization → 1.11.0 · Compose B
   entero con 2.3.21 y aun así **49 tests, 0 fallos**; framework relinkado y el mapa igual en el
   simulador. **El cambio de plugin de `:shared` no rompió iOS.**
 
-## 3quinquies. Sesión 2026-07-27 (Opus 5, Mac) — deudas de la Fase 1.5 cerradas
+## 3quinquies. Refactor de TAMAÑO (Windows) — detalle en `10_ARQUITECTURA_SEPARACION.md`
 
-**MEDIDO tras estos cambios: iOS 49 tests · Android `:app` 112 + `:shared` 49 = 161, 0 fallos.**
-- **Assets del mapa parametrizados.** `buildHtml` gana `assetBaseUrl`, **con el valor de Android por
-  defecto** → `WorldMapScreenWeb.kt` no cambió y producción se comporta igual. Las 5 rutas
-  `file:///android_asset/` pasan a una var JS `POW_ASSETS`; iOS inyecta `pow-asset:///`, que
-  resuelve un `WKURLSchemeHandler` desde el bundle.
-  ⚠️ **Hoy ese handler devuelve 404 para todo Y ESTÁ BIEN**: los assets no se empaquetan hasta la
-  Fase 6 (ODR). Queda resuelto el CAMINO, no el contenido; **sin datos inyectados, servir un asset
-  no se ha probado de punta a punta**.
-- **El proyecto Xcode ya no es solo-simulador:** `FRAMEWORK_SEARCH_PATHS` condicionado por SDK
-  (`[sdk=iphonesimulator*]` → `iosSimulatorArm64`, `[sdk=iphoneos*]` → `iosArm64`). Sin eso,
-  compilar para un iPhone real moría con `No such module 'Shared'` sin explicar por qué.
-- ⚠️ **`:app:createDebugApkListingFileRedirect` puede fallar** diciendo que falta
-  `output-metadata.json` **cuando el fichero existe**. Transitorio (AGP 9): repite el build.
+`StreetFighterViewModel` **6220 → 2299** en 8 parciales por dominio · `StreetFighterScreen`
+**4029 → 1902** · `ZombieGameScreen` **1664 → 1343**. Verificado tras CADA extracción.
+- ⚠️ **Patrón PARCIAL:** los CAMPOS se quedan en la clase; `private` → `internal` solo lo que el
+  parcial necesite; **NUNCA recrees en la clase una función de un parcial** (gana la clase EN
+  SILENCIO). NO se puede mover una extensión declarada dentro de la clase sobre otro tipo
+  (doble receptor), p. ej. `SfInput.hasAttackOrSpecial`.
+- ⚠️ Trampas del extractor, en `10` §8: **LF vs CRLF**, **KDoc partido** y el **`inline fun` que
+  pierde el receptor**. Y mi extractor dejó **819 imports muertos** que hubo que limpiar aparte.
 
-## 3quinquies. Sesión 2026-07-27 (Opus 5, Windows) — 🧹 REFACTOR de tamaño + doc para IAs
+## 3sexies. Motor compartido — 4 piezas mas a `:shared` CON TESTS (Windows)
 
-**MEDIDO: 161 tests (112 `:app` + 49 `:shared`), 0 fallos; `assembleDebug` OK; detekt exit 0**
-tras CADA extracción, no solo al final.
-- **`StreetFighterViewModel` 6220 → 2299** en 8 parciales por dominio (red, IA de la CPU,
-  combate, máquina de estados, arcade, voces, tutorial, gauntlet/QA).
-- **`StreetFighterScreen` 4029 → 1902** (renderer de escena, overlays de menú, overlays online).
-- **`ZombieGameScreen` 1664 → 1343** (barra del Diseñador, piezas de escena).
-- 🆕 **`10_ARQUITECTURA_SEPARACION.md`**: tabla "quiero cambiar X → archivo Y", el patrón
-  PARCIAL con sus 4 reglas y los 6 errores caros. **Pensado para que Gemini 3.6 pueda trabajar.**
-- ⚠️ **Patrón PARCIAL** (extensiones del VM, mismo paquete): los CAMPOS se quedan en la clase;
-  `private` → `internal` solo lo que el parcial necesite; **NUNCA recrees en la clase una función
-  que vive en un parcial** (quedan gemelas y gana la clase EN SILENCIO).
-- ⚠️ **NO se puede mover** una extensión declarada dentro de la clase sobre otro tipo
-  (`SfInput.hasAttackOrSpecial`): doble receptor. Se queda como miembro; está avisado.
-- ⚠️ 3 trampas del refactor, en `10` §8: **LF vs CRLF** (el split sale mal y quedan ficheros de 20
-  líneas), **KDoc partido** por cortar a mitad de `/**`, y el **`inline fun` que pierde el receptor**.
+**MEDIDO: `:app` 112 + `:shared` 66 = 178 tests, 0 fallos** (`:shared` iba por 49). Ademas
+**PROBADO EN EL EMULADOR** (AVD Nexus): arranca, menu, seleccion de peleador y PELEA con ronda 1,
+cero errores de POW en logcat. `assembleDebug` + `compileReleaseKotlin` + detekt exit 0.
+- `SfPhysics.resolvePushboxes` (empuje entre peleadores) · `SfCamera.follow` · `SfSplashes.advance`
+  · `SfHealthBar.rollUp`. Todas vivian dentro del VM de Android: **0 tests y 0 iOS**.
+- ⚠️ **DOS constantes que me invente y habrian cambiado el juego EN SILENCIO** (cazadas al
+  contrastar contra el original): `DRAIN_PER_SEC` es **200f** (puse 60f) y el tope de camara
+  lleva **`+ STAGE_PADDING`**. Ahora las fijan tests, porque el compilador no las ve.
+- ⚠️ **Delimitar funciones contando llaves FALLA con cuerpos-expresion** (`fun f() = ...`): se
+  come las funciones siguientes. Para esas, reemplazo por texto exacto.
+- 📌 **Lo que NO cambio:** `:shared` sigue siendo **~5%** del codigo. La logica de pelea sigue
+  escrita como extensiones de un ViewModel de Android; `applyAttackHit` solo toca **29 campos del
+  VM**. Sacar eso es la Fase 5 y son varias sesiones.
 
 ## 4. PENDIENTE — por prioridad
 
@@ -186,7 +179,7 @@ esqueleto `SfEngine` y modos como estrategia. **Exige sesión CON compilador.** 
 En Windows `.\gradlew.bat`. En el Mac, antes:
 `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`.
 ⚠️ La tarea de `:shared` es **`testAndroidHostTest`**, NO `testDebugUnitTest` (cambió con AGP 9).
-⚠️ **Son 161 tests: 112 `:app` + 49 `:shared`** (contando los XML de `build/test-results`).
+⚠️ **Son 178 tests: 112 `:app` + 66 `:shared`** (contando los XML de `build/test-results`).
 Los "131" y los "47" de docs viejos son **stale**.
 
 **detekt — usa EXACTAMENTE la invocación de CI** (desde la raíz del repo):

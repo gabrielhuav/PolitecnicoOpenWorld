@@ -73,7 +73,7 @@ Esto ya pasaba en Windows. Si en el Mac no pasa, el problema es del entorno, **n
 ./gradlew :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest
 ```
 
-**Esperado: BUILD SUCCESSFUL · `:app` 112 + `:shared` 49 = 161 tests, 0 fallos.**
+**Esperado: BUILD SUCCESSFUL · `:app` 112 + `:shared` 66 = 178 tests, 0 fallos.**
 
 ---
 

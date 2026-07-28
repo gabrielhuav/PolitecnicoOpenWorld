@@ -132,7 +132,7 @@ El `WorldMapViewModel` ya estaba partido en parciales (`WorldMapCombat.kt`, `Wor
 ./gradlew :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest
 ```
 
-**Debe salir: `BUILD SUCCESSFUL` y 161 tests (112 en `:app` + 49 en `:shared`), 0 fallos.**
+**Debe salir: `BUILD SUCCESSFUL` y 178 tests (112 en `:app` + 66 en `:shared`), 0 fallos.**
 En Windows es `.\gradlew.bat`. ⚠️ La tarea de `:shared` se llama **`testAndroidHostTest`**, no
 `testDebugUnitTest`.
 
@@ -188,7 +188,7 @@ Quedan estos por encima de 1.000 líneas (medido tras el refactor de la Fase 5):
 3. Muévelo, convierte `private fun x(` en `internal fun ViewModel.x(` y **dedenta 4 espacios**.
 4. Compila. El compilador te da la lista EXACTA de qué `private` hay que subir a `internal` y qué
    constantes hay que cualificar (`ViewModel.LA_CONSTANTE`).
-5. **Compila y corre los 161 tests después de CADA extracción**, no al final.
+5. **Compila y corre TODOS los tests después de CADA extracción**, no al final.
 
 ⚠️ **Tres trampas reales de este refactor:**
 - Un archivo puede estar en **LF o en CRLF**; si tu script asume uno, el corte sale mal y te

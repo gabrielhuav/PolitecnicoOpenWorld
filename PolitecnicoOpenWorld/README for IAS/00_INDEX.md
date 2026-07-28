@@ -27,7 +27,7 @@
    política de comentarios y los campos "⚠️ LO POSEE XManager").
 6. Si el asistente necesita un archivo concreto, búscalo en la tabla "Key files" (archivo 04/05)
    y pásale solo ese.
-7. **Tras cualquier cambio, actualiza estos docs (00–10)** y, si es user-facing, el README **público** de la raíz del repo (ver 09). Los **161 tests** (112 en `:app` + 49 en `:shared`) deben seguir en verde.
+7. **Tras cualquier cambio, actualiza estos docs (00–10)** y, si es user-facing, el README **público** de la raíz del repo (ver 09). Los **178 tests** (112 en `:app` + 66 en `:shared`) deben seguir en verde.
 
 **EN:**
 1. Upload/paste this whole folder (or just the relevant files) to the assistant.
