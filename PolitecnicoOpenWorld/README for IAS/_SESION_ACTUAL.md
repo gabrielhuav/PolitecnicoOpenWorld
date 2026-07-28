@@ -24,13 +24,15 @@
 | PC | Raíz del PROYECTO (aquí están `gradlew` y `tools/`) |
 |---|---|
 | **Laptop** (referencia) | `C:\Users\gabri\AndroidStudioProjects\PolitecnicoOpenWorld\PolitecnicoOpenWorld` |
-| **Escritorio** | ⚠️ **DESCONOCIDA — la 1ª IA que trabaje ahí debe ESCRIBIRLA AQUÍ** |
+| **Escritorio** | `C:\Users\gabri\Documents\GitHub Desktop\PolitecnicoOpenWorld\PolitecnicoOpenWorld` |
 | **🍏 Mac** (iOS) | `/Users/gabrielhuav/Documents/GitHub/PolitecnicoOpenWorld/PolitecnicoOpenWorld` |
 
 ⚠️ **La carpeta es doble**: el proyecto Gradle está DENTRO del repo, en `PolitecnicoOpenWorld/`; las
 rutas de los docs son **relativas a la raíz**. El GEN de sprites vive FUERA, en `..\newSFAssets\GEN_*`.
 🆕 **PC nueva → `SETUP_PC_NUEVA.md`.** ⚠️ `gradle-wrapper.jar` NO viaja por git y sin él `gradlew` ni
-arranca; `secrets.properties` tampoco (vacío vale). detekt-cli SÍ está versionado.
+arranca; `secrets.properties` tampoco (vacío vale). detekt-cli SÍ está versionado. ⚠️ **La ruta del
+escritorio lleva un ESPACIO** (`GitHub Desktop`): entrecomilla siempre, y si Kotlin/Native se atraganta,
+clona en una ruta sin espacios.
 
 ## 1. Organización y delegación
 
