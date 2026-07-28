@@ -26,6 +26,9 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BONUS_POWER_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BLOCK_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAnimation
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfDamage
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCamera
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHealthBar
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfSplashes
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfPhysics
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStateMachine
 import ovh.gabrielhuav.pow.domain.models.streetfighter.sfUsableBonusPowerCount
@@ -1031,9 +1034,9 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     /** 🆕 Roll-up del HUD: drena hacia el HP real a HP_DRAIN_PER_SEC; subir es instantáneo. */
+    // 🆕 (Fase 2c) El cálculo vive en `SfHealthBar` (`:shared`), con tests que corren en iOS.
     private fun rollUpHp(disp: Float, target: Int, dt: Float): Float =
-        if (target >= disp) target.toFloat()
-        else maxOf(target.toFloat(), disp - HP_DRAIN_PER_SEC * dt)
+        SfHealthBar.rollUp(disp, target, dt)
 
     // ------------------------------------------------------------------
     // Animación por frames (setAnimationFrame / updateAnimation del JS)
@@ -1450,44 +1453,19 @@ class StreetFighterViewModel @Inject constructor(
     // Splashes (HitSplash.js: 4 frames, avanza cada 4*FRAME_TIME)
     // ------------------------------------------------------------------
 
-    private fun updateSplashes(sim: Sim, now: Long) {
-        if (sim.splashes.isEmpty()) return
-        val iterator = sim.splashes.listIterator()
-        val stepMs = (4 * SfConstants.FRAME_TIME_MS).toLong()
-        while (iterator.hasNext()) {
-            val sp = iterator.next()
-            if (sp.animationTimerMs + stepMs > now) continue
-            if (sp.animationFrame + 1 >= 4) iterator.remove()
-            else iterator.set(sp.copy(animationFrame = sp.animationFrame + 1, animationTimerMs = now))
-        }
-    }
+    // 🆕 (Fase 2c) Avance de los chispazos → `SfSplashes` (`:shared`).
+    private fun updateSplashes(sim: Sim, now: Long) = SfSplashes.advance(sim.splashes, now)
 
     // ------------------------------------------------------------------
     // Cámara (Camera.js)
     // ------------------------------------------------------------------
 
+    // 🆕 (Fase 2c) El seguimiento de cámara vive en `SfCamera` (`:shared`), sin Android y con
+    // tests que corren también en iOS. Aquí solo queda volcarlo al Sim.
     private fun updateCamera(sim: Sim) {
-        val lowX = minOf(sim.p0.x, sim.p1.x)
-        val highX = maxOf(sim.p0.x, sim.p1.x)
-        var camX = sim.camX
-
-        if (highX - lowX > SfConstants.SCENE_WIDTH - SfConstants.SCROLL_BOUNDARY * 2) {
-            camX = lowX + (highX - lowX) / 2f - SfConstants.SCENE_WIDTH / 2f
-        } else {
-            listOf(sim.p0, sim.p1).forEach { fighter ->
-                if (fighter.x < camX + SfConstants.SCROLL_BOUNDARY) {
-                    camX = fighter.x - SfConstants.SCROLL_BOUNDARY
-                } else if (fighter.x > camX + SfConstants.SCENE_WIDTH - SfConstants.SCROLL_BOUNDARY) {
-                    camX = fighter.x + SfConstants.SCROLL_BOUNDARY - SfConstants.SCENE_WIDTH
-                }
-            }
-        }
-        sim.camX = camX.coerceIn(
-            SfConstants.STAGE_PADDING,
-            SfConstants.STAGE_WIDTH + SfConstants.STAGE_PADDING - SfConstants.SCENE_WIDTH,
-        )
-        sim.camY = (-4f + kotlin.math.floor(minOf(sim.p0.y, sim.p1.y) / 10f))
-            .coerceIn(0f, SfConstants.STAGE_HEIGHT - SfConstants.SCENE_HEIGHT)
+        val pos = SfCamera.follow(sim.p0, sim.p1, sim.camX)
+        sim.camX = pos.x
+        sim.camY = pos.y
     }
 
     // ------------------------------------------------------------------
