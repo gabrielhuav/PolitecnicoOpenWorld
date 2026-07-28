@@ -68,6 +68,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import ovh.gabrielhuav.pow.BuildConfig
+import ovh.gabrielhuav.pow.domain.platform.PowModo
+import ovh.gabrielhuav.pow.domain.platform.disponible
 import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.MainMenuState
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.MainMenuViewModel
@@ -319,40 +321,50 @@ fun MenuButtonsList(
     onMultiplayerClick: () -> Unit = { viewModel.onMultiplayerPressed() },
     onNavigateToStreetFighter: () -> Unit = {}
 ) {
+    // 🍏 Los modos que NO existen en iOS ni siquiera se pintan. El catálogo vive en `:shared`
+    // (`PowModo.disponible()`), no aquí: así la regla es UNA y se testea sin necesidad de un Mac.
+    // En Android `disponible()` es true para todos → esta pantalla se ve EXACTAMENTE igual.
+
     // MUNDO LIBRE: el open world sin campaña (antes "Iniciar Juego"). Spawn por defecto.
-    WithCornerBadge(stringResource(R.string.badge_alpha), Color(0xFF8A5A12)) {
-        MenuButton(
-            text = stringResource(R.string.menu_start_game),
-            onClick = {
-                viewModel.onStartGame()
-                onNavigateToMap(false, null)
-            },
-            enabled = !state.isLoading && !state.isWarmingUp
-        )
+    if (PowModo.MUNDO_LIBRE.disponible()) {
+        WithCornerBadge(stringResource(R.string.badge_alpha), Color(0xFF8A5A12)) {
+            MenuButton(
+                text = stringResource(R.string.menu_start_game),
+                onClick = {
+                    viewModel.onStartGame()
+                    onNavigateToMap(false, null)
+                },
+                enabled = !state.isLoading && !state.isWarmingUp
+            )
+        }
+        Spacer(Modifier.height(16.dp))
     }
-    Spacer(Modifier.height(16.dp))
 
     // MODO HISTORIA: abre la pantalla de campaña (prólogo + elegir escuela + cargar partida).
-    WithCornerBadge(stringResource(R.string.badge_alpha), Color(0xFF8A5A12)) {
-        MenuButton(
-            text = stringResource(R.string.menu_load_game),
-            onClick = onNavigateToStory,
-            enabled = !state.isWarmingUp
-        )
+    if (PowModo.MODO_HISTORIA.disponible()) {
+        WithCornerBadge(stringResource(R.string.badge_alpha), Color(0xFF8A5A12)) {
+            MenuButton(
+                text = stringResource(R.string.menu_load_game),
+                onClick = onNavigateToStory,
+                enabled = !state.isWarmingUp
+            )
+        }
+        Spacer(Modifier.height(16.dp))
     }
-    Spacer(Modifier.height(16.dp))
 
     // El botón MULTIJUGADOR dispara el warmup ANTES de mostrar el diálogo
     // de nombre. Mientras dura el warmup queda deshabilitado para evitar
     // que el usuario lance dos pings en paralelo.
-    WithCornerBadge(stringResource(R.string.badge_alpha), Color(0xFF8A5A12)) {
-        MenuButton(
-            text = stringResource(R.string.menu_multiplayer),
-            onClick = onMultiplayerClick,
-            enabled = !state.isWarmingUp
-        )
+    if (PowModo.MULTIJUGADOR.disponible()) {
+        WithCornerBadge(stringResource(R.string.badge_alpha), Color(0xFF8A5A12)) {
+            MenuButton(
+                text = stringResource(R.string.menu_multiplayer),
+                onClick = onMultiplayerClick,
+                enabled = !state.isWarmingUp
+            )
+        }
+        Spacer(Modifier.height(16.dp))
     }
-    Spacer(Modifier.height(16.dp))
 
     MenuButton(
         text = stringResource(R.string.menu_settings),
