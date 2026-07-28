@@ -1,5 +1,24 @@
 package ovh.gabrielhuav.pow.features.streetfighter.ui
 
+// 🆕 Fase 5: EXTENSIONES del VM extraídas a `StreetFighterNet.kt` (multijugador). Al vivir en
+// otro paquete, la Screen las necesita IMPORTADAS una a una — es el mismo patrón que ya usan
+// las pantallas del mundo abierto con los parciales del WorldMapViewModel (ver 09 §0).
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.cancelBtScan
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.cancelOnline
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.chooseMapOnline
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.connectBtDevice
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.connectLanHost
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.dismissBtError
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.requestJoinRoom
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.respondJoin
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startBtHost
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startBtScan
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startLanDiscovery
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startLanHost
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startOnline
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startOnlineQuick
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.stopLanDiscovery
+
 import android.Manifest
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter

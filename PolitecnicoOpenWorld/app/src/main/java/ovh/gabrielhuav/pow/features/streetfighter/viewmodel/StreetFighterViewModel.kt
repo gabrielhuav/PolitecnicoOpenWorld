@@ -94,16 +94,16 @@ private val SHOWCASE_SPEEDS = listOf(1f, 2f, 4f)
 
 @HiltViewModel
 class StreetFighterViewModel @Inject constructor(
-    @ApplicationContext private val appContext: Context,
+    @ApplicationContext internal val appContext: Context,
     // 🆕 (2026-07-21) Recompensa de ARCADE en DIFÍCIL: el coleccionable del rival vencido.
     private val collectibleRepo: ovh.gabrielhuav.pow.data.repository.CollectibleRepository,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(StreetFighterState())
+    internal val _state = MutableStateFlow(StreetFighterState())
     val state: StateFlow<StreetFighterState> = _state.asStateFlow()
 
     /** Claves de sonido (nombre base del .ogg en STREETFIGHTER/SOUNDS). */
-    private val _soundEvents = MutableSharedFlow<String>(extraBufferCapacity = 32)
+    internal val _soundEvents = MutableSharedFlow<String>(extraBufferCapacity = 32)
     val soundEvents: SharedFlow<String> = _soundEvents.asSharedFlow()
 
     private var audioShowcaseJob: Job? = null
@@ -681,35 +681,35 @@ class StreetFighterViewModel @Inject constructor(
     // ---- IA de la CPU (POR PELEADOR: índice 0 y 1; en VS normal solo corre el 1) ----
     // Arrays de tamaño 2: en modo normal CPU = índice 1 (idéntico al de siempre); en IA vs IA
     // ambos índices tienen su propia cadencia e intención sostenida.
-    private val cpuNextDecisionMs = LongArray(2) { 0L }
-    private val cpuHold = Array(2) { SfInput() } // intención sostenida (caminar) por índice
+    internal val cpuNextDecisionMs = LongArray(2) { 0L }
+    internal val cpuHold = Array(2) { SfInput() } // intención sostenida (caminar) por índice
     // 🆕 Cooldown de especial/bonus por peleador (ms de juego). Evita spam de hadoukens
     // en PESADILLA / IA vs IA que llenaba la pantalla y no se podía contrarrestar.
-    private val specialCooldownUntil = LongArray(2) { 0L }
+    internal val specialCooldownUntil = LongArray(2) { 0L }
     // 🆕 Intensidad de la CPU 0f..1f (POR FASES del arcade): 0 = como en VS; 1 = máxima. Escala
     // la CADENCIA de decisión (reacciona más rápido) y la agresividad/bloqueo. En VS es 0
     // (comportamiento idéntico al de siempre); el arcade la sube según avanzas en la escalera.
     // IA vs IA la fija en 1f (máxima, como la final del arcade).
-    private var cpuIntensity = 0f
+    internal var cpuIntensity = 0f
     // Contador de “solo caminar sin atacar” por índice: si se atascan cerca sin golpear, forzamos ataque.
-    private val cpuStaleApproach = IntArray(2) { 0 }
+    internal val cpuStaleApproach = IntArray(2) { 0 }
     // gameNow del último golpe/special emitido por la IA (watchdog anti “congelados”).
-    private val cpuLastOffenseMs = LongArray(2) { 0L }
+    internal val cpuLastOffenseMs = LongArray(2) { 0L }
     // Preferencia de “espacio” tras clinch (retrocede un rato en IA vs IA).
-    private val cpuWantsSpaceUntilMs = LongArray(2) { 0L }
+    internal val cpuWantsSpaceUntilMs = LongArray(2) { 0L }
     // Recuperación tras estancamiento: durante una ventana corta ambos cierran distancia.
-    private val cpuForceEngageUntilMs = LongArray(2) { 0L }
+    internal val cpuForceEngageUntilMs = LongArray(2) { 0L }
     // 🆕 (2026-07-25) INTENCIÓN DE FATALITY comprometida: una vez que la IA decide el fatality
     // (medidor lleno; rival aturdido = garantizado), lo COMPLETA dentro de esta ventana — corre y
     // suelta el súper — SOBREPONIÉNDOSE al clinch/watchdog que si no lo abortaban al cerrar
     // distancia. Antes el fatality de la IA "nunca" salía por eso. 0 = sin intención activa.
-    private val cpuFatalityUntilMs = LongArray(2) { 0L }
+    internal val cpuFatalityUntilMs = LongArray(2) { 0L }
     // Variedad ofensiva: memoria de los últimos tres golpes (fuerza×tipo, 0..5) por CPU.
-    private val cpuAttackHistory = Array(2) { ArrayDeque<Int>() }
+    internal val cpuAttackHistory = Array(2) { ArrayDeque<Int>() }
     // 🆕 (2026-07-18n) Dificultad POR ÍNDICE solo para IA vs IA: si ambos son iguales (dos
     // PESADILLA) se esquivan sin fin y NADIE gana. Se le baja la dificultad a UNO al azar para
     // desnivelar la pelea y que alguien gane. null = usar la dificultad global (VS/arcade normal).
-    private val cpuDiffOverride = arrayOfNulls<SfCpuDifficulty>(2)
+    internal val cpuDiffOverride = arrayOfNulls<SfCpuDifficulty>(2)
     // Antibucle de combo: tras tres impactos rápidos, el defensor recibe una ventana de escape.
     private val lastHitTakenMs = LongArray(2) { 0L }
     private val rapidHitsTaken = IntArray(2)
@@ -803,19 +803,19 @@ class StreetFighterViewModel @Inject constructor(
 
     // ---- batalla ----
     private var hurtFreezeUntilMs = 0L  // hit-freeze (FighterStruckDelay)
-    private var time = SfConstants.BATTLE_TIME
-    private var timeTimerMs = 0L
+    internal var time = SfConstants.BATTLE_TIME
+    internal var timeTimerMs = 0L
     private var timeFlashTimerMs = 0L
     private var useFlashFrames = false
     private var koFlashTimerMs = 0L
     private var koFrame = 0
-    private var endMenuAtMs = 0L
+    internal var endMenuAtMs = 0L
 
     // ─── 🆕 RONDAS (mejor de 3) ───
-    private var matchOver = false          // alguien ya tomó 2 rondas → el fin muestra el menú
-    private var roundResetAtMs = 0L        // >0 = hay ronda nueva programada (intermedio corriendo)
-    private var roundIntroUntilMs = 0L     // banner "RONDA N / PELEA": input y timer congelados
-    private var roundGraceUntilMs = 0L     // tras el reset, ignora snapshots/daño viejos del rival
+    internal var matchOver = false          // alguien ya tomó 2 rondas → el fin muestra el menú
+    internal var roundResetAtMs = 0L        // >0 = hay ronda nueva programada (intermedio corriendo)
+    internal var roundIntroUntilMs = 0L     // banner "RONDA N / PELEA": input y timer congelados
+    internal var roundGraceUntilMs = 0L     // tras el reset, ignora snapshots/daño viejos del rival
     private var roundEndSent = false       // guard de ROUND_ENDED (como onlineEndSent por ronda)
     private var introVoiceSent = false      // 🆕 voz de intro del policía: una vez por ronda
 
@@ -847,7 +847,7 @@ class StreetFighterViewModel @Inject constructor(
     // no soporta el mensaje (cliente viejo o server sin redeploy) → degrada al arranque de siempre.
     private var awaitingPeerReady = false
     private var localReadySent = false
-    private var peerReady = false
+    internal var peerReady = false
     private var readyBarrierUntilMs = 0L    // tope de seguridad (tiempo REAL; gameNow está congelado)
     private var readyArmedRealMs = 0L       // tiempo REAL al armar; ventana para que arranque CARGANDO
 
@@ -857,18 +857,18 @@ class StreetFighterViewModel @Inject constructor(
     // PLAYER_DAMAGE (autoridad del RECEPTOR sobre su propio HP).
     // TRANSPORTE intercambiable: SfMatchClient (WebSocket/Render) o SfBtClient (Bluetooth
     // local). Mismos mensajes/arquitectura; el VM solo habla con la interfaz.
-    private var transport: SfNetTransport? = null
+    internal var transport: SfNetTransport? = null
     // 🆕 (2026-07-26) P2P: cuando la sala ONLINE ya tiene a los 2, se intenta subir la pelea a
     // una conexión DIRECTA teléfono-a-teléfono (Render pasa a ser solo cupido). Si no se logra,
     // `transport` sigue mandando todo por el relay: el decorador cae solo. Ver SfWebRtcClient.
-    private var webRtc: SfWebRtcClient? = null
+    internal var webRtc: SfWebRtcClient? = null
     // El cliente de relay crudo: hace de canal de SEÑALIZACIÓN y de respaldo del P2P.
-    private var relayClient: SfMatchClient? = null
-    private var btScanner: SfBtClient? = null   // discovery del selector "BUSCAR RIVAL"
+    internal var relayClient: SfMatchClient? = null
+    internal var btScanner: SfBtClient? = null   // discovery del selector "BUSCAR RIVAL"
     // 🆕 (2026-07-26) Autodescubrimiento LAN por UDP: baliza del host + escucha del invitado.
-    private var lanDiscovery: SfLanDiscovery? = null
-    @Volatile private var remoteSnapshot: SfNetMsg? = null
-    private val netDamageQueue = ConcurrentLinkedQueue<SfNetMsg>()
+    internal var lanDiscovery: SfLanDiscovery? = null
+    @Volatile internal var remoteSnapshot: SfNetMsg? = null
+    internal val netDamageQueue = ConcurrentLinkedQueue<SfNetMsg>()
     // 🆕 (2026-07-26) AUDIO SINCRONIZADO EN RED. Antes los dos jugadores VEÍAN lo mismo pero no
     // OÍAN lo mismo: `applyRemoteSnapshot` asigna el estado del rival DIRECTO, sin pasar por
     // `changeState`, que es donde se emite todo el audio. Ahora:
@@ -877,30 +877,32 @@ class StreetFighterViewModel @Inject constructor(
     //  · los SFX DETERMINISTAS del rival (whoosh, aterrizaje) los DERIVA el receptor de su
     //    `state` en `emitRemoteStateSfx` — no hace falta mandarlos;
     //  · los impactos (`*-hit`) NO se tocan: ya suenan en AMBOS lados (atacante y receptor).
-    private val pendingNetAudio = mutableListOf<String>()
+    internal val pendingNetAudio = mutableListOf<String>()
     // Solo se captura mientras corre la voz del peleador LOCAL en una pelea en red.
     private var netAudioCapture = false
     // Último estado del rival ya sonorizado (para detectar la TRANSICIÓN, no el estado sostenido).
-    private var lastRemoteSfxState: SfFighterState? = null
-    private var myOnlineChar: SfFighterId? = null
-    private var oppOnlineChar: SfFighterId? = null
-    private var lastNetSendMs = 0L
+    internal var lastRemoteSfxState: SfFighterState? = null
+    internal var myOnlineChar: SfFighterId? = null
+    internal var oppOnlineChar: SfFighterId? = null
+    internal var lastNetSendMs = 0L
     // 🆕 INTERPOLACIÓN del rival (SESIÓN 4): el snapshot llega a ~15 Hz; la posición se
     // ALISA con lerp por tick (y los proyectiles remotos se EXTRAPOLAN por la edad del
     // snapshot). lastSeenSnapshot detecta el CAMBIO de referencia (se compara identidad
     // en el tick, hilo Main).
-    private var lastSeenSnapshot: SfNetMsg? = null
-    private var remoteSnapshotAtMs = 0L
+    internal var lastSeenSnapshot: SfNetMsg? = null
+    internal var remoteSnapshotAtMs = 0L
     // 🆕 ROLL-UP del HUD: HP mostrado (drena gradual hacia el real; subir = instantáneo)
     private var dispHp0 = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat()
     private var dispHp1 = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat()
-    private var onlineEndSent = false
-    private var countdownJob: Job? = null
-    private var roomsRefreshJob: Job? = null   // refresca LIST_ROOMS mientras estás en la lista de espera
-    private val isOnline: Boolean get() = _state.value.onlineStatus != SfOnlineStatus.OFF
+    internal var onlineEndSent = false
+    internal var countdownJob: Job? = null
+    internal var roomsRefreshJob: Job? = null   // refresca LIST_ROOMS mientras estás en la lista de espera
+    internal val isOnline: Boolean get() = _state.value.onlineStatus != SfOnlineStatus.OFF
     private val inOnlineFight: Boolean get() = _state.value.onlineStatus == SfOnlineStatus.FIGHTING
 
-    private companion object {
+    // ⚠️ `internal`, no `private`: las constantes las leen los PARCIALES del VM
+    // (StreetFighterNet.kt y siguientes), que son extensiones en el mismo paquete.
+    internal companion object {
         // TICK_MS por defecto; el loop usa [tickMs] (33 ms en gama baja).
         const val TICK_MS_DEFAULT = 16L
         // Táctil: el joystick emite cada ~33 ms al sostenerse; con 150 ms el input quedaba "pegado"
@@ -983,7 +985,7 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     // 🆕 (2026-07-22, Fase 1) attackMeta (metadatos de ataque) extraido a SfDamage.ATTACK_META.
-    private val attackMeta = SfDamage.ATTACK_META
+    internal val attackMeta = SfDamage.ATTACK_META
 
     // 🆕 (2026-07-22, Fase 1) La MAQUINA DE ESTADOS se extrajo a SfStateMachine (dato
     // PURO, testeable en JVM). Aqui quedan ALIAS para no tocar los usos internos de estas
@@ -991,7 +993,7 @@ class StreetFighterViewModel @Inject constructor(
     // el VM sigue usando: las sub-listas (special/neutral/crouch/air) ya viven DENTRO de
     // SfStateMachine.VALID_FROM, así que sus alias quedaron muertos y se retiraron.
     private val knockdownStates = SfStateMachine.KNOCKDOWN_STATES
-    private val attackValidFrom = SfStateMachine.ATTACK_VALID_FROM
+    internal val attackValidFrom = SfStateMachine.ATTACK_VALID_FROM
     private val validFrom = SfStateMachine.VALID_FROM
 
     init {
@@ -1023,7 +1025,7 @@ class StreetFighterViewModel @Inject constructor(
      * la ventana READY_SETTLE_MS antes de dar por buena la ausencia de carga (rondas 2/3 = atlas ya
      * en memoria) y avisar. En la ronda 1, `setAssetsLoadingUi(false)` avisa al terminar de decodificar.
      */
-    private fun armReadyBarrier() {
+    internal fun armReadyBarrier() {
         awaitingPeerReady = true
         localReadySent = false
         peerReady = false
@@ -1042,7 +1044,7 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     /** Libera la barrera cuando AMBOS avisaron (o venció el timeout, desde el tick). */
-    private fun maybeStartAfterReady() {
+    internal fun maybeStartAfterReady() {
         if (awaitingPeerReady && localReadySent && peerReady) releaseReadyBarrier(gameNow)
     }
 
@@ -1105,7 +1107,8 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     /** Holder mutable de la simulación de UN tick; se publica al final. */
-    private class Sim(
+    // ⚠️ `internal`: los parciales del VM (extensiones en el mismo paquete) reciben el `Sim`.
+    internal class Sim(
         var p0: SfFighter,
         var p1: SfFighter,
         val fireballs: MutableList<SfFireball>,
@@ -1331,7 +1334,7 @@ class StreetFighterViewModel @Inject constructor(
      * (hojas 20-29) no existen para todos: sin esta guarda, quien no los tenga entraría a
      * un estado sin animación y se quedaría congelado.
      */
-    private fun hasAnim(f: SfFighter, state: SfFighterState): Boolean =
+    internal fun hasAnim(f: SfFighter, state: SfFighterState): Boolean =
         !dataFor(f).animations[state.jsKey].isNullOrEmpty() || hasAlphaFallback(f, state)
 
     /**
@@ -2232,7 +2235,7 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     /** Poderes Grok “lanzables” (excluye las metamorfosis automáticas: P11 Presidenta, P10 Yoalli). */
-    private fun usableBonusPowerCount(id: SfFighterId): Int = sfUsableBonusPowerCount(id)
+    internal fun usableBonusPowerCount(id: SfFighterId): Int = sfUsableBonusPowerCount(id)
 
     /**
      * Fin de BONUS_POWER_11 de La Presidenta → Yoalli Ehécatl con VIDA LLENA. El cambio de id es
@@ -2323,7 +2326,7 @@ class StreetFighterViewModel @Inject constructor(
      * (antes solo la CPU se auto-encaraba; al jugador le tocaba soltar todo y quedar quieto para
      * girar, lo que se sentía "muy complicado" tras cruzar de lado).
      */
-    private fun repairFacing(sim: Sim, idx: Int, now: Long) {
+    internal fun repairFacing(sim: Sim, idx: Int, now: Long) {
         val fighter = sim.fighter(idx)
         val opponent = sim.fighter(1 - idx)
         val expected = if (fighter.x <= opponent.x) SfDirection.RIGHT else SfDirection.LEFT
@@ -2487,7 +2490,7 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     /** handleAttackHit del JS + BattleScene.handleAttackHit (daño, score, KO, splash, hit-freeze). */
-    private fun applyAttackHit(
+    internal fun applyAttackHit(
         sim: Sim,
         attackerIdx: Int,
         strength: SfAttackStrength,
@@ -2831,7 +2834,7 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     /** Invulnerable durante cualquiera de las dos direcciones de la metamorfosis. */
-    private fun isMetamorphosing(f: SfFighter): Boolean =
+    internal fun isMetamorphosing(f: SfFighter): Boolean =
         f.metamorphosing ||
             (f.id == SfFighterId.LA_PRESIDENTA && f.state == SfFighterState.BONUS_POWER_11 && !f.metamorphosed) ||
             (f.id == SfFighterId.YOALLI_EHECATL && f.state == SfFighterState.BONUS_POWER_10)
@@ -2842,8 +2845,8 @@ class StreetFighterViewModel @Inject constructor(
 
     // Delays de la animación del fireball (frames del JS); los recortes viven en la View
     private val fireballActiveDelays = listOf(5, 2, 5, 1)
-    private val fireballCollidedDelays = listOf(13, 3, 7)
-    private val fireballBox = SfBox(-15f, -13f, 30f, 24f)
+    internal val fireballCollidedDelays = listOf(13, 3, 7)
+    internal val fireballBox = SfBox(-15f, -13f, 30f, 24f)
 
     private fun updateFireballs(sim: Sim, now: Long, dt: Float) {
         // Tope global: en PESADILLA/IA-vs-IA se acumulaban decenas → lag + muro imbloqueable
@@ -3138,7 +3141,7 @@ class StreetFighterViewModel @Inject constructor(
     // ------------------------------------------------------------------
 
     /** Estados en los que el RIVAL está atacando (la IA avanzada BLOQUEA al verlos). */
-    private val cpuThreatStates = setOf(
+    internal val cpuThreatStates = setOf(
         SfFighterState.LIGHT_PUNCH, SfFighterState.MEDIUM_PUNCH, SfFighterState.HEAVY_PUNCH,
         SfFighterState.LIGHT_KICK, SfFighterState.MEDIUM_KICK, SfFighterState.HEAVY_KICK,
         SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY,
@@ -3146,7 +3149,7 @@ class StreetFighterViewModel @Inject constructor(
     ) + SF_BONUS_POWER_STATES + SF_NEW_ATTACK_STATES
 
     /** Estados en los que el RIVAL está vulnerable (recuperación) → la avanzada CASTIGA. */
-    private val cpuPunishStates = setOf(
+    internal val cpuPunishStates = setOf(
         SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_HEAD_MEDIUM, SfFighterState.HURT_HEAD_HEAVY,
         SfFighterState.HURT_BODY_LIGHT, SfFighterState.HURT_BODY_MEDIUM, SfFighterState.HURT_BODY_HEAVY,
         SfFighterState.JUMP_LAND, SfFighterState.CROUCH_DOWN, SfFighterState.CROUCH_UP,
@@ -3155,782 +3158,29 @@ class StreetFighterViewModel @Inject constructor(
         SfFighterState.SWEEP, SfFighterState.SUPER_ART,
     )
 
-    /**
-     * IA de UN peleador (`selfIndex` 0 o 1). En VS normal solo se llama con 1 (CPU);
-     * en IA vs IA se llama para 0 y 1. Cadencia e intención sostenida son POR índice.
-     *
-     * 2026-07-18i: rangos SF (clinch/melee/mid/far), aproximación en **mundo** (no solo
-     * “forward” de la cara), separación al pegarse, desync IA vs IA, watchdog ofensivo.
-     */
-    private fun buildCpuInput(now: Long, sim: Sim, selfIndex: Int): SfInput {
-        if (sim.battleEnded) return SfInput()
-        // 🆕 (2026-07-21) TUTORIAL: el rival es un MUÑECO inerte — no ataca ni se mueve, para
-        // que el jugador practique la ejecución sin interrupciones.
-        if (inTutorial) return SfInput()
-        val i = selfIndex.coerceIn(0, 1)
-        repairFacing(sim, i, now)
-        if (now < cpuNextDecisionMs[i]) return cpuHold[i]
-
-        val aiVs = _state.value.aiVsAi
-        // 🆕 (2026-07-18n) En IA vs IA cada índice puede tener su PROPIA dificultad (desnivel
-        // aleatorio de startAiVsAi) para que la pelea se resuelva; fuera de IA vs IA = la global.
-        val difficulty = if (aiVs) cpuDiffOverride[i] ?: _state.value.cpuDifficulty
-        else _state.value.cpuDifficulty
-        // Desync en IA vs IA: P1 piensa un poco desfasado → no se copian el espejo eterno
-        val desync = if (aiVs) (i * 17L) else 0L
-        val baseDelay = when (difficulty) {
-            SfCpuDifficulty.BASICA -> Random.nextLong(650L, 1100L)
-            SfCpuDifficulty.NORMAL -> Random.nextLong(160L, 340L)
-            SfCpuDifficulty.AVANZADA -> Random.nextLong(55L, 120L)
-            SfCpuDifficulty.PESADILLA -> Random.nextLong(35L, 75L)
-        }
-        cpuNextDecisionMs[i] = now + desync +
-            (baseDelay * (1f - 0.42f * cpuIntensity)).toLong().coerceAtLeast(30L)
-
-        var decision = when (difficulty) {
-            SfCpuDifficulty.BASICA -> basicCpuDecision(sim, i)
-            SfCpuDifficulty.NORMAL -> normalCpuDecision(sim, i, now)
-            SfCpuDifficulty.AVANZADA -> smartCpuDecision(sim, i, now, nightmare = false)
-            SfCpuDifficulty.PESADILLA -> smartCpuDecision(sim, i, now, nightmare = true)
-        }
-
-        val me = sim.fighter(i)
-        val foe = sim.fighter(1 - i)
-        val dist = abs(me.x - foe.x)
-
-        // 🆕 (2026-07-25) Con un FATALITY comprometido (dash → RUN → súper), el run-up NO lleva
-        // ataque, así que el force-engage / watchdog / anti-walk-loop lo abortarían. Los saltamos
-        // mientras la intención esté activa: la propia `maybeFatalityInput` decide y se auto-cancela.
-        val fatalityCommitted = now < cpuFatalityUntilMs[i]
-
-        if (now < cpuForceEngageUntilMs[i] && !me.isAirborne && !fatalityCommitted) {
-            decision = if (dist > CPU_MELEE_DIST * 0.75f) {
-                cpuApproach(me, foe)
-            } else {
-                variedCpuAttack(i)
-            }
-        }
-
-        // 🆕 (2026-07-18j) Ofensiva REAL: el reloj del watchdog se alimenta del ESTADO del
-        // peleadór (está atacando de verdad), no solo de la intención. Antes un ataque decidido
-        // pero DESCARTADO (cooldown de special, validFrom, HURT en curso) contaba como ofensiva
-        // → pasividad larga sin corrección ("se quedan quietos").
-        if (me.state in attackMeta || me.state in SF_BONUS_POWER_STATES) cpuLastOffenseMs[i] = now
-
-        // Watchdog: si lleva demasiado tiempo SIN ofensiva → forzar acción.
-        // 🆕 (fix 2026-07-18) Antes solo actuaba a < 150 px; en IA vs IA ambos se quedaban
-        // CAMINANDO / mirándose a media distancia sin que saltara nunca. Ahora cubre CUALQUIER
-        // distancia: si están LEJOS obliga a CERRAR distancia (approach), y en rango de golpe
-        // fuerza ataque o clinch break. Así nunca se estancan sin pelear.
-        val watchdogLimit = when {
-            difficulty == SfCpuDifficulty.BASICA && aiVs -> 3500L
-            difficulty == SfCpuDifficulty.BASICA -> null
-            aiVs -> 420L
-            else -> 700L
-        }
-        if (watchdogLimit != null && !fatalityCommitted) {
-            val staleMs = now - cpuLastOffenseMs[i]
-            if (staleMs > watchdogLimit && !decision.hasAttackOrSpecial()) {
-                // 🆕 (2026-07-18j) Con pasividad extrema (>2×limit) el golpe es OBLIGATORIO en
-                // rango de pelea: garantiza que NUNCA pasen ~2 s sin acción estando cerca.
-                val forceHit = staleMs > watchdogLimit * 2
-                val attack = if (difficulty == SfCpuDifficulty.BASICA) {
-                    cpuAttack(SfAttackStrength.LIGHT, punch = Random.nextBoolean())
-                } else {
-                    variedCpuAttack(i)
-                }
-                decision = when {
-                    dist < CPU_CLINCH_DIST -> cpuClinchBreak(me, foe, now, i)
-                    dist < 150f -> if (forceHit || Random.nextFloat() < 0.75f) attack else cpuJumpIn(me, foe)
-                    else -> cpuApproach(me, foe) // pasivo demasiado tiempo y lejos → acercarse YA
-                }
-            }
-        }
-
-        // Anti-walk-loop: caminar hacia el rival sin golpear de cerca
-        val onlyWalkIn = decision.isOnlyWalkToward(me, foe)
-        if (onlyWalkIn && dist < 120f && !fatalityCommitted) {
-            cpuStaleApproach[i]++
-            if (cpuStaleApproach[i] >= 2) {
-                decision = if (dist < CPU_CLINCH_DIST) {
-                    cpuClinchBreak(me, foe, now, i)
-                } else {
-                    variedCpuAttack(i)
-                }
-                cpuStaleApproach[i] = 0
-            }
-        } else if (decision.hasAttackOrSpecial()) {
-            cpuStaleApproach[i] = 0
-        }
-
-        cpuHold[i] = decision
-
-        // Bonus powers (show en IA vs IA; raros vs humano)
-        val bonusCount = usableBonusPowerCount(me.id)
-        val bonusChance = when {
-            difficulty == SfCpuDifficulty.BASICA -> 0f
-            dist > 170f -> if (aiVs) 0.04f else 0.02f
-            me.id == SfFighterId.LA_PRESIDENTA && !aiVs -> 0.035f
-            aiVs -> 0.07f
-            else -> 0.045f
-        }
-        val bonusStateReady = bonusCount > 0 && me.state in attackValidFrom && !me.metamorphosing
-        val bonusPositionReady = !isNearStageCorner(me.x) && dist in 70f..200f
-        val bonusCooldownReady = now >= specialCooldownUntil[i]
-        if (bonusStateReady && bonusPositionReady && bonusCooldownReady &&
-            Random.nextFloat() < bonusChance) {
-            cpuHold[i] = SfInput(bonusPower = Random.nextInt(1, bonusCount + 1))
-        }
-
-        val oneShot = cpuHold[i]
-        // Sostener direcciones (presión / walk-back); botones y salto = un tick
-        cpuHold[i] = oneShot.copy(
-            lightPunch = false, mediumPunch = false, heavyPunch = false,
-            lightKick = false, mediumKick = false, heavyKick = false,
-            special = null, bonusPower = null, up = false,
-        )
-        return oneShot
-    }
-
-    private fun SfInput.hasAttackOrSpecial(): Boolean =
-        lightPunch || mediumPunch || heavyPunch || lightKick || mediumKick || heavyKick ||
-            special != null || bonusPower != null
-
-    private fun SfInput.isOnlyWalkToward(me: SfFighter, foe: SfFighter): Boolean {
-        if (hasAttackOrSpecial() || up || down) return false
-        val toward = cpuMoveTowardFlags(me, foe)
-        return (forward && toward.forward && !backward) || (backward && toward.backward && !forward)
-    }
-
-    /** ¿Borde del stage? */
-    private fun isNearStageCorner(x: Float): Boolean =
-        x <= STAGE_X_MIN + 52f || x >= STAGE_X_MAX - 52f
-
-    /** Flags de input para moverse HACIA el rival en coordenadas del mundo (corrige cara invertida). */
-    private fun cpuMoveTowardFlags(me: SfFighter, foe: SfFighter): SfInput {
-        val wantRight = foe.x > me.x
-        val faceRight = me.direction == SfDirection.RIGHT
-        return if (wantRight == faceRight) SfInput(forward = true) else SfInput(backward = true)
-    }
-
-    /** Alejarse del rival (crear espacio / clinch break). */
-    private fun cpuRetreatFlags(me: SfFighter, foe: SfFighter): SfInput {
-        val wantRight = foe.x > me.x
-        val faceRight = me.direction == SfDirection.RIGHT
-        // Invertir “hacia”
-        return if (wantRight == faceRight) SfInput(backward = true) else SfInput(forward = true)
-    }
-
-    private fun cpuApproach(me: SfFighter, foe: SfFighter): SfInput {
-        if (isNearStageCorner(me.x) && abs(me.x - foe.x) > 40f) {
-            // Salir de esquina hacia el centro/rival
-            return cpuMoveTowardFlags(me, foe)
-        }
-        return cpuMoveTowardFlags(me, foe)
-    }
-
-    private fun cpuJumpIn(me: SfFighter, foe: SfFighter): SfInput {
-        val t = cpuMoveTowardFlags(me, foe)
-        return t.copy(up = true)
-    }
-
-    private fun cpuJumpBack(me: SfFighter, foe: SfFighter): SfInput {
-        val t = cpuRetreatFlags(me, foe)
-        return t.copy(up = true)
-    }
-
-    /** Muy pegados: NO seguir caminando adentro — retroceder, golpear o brincar fuera. */
-    private fun cpuClinchBreak(me: SfFighter, foe: SfFighter, now: Long, selfIndex: Int): SfInput {
-        val roll = Random.nextFloat()
-        val aiVs = _state.value.aiVsAi
-        cpuWantsSpaceUntilMs[selfIndex] = now + if (aiVs) {
-            Random.nextLong(160L, 300L)
-        } else {
-            Random.nextLong(280L, 520L)
-        }
-        if (aiVs) {
-            // 🆕 (2026-07-18j) ROLES ASIMÉTRICOS: antes ambos índices rodaban la MISMA tabla y
-            // solían decidir lo mismo (los dos retro o los dos golpe ligero) → se quedaban
-            // "pegados" sin resolverse. Ahora se alterna por índice y tiempo: uno GOLPEA
-            // (variado) mientras el otro SE SEPARA (retro/salto) — el clinch siempre termina
-            // en acción visible.
-            val attackerTurn = ((now / 900L).toInt() + selfIndex) % 2 == 0
-            return when {
-                attackerTurn && roll < 0.70f -> variedCpuAttack(selfIndex)
-                attackerTurn -> cpuJumpIn(me, foe) // cross-up por encima
-                roll < 0.42f -> cpuRetreatFlags(me, foe)
-                roll < 0.68f -> cpuJumpBack(me, foe)
-                else -> variedCpuAttack(selfIndex)
-            }
-        }
-        return when {
-            roll < 0.28f -> cpuRetreatFlags(me, foe)
-            roll < 0.48f -> cpuJumpBack(me, foe)
-            roll < 0.72f -> cpuAttack(SfAttackStrength.LIGHT, punch = Random.nextBoolean())
-            roll < 0.88f -> cpuAttack(SfAttackStrength.MEDIUM, punch = true)
-            else -> cpuJumpIn(me, foe) // cross-up / saltar por encima
-        }
-    }
-
-    private fun hasIncomingFireball(sim: Sim, me: SfFighter, selfIndex: Int, range: Float): Boolean {
-        val opp = 1 - selfIndex
-        return sim.fireballs.any { fb ->
-            fb.ownerIndex == opp && fb.state == SfFireballState.ACTIVE &&
-                abs(fb.x - me.x) < range && (me.x - fb.x) * fb.direction.sign > 0f
-        }
-    }
-
-    private fun ownFireballActive(sim: Sim, selfIndex: Int): Boolean =
-        sim.fireballs.any { it.ownerIndex == selfIndex && it.state == SfFireballState.ACTIVE }
-
-    /**
-     * Ajuste ligero por personaje sobre el mismo motor: zoners priorizan poderes; rushers
-     * presión. 🆕 (2026-07-21) `comboBias` = cuánto le gusta encadenar RUTAS de combo.
-     */
-    private data class CpuStyle(
-        val specialBias: Float,
-        val pressureBias: Float,
-        val comboBias: Float = 1f,
-    )
-
-    /**
-     * 🆕 (2026-07-21) PERFIL ESCALADO POR NIVEL. La IA es compartida, pero el perfil de
-     * CADA personaje se ACENTÚA conforme avanzas la escalera: `cpuIntensity` sube 0.20→1.0
-     * con el escalón, así que un zoner lanza cada vez más poderes y un rusher presiona cada
-     * vez más, además de encadenar combos más seguido. En VS (`cpuIntensity` = 0) devuelve
-     * prácticamente el perfil base, así que las peleas sueltas no cambian.
-     */
-    private fun cpuStyleForLevel(id: SfFighterId): CpuStyle {
-        val base = cpuStyle(id)
-        val k = 0.6f + 0.8f * cpuIntensity          // 0.6 al principio → 1.4 en la final
-        return CpuStyle(
-            specialBias = 1f + (base.specialBias - 1f) * k,
-            pressureBias = 1f + (base.pressureBias - 1f) * k,
-            comboBias = base.comboBias * (0.7f + 0.8f * cpuIntensity),
-        )
-    }
-
-    private fun cpuStyle(id: SfFighterId): CpuStyle = when (id) {
-        SfFighterId.ROBOT,
-        SfFighterId.CHARRO_NEGRO,
-        SfFighterId.LA_LLORONA,
-        SfFighterId.LA_TZITZIMIME,
-        SfFighterId.YOALLI_EHECATL,
-        SfFighterId.LA_PRESIDENTA,
-        // Zoners: mucho poder a distancia, menos presión y menos combos largos.
-        -> CpuStyle(specialBias = 1.25f, pressureBias = 0.90f, comboBias = 0.85f)
-
-        SfFighterId.ESCOMBOY,
-        SfFighterId.ESCOMGIRL,
-        SfFighterId.POLICIA_CDMX_HOMBRE,
-        SfFighterId.POLICIA_CDMX,
-        SfFighterId.POLICIA_GRANADERO_HOMBRE,
-        SfFighterId.POLICIA_GRANADERO_MUJER,
-        // Rushers: se pegan, encadenan combos y usan menos poderes.
-        -> CpuStyle(specialBias = 0.80f, pressureBias = 1.12f, comboBias = 1.25f)
-
-        else -> CpuStyle(specialBias = 1f, pressureBias = 1f)
-    }
-
-    // ------------------------------------------------------------------
-    // Decisiones por dificultad
-    // ------------------------------------------------------------------
-
-    /** BÁSICA — aprendible: lenta, pocos golpes, sin poderes. */
-    private fun basicCpuDecision(sim: Sim, selfIndex: Int): SfInput {
-        val me = sim.fighter(selfIndex)
-        val foe = sim.fighter(1 - selfIndex)
-        val dist = abs(me.x - foe.x)
-        val roll = Random.nextFloat()
-        if (dist < CPU_CLINCH_DIST && roll < 0.55f) return cpuRetreatFlags(me, foe)
-        return when {
-            dist > 190f -> if (roll < 0.7f) cpuApproach(me, foe) else SfInput()
-            dist > 95f -> when {
-                roll < 0.5f -> cpuApproach(me, foe)
-                roll < 0.78f -> SfInput()
-                else -> cpuRetreatFlags(me, foe)
-            }
-            else -> when {
-                roll < 0.28f -> cpuAttack(SfAttackStrength.LIGHT, punch = Random.nextBoolean())
-                roll < 0.55f -> cpuRetreatFlags(me, foe)
-                else -> SfInput()
-            }
-        }
-    }
-
-    /** NORMAL — pelea real: acerca, golpea, special raro, clinch break. */
-    private fun normalCpuDecision(sim: Sim, selfIndex: Int, now: Long): SfInput {
-        val me = sim.fighter(selfIndex)
-        val foe = sim.fighter(1 - selfIndex)
-        val dist = abs(me.x - foe.x)
-        val roll = Random.nextFloat()
-        val corner = isNearStageCorner(me.x)
-        val specialBias = cpuStyle(me.id).specialBias
-
-        if (now < cpuWantsSpaceUntilMs[selfIndex] && dist < CPU_MELEE_DIST) {
-            return if (roll < 0.7f) cpuRetreatFlags(me, foe) else variedCpuAttack(selfIndex)
-        }
-        if (corner && dist > 50f) return cpuApproach(me, foe)
-        if (dist < CPU_CLINCH_DIST) return cpuClinchBreak(me, foe, now, selfIndex)
-
-        if (hasIncomingFireball(sim, me, selfIndex, 240f) && !me.isAirborne) {
-            return if (roll < 0.7f) cpuJumpIn(me, foe) else cpuRetreatFlags(me, foe)
-        }
-        if (foe.state in cpuThreatStates && dist < 140f) {
-            return when {
-                roll < 0.42f -> cpuRetreatFlags(me, foe)
-                dist < 95f && roll < 0.72f -> cpuAttack(SfAttackStrength.LIGHT, punch = true)
-                else -> cpuJumpBack(me, foe)
-            }
-        }
-        if (foe.isAirborne && dist < 130f) {
-            return cpuAttack(SfAttackStrength.HEAVY, punch = true)
-        }
-        if (foe.state in cpuPunishStates && dist < CPU_MELEE_DIST) {
-            return cpuAttack(SfAttackStrength.MEDIUM, punch = Random.nextBoolean())
-        }
-
-        return when {
-            dist > CPU_MID_DIST -> when {
-                !ownFireballActive(sim, selfIndex) && roll < 0.16f ->
-                    SfInput(special = SfAttackStrength.LIGHT)
-                roll < 0.30f -> cpuJumpIn(me, foe)
-                else -> cpuApproach(me, foe)
-            }
-            dist > CPU_MELEE_DIST -> when {
-                roll < 0.58f -> cpuApproach(me, foe)
-                !ownFireballActive(sim, selfIndex) &&
-                    now >= specialCooldownUntil[selfIndex] &&
-                    roll < 0.58f + 0.10f * specialBias -> SfInput(special = SfAttackStrength.LIGHT)
-                roll < 0.88f -> cpuJumpIn(me, foe)
-                else -> cpuRetreatFlags(me, foe)
-            }
-            else -> when { // melee
-                roll < 0.72f + 0.12f * cpuIntensity -> variedCpuAttack(selfIndex)
-                roll < 0.88f -> cpuRetreatFlags(me, foe) // micro-spacing
-                else -> cpuJumpIn(me, foe)
-            }
-        }
-    }
-
-    /**
-     * AVANZADA + PESADILLA — núcleo SF:
-     * defense (fireball/anti-air/block) → punish → clinch/spacing → pressure por rango.
-     * @param nightmare más agresivo (PESADILLA / IA vs IA show).
-     */
-    /**
-     * 🆕 (2026-07-25) FATALITY comprometido de la IA. El fatality es "SÚPER EN CARRERA": hay que
-     * llegar a [SfFighterState.RUN] y soltar el súper. Antes la IA "nunca" lo hacía porque, al
-     * correr hacia el rival, entraba en rango de CLINCH y abortaba (o quedaba fuera del rango de
-     * dash). Aquí, una vez COMPROMETIDA (medidor lleno; rival aturdido = garantizado), mantiene la
-     * intención [FATALITY_INTENT_MS] y la completa (dash → RUN → súper) sobreponiéndose a todo.
-     * Devuelve null si no aplica (deja seguir a la IA normal).
-     */
-    private fun maybeFatalityInput(
-        me: SfFighter,
-        foe: SfFighter,
-        dist: Float,
-        now: Long,
-        i: Int,
-        nightmare: Boolean,
-    ): SfInput? {
-        val idx = i.coerceIn(0, 1)
-        // Necesita las hojas de FATALITY y de RUN (el comando es súper en carrera).
-        if (!hasAnim(me, SfFighterState.FATALITY) || !hasAnim(me, SfFighterState.RUN)) {
-            cpuFatalityUntilMs[idx] = 0L
-            return null
-        }
-        val committed = now < cpuFatalityUntilMs[idx]
-        val foeStunned = foe.state == SfFighterState.STUN
-        if (!committed) {
-            if (!me.superReady) return null // solo con el medidor LLENO
-            // Comprometerse: rival ATURDIDO = sí o sí; si no, azar que ESCALA con la dificultad y
-            // desde un rango con pista para correr (ni pegado ni lejísimos).
-            val diff = if (nightmare) 1f else cpuIntensity
-            val chance = (0.5f + 0.45f * diff).coerceIn(0.5f, 0.95f)
-            val commit = foeStunned ||
-                (dist in 60f..(CPU_MID_DIST + 40f) && Random.nextFloat() < chance)
-            if (!commit) return null
-            cpuFatalityUntilMs[idx] = now + FATALITY_INTENT_MS
-        }
-        // Intención ACTIVA. Si ya se gastó el medidor (lo soltó) o murió → cancelar.
-        if (!me.superReady) { cpuFatalityUntilMs[idx] = 0L; return null }
-        // Interrumpido (golpeado/aéreo/derribado/metamorfosis): espera SIN gastar el medidor.
-        if (me.isAirborne || me.downed || isMetamorphosing(me) || me.state in SF_HURT_STATES) {
-            return SfInput()
-        }
-        return when (me.state) {
-            SfFighterState.RUN -> { cpuFatalityUntilMs[idx] = 0L; SfInput(forward = true, superArt = true) }
-            SfFighterState.DASH_FORWARD -> SfInput(forward = true) // el dash ya arrancó → mantener → RUN
-            else -> SfInput(dashForward = true, forward = true)    // arrancar el dash hacia la carrera
-        }
-    }
-
-    private fun smartCpuDecision(sim: Sim, selfIndex: Int, now: Long, nightmare: Boolean): SfInput {
-        val me = sim.fighter(selfIndex)
-        val foe = sim.fighter(1 - selfIndex)
-        val dist = abs(me.x - foe.x)
-        val roll = Random.nextFloat()
-        val corner = isNearStageCorner(me.x)
-        val aiVs = _state.value.aiVsAi
-        val ownFb = ownFireballActive(sim, selfIndex)
-        // 🆕 (2026-07-21) Perfil ESCALADO por escalón: el mismo personaje se vuelve más
-        // fiel a su estilo (y más peligroso) conforme avanzas la escalera.
-        val style = cpuStyleForLevel(me.id)
-
-        // 🆕 (2026-07-25) FATALITY comprometido: se evalúa ANTES del clinch/space/watchdog para que,
-        // una vez decidido, la IA lo COMPLETE (corra y suelte el súper) en vez de abortarlo al cerrar
-        // distancia. Rival ATURDIDO + medidor lleno = garantizado (sí o sí).
-        maybeFatalityInput(me, foe, dist, now, selfIndex, nightmare)?.let { return it }
-
-        val specialFarBase = when {
-            nightmare && aiVs -> 0.24f
-            nightmare -> 0.18f
-            else -> 0.14f + 0.08f * cpuIntensity
-        }
-        val specialMidBase = when {
-            nightmare && aiVs -> 0.16f
-            nightmare -> 0.11f
-            else -> 0.08f + 0.05f * cpuIntensity
-        }
-        val specialFar = (specialFarBase * style.specialBias).coerceAtMost(0.34f)
-        val specialMid = (specialMidBase * style.specialBias).coerceAtMost(0.24f)
-        val blockChance = if (nightmare) 0.55f else 0.72f + 0.1f * cpuIntensity
-        val attackMelee = ((if (nightmare) 0.78f else 0.70f) * style.pressureBias)
-            .coerceIn(0.62f, 0.88f)
-
-        // Espacio pedido tras clinch
-        if (now < cpuWantsSpaceUntilMs[selfIndex] && dist < CPU_MID_DIST) {
-            return when {
-                roll < 0.55f -> cpuRetreatFlags(me, foe)
-                roll < 0.78f -> variedCpuAttack(selfIndex)
-                else -> cpuJumpIn(me, foe)
-            }
-        }
-
-        // Esquina: salir hacia el rival (nunca spamear desde el borde)
-        if (corner && dist > 45f) return cpuApproach(me, foe)
-
-        // Clinch / “pegaditos”
-        if (dist < CPU_CLINCH_DIST) return cpuClinchBreak(me, foe, now, selfIndex)
-
-        // Fireball entrante
-        if (hasIncomingFireball(sim, me, selfIndex, if (nightmare) 300f else 260f) && !me.isAirborne) {
-            return when {
-                roll < 0.50f -> cpuJumpIn(me, foe)
-                roll < 0.78f -> SfInput(up = true) // jump neutral
-                else -> cpuRetreatFlags(me, foe) // block / walk-back
-            }
-        }
-
-        // 🆕 (2026-07-21) RUTA DE COMBO en curso: sigue encadenando los pasos pendientes.
-        nextComboInput(selfIndex, now)?.let { return it }
-        // Si el rival está a tiro y en desventaja, ARRANCA una ruta del catálogo. La
-        // probabilidad sube con el escalón y con el gusto por combos del personaje.
-        val comboChance = (if (nightmare) 0.45f else 0.22f + 0.20f * cpuIntensity) *
-            cpuStyleForLevel(me.id).comboBias
-        if (dist < CPU_MELEE_DIST && !me.isAirborne && roll < comboChance &&
-            queueCombo(selfIndex, me, now)
-        ) {
-            nextComboInput(selfIndex, now)?.let { return it }
-        }
-
-        // 🆕 (2026-07-21) La CPU usa el MOVESET nuevo cuando el peleador lo tiene.
-        cpuNewMove(me, foe, dist, roll, nightmare)?.let { return it }
-
-        // Anti-aéreo
-        if (foe.isAirborne && dist < (if (nightmare) 170f else 145f)) {
-            // Con arte propia, el antiaéreo correcto es el puño fuerte AGACHADO
-            if (hasAnim(me, SfFighterState.CROUCH_HEAVY_PUNCH) && roll < 0.6f) {
-                return SfInput(down = true, heavyPunch = true)
-            }
-            return cpuAttack(SfAttackStrength.HEAVY, punch = true)
-        }
-
-        // Bloqueo ante amenaza (mid); de cerca tradea
-        if (foe.state in cpuThreatStates) {
-            when {
-                dist in 95f..190f && roll < blockChance -> return cpuRetreatFlags(me, foe) // block walk-back
-                dist < 95f && roll < 0.28f -> return cpuRetreatFlags(me, foe)
-                dist < 95f && roll < 0.68f -> return cpuAttack(SfAttackStrength.LIGHT, punch = true)
-            }
-        }
-
-        // Castigo recovery
-        if (foe.state in cpuPunishStates && dist < (if (nightmare) 145f else 125f)) {
-            return cpuAttack(
-                if (nightmare || roll < 0.55f) SfAttackStrength.HEAVY else SfAttackStrength.MEDIUM,
-                punch = Random.nextBoolean(),
-            )
-        }
-
-        // Footsies / presión por rango (🆕 2026-07-18j: golpes con memoria anti-repetición y
-        // fuerza del special al azar — la pelea se ve VARIADA, no el mismo ataque en bucle)
-        return when {
-            dist > CPU_MID_DIST -> when {
-                !corner && !ownFb && now >= specialCooldownUntil[selfIndex] && roll < specialFar ->
-                    SfInput(special = SfAttackStrength.entries.random())
-                aiVs && roll < specialFar + 0.22f -> cpuJumpIn(me, foe)
-                !aiVs && roll < 0.28f -> cpuJumpIn(me, foe)
-                !aiVs && roll < 0.38f -> cpuRetreatFlags(me, foe) // baitear
-                else -> cpuApproach(me, foe)
-            }
-            dist > CPU_MELEE_DIST -> when {
-                !ownFb && now >= specialCooldownUntil[selfIndex] && roll < specialMid ->
-                    SfInput(special = SfAttackStrength.MEDIUM)
-                aiVs && roll < 0.76f -> cpuApproach(me, foe)
-                aiVs && roll < 0.90f -> cpuJumpIn(me, foe)
-                aiVs -> cpuApproach(me, foe)
-                roll < 0.55f -> cpuApproach(me, foe)
-                roll < 0.72f -> cpuJumpIn(me, foe)
-                roll < 0.86f -> cpuRetreatFlags(me, foe)
-                else -> cpuApproach(me, foe)
-            }
-            else -> when { // melee range (no clinch)
-                roll < attackMelee + 0.1f * cpuIntensity -> variedCpuAttack(selfIndex)
-                roll < 0.90f -> cpuRetreatFlags(me, foe) // tick throw-ish spacing
-                else -> cpuJumpIn(me, foe)
-            }
-        }
-    }
-
-    /**
-     * 🆕 (2026-07-21) Decisiones del MOVESET nuevo para la CPU. Devuelve null si el
-     * peleador no tiene esas hojas o si no toca usarlas: así la IA de siempre sigue
-     * intacta para quien no tenga el arte.
-     *
-     * Prioridades (de más específica a más oportunista): súper cargada de cerca →
-     * castigo con barrida → agarre a quien se cubre mucho → overhead contra guardia
-     * baja → patada larga a media distancia → parry defensivo → dash para cerrar hueco.
-     */
-    // 🆕 (2026-07-22) Firma acotada a lo que usa: `sim`, `selfIndex` y `now` no se usaban aquí
-    // (detekt UnusedParameter). La decisión de la IA nueva depende solo de los peleadores,
-    // la distancia, el azar y la dificultad.
-    @Suppress("ReturnCount")
-    private fun cpuNewMove(
-        me: SfFighter,
-        foe: SfFighter,
-        dist: Float,
-        roll: Float,
-        nightmare: Boolean,
-    ): SfInput? {
-        if (!hasAnim(me, SfFighterState.PARRY_HIGH)) return null // sin moveset nuevo
-        val aggressive = nightmare || cpuIntensity > 0.5f
-
-        // 🆕 (2026-07-25) El FATALITY (súper en carrera) lo maneja `maybeFatalityInput` ANTES del
-        // clinch (intención comprometida); si se llega hasta aquí es que NO hay fatality en curso.
-        // Queda el SÚPER normal como respaldo a rango de golpe (peleadores sin RUN, o cuando el
-        // fatality no se comprometió). Rival aturdido = garantizado.
-        val diff = if (nightmare) 1f else cpuIntensity
-        val superChance = (0.35f + 0.40f * diff).coerceIn(0.35f, 0.90f)
-        val foeStunned = foe.state == SfFighterState.STUN
-        if (me.superReady && dist < CPU_MELEE_DIST && hasAnim(me, SfFighterState.SUPER_ART) &&
-            (foeStunned || roll < superChance)
-        ) {
-            return SfInput(superArt = true)
-        }
-        // BARRIDA para castigar recuperación (derriba y da espacio)
-        if (foe.state in cpuPunishStates && dist < 110f &&
-            hasAnim(me, SfFighterState.SWEEP) && roll < 0.45f
-        ) {
-            return SfInput(down = true, heavyKick = true)
-        }
-        // AGARRE a quien se cubre (el bloqueo no salva del lanzamiento)
-        if (dist < SfConstants.GRAB_RANGE && hasAnim(me, SfFighterState.GRAB) &&
-            (foe.state in SF_BLOCK_STATES || foe.state == SfFighterState.WALK_BACKWARD) &&
-            roll < (if (aggressive) 0.6f else 0.35f)
-        ) {
-            return SfInput(grab = true)
-        }
-        // OVERHEAD contra guardia BAJA (para eso existe: la rompe)
-        if (dist < 95f && hasAnim(me, SfFighterState.OVERHEAD) &&
-            foe.state in setOf(SfFighterState.CROUCH, SfFighterState.BLOCK_LOW) && roll < 0.5f
-        ) {
-            return SfInput(forward = true, mediumPunch = true)
-        }
-        // PATADA LARGA: su normal de mayor alcance, ideal en footsies
-        if (dist in 100f..165f && hasAnim(me, SfFighterState.LONG_KICK) &&
-            roll < (if (aggressive) 0.42f else 0.24f)
-        ) {
-            return SfInput(forward = true, heavyKick = true)
-        }
-        // PARRY: leer el golpe entrante (solo dificultades altas: es la jugada experta)
-        if (aggressive && foe.state in cpuThreatStates && dist < 120f && roll < 0.22f) {
-            return SfInput(parry = true)
-        }
-        // DASH para cerrar distancia rápido
-        if (dist > CPU_MID_DIST && hasAnim(me, SfFighterState.DASH_FORWARD) &&
-            roll < (if (aggressive) 0.30f else 0.16f)
-        ) {
-            return SfInput(dashForward = true)
-        }
-        return null
-    }
-
     // ── 🆕 (2026-07-21) COMBOS del catálogo (assets/DATA/combos.json) ──
     // La IA encola los pasos de una ruta y los ejecuta EN ORDEN; el tutorial usa la misma
     // traducción acción→input para validar lo que hace el jugador.
 
-    private val comboCatalog by lazy { SfCombos.universal(appContext) }
-    private fun signatureCombo(id: SfFighterId) = SfCombos.signature(appContext, id)
+    internal val comboCatalog by lazy { SfCombos.universal(appContext) }
+    internal fun signatureCombo(id: SfFighterId) = SfCombos.signature(appContext, id)
 
     /** Cola de acciones pendientes por índice (la IA ejecuta una por decisión). */
-    private val cpuComboQueue = Array(2) { ArrayDeque<SfComboAction>() }
-    private val cpuComboUntilMs = LongArray(2)
+    internal val cpuComboQueue = Array(2) { ArrayDeque<SfComboAction>() }
+    internal val cpuComboUntilMs = LongArray(2)
 
-    /**
-     * Traduce una acción del catálogo al `SfInput` que la dispara. Es la ÚNICA fuente de
-     * verdad de "cómo se hace" cada movimiento: la usan la IA y el tutorial.
-     */
-    private fun inputForAction(action: SfComboAction): SfInput = when (action) {
-        SfComboAction.LIGHT_PUNCH -> SfInput(lightPunch = true)
-        SfComboAction.MEDIUM_PUNCH -> SfInput(mediumPunch = true)
-        SfComboAction.HEAVY_PUNCH -> SfInput(heavyPunch = true)
-        SfComboAction.LIGHT_KICK -> SfInput(lightKick = true)
-        SfComboAction.MEDIUM_KICK -> SfInput(mediumKick = true)
-        SfComboAction.HEAVY_KICK -> SfInput(heavyKick = true)
-        SfComboAction.CROUCH_PUNCH -> SfInput(down = true, lightPunch = true)
-        SfComboAction.CROUCH_KICK -> SfInput(down = true, lightKick = true)
-        SfComboAction.CROUCH_HEAVY_PUNCH -> SfInput(down = true, heavyPunch = true)
-        SfComboAction.SWEEP -> SfInput(down = true, heavyKick = true)
-        SfComboAction.LONG_KICK -> SfInput(forward = true, heavyKick = true)
-        SfComboAction.OVERHEAD -> SfInput(forward = true, mediumPunch = true)
-        SfComboAction.AIR_PUNCH -> SfInput(mediumPunch = true)
-        SfComboAction.AIR_KICK -> SfInput(mediumKick = true)
-        SfComboAction.DASH_FORWARD -> SfInput(dashForward = true)
-        SfComboAction.DASH_BACKWARD -> SfInput(dashBackward = true)
-        SfComboAction.PARRY -> SfInput(parry = true)
-        SfComboAction.GRAB -> SfInput(grab = true)
-        SfComboAction.TAUNT -> SfInput(taunt = true)
-        SfComboAction.SPECIAL -> SfInput(special = SfAttackStrength.MEDIUM)
-        SfComboAction.SUPER_ART -> SfInput(superArt = true)
-        SfComboAction.JUMP -> SfInput(up = true)
-        SfComboAction.CROUCH -> SfInput(down = true)
-        SfComboAction.WALK_FORWARD -> SfInput(forward = true)
-        SfComboAction.RUN -> SfInput(forward = true)
-        SfComboAction.BLOCK_HIGH -> SfInput(backward = true)
-        // El fatality se pide EN CARRERA: adelante sostenido + súper.
-        SfComboAction.FATALITY -> SfInput(forward = true, superArt = true)
-    }
+    // ⚠️ Estas DOS se quedan como MIEMBROS a propósito: son extensiones de `SfInput` declaradas
+    // DENTRO de la clase (doble receptor: el VM + el SfInput). Fuera de la clase Kotlin no
+    // admite dos receptores, así que NO se pueden mover a un parcial. No lo intentes.
 
-    /** Estado en el que DEBE entrar el peleador si la acción salió bien (validación). */
-    private fun stateForAction(action: SfComboAction): Set<SfFighterState> = when (action) {
-        SfComboAction.LIGHT_PUNCH -> setOf(SfFighterState.LIGHT_PUNCH)
-        SfComboAction.MEDIUM_PUNCH -> setOf(SfFighterState.MEDIUM_PUNCH)
-        SfComboAction.HEAVY_PUNCH -> setOf(SfFighterState.HEAVY_PUNCH)
-        SfComboAction.LIGHT_KICK -> setOf(SfFighterState.LIGHT_KICK)
-        SfComboAction.MEDIUM_KICK -> setOf(SfFighterState.MEDIUM_KICK)
-        SfComboAction.HEAVY_KICK -> setOf(SfFighterState.HEAVY_KICK)
-        SfComboAction.CROUCH_PUNCH -> setOf(SfFighterState.CROUCH_PUNCH)
-        SfComboAction.CROUCH_KICK -> setOf(SfFighterState.CROUCH_KICK)
-        SfComboAction.CROUCH_HEAVY_PUNCH -> setOf(SfFighterState.CROUCH_HEAVY_PUNCH)
-        SfComboAction.SWEEP -> setOf(SfFighterState.SWEEP)
-        SfComboAction.LONG_KICK -> setOf(SfFighterState.LONG_KICK)
-        SfComboAction.OVERHEAD -> setOf(SfFighterState.OVERHEAD)
-        SfComboAction.AIR_PUNCH -> setOf(SfFighterState.AIR_PUNCH)
-        SfComboAction.AIR_KICK -> setOf(SfFighterState.AIR_KICK)
-        SfComboAction.DASH_FORWARD -> setOf(SfFighterState.DASH_FORWARD)
-        SfComboAction.DASH_BACKWARD -> setOf(SfFighterState.DASH_BACKWARD)
-        SfComboAction.PARRY -> SF_PARRY_STATES
-        SfComboAction.GRAB -> setOf(SfFighterState.GRAB, SfFighterState.THROW)
-        SfComboAction.TAUNT -> setOf(SfFighterState.TAUNT)
-        SfComboAction.SPECIAL -> setOf(
-            SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM,
-            SfFighterState.SPECIAL_1_HEAVY,
-        )
-        SfComboAction.SUPER_ART -> setOf(SfFighterState.SUPER_ART)
-        SfComboAction.JUMP -> setOf(
-            SfFighterState.JUMP_START, SfFighterState.JUMP_UP,
-            SfFighterState.JUMP_FORWARD, SfFighterState.JUMP_BACKWARD,
-        )
-        SfComboAction.CROUCH -> setOf(SfFighterState.CROUCH, SfFighterState.CROUCH_DOWN)
-        SfComboAction.WALK_FORWARD -> setOf(SfFighterState.WALK_FORWARD)
-        SfComboAction.RUN -> setOf(SfFighterState.RUN)
-        SfComboAction.BLOCK_HIGH -> setOf(
-            SfFighterState.BLOCK_HIGH, SfFighterState.BLOCK_LOW, SfFighterState.WALK_BACKWARD,
-        )
-        SfComboAction.FATALITY -> setOf(SfFighterState.FATALITY)
-    }
+    internal fun SfInput.hasAttackOrSpecial(): Boolean =
+        lightPunch || mediumPunch || heavyPunch || lightKick || mediumKick || heavyKick ||
+            special != null || bonusPower != null
 
-    /**
-     * ¿El peleador tiene ARTE para esta acción? (independiente de recursos como el medidor).
-     * Es lo que decide si una lección/combo se puede ENSEÑAR: el medidor se llena durante
-     * la propia lección pegándole al muñeco.
-     */
-    private fun hasArtFor(f: SfFighter, action: SfComboAction): Boolean {
-        val states = stateForAction(action)
-        return states.none { it in SF_NEW_MOVE_STATES } || states.any { hasAnim(f, it) }
-    }
-
-    /**
-     * ¿Puede ejecutarla AHORA MISMO? Añade el requisito de RECURSO (medidor lleno para la
-     * súper y el fatality). Lo usa la IA al elegir una ruta; el tutorial NO, porque si no
-     * las lecciones de súper/fatality se filtraban al arrancar con el medidor a cero y
-     * nunca se enseñaban.
-     */
-    private fun canPerform(f: SfFighter, action: SfComboAction): Boolean {
-        val needsMeter = action == SfComboAction.SUPER_ART || action == SfComboAction.FATALITY
-        if (needsMeter && !f.superReady) return false
-        return hasArtFor(f, action)
-    }
-
-    /**
-     * 🆕 Elige una RUTA de combo ejecutable y la encola. La IA prefiere el combo de FIRMA
-     * del peleador y, si no puede, uno universal de su nivel de dificultad hacia abajo.
-     */
-    private fun queueCombo(selfIndex: Int, me: SfFighter, now: Long): Boolean {
-        val i = selfIndex.coerceIn(0, 1)
-        if (cpuComboQueue[i].isNotEmpty()) return false
-        val maxLevel = when {
-            cpuIntensity > 0.66f -> 4
-            cpuIntensity > 0.33f -> 3
-            else -> 2
-        }
-        val options = buildList {
-            signatureCombo(me.id)?.let { add(it) }
-            addAll(comboCatalog.filter { it.level <= maxLevel })
-        }.filter { combo -> combo.steps.all { canPerform(me, it) } }
-        val chosen = options.randomOrNull() ?: return false
-        cpuComboQueue[i].addAll(chosen.steps)
-        cpuComboUntilMs[i] = now + COMBO_ROUTE_TIMEOUT_MS
-        return true
-    }
-
-    /** Siguiente paso de la ruta encolada (null si no hay o si expiró). */
-    private fun nextComboInput(selfIndex: Int, now: Long): SfInput? {
-        val i = selfIndex.coerceIn(0, 1)
-        if (cpuComboQueue[i].isEmpty()) return null
-        if (now > cpuComboUntilMs[i]) { cpuComboQueue[i].clear(); return null }
-        return inputForAction(cpuComboQueue[i].removeFirst())
-    }
-
-    /** Arma un SfInput de golpe (puño o patada) de la fuerza pedida. */
-    private fun cpuAttack(strength: SfAttackStrength, punch: Boolean): SfInput = if (punch) {
-        when (strength) {
-            SfAttackStrength.LIGHT -> SfInput(lightPunch = true)
-            SfAttackStrength.MEDIUM -> SfInput(mediumPunch = true)
-            SfAttackStrength.HEAVY -> SfInput(heavyPunch = true)
-        }
-    } else {
-        when (strength) {
-            SfAttackStrength.LIGHT -> SfInput(lightKick = true)
-            SfAttackStrength.MEDIUM -> SfInput(mediumKick = true)
-            SfAttackStrength.HEAVY -> SfInput(heavyKick = true)
-        }
-    }
-
-    /**
-     * 🆕 (2026-07-18j) Golpe al azar SIN repetir el último (firma fuerza×tipo por peleadór).
-     * Sustituye a randomCpuAttack(): con 6 combos y memoria de 1, la IA mezcla puños/patadas
-     * y fuerzas en vez de encadenar el MISMO ataque una y otra vez.
-     */
-    private fun variedCpuAttack(selfIndex: Int): SfInput {
-        val i = selfIndex.coerceIn(0, 1)
-        val history = cpuAttackHistory[i]
-        val sig = (0 until 6).filterNot(history::contains).ifEmpty { (0 until 6).toList() }.random()
-        history.addLast(sig)
-        while (history.size > 3) history.removeFirst()
-        return cpuAttack(SfAttackStrength.entries[sig / 2], punch = sig % 2 == 0)
+    internal fun SfInput.isOnlyWalkToward(me: SfFighter, foe: SfFighter): Boolean {
+        if (hasAttackOrSpecial() || up || down) return false
+        val toward = cpuMoveTowardFlags(me, foe)
+        return (forward && toward.forward && !backward) || (backward && toward.backward && !forward)
     }
 
     // ------------------------------------------------------------------
@@ -4161,7 +3411,7 @@ class StreetFighterViewModel @Inject constructor(
     private var tutorialLessonReadyMs = 0L
 
     /** ¿Este combate es el tutorial? (lo consultan el tick y la IA para inhibir al muñeco). */
-    private val inTutorial: Boolean get() = _state.value.tutorialActive
+    internal val inTutorial: Boolean get() = _state.value.tutorialActive
 
     /**
      * Arranca el tutorial con el peleador elegido (de los DESBLOQUEADOS). El rival es el
@@ -5083,7 +4333,7 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     /** Reinicio de todos los relojes/colas internos (resetGameState del JS). */
-    private fun resetInternals() {
+    internal fun resetInternals() {
         gameNow = 0L
         lastRealMs = SystemClock.elapsedRealtime()
         lastHpSeen.fill(-1)
@@ -5182,765 +4432,6 @@ class StreetFighterViewModel @Inject constructor(
         dispHp1 = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat()
     }
 
-    // ══════════════════════════════════════════════════════════════════
-    // 🆕 MULTIJUGADOR 1v1 — intents y manejo de red (relay puro)
-    // ══════════════════════════════════════════════════════════════════
-
-    /** Crea sala privada o se une con código. */
-    fun startOnline(create: Boolean, code: String? = null) =
-        connectOnline { c -> if (create) c.createRoom() else c.joinRoom(code.orEmpty()) }
-
-    /** SALA PÚBLICA: entra a la lista de espera; el server empareja al llegar otro. */
-    fun startOnlineQuick() = connectOnline { c ->
-        c.quickMatch()
-        c.listRooms() // de paso, el resumen de partidas activas
-    }
-
-    /** Conecta (despertando el free tier de Render primero) y ejecuta la acción inicial. */
-    private fun connectOnline(onReady: (SfMatchClient) -> Unit) {
-        if (isOnline) return
-        _state.value = _state.value.copy(onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null)
-        viewModelScope.launch(Dispatchers.IO) {
-            val awake = SfMatchClient.warmupBlocking(
-                BuildConfig.SF_SERVER_URL,
-                // 🆕 (2026-07-26) Solo si estaba dormido: la UI explica la espera en vez de
-                // dejar al jugador mirando un "conectando…" durante un minuto sin motivo.
-                onSleeping = {
-                    _state.value = _state.value.copy(onlineWaking = true)
-                },
-            )
-            if (!awake) {
-                _state.value = _state.value.copy(
-                    onlineStatus = SfOnlineStatus.OFF,
-                    onlineWaking = false,
-                    onlineError = "No se pudo despertar el servidor (plan gratis de Render). Intenta de nuevo.",
-                )
-                return@launch
-            }
-            _state.value = _state.value.copy(onlineWaking = false)
-            val client = SfMatchClient()
-            transport = client
-            relayClient = client // 🆕 canal de señalización y respaldo del P2P
-            client.connect(
-                BuildConfig.SF_SERVER_URL,
-                object : SfNetTransport.Listener {
-                    override fun onOpen() {
-                        onReady(client)
-                    }
-                    override fun onMessage(msg: SfNetMsg) {
-                        // Llega en el hilo de OkHttp → se serializa con el tick en Main
-                        viewModelScope.launch { handleNetMessage(msg) }
-                    }
-                    override fun onClosed() {
-                        viewModelScope.launch { onNetDropped(null) }
-                    }
-                    override fun onFailure(reason: String) {
-                        viewModelScope.launch { onNetDropped(reason) }
-                    }
-                },
-            )
-        }
-    }
-
-    // ══════════════════════════════════════════════════════════════════
-    // 🆕 MULTIJUGADOR LOCAL por BLUETOOTH (SfBtClient; mismo flujo que online)
-    // Los permisos runtime (CONNECT/SCAN/ADVERTISE en Android 12+) los pide la
-    // View ANTES de llamar estos intents.
-    // ══════════════════════════════════════════════════════════════════
-
-    /**
-     * 🆕 (2026-07-26) Intenta subir la pelea a una conexión DIRECTA teléfono-a-teléfono. A partir
-     * de aquí Render solo hace de CUPIDO: intercambia el SDP y los candidatos ICE de los dos y se
-     * aparta. La pelea deja de dar el rodeo hasta Oregón, que era de donde salía casi todo el lag.
-     *
-     * Solo ONLINE: en BT/LAN los teléfonos YA están conectados directo, no hay nada que mejorar.
-     * El HOST hace la oferta y el invitado contesta (si ofrecieran los dos habría colisión).
-     *
-     * Si algo falla —WebRTC no arranca, el NAT es simétrico, el canal se cae a media pelea— no
-     * pasa NADA visible: [SfWebRtcClient] reenvía por el relay de siempre. Por eso no hace falta
-     * un TURN de pago y el online sigue siendo gratis.
-     */
-    private fun maybeUpgradeToP2p(offerer: Boolean) {
-        val s = _state.value
-        if (s.btMode || s.lanMode) return
-        webRtc?.let {
-            // Ya negociado. Si el que entra es un rival NUEVO (se fue uno y llegó otro), el canal
-            // directo apunta al que se fue: se marca muerto para que todo salga por el relay.
-            it.markPeerChanged()
-            return
-        }
-        val relay = relayClient ?: return
-        val client = SfWebRtcClient(appContext, relay, isOfferer = offerer)
-        webRtc = client
-        transport = client
-        client.start(makeNetListener())
-        Log.d(SF_NET_TAG, "P2P: negociando conexión directa (offerer=$offerer)")
-    }
-
-    /** Listener común de red para los transportes que no necesitan acción al abrir (BT). */
-    private fun makeNetListener() = object : SfNetTransport.Listener {
-        override fun onOpen() = Unit
-        override fun onMessage(msg: SfNetMsg) {
-            viewModelScope.launch { handleNetMessage(msg) }
-        }
-        override fun onClosed() {
-            viewModelScope.launch { onNetDropped(null) }
-        }
-        override fun onFailure(reason: String) {
-            viewModelScope.launch { onNetDropped(reason) }
-        }
-    }
-
-    /** ANFITRIÓN Bluetooth: visible + accept; el flujo sigue como online (ROOM_CREATED "BT"). */
-    fun startBtHost() {
-        if (isOnline) return
-        stopBtScanInternal()
-        _state.value = _state.value.copy(
-            onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null, btMode = true,
-            btError = null, btRetryAddress = null, btHandshaking = false,
-            lanMode = false, lanLocalIp = null, lanHostAddress = null,
-        )
-        val client = SfBtClient(appContext)
-        transport = client
-        client.startHost(makeNetListener())
-    }
-
-    /** BUSCAR RIVAL: abre el selector y llena btDevices (emparejados + discovery). */
-    fun startBtScan() {
-        if (isOnline) return
-        stopBtScanInternal()
-        _state.value = _state.value.copy(
-            btPicking = true, btMode = true, btDevices = emptyList(), onlineError = null,
-        )
-        val scanner = SfBtClient(appContext)
-        btScanner = scanner
-        val ok = scanner.startScan { dev ->
-            _state.update { s ->
-                if (s.btDevices.any { it.address == dev.address }) s
-                else s.copy(btDevices = s.btDevices + dev)
-            }
-        }
-        if (!ok) {
-            stopBtScanInternal()
-            _state.value = _state.value.copy(
-                btPicking = false, btMode = false,
-                onlineError = "Bluetooth apagado o no disponible: enciéndelo e intenta de nuevo.",
-            )
-        }
-    }
-
-    /** Cierra el selector de dispositivos sin conectar. */
-    fun cancelBtScan() {
-        stopBtScanInternal()
-        _state.value = _state.value.copy(btPicking = false, btMode = false, btDevices = emptyList())
-    }
-
-    /** INVITADO Bluetooth: conecta al host elegido (el flujo sigue como online). */
-    fun connectBtDevice(address: String) {
-        if (isOnline) return
-        stopBtScanInternal()
-        _state.value = _state.value.copy(
-            btPicking = false, onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null,
-            btMode = true, btError = null, btRetryAddress = address, btHandshaking = false,
-            lanMode = false, lanLocalIp = null, lanHostAddress = null,
-        )
-        val client = SfBtClient(appContext)
-        transport = client
-        client.connectToHost(address, makeNetListener())
-    }
-
-    // ══════════════════════════════════════════════════════════════════
-    // 🆕 SERVIDOR LOCAL (LAN/Wi-Fi): el jugador hostea su propia sala, estilo LAN party.
-    // Sin permisos nuevos (solo INTERNET) ni cambios de Play Console.
-    // ══════════════════════════════════════════════════════════════════
-
-    /** HOST LAN: abre el servidor y muestra la IP a compartir (misma red Wi-Fi/hotspot). */
-    fun startLanHost() {
-        if (isOnline) return
-        stopBtScanInternal()
-        lanDiscovery?.close() // cierra cualquier escucha previa antes de emitir la baliza
-        val ips = SfLanClient.localIpAddresses()
-        _state.value = _state.value.copy(
-            onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null,
-            btMode = false, lanMode = true,
-            lanLocalIp = ips.firstOrNull(), lanLocalIps = ips, lanHostAddress = null,
-            btError = null, btRetryAddress = null, btHandshaking = false,
-        )
-        val client = SfLanClient(appContext)
-        transport = client
-        client.startHost(makeNetListener())
-        // 🆕 (2026-07-26) Emite la baliza para que el invitado encuentre esta sala sin teclear IP.
-        lanDiscovery = SfLanDiscovery(appContext).also { it.startBeacon(android.os.Build.MODEL ?: "POW") }
-    }
-
-    /**
-     * 🆕 (2026-07-26) INVITADO: escucha balizas LAN y va llenando `lanDiscovered` (tarjetas
-     * tocables). Se llama al abrir la sección UNIRSE de LAN; `stopLanDiscovery` al salir/unirse.
-     */
-    fun startLanDiscovery() {
-        if (isOnline) return
-        lanDiscovery?.close()
-        _state.value = _state.value.copy(lanDiscovered = emptyList())
-        lanDiscovery = SfLanDiscovery(appContext).also { disc ->
-            disc.startListening { game ->
-                // Llega en hilo de fondo → re-postear a Main y deduplicar por IP.
-                viewModelScope.launch {
-                    val cur = _state.value.lanDiscovered
-                    if (cur.none { it.ip == game.ip }) {
-                        _state.value = _state.value.copy(lanDiscovered = cur + game)
-                    }
-                }
-            }
-        }
-    }
-
-    /** Detiene la escucha/baliza LAN y limpia la lista de partidas halladas. */
-    fun stopLanDiscovery() {
-        lanDiscovery?.close()
-        lanDiscovery = null
-        if (_state.value.lanDiscovered.isNotEmpty()) {
-            _state.value = _state.value.copy(lanDiscovered = emptyList())
-        }
-    }
-
-    /** INVITADO LAN: conecta a la IP que muestra la pantalla del host (tecleada o autodescubierta). */
-    fun connectLanHost(addressRaw: String) {
-        if (isOnline) return
-        val address = addressRaw.trim()
-        if (address.isEmpty()) return
-        stopBtScanInternal()
-        stopLanDiscovery() // ya elegiste una sala: deja de escuchar balizas
-        _state.value = _state.value.copy(
-            onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null,
-            btMode = false, lanMode = true,
-            lanLocalIp = null, lanHostAddress = address,
-            btError = null, btRetryAddress = null, btHandshaking = false,
-        )
-        val client = SfLanClient(appContext)
-        transport = client
-        client.connectToHost(address, makeNetListener())
-    }
-
-    /** Cierra el overlay de error BT/LAN y regresa (EXPLÍCITAMENTE) al selector offline. */
-    fun dismissBtError() {
-        _state.value = _state.value.copy(
-            btError = null, btRetryAddress = null, btMode = false,
-            lanMode = false, lanLocalIp = null, lanHostAddress = null,
-        )
-    }
-
-    /**
-     * Falla del enlace LOCAL (BT o LAN) ANTES de pelear → overlay bloqueante con REINTENTAR.
-     * Regla: elegiste jugar por BT/LAN, así que JAMÁS se cae en silencio al selector offline
-     * (nada de terminar peleando contra la IA creyendo que era tu rival); se reintenta
-     * hasta que la conexión esté VERIFICADA o el jugador cancele explícitamente.
-     */
-    private fun onLocalLinkFailed(reason: String?) {
-        val s = _state.value
-        lanDiscovery?.close()
-        lanDiscovery = null
-        transport?.close() // si es el P2P, su close() cierra también el relay que decora
-        transport = null
-        webRtc = null
-        relayClient = null
-        remoteSnapshot = null
-        netDamageQueue.clear()
-        myOnlineChar = null
-        oppOnlineChar = null
-        onlineEndSent = false
-        resetInternals()
-        _state.value = StreetFighterState(
-            btMode = s.btMode,
-            lanMode = s.lanMode,
-            btError = reason ?: "No se pudo conectar",
-            btRetryAddress = s.btRetryAddress,
-            lanHostAddress = s.lanHostAddress,
-        )
-    }
-
-    // Detiene los descubrimientos LOCALES en curso (scan BT + baliza/escucha LAN). Se llama en
-    // todos los teardown/reinicio de sesión (cancelOnline, onCleared, y al arrancar host/join).
-    private fun stopBtScanInternal() {
-        btScanner?.stopScan()
-        btScanner?.close()
-        btScanner = null
-        lanDiscovery?.close()
-        lanDiscovery = null
-    }
-
-    /**
-     * 🆕 Lobby estilo AoE2: al tocar una sala en 'waiting' se SOLICITA unirse (REQUEST_JOIN);
-     * el ANFITRIÓN decide (ACEPTAR → ROOM_JOINED / RECHAZAR → JOIN_REJECTED y de regreso a
-     * la lista de espera). El server saca al solicitante de la cola mientras el host decide.
-     */
-    fun requestJoinRoom(code: String) {
-        val s = _state.value
-        if (s.onlineStatus != SfOnlineStatus.WAITING_OPPONENT || s.roomCode != null || s.awaitingJoinOk) return
-        transport?.requestJoin(code)
-        _state.value = s.copy(awaitingJoinOk = true, queueNotice = null)
-    }
-
-    /** (HOST) Responde la solicitud de unión pendiente: aceptar mete al rival a la sala. */
-    fun respondJoin(accept: Boolean) {
-        transport?.respondJoin(accept)
-        _state.value = _state.value.copy(joinRequestPending = false)
-    }
-
-    /** Sale de la sala y vuelve al selector offline (con error opcional a mostrar). */
-    fun cancelOnline(errorMsg: String? = null) {
-        countdownJob?.cancel()
-        roomsRefreshJob?.cancel()
-        // Lo fino es AVISAR antes de cerrar el WS: CANCEL_QUEUE saca de la lista de espera
-        // (el server también limpia la cola en close, pero así no queda ventana) y LEAVE_ROOM
-        // libera la sala; el server ignora el que no aplique.
-        transport?.cancelQueue()
-        transport?.leaveRoom()
-        transport?.close() // si es el P2P, su close() cierra también el relay que decora
-        transport = null
-        webRtc = null
-        relayClient = null
-        stopBtScanInternal()
-        remoteSnapshot = null
-        netDamageQueue.clear()
-        myOnlineChar = null
-        oppOnlineChar = null
-        onlineEndSent = false
-        resetInternals()
-        _state.value = StreetFighterState(onlineError = errorMsg)
-    }
-
-    /** El ANFITRIÓN elige el mapa (null = al azar entre DESBLOQUEADOS); el server lo replica. */
-    fun chooseMapOnline(file: String?) {
-        val unlocked = unlockedMaps()
-        val pool = SF_CLASSIC_THEME.fullBackgrounds.map { it.file }.let { all ->
-            if (devUnlockAll()) all else all.filter { it in unlocked }
-        }
-        val resolved = file ?: pool.randomOrNull() ?: return
-        // No permitir hostear un mapa bloqueado (salvo Modo Dev)
-        if (!devUnlockAll() && resolved !in unlocked && file != null) return
-        transport?.selectMap(resolved)
-    }
-
-    private fun handleNetMessage(msg: SfNetMsg) {
-        // 🆕 (2026-07-26) SEÑALIZACIÓN WebRTC: SIGNAL_OFFER/ANSWER/ICE son plomería para abrir
-        // la conexión directa, no gameplay. Se los queda el transporte P2P y NO llegan al when.
-        if (webRtc?.consumeSignaling(msg) == true) return
-        val s = _state.value
-        when (msg.type) {
-            "ROOM_CREATED" -> _state.value = s.copy(
-                onlineStatus = SfOnlineStatus.WAITING_OPPONENT, roomCode = msg.code, isHost = true,
-            )
-            "ROOM_JOINED" -> {
-                _state.value = s.copy(
-                    onlineStatus = SfOnlineStatus.SELECTING, roomCode = msg.code, isHost = false,
-                    awaitingJoinOk = false, queueNotice = null,
-                )
-                // 🆕 Ya somos 2 en la sala: a partir de aquí se puede negociar el P2P.
-                maybeUpgradeToP2p(offerer = false)
-            }
-            "OPPONENT_JOINED" -> {
-                lanDiscovery?.stopBeacon() // 🆕 sala llena → deja de anunciarse por UDP
-                if (s.battleEnded || !s.inCharacterSelect) {
-                    // Un rival NUEVO entró cuando la pelea anterior ya corrió/terminó (p. ej.
-                    // en BT el host sigue aceptando tras un abandono): sala en limpio, como
-                    // en REMATCH_ACCEPTED — sin esto quedaba SELECTING sobre el fin de pelea.
-                    resetInternals()
-                    onlineEndSent = false
-                    remoteSnapshot = null
-                    netDamageQueue.clear()
-                    myOnlineChar = null
-                    oppOnlineChar = null
-                    _state.value = StreetFighterState(
-                        onlineStatus = SfOnlineStatus.SELECTING,
-                        roomCode = s.roomCode,
-                        isHost = s.isHost,
-                        btMode = s.btMode,
-                        lanMode = s.lanMode,
-                        lanLocalIp = s.lanLocalIp,
-                        lanLocalIps = s.lanLocalIps,
-                    )
-                } else {
-                    _state.value = s.copy(
-                        onlineStatus = SfOnlineStatus.SELECTING, joinRequestPending = false,
-                    )
-                }
-                // 🆕 El HOST hace la OFERTA en cuanto entra el rival (el invitado contesta).
-                maybeUpgradeToP2p(offerer = true)
-            }
-            // Sala pública: en lista de espera (roomCode null → la UI muestra "buscando rival")
-            "QUEUED" -> {
-                _state.value = s.copy(
-                    onlineStatus = SfOnlineStatus.WAITING_OPPONENT, roomCode = null,
-                    awaitingJoinOk = false,
-                )
-                startRoomsRefresh()
-            }
-            // (BT) Socket conectado; verificando con el anfitrión (progreso en la UI)
-            "BT_HANDSHAKE" -> _state.value = s.copy(btHandshaking = true)
-            // ─── 🆕 Lobby con aprobación ───
-            // (HOST) alguien pide unirse → la View muestra ACEPTAR/RECHAZAR
-            "JOIN_REQUESTED" -> _state.value = s.copy(joinRequestPending = true)
-            "JOIN_REQUEST_CANCELLED" -> _state.value = s.copy(joinRequestPending = false)
-            // (INVITADO) rechazado/sala llena → vuelve a la lista de espera con el aviso
-            "JOIN_REJECTED" -> {
-                transport?.quickMatch() // re-entra a la cola pública
-                _state.value = s.copy(awaitingJoinOk = false, queueNotice = msg.message)
-            }
-            "ROOMS_LIST" -> _state.value = s.copy(
-                activeRooms = msg.rooms ?: emptyList(),
-                queueCount = msg.queue ?: 0,
-            )
-            "ERROR" -> cancelOnline(msg.message ?: "Error del servidor")
-            "CHARACTERS_SELECTED" -> {
-                val oppName = if (s.isHost) msg.char2 else msg.char1
-                // Parse defensivo: un id inválido/eliminado (p. ej. "RYU"/"KEN" de un cliente viejo) → PRANKEDY.
-                oppOnlineChar = oppName?.let { n -> runCatching { SfFighterId.valueOf(n) }.getOrNull() }
-                    ?: SfFighterId.PRANKEDY
-                _state.value = s.copy(onlineStatus = SfOnlineStatus.WAITING_MAP)
-            }
-            "MAP_SELECTED" -> {
-                _state.value = s.copy(
-                    onlineStatus = SfOnlineStatus.COUNTDOWN,
-                    onlineMapFile = msg.map,
-                    onlineCountdown = 3,
-                )
-                countdownJob?.cancel()
-                countdownJob = viewModelScope.launch {
-                    for (n in 2 downTo 1) {
-                        delay(1000)
-                        _state.value = _state.value.copy(onlineCountdown = n)
-                    }
-                }
-            }
-            "FIGHT_START" -> startOnlineBattle()
-            // 🆕 (2026-07-25) El rival ya cargó sus atlas: parte de la barrera "ambos listos".
-            "PLAYER_READY" -> {
-                Log.d(SF_NET_TAG, "PLAYER_READY del rival recibido")
-                peerReady = true
-                maybeStartAfterReady()
-            }
-            "OPPONENT_STATE" -> remoteSnapshot = msg
-            "PLAYER_DAMAGE" -> netDamageQueue.add(msg)
-            "ROUND_ENDED" -> roundEndedFromNet(msg.winner, msg.outcome) // 🆕 fin de RONDA intermedia
-            "MATCH_ENDED" -> endFromNet(msg.winner)
-            "REMATCH_REQUESTED" -> _state.value = s.copy(opponentWantsRematch = true)
-            "REMATCH_ACCEPTED" -> {
-                resetInternals()
-                onlineEndSent = false
-                remoteSnapshot = null
-                netDamageQueue.clear()
-                myOnlineChar = null
-                oppOnlineChar = null
-                _state.value = StreetFighterState(
-                    onlineStatus = SfOnlineStatus.SELECTING,
-                    roomCode = s.roomCode,
-                    isHost = s.isHost,
-                    btMode = s.btMode, // la revancha BT/LAN sigue en su transporte
-                    lanMode = s.lanMode,
-                    lanLocalIp = s.lanLocalIp,
-                    lanLocalIps = s.lanLocalIps,
-                )
-            }
-            "OPPONENT_LEFT", "OPPONENT_DISCONNECTED" -> {
-                if (s.onlineStatus == SfOnlineStatus.FIGHTING && !s.battleEnded) {
-                    // Victoria por abandono (decide el COMBATE, no solo la ronda)
-                    onlineEndSent = true
-                    matchOver = true
-                    endMenuAtMs = 0L
-                    roundResetAtMs = 0L
-                    _state.value = s.copy(
-                        battleEnded = true, winnerIndex = 0, showEndMenu = true,
-                        onlineStatus = SfOnlineStatus.OPPONENT_LEFT,
-                        playerRoundWins = ROUNDS_TO_WIN,
-                    )
-                } else if (s.isHost) {
-                    // El invitado se fue en la antesala: la sala sigue viva esperando a otro
-                    _state.value = s.copy(
-                        onlineStatus = SfOnlineStatus.WAITING_OPPONENT, opponentWantsRematch = false,
-                    )
-                } else if (s.btMode || s.lanMode) {
-                    // BT/LAN: se perdió al anfitrión en la antesala → overlay de REINTENTAR
-                    onLocalLinkFailed("Se perdió la conexión con el anfitrión")
-                } else {
-                    cancelOnline("El anfitrión cerró la sala")
-                }
-            }
-        }
-    }
-
-    /**
-     * Mientras estás en la LISTA DE ESPERA pública, re-pide LIST_ROOMS cada ROOMS_REFRESH_MS
-     * (resumen + tarjetas de salas). Se auto-detiene al emparejarte/unirte/cancelar.
-     */
-    private fun startRoomsRefresh() {
-        roomsRefreshJob?.cancel()
-        roomsRefreshJob = viewModelScope.launch {
-            while (isActive) {
-                delay(ROOMS_REFRESH_MS)
-                val st = _state.value
-                if (st.onlineStatus != SfOnlineStatus.WAITING_OPPONENT || st.roomCode != null) break
-                transport?.listRooms()
-            }
-        }
-    }
-
-    /** FIGHT_START: arranca la pelea online. El anfitrión pelea a la IZQUIERDA. */
-    private fun startOnlineBattle() {
-        val s = _state.value
-        Log.d(SF_NET_TAG, "FIGHT_START recibido → cargando y esperando al rival")
-        resetInternals()
-        // 🆕 (2026-07-25) BARRERA "AMBOS LISTOS": no arrancar el intro/reloj hasta que AMBOS
-        // teléfonos cargaron sus atlas. releaseReadyBarrier fija roundIntroUntilMs al liberarse.
-        roundIntroUntilMs = 0L
-        armReadyBarrier()
-        onlineEndSent = false
-        remoteSnapshot = null
-        netDamageQueue.clear()
-        val base = StreetFighterState()
-        val my = myOnlineChar ?: SfFighterId.PRANKEDY
-        val opp = oppOnlineChar ?: SfFighterId.PRANKEDY
-        val leftX = base.player.x
-        val rightX = base.cpu.x
-        _state.value = base.copy(
-            player = base.player.copy(
-                id = my,
-                x = if (s.isHost) leftX else rightX,
-                direction = if (s.isHost) SfDirection.RIGHT else SfDirection.LEFT,
-            ),
-            cpu = base.cpu.copy(
-                id = opp,
-                x = if (s.isHost) rightX else leftX,
-                direction = if (s.isHost) SfDirection.LEFT else SfDirection.RIGHT,
-            ),
-            inCharacterSelect = false,
-            onlineStatus = SfOnlineStatus.FIGHTING,
-            roomCode = s.roomCode,
-            isHost = s.isHost,
-            onlineMapFile = s.onlineMapFile,
-            btMode = s.btMode, // conservar el transporte para overlays post-pelea
-            lanMode = s.lanMode,
-            lanLocalIp = s.lanLocalIp,
-            lanLocalIps = s.lanLocalIps,
-        )
-    }
-
-    /**
-     * Aplica el último OPPONENT_STATE al peleador remoto (índice 1).
-     * 🆕 INTERPOLADO (SESIÓN 4): el snapshot llega a ~15 Hz; la posición se ALISA con un lerp
-     * exponencial por tick (NET_LERP_RATE) en vez de saltar cada 4 ticks. Si la distancia
-     * supera NET_SNAP_DIST (reset de ronda/teleport) se SNAPEA — no perseguirlo lerpeando.
-     * Pose/frame/dirección/HP se aplican DIRECTO (interpolarlos falsearía la pelea).
-     */
-    private fun applyRemoteSnapshot(sim: Sim, now: Long, dt: Float) {
-        val rs = remoteSnapshot ?: return
-        if (rs !== lastSeenSnapshot) {
-            lastSeenSnapshot = rs
-            remoteSnapshotAtMs = now // edad del snapshot (para extrapolar sus proyectiles)
-            // 🆕 (2026-07-26) VOCES DEL RIVAL. Las eligió SU teléfono (los packs sortean con
-            // `.random()`) y viajan en el snapshot, así los dos oímos el MISMO clip y no dos
-            // variantes distintas del mismo evento. Solo en el snapshot NUEVO: el objeto se
-            // conserva entre ticks y aquí se re-entra ~30 veces por segundo.
-            rs.audio?.forEach { _soundEvents.tryEmit(it) }
-        }
-        // Los estados NUEVOS viajan como enum.name; un cliente viejo que no los conozca
-        // conserva el estado anterior en vez de romperse (parse defensivo ya existente).
-        val st = rs.state?.let { n -> runCatching { SfFighterState.valueOf(n) }.getOrNull() } ?: sim.p1.state
-        // 🆕 (2026-07-21) Medidor del rival (opcional: un cliente viejo no lo manda).
-        val remoteMeter = rs.meter?.coerceIn(0, SfConstants.SUPER_METER_MAX) ?: sim.p1.superMeter
-        val tx = rs.x ?: sim.p1.x
-        val ty = rs.y ?: sim.p1.y
-        val far = abs(tx - sim.p1.x) > NET_SNAP_DIST || abs(ty - sim.p1.y) > NET_SNAP_DIST
-        val alpha = if (far) 1f else (dt * NET_LERP_RATE).coerceAtMost(1f)
-        sim.p1 = sim.p1.copy(
-            x = sim.p1.x + (tx - sim.p1.x) * alpha,
-            y = sim.p1.y + (ty - sim.p1.y) * alpha,
-            state = st,
-            animationFrame = rs.frame ?: 0,
-            direction = if ((rs.dir ?: 1) >= 0) SfDirection.RIGHT else SfDirection.LEFT,
-            hitPoints = rs.hp ?: sim.p1.hitPoints,
-            superMeter = remoteMeter,
-        )
-        // 🆕 (2026-07-26) SFX del rival que se DEDUCEN de su pose (no hace falta mandarlos).
-        // Aquí el estado se asigna DIRECTO, sin pasar por changeState — que es donde el dueño
-        // del peleador emite su audio. Sin esto, el rival peleaba en silencio en tu teléfono.
-        emitRemoteStateSfx(st)
-        // 🆕 SINCRONÍA DEL TIMER: el HOST manda su reloj en PLAYER_STATE; el invitado lo
-        // ADOPTA solo si el drift acumulado es >= TIMER_RESYNC_DIFF (el conteo local sigue
-        // bajando suave; esto solo re-ancla). GRACIA post-reset: un timer viejo en vuelo de
-        // la ronda anterior NO debe pisar el 99 recién reseteado.
-        if (!_state.value.isHost && !sim.battleEnded && now >= roundGraceUntilMs) {
-            rs.timer?.let { t ->
-                if (abs(time - t) >= TIMER_RESYNC_DIFF) {
-                    time = t
-                    timeTimerMs = now
-                }
-            }
-        }
-        // Si su propio estado reporta 0 HP, gané la RONDA (él manda ROUND/MATCH_ENDED; esto
-        // lo adelanta). GRACIA post-reset: ignora snapshots viejos en vuelo con hp=0.
-        if ((rs.hp ?: 1) <= 0 && !sim.battleEnded && now >= roundGraceUntilMs) {
-            // El KO lo simuló el rival (llega por snapshot): solo PERFECT es computable aquí
-            // (mi HP al máximo); SUPER/COMBO viajan en el `outcome` de ROUND_ENDED si aplica.
-            endRound(sim, winnerIdx = 0, now = now, computeRoundOutcome(sim, 0, koState = null, byTime = false))
-        }
-    }
-
-    /**
-     * 🆕 (2026-07-26) SFX del peleador REMOTO que NO viajan por red porque son DETERMINISTAS:
-     * se deducen de su `state`, que ya viene en cada snapshot. Solo suenan en la TRANSICIÓN —
-     * el mismo estado se repite en todos los snapshots mientras dura la animación, y sin este
-     * filtro el whoosh sonaría ~15 veces por golpe.
-     *
-     * Lo que NO está aquí, a propósito:
-     *  · las VOCES (packs): se eligen al azar, así que viajan en `SfNetMsg.audio`;
-     *  · los IMPACTOS (`*-hit`): ya los emiten AMBOS lados (el atacante en applyAttackHit y
-     *    el receptor al aplicar el daño de red), así que añadirlos aquí los duplicaría.
-     */
-    private fun emitRemoteStateSfx(st: SfFighterState) {
-        if (st == lastRemoteSfxState) return
-        lastRemoteSfxState = st
-        when (st) {
-            // Golpe al aire: el mismo whoosh que emite su dueño al entrar al estado
-            SfFighterState.LIGHT_PUNCH, SfFighterState.MEDIUM_PUNCH, SfFighterState.HEAVY_PUNCH,
-            SfFighterState.LIGHT_KICK, SfFighterState.MEDIUM_KICK, SfFighterState.HEAVY_KICK,
-            SfFighterState.CROUCH_PUNCH, SfFighterState.CROUCH_KICK,
-            SfFighterState.CROUCH_HEAVY_PUNCH, SfFighterState.SWEEP,
-            SfFighterState.LONG_KICK, SfFighterState.OVERHEAD, SfFighterState.GRAB,
-            -> attackMeta[st]?.let {
-                _soundEvents.tryEmit("${it.strength.name.lowercase()}-attack")
-            }
-            SfFighterState.AIR_PUNCH, SfFighterState.AIR_KICK -> _soundEvents.tryEmit("medium-attack")
-            SfFighterState.STUN -> _soundEvents.tryEmit("land") // golpe seco al caer mareado
-            // Aterrizaje: su dueño lo emite al ENTRAR a JUMP_LAND (ver runStateHandler), que es
-            // justo la transición que se detecta aquí.
-            SfFighterState.JUMP_LAND -> _soundEvents.tryEmit("land")
-            else -> Unit
-        }
-    }
-
-    /** Aplica a MI peleador el daño que me mandó el rival (yo decido bloqueo con MI estado). */
-    private fun processNetDamage(sim: Sim, now: Long) {
-        // Ronda terminada o gracia post-reset: el daño en vuelo del rival ya no cuenta
-        if (sim.battleEnded || now < roundGraceUntilMs) {
-            netDamageQueue.clear()
-            return
-        }
-        while (true) {
-            val m = netDamageQueue.poll() ?: break
-            val strength = m.strength?.let { n -> runCatching { SfAttackStrength.valueOf(n) }.getOrNull() }
-                ?: SfAttackStrength.LIGHT
-            val type = m.atkType?.let { n -> runCatching { SfAttackType.valueOf(n) }.getOrNull() }
-                ?: SfAttackType.PUNCH
-            val hitX = (sim.p0.x + sim.p1.x) / 2f
-            val hitY = minOf(sim.p0.y, sim.p1.y) - 54f
-            applyAttackHit(sim, attackerIdx = 1, strength, type, SfHurtArea.BODY, hitX to hitY, now)
-        }
-    }
-
-    /** Manda MI estado al rival cada ~66 ms (posición, pose, frame, HP, 🆕 timer del host y mis proyectiles). */
-    private fun sendNetState(sim: Sim, now: Long) {
-        // 🆕 (2026-07-26) Las VOCES no pueden esperar a la ventana de 66 ms: un clip encolado
-        // justo después de un envío se perdería hasta 66 ms, y si la ronda termina en medio se
-        // perdería del todo. Si hay voces pendientes se manda YA (son eventos raros: un puñado
-        // por pelea, no engordan el tráfico).
-        if (now - lastNetSendMs < 66 && pendingNetAudio.isEmpty()) return
-        lastNetSendMs = now
-        val f = sim.p0
-        transport?.sendPlayerState(
-            x = f.x, y = f.y, state = f.state.name, frame = f.animationFrame,
-            dir = f.direction.sign, hp = f.hitPoints,
-            // 🆕 SINCRONÍA: solo el HOST es autoridad del reloj (el relay lo pasa tal cual)
-            timer = if (_state.value.isHost) time else null,
-            fireballs = sim.fireballs.filter { it.ownerIndex == 0 }.map {
-                SfNetFireball(it.x, it.y, it.direction.sign, it.strength.name, it.state.name, it.animationFrame)
-            },
-            // 🆕 (2026-07-21) Medidor de súper: sin esto la barra dorada del rival se veía
-            // siempre vacía en línea (y no se entendía cuándo podía soltar súper/fatality).
-            meter = f.superMeter,
-            // 🆕 (2026-07-26) Voces que emitió MI peleador desde el envío anterior.
-            // ⚡ GAMA BAJA: `emptyList()` es un singleton — no se asigna una lista nueva en cada
-            // envío (15 por segundo) solo para decir "no hay voces", que es el caso normal.
-            audio = if (pendingNetAudio.isEmpty()) emptyList() else pendingNetAudio.toList(),
-        )
-        if (pendingNetAudio.isNotEmpty()) pendingNetAudio.clear()
-    }
-
-    /**
-     * Añade los proyectiles del RIVAL (render-only; su dueño calcula las colisiones).
-     * 🆕 EXTRAPOLADOS (SESIÓN 4): entre snapshots (~66 ms) los ACTIVE avanzan a su velocidad
-     * nominal según la EDAD del snapshot (tope NET_FB_MAX_AGE_S) — antes se congelaban 4 ticks.
-     */
-    private fun appendRemoteFireballs(sim: Sim, now: Long) {
-        val fbs = remoteSnapshot?.fireballs ?: return
-        val ageS = ((now - remoteSnapshotAtMs).coerceAtLeast(0L) / 1000f).coerceAtMost(NET_FB_MAX_AGE_S)
-        fbs.forEach { nf ->
-            val strength = runCatching { SfAttackStrength.valueOf(nf.strength) }.getOrDefault(SfAttackStrength.LIGHT)
-            val fbState = runCatching { SfFireballState.valueOf(nf.state) }.getOrDefault(SfFireballState.ACTIVE)
-            val dir = if (nf.dir >= 0) SfDirection.RIGHT else SfDirection.LEFT
-            // Solo los ACTIVOS vuelan; un COLLIDED se queda donde reventó
-            val x = if (fbState == SfFireballState.ACTIVE) {
-                nf.x + strength.fireballVelocity * dir.sign * ageS
-            } else {
-                nf.x
-            }
-            sim.fireballs.add(
-                SfFireball(
-                    ownerIndex = 1,
-                    x = x, y = nf.y,
-                    direction = dir,
-                    strength = strength,
-                    velocity = 0f,
-                    state = fbState,
-                    animationFrame = nf.frame,
-                ),
-            )
-        }
-    }
-
-    /**
-     * 🆕 FIREBALL-VS-FIREBALL (SESIÓN 4): dos proyectiles ACTIVOS de DUEÑOS OPUESTOS que se
-     * traslapan REVIENTAN los dos (pose COLLIDED, como al pegar). Offline cancela ambos de
-     * verdad; online el del rival es render-only — aquí se revienta MI copia y el rival hará
-     * lo propio con la suya en su lado (~66 ms; el parpadeo de su copia es aceptado).
-     */
-    private fun collideFireballPairs(sim: Sim, now: Long) {
-        if (sim.fireballs.size < 2) return
-        for (i in sim.fireballs.indices) {
-            val a = sim.fireballs[i]
-            if (a.state != SfFireballState.ACTIVE) continue
-            for (j in i + 1 until sim.fireballs.size) {
-                val b = sim.fireballs[j]
-                if (b.state != SfFireballState.ACTIVE || b.ownerIndex == a.ownerIndex) continue
-                val boxA = fireballBox.toWorld(a.x, a.y, a.direction)
-                val boxB = fireballBox.toWorld(b.x, b.y, b.direction)
-                if (!boxA.overlaps(boxB)) continue
-                sim.fireballs[i] = collidedFireball(a, now)
-                sim.fireballs[j] = collidedFireball(b, now)
-                _soundEvents.tryEmit("light-punch-hit")
-                return // a lo sumo un cruce por tick (2 pares simultáneos es rarísimo)
-            }
-        }
-    }
-
-    private fun collidedFireball(fb: SfFireball, now: Long): SfFireball = fb.copy(
-        state = SfFireballState.COLLIDED,
-        animationFrame = 0,
-        velocity = fb.velocity * 0.33f,
-        animationTimerMs = now + (fireballCollidedDelays[0] * SfConstants.FRAME_TIME_MS).toLong(),
-    )
-
-    /** Índice local → lado de red ("p1" = anfitrión), para ROUND/MATCH_ENDED. */
-    private fun sideOf(winnerIdx: Int): String {
-        val iAmP1 = _state.value.isHost
-        return if (winnerIdx == 0) (if (iAmP1) "p1" else "p2") else (if (iAmP1) "p2" else "p1")
-    }
-
-    /** Lado de red → índice local (reconciliación de ROUND/MATCH_ENDED entrantes). */
-    private fun idxOf(side: String?): Int = when (side) {
-        "p1" -> if (_state.value.isHost) 0 else 1
-        "p2" -> if (_state.value.isHost) 1 else 0
-        else -> 0
-    }
 
     /**
      * 🆕 Fin de RONDA (KO, timeout o adelanto por red). Suma la ronda al ganador y decide:
@@ -5972,7 +4463,7 @@ class StreetFighterViewModel @Inject constructor(
         }
     }
 
-    private fun endRound(
+    internal fun endRound(
         sim: Sim,
         winnerIdx: Int,
         now: Long,
@@ -6015,7 +4506,7 @@ class StreetFighterViewModel @Inject constructor(
      * en cualquier lado (HP del ganador al máximo); SUPER/COMBO requieren conocer el golpe de KO
      * (solo en el lado que lo simuló → `koState`/`comboHits`); TIME lo fija el timeout.
      */
-    private fun computeRoundOutcome(
+    internal fun computeRoundOutcome(
         sim: Sim,
         winnerIdx: Int,
         koState: SfFighterState?,
@@ -6029,7 +4520,7 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     /** ROUND_ENDED recibido: reconcilia el fin de RONDA si mi sim aún no lo detectaba. */
-    private fun roundEndedFromNet(winnerSide: String?, outcomeName: String?) {
+    internal fun roundEndedFromNet(winnerSide: String?, outcomeName: String?) {
         val s = _state.value
         if (s.battleEnded || s.onlineStatus != SfOnlineStatus.FIGHTING) return
         val winnerIdx = idxOf(winnerSide)
@@ -6184,7 +4675,7 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     /** MATCH_ENDED recibido: reconcilia el final del COMBATE (por si mi sim no lo detectaba). */
-    private fun endFromNet(winnerSide: String?) {
+    internal fun endFromNet(winnerSide: String?) {
         val s = _state.value
         if (s.battleEnded && s.showEndMenu) return
         val winnerIdx = idxOf(winnerSide)
@@ -6200,7 +4691,7 @@ class StreetFighterViewModel @Inject constructor(
         )
     }
 
-    private fun onNetDropped(reason: String?) {
+    internal fun onNetDropped(reason: String?) {
         if (!isOnline) return
         val s = _state.value
         if ((s.btMode || s.lanMode) && !s.battleEnded && s.onlineStatus != SfOnlineStatus.OPPONENT_LEFT) {
