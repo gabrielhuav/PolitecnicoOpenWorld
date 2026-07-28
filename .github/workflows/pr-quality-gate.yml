@@ -50,15 +50,21 @@ jobs:
           echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > PolitecnicoOpenWorld/secrets.properties
       # NOTA: no se escribe google-services.json a proposito -> el plugin google-services NO se aplica
       # (ver app/build.gradle.kts) y el proyecto compila/testea sin Firebase. Es lo que queremos en el gate.
-      # assembleDebug + testDebugUnitTest: (1) ARMA la app (compila, valida el grafo Hilt COMPLETO
-      # y el merge de manifest/recursos — cosas que los unit tests no cubren; clave tras la Etapa 4
-      # de DI), y (2) corre los tests de lógica pura. Ambos deben pasar para mergear.
-      # 🍏 Tests del modulo KMP `:shared` (dominio puro de SF + GeoPoint). Hoy el reparto es
-      # 112 en `:app` + 49 en `:shared` = 161. Si mueves mas dominio a `:shared`, el reparto
-      # cambia: lo que importa es que la SUMA no baje.
-      # ⚠️ LA TAREA SE LLAMA `testAndroidHostTest`, NO `testDebugUnitTest`: cambio en la Fase 5
+      # 🍏 GUARDA DE iOS QUE CORRE EN LINUX. Un nombre de test entre backticks con ( ) o ,
+      # compila en la JVM y **rompe Kotlin/Native**. Como aqui NO se compila iOS, sin esta
+      # comprobacion el unico modo de enterarse es abrir un Mac. Ya paso dos veces, la segunda
+      # con el gotcha ya documentado: documentarlo no basto, nada lo impedia mecanicamente.
+      # Es un grep: cuesta segundos y ahorra un viaje de ida y vuelta.
+      - name: Nombres de test compatibles con Kotlin/Native
+        working-directory: ./PolitecnicoOpenWorld
+        run: bash tools/check_kmp_test_names.sh
+      # assembleDebug ARMA la app (compila, valida el grafo Hilt COMPLETO y el merge de
+      # manifest/recursos — cosas que los unit tests no cubren), y los dos `test*` corren la
+      # logica pura. Todo debe pasar para mergear.
+      # ⚠️ LA TAREA DE `:shared` SE LLAMA `testAndroidHostTest`, NO `testDebugUnitTest`: cambio
       # al pasar a `com.android.kotlin.multiplatform.library` (AGP 9 ya no admite
-      # `com.android.library` junto a KMP). Con el nombre viejo, Gradle falla con 'task not found'.
+      # `com.android.library` junto a KMP). Con el nombre viejo, Gradle dice 'task not found'.
+      # Si mueves mas dominio a `:shared` el reparto cambia; lo que importa es que la SUMA no baje.
       - name: Build debug APK + run unit tests
         working-directory: ./PolitecnicoOpenWorld
         run: gradle :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest --stacktrace

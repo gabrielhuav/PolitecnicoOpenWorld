@@ -67,23 +67,18 @@ mapas usa `jsonOf`/`jsonArrayOf`. (2) **kotlinx PETA si falta un campo sin defau
 campo nuevo lleva default**. Los fijan `PayloadsSeSerializanEnRuntimeTest` y
 `ModelosToleranJsonIncompletoTest`.
 
-## 3ter. Sesión 2026-07-27 (Opus 5, EN EL MAC) — 🍏 iOS arranca + Fase 1.5
+## 3ter. iOS arrancó + Fase 1.5 (Mac) — el mapa Leaflet corre en el simulador
 
-**✅ `:shared` compila, enlaza y sus 49 tests PASAN en el simulador**; Room generó su `actual` sin
-tocar nada. **✅ El mapa Leaflet del juego CORRE en iOS** (visto en pantalla, con pinch-zoom):
-`WorldMapLeafletHtml.kt` vive en `:shared`, `:shared` produce un framework (`baseName="Shared"`)
+`WorldMapLeafletHtml.kt` vive en `:shared`; `:shared` produce un framework (`baseName="Shared"`)
 y la app iOS está en `iosApp/` (SwiftUI + `WKWebView`).
 - ⚠️ **El runtime del simulador lo instala XCODE** (`xcodebuild -downloadPlatform iOS`), no un DMG
-  a mano: el DMG queda en cuarentena y los tests mueren con `Abort trap` (134), que NO parece un
-  problema de permisos.
+  a mano: el DMG queda en cuarentena y los tests mueren con `Abort trap` (134).
 - ⚠️ **Genera el framework ANTES de abrir Xcode** (`:shared:linkDebugFrameworkIosSimulatorArm64`)
   o sale `No such module 'Shared'`.
-- ⚠️ **`gradle-wrapper.jar` está en `.gitignore` → NO viene por git.** Se regenera con el Gradle
-  cacheado; eso reescribe `gradlew`/`.bat`/`.properties` → **revierte esos 3, quédate con el .jar**.
-- ⚠️ **Qué NO prueba este hito:** los 49 tests son **dominio puro**; NO tocan Room, Ktor ni
-  Settings en iOS. Y el motor Darwin de Ktor sigue sin ejercitarse.
-- 🔴 **Deuda:** las 5 rutas `file:///android_asset/` ya están parametrizadas, pero el handler
-  de iOS devuelve 404 (los assets no se empaquetan hasta la Fase 6).
+- ⚠️ **`gradle-wrapper.jar` está en `.gitignore` → NO viene por git.** Al regenerarlo, revierte
+  `gradlew`/`.bat`/`.properties` y quédate solo con el `.jar`.
+- 🔴 **Deuda:** las rutas de assets ya están parametrizadas, pero el handler de iOS devuelve 404
+  (los assets no se empaquetan hasta la Fase 6).
 
 ## 3quater. Sesión 2026-07-27 (Opus 5, Windows) — ⬆️ Kotlin 2.3.21 + DSL de AGP 9
 
@@ -132,6 +127,18 @@ cero errores de POW en logcat. `assembleDebug` + `compileReleaseKotlin` + detekt
 - 📌 **Lo que NO cambio:** `:shared` sigue siendo **~5%** del codigo. La logica de pelea sigue
   escrita como extensiones de un ViewModel de Android; `applyAttackHit` solo toca **29 campos del
   VM**. Sacar eso es la Fase 5 y son varias sesiones.
+
+## 3septies. iOS AUDITADO (Mac) + guarda para no repetir el viaje
+
+**✅ Los 66 tests de `:shared` PASAN en el simulador de iOS**, incluidos los 17 nuevos del motor
+compartido (`SfPushboxesTest` 7, `SfSimulationTest` 10). El framework enlaza y la app iOS sigue
+pintando el mapa. Android: 112 + 66 = 178, 0 fallos. **El motor compartido cruza a Kotlin/Native
+sin tocar una sola aserción** — o sea la extracción fue correcta, no solo compilable.
+- ⚠️ **Único fallo: 4 nombres de test con `(` `)` `,`** — Kotlin/Native los rechaza y la JVM no.
+  Era el gotcha nº4 de 09 §🍏 KMP/iOS, **ya documentado, y aun así volvió a pasar**.
+- 🆕 **Por eso ahora hay una GUARDA mecánica**: `tools/check_kmp_test_names.sh`, en el
+  `pr-quality-gate`. Corre en Linux en 2 segundos y convierte un viaje a la Mac en un fallo de CI.
+  Verificada contra los 4 nombres reales que fallaron. **Documentar no bastó; esto sí.**
 
 ## 4. PENDIENTE — por prioridad
 

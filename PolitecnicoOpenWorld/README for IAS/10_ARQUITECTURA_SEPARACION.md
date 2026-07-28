@@ -147,6 +147,27 @@ Y el análisis estático (mismo comando que CI):
 
 ---
 
+## 6bis. 🍏 Si escribes tests en `commonTest`, ojo con el NOMBRE
+
+Kotlin/Native **rechaza** `(`, `)` y `,` dentro de los backticks de un nombre de función:
+
+```kotlin
+fun `la barra SUBE de golpe (no se anima)`() {}   // ❌ compila en JVM, ROMPE iOS
+fun `la barra SUBE de golpe - no se anima`() {}   // ✅
+```
+
+Compila en Android y revienta en el Mac con *"Name contains illegal characters"*. Como en
+Windows/Linux no se compila iOS, **era invisible hasta abrir un Mac**. Ya pasó dos veces — la
+segunda con el gotcha ya escrito, porque nada lo impedía.
+
+Ahora lo caza CI antes de mergear, y lo puedes correr tú en 2 segundos:
+
+```bash
+bash tools/check_kmp_test_names.sh
+```
+
+---
+
 ## 7. Los seis errores que más caro salen aquí
 
 1. **Recrear en la clase una función que vive en un parcial.** Gana la de la clase, en silencio.
