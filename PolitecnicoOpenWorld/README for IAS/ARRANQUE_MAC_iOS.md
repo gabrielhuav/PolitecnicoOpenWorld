@@ -70,7 +70,7 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 Esto ya pasaba en Windows. Si en el Mac no pasa, el problema es del entorno, **no** del código:
 
 ```bash
-./gradlew :app:assembleDebug :app:testDebugUnitTest :shared:testDebugUnitTest
+./gradlew :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest
 ```
 
 **Esperado: BUILD SUCCESSFUL · `:app` 112 + `:shared` 49 = 161 tests, 0 fallos.**

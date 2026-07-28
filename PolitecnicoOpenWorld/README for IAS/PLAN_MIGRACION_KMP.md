@@ -452,7 +452,8 @@ Estas **no bloquean** las fases 1–4, pero hay que contestarlas antes de la Fas
   `SfStateMachine` — **7 archivos, 1,235 líneas**.
 - **Movidos a `commonTest`** 6 archivos de test (**44 tests**), convertidos de JUnit4 a `kotlin.test`.
 - **`:app` consume `:shared`** con `implementation(project(":shared"))`.
-- **CI actualizado** (`pr-quality-gate.yml`): añadido `:shared:testDebugUnitTest` y el nuevo
+- **CI actualizado** (`pr-quality-gate.yml`): añadido el test de `:shared` (⚠️ desde la Fase 5 la
+  tarea se llama **`testAndroidHostTest`**, no `testDebugUnitTest`) y el nuevo
   `--input` de detekt.
 
 ### Verificación MEDIDA (no supuesta)
