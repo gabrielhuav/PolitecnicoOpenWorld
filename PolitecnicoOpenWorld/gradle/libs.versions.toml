@@ -14,6 +14,12 @@ activityCompose = "1.12.4"
 # 🍏 Fase 5: salto grande (2024.09 -> 2026.06). El compilador de Compose lo aporta ahora el
 # plugin `kotlin.plugin.compose`, que va CLAVADO a la version de Kotlin.
 composeBom = "2026.06.01"
+# 🍏🥊 Compose MULTIPLATAFORMA (Fase 5). Es OTRA cosa que el `composeBom` de arriba: aquel trae
+# los artefactos `androidx.compose.*` (solo Android); este trae los `org.jetbrains.compose.*`, que
+# SÍ tienen klibs de iOS (verificado: runtime-iosarm64 1.11.1 -> HTTP 200).
+# En Android, CMP redirige a los artefactos de androidx, así que la app de Android NO cambia de
+# runtime: sigue usando el Compose de siempre. Por eso el BOM se queda donde está.
+composeMultiplatform = "1.11.1"
 # 🍏 Room 2.8.x = soporte KMP real (artefactos iosArm64 verificados). 2.7.0 fue la primera
 # compatible con KSP2/Kotlin 2.x; se sube para poder mover la BD a `:shared` (Fase 4).
 roomVersion = "2.8.4"
@@ -65,6 +71,9 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
+# 🍏🥊 Lo usa el `actual` de Android de `PowViewModel` en `:shared` (aporta `viewModelScope`).
+# ⚠️ Va CLAVADO a 2.10.0: la 2.11.0 exige `compileSdk 37`.
+androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
@@ -95,6 +104,9 @@ ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "kto
 ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
 
 [plugins]
+# 🍏🥊 Compose Multiplatform (Fase 5): aporta los `compose.runtime`/`foundation`/`material3` con
+# klibs de iOS y la tarea de recursos (`compose.components.resources`).
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 # 🍏 KMP (Fase 1 de PLAN_MIGRACION_KMP.md). Van con la MISMA versión de Kotlin/AGP que ya usa
