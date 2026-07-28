@@ -59,7 +59,7 @@ class SfPushboxesTest {
     }
 
     @Test
-    fun `caminar SI es empujable (si no, se congelan al chocar)`() {
+    fun `caminar SI es empujable - si no se congelan al chocar`() {
         // Regresión del bug documentado: si WALK no fuese empujable, dos peleadores que chocan
         // caminando se quedarían trabados empujándose sin resolver el solape.
         assertTrue(SfFighterState.WALK_FORWARD in SfPhysics.PUSHABLE_STATES)
@@ -67,7 +67,7 @@ class SfPushboxesTest {
     }
 
     @Test
-    fun `nadie sale NUNCA del escenario, pase lo que pase`() {
+    fun `nadie sale NUNCA del escenario pase lo que pase`() {
         // Empujes degenerados: posiciones absurdas deben quedar dentro de los límites.
         val yo = peleador(SfConstants.STAGE_X_MAX + 5000f)
         val rival = peleador(SfConstants.STAGE_X_MIN - 5000f)

@@ -29,7 +29,7 @@ class SfSimulationTest {
     // ── Barra de vida ────────────────────────────────────────────────────────
 
     @Test
-    fun `la barra BAJA gradualmente, no de golpe`() {
+    fun `la barra BAJA gradualmente y no de golpe`() {
         // Con dt = 0.1 s solo puede drenar DRAIN_PER_SEC * 0.1 puntos.
         val r = SfHealthBar.rollUp(mostrado = 100f, objetivo = 0, dt = 0.1f)
         assertEquals(100f - SfHealthBar.DRAIN_PER_SEC * 0.1f, r, 0.001f)
@@ -37,7 +37,7 @@ class SfSimulationTest {
     }
 
     @Test
-    fun `la barra SUBE de golpe (curarse o empezar ronda no se anima)`() {
+    fun `la barra SUBE de golpe - curarse o empezar ronda no se anima`() {
         assertEquals(100f, SfHealthBar.rollUp(mostrado = 10f, objetivo = 100, dt = 0.016f))
     }
 
