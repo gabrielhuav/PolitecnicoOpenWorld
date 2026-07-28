@@ -1,7 +1,6 @@
 package ovh.gabrielhuav.pow.features.streetfighter.viewmodel
 
 import android.util.Log
-import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
@@ -58,7 +57,7 @@ fun StreetFighterViewModel.startOnlineQuick() = connectOnline { c ->
 internal fun StreetFighterViewModel.connectOnline(onReady: (SfMatchClient) -> Unit) {
     if (isOnline) return
     _state.value = _state.value.copy(onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null)
-    viewModelScope.launch(Dispatchers.IO) {
+    scope.launch(Dispatchers.IO) {
         val awake = SfMatchClient.warmupBlocking(
             BuildConfig.SF_SERVER_URL,
             // 🆕 (2026-07-26) Solo si estaba dormido: la UI explica la espera en vez de
@@ -87,13 +86,13 @@ internal fun StreetFighterViewModel.connectOnline(onReady: (SfMatchClient) -> Un
                 }
                 override fun onMessage(msg: SfNetMsg) {
                     // Llega en el hilo de OkHttp → se serializa con el tick en Main
-                    viewModelScope.launch { handleNetMessage(msg) }
+                    scope.launch { handleNetMessage(msg) }
                 }
                 override fun onClosed() {
-                    viewModelScope.launch { onNetDropped(null) }
+                    scope.launch { onNetDropped(null) }
                 }
                 override fun onFailure(reason: String) {
-                    viewModelScope.launch { onNetDropped(reason) }
+                    scope.launch { onNetDropped(reason) }
                 }
             },
         )
@@ -139,13 +138,13 @@ internal fun StreetFighterViewModel.maybeUpgradeToP2p(offerer: Boolean) {
 internal fun StreetFighterViewModel.makeNetListener() = object : SfNetTransport.Listener {
     override fun onOpen() = Unit
     override fun onMessage(msg: SfNetMsg) {
-        viewModelScope.launch { handleNetMessage(msg) }
+        scope.launch { handleNetMessage(msg) }
     }
     override fun onClosed() {
-        viewModelScope.launch { onNetDropped(null) }
+        scope.launch { onNetDropped(null) }
     }
     override fun onFailure(reason: String) {
-        viewModelScope.launch { onNetDropped(reason) }
+        scope.launch { onNetDropped(reason) }
     }
 }
 
@@ -242,7 +241,7 @@ fun StreetFighterViewModel.startLanDiscovery() {
     lanDiscovery = SfLanDiscovery(appContext).also { disc ->
         disc.startListening { game ->
             // Llega en hilo de fondo → re-postear a Main y deduplicar por IP.
-            viewModelScope.launch {
+            scope.launch {
                 val cur = _state.value.lanDiscovered
                 if (cur.none { it.ip == game.ip }) {
                     _state.value = _state.value.copy(lanDiscovered = cur + game)
@@ -463,7 +462,7 @@ internal fun StreetFighterViewModel.handleNetMessage(msg: SfNetMsg) {
                 onlineCountdown = 3,
             )
             countdownJob?.cancel()
-            countdownJob = viewModelScope.launch {
+            countdownJob = scope.launch {
                 for (n in 2 downTo 1) {
                     delay(1000)
                     _state.value = _state.value.copy(onlineCountdown = n)
@@ -532,7 +531,7 @@ internal fun StreetFighterViewModel.handleNetMessage(msg: SfNetMsg) {
  */
 internal fun StreetFighterViewModel.startRoomsRefresh() {
     roomsRefreshJob?.cancel()
-    roomsRefreshJob = viewModelScope.launch {
+    roomsRefreshJob = scope.launch {
         while (isActive) {
             delay(StreetFighterViewModel.ROOMS_REFRESH_MS)
             val st = _state.value

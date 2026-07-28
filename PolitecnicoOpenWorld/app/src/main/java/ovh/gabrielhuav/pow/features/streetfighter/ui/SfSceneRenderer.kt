@@ -56,6 +56,10 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterData
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireballState
+// 🍏 Accesores compatibles de `:shared` en vez de `org.json` (de la JVM, no existe en iOS).
+import ovh.gabrielhuav.pow.data.json.getDouble
+import ovh.gabrielhuav.pow.data.json.getInt
+import ovh.gabrielhuav.pow.data.json.powJsonObjeto
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFrameDef
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterState
@@ -513,7 +517,7 @@ internal fun loadStageBackground(
             context.assets.open(imagesDir + jsonName).use { it.readBytes().decodeToString() }
         }.getOrNull()
         if (file.endsWith("_anim.webp") && meta != null) {
-            val o = org.json.JSONObject(meta)
+            val o = powJsonObjeto(meta)
             val cols = o.getInt("cols").coerceAtLeast(1)
             val rows = o.getInt("rows").coerceAtLeast(1)
             // Tras sample, el tamaño de celda real = atlas/grid (más fiable que frameW del JSON)

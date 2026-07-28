@@ -1,7 +1,12 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
 import android.content.Context
-import org.json.JSONObject
+// 🍏 En vez de `org.json` (que es de la JVM y NO existe en iOS), los accesores compatibles de
+// `:shared`. Se llaman igual y respetan la misma semántica: solo cambia el import.
+import ovh.gabrielhuav.pow.data.json.getJSONObject
+import ovh.gabrielhuav.pow.data.json.optJSONObject
+import ovh.gabrielhuav.pow.data.json.optString
+import ovh.gabrielhuav.pow.data.json.powJsonObjeto
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
 
@@ -43,11 +48,9 @@ object SfVoicePhrases {
     }
 
     private fun parse(raw: String): Map<String, SfVoicePhrase> {
-        val clips = JSONObject(raw).optJSONObject("clips") ?: return emptyMap()
+        val clips = powJsonObjeto(raw).optJSONObject("clips") ?: return emptyMap()
         val out = mutableMapOf<String, SfVoicePhrase>()
-        val keys = clips.keys()
-        while (keys.hasNext()) {
-            val file = keys.next()
+        for (file in clips.keys) {
             val o = clips.getJSONObject(file)
             val es = o.optString("es", "")
             if (es.isBlank()) continue // sin frase curada = sin subtítulo (los draft no cuentan)

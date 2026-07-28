@@ -1,7 +1,12 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
 import android.content.Context
-import org.json.JSONObject
+// 🍏 Accesores compatibles de `:shared` en vez de `org.json` (de la JVM, no existe en iOS).
+import ovh.gabrielhuav.pow.data.json.getJSONObject
+import ovh.gabrielhuav.pow.data.json.optJSONObject
+import ovh.gabrielhuav.pow.data.json.optLong
+import ovh.gabrielhuav.pow.data.json.optString
+import ovh.gabrielhuav.pow.data.json.powJsonObjeto
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
@@ -66,12 +71,10 @@ object SfSpecialPhrases {
     fun get(context: Context, id: SfFighterId): SfSpecialPhrase? = load(context)[id]
 
     private fun parse(raw: String): Map<SfFighterId, SfSpecialPhrase> {
-        val root = JSONObject(raw)
+        val root = powJsonObjeto(raw)
         val fighters = root.optJSONObject("fighters") ?: return emptyMap()
         val out = mutableMapOf<SfFighterId, SfSpecialPhrase>()
-        val keys = fighters.keys()
-        while (keys.hasNext()) {
-            val name = keys.next()
+        for (name in fighters.keys) {
             val id = runCatching { SfFighterId.valueOf(name) }.getOrNull() ?: continue
             val o = fighters.getJSONObject(name)
             val es = o.optString("phrase_es", "")

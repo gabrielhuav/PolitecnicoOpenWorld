@@ -1,7 +1,6 @@
 package ovh.gabrielhuav.pow.features.streetfighter.viewmodel
 
 import android.media.MediaMetadataRetriever
-import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
@@ -229,7 +228,7 @@ fun StreetFighterViewModel.startAudioShowcase() {
     if (audioShowcaseJob?.isActive == true) return
     val fighters = SfArcadeLadder.ALL_PARTICIPANTS.filter { it in specialPhrases }
     _soundEvents.tryEmit(SF_STOP_SPECIALS_EVENT)
-    audioShowcaseJob = viewModelScope.launch {
+    audioShowcaseJob = scope.launch {
         try {
             fighters.forEachIndexed { index, id ->
                 val phrase = specialPhrases.getValue(id)

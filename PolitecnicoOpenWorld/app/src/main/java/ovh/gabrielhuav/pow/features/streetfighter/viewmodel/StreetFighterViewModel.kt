@@ -4,8 +4,10 @@ import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.os.SystemClock
 import android.util.Log
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+// 🍏 `PowViewModel` (`:shared`) en vez de `androidx.lifecycle.ViewModel`. En Android **ES** un
+// ViewModel de androidx por dentro (`expect/actual`), así que Hilt, el ciclo de vida y el
+// `NavBackStackEntry` no se enteran del cambio; en iOS es una clase normal con su propio scope.
+import ovh.gabrielhuav.pow.presentation.PowViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -100,7 +102,7 @@ class StreetFighterViewModel @Inject constructor(
     @ApplicationContext internal val appContext: Context,
     // 🆕 (2026-07-21) Recompensa de ARCADE en DIFÍCIL: el coleccionable del rival vencido.
     internal val collectibleRepo: ovh.gabrielhuav.pow.data.repository.CollectibleRepository,
-) : ViewModel() {
+) : PowViewModel() {
 
     internal val _state = MutableStateFlow(StreetFighterState())
     val state: StateFlow<StreetFighterState> = _state.asStateFlow()
@@ -811,7 +813,7 @@ class StreetFighterViewModel @Inject constructor(
     private fun startGameLoop() {
         if (loopJob?.isActive == true) return
         lastRealMs = SystemClock.elapsedRealtime()
-        loopJob = viewModelScope.launch {
+        loopJob = scope.launch {
             while (isActive) {
                 delay(tickMs) // 16 ms (~60) o 33 ms (~30) en gama baja
                 val real = SystemClock.elapsedRealtime()
@@ -2269,9 +2271,11 @@ class StreetFighterViewModel @Inject constructor(
         cancelOnline(reason?.let { "Conexión perdida: $it" } ?: "Conexión perdida con el servidor")
     }
 
-    override fun onCleared() {
+    // ⚠️ `alLimpiar()`, NO `onCleared()`: en `PowViewModel` el `onCleared` de androidx es FINAL y
+    // delega aquí, para que este teardown se ejecute igual en Android y en iOS. Cancelar el scope
+    // lo hace la clase base; aquí solo va lo que es de esta pantalla.
+    override fun alLimpiar() {
         transport?.close()
         stopBtScanInternal()
-        super.onCleared()
     }
 }

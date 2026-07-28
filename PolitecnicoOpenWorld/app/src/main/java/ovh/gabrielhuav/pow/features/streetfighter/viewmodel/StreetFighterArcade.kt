@@ -1,6 +1,5 @@
 package ovh.gabrielhuav.pow.features.streetfighter.viewmodel
 
-import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfArcadeLadder
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCpuDifficulty
@@ -220,7 +219,7 @@ internal fun StreetFighterViewModel.handleArcadeMatchEnd(winnerIdx: Int) {
                 // PELEADORES), con su historia. Antes esta dificultad no daba NADA.
                 arcadeRepo.unlockFighter(step.rival.name)
                 step.mapFile?.let { arcadeRepo.unlockMap(it) }
-                viewModelScope.launch {
+                scope.launch {
                     runCatching { collectibleRepo.unlockFighterCollectible(step.rival.name) }
                 }
             }

@@ -1,7 +1,14 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
 import android.content.Context
-import org.json.JSONObject
+// 🍏 Accesores compatibles de `:shared` en vez de `org.json` (de la JVM, no existe en iOS).
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import ovh.gabrielhuav.pow.data.json.optInt
+import ovh.gabrielhuav.pow.data.json.optJSONArray
+import ovh.gabrielhuav.pow.data.json.optJSONObject
+import ovh.gabrielhuav.pow.data.json.optString
+import ovh.gabrielhuav.pow.data.json.powJsonObjeto
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
@@ -109,20 +116,20 @@ object SfCombos {
         return cache.get() ?: parsed
     }
 
-    private fun steps(raw: org.json.JSONArray?): List<SfComboAction> {
+    private fun steps(raw: JsonArray?): List<SfComboAction> {
         if (raw == null) return emptyList()
         val out = mutableListOf<SfComboAction>()
-        for (i in 0 until raw.length()) {
+        for (i in raw.indices) {
             SfComboAction.fromKey(raw.optString(i))?.let(out::add)
         }
         return out
     }
 
     /** Lee un array de combos ("basics" o "universal") conservando su orden de enseñanza. */
-    private fun comboArray(root: JSONObject, key: String): List<SfCombo> {
+    private fun comboArray(root: JsonObject, key: String): List<SfCombo> {
         val arr = root.optJSONArray(key) ?: return emptyList()
         val out = mutableListOf<SfCombo>()
-        for (i in 0 until arr.length()) {
+        for (i in arr.indices) {
             val o = arr.optJSONObject(i) ?: continue
             val actions = steps(o.optJSONArray("steps"))
             if (actions.isEmpty()) continue
@@ -140,16 +147,14 @@ object SfCombos {
     }
 
     private fun parse(rawJson: String): SfComboData {
-        val root = JSONObject(rawJson)
+        val root = powJsonObjeto(rawJson)
         // Los BÁSICOS conservan el orden del JSON (es el orden pedagógico); los combos se
         // ordenan por dificultad.
         val basics = comboArray(root, "basics")
         val universal = comboArray(root, "universal").sortedBy { it.level }
         val signatures = mutableMapOf<SfFighterId, SfCombo>()
         root.optJSONObject("signature")?.let { obj ->
-            val keys = obj.keys()
-            while (keys.hasNext()) {
-                val name = keys.next()
+            for (name in obj.keys) {
                 val id = runCatching { SfFighterId.valueOf(name) }.getOrNull() ?: continue
                 val o = obj.optJSONObject(name) ?: continue
                 val actions = steps(o.optJSONArray("steps"))

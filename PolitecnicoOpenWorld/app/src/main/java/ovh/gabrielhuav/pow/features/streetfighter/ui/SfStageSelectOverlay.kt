@@ -50,7 +50,10 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-import org.json.JSONObject
+// 🍏 Accesores compatibles de `:shared` en vez de `org.json` (de la JVM, no existe en iOS).
+import ovh.gabrielhuav.pow.data.json.getDouble
+import ovh.gabrielhuav.pow.data.json.getInt
+import ovh.gabrielhuav.pow.data.json.powJsonObjeto
 import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.ui.components.PowButton
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
@@ -354,7 +357,7 @@ private fun loadStageAnimPreview(
         val metaText = context.assets.open(imagesDir + jsonName).use {
             it.readBytes().decodeToString()
         }
-        val o = JSONObject(metaText)
+        val o = powJsonObjeto(metaText)
         val frameW = o.getInt("frameWidth")
         val frameH = o.getInt("frameHeight")
         val cols = o.getInt("cols")
