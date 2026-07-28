@@ -30,9 +30,7 @@
 ⚠️ **La carpeta es doble**: el proyecto Gradle está DENTRO del repo, en `PolitecnicoOpenWorld/`; las
 rutas de los docs son **relativas a la raíz**. El GEN de sprites vive FUERA, en `..\newSFAssets\GEN_*`.
 🆕 **PC nueva → `SETUP_PC_NUEVA.md`.** ⚠️ `gradle-wrapper.jar` NO viaja por git y sin él `gradlew` ni
-arranca; `secrets.properties` tampoco (vacío vale). detekt-cli SÍ está versionado. ⚠️ **La ruta del
-escritorio lleva un ESPACIO** (`GitHub Desktop`): entrecomilla siempre, y si Kotlin/Native se atraganta,
-clona en una ruta sin espacios.
+arranca; `secrets.properties` tampoco. ⚠️ **La ruta del escritorio lleva ESPACIO**: entrecomilla siempre.
 
 ## 1. Organización y delegación
 

@@ -8,6 +8,24 @@
 
 ---
 
+## 0. ⚠️ La ruta del escritorio lleva un ESPACIO
+
+```
+C:\Users\gabri\Documents\GitHub Desktop\PolitecnicoOpenWorld\PolitecnicoOpenWorld
+```
+
+El `GitHub Desktop` de en medio rompe cualquier comando sin comillas:
+
+```bash
+cd "C:\Users\gabri\Documents\GitHub Desktop\PolitecnicoOpenWorld\PolitecnicoOpenWorld"
+```
+
+⚠️ **NO está medido si Kotlin/Native aguanta bien el espacio** (en la laptop nunca hizo falta). Si
+`compileKotlinIosSimulatorArm64` falla con algo raro de rutas, la salida sensata es **clonar en una
+ruta sin espacios** (p. ej. `C:\pow\PolitecnicoOpenWorld`) en vez de pelearse con el escapado.
+
+---
+
 ## 1. Lo que hay que tener instalado
 
 | Cosa | Versión | Cómo se comprueba |
