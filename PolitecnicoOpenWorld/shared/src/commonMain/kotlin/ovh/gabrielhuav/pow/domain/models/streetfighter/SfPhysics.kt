@@ -41,4 +41,83 @@ object SfPhysics {
         y = y.coerceIn(SfConstants.STAGE_FLOOR - STAGE_AIR_CEILING, SfConstants.STAGE_FLOOR)
         return if (x != f.x || y != f.y) f.copy(x = x, y = y) else f
     }
+
+    /**
+     * 🆕 (2026-07-27, Fase 2c del refactor del motor) EMPUJE DE PUSHBOXES: resultado de un tick de
+     * `updateStageConstraints`, ya sin Android y sin ViewModel.
+     *
+     * POR QUÉ ES PURO: el empuje solo necesita las DOS posiciones, la cámara, las dos pushboxes y
+     * el `dt`. No necesita el estado del VM, ni assets, ni red. Por eso puede vivir en `:shared` y
+     * correr igual en iOS — y por eso se puede TESTEAR sin dispositivo.
+     *
+     * Los estados EMPUJABLES incluyen caminar a propósito: si no, dos peleadores que chocan en
+     * WALK se quedan "congelados" empujándose sin resolver nunca el solape.
+     */
+    val PUSHABLE_STATES: Set<SfFighterState> = setOf(
+        SfFighterState.IDLE, SfFighterState.CROUCH, SfFighterState.JUMP_UP,
+        SfFighterState.JUMP_BACKWARD, SfFighterState.JUMP_FORWARD,
+        SfFighterState.WALK_FORWARD, SfFighterState.WALK_BACKWARD,
+        SfFighterState.IDLE_TURN, SfFighterState.CROUCH_TURN,
+    )
+
+    /** Las dos posiciones ya resueltas tras un tick de empuje. */
+    data class PushResult(val self: SfFighter, val opponent: SfFighter)
+
+    /**
+     * Mete al peleador dentro del VIEWPORT (contra la cámara) sin sacarlo del escenario.
+     * Es el paso previo al empuje; separado porque también se testea solo.
+     */
+    fun clampToViewport(f: SfFighter, camX: Float): SfFighter {
+        val margin = SfConstants.FIGHTER_DEFAULT_WIDTH
+        var nf = clampToStage(f)
+        nf = when {
+            nf.x - camX + margin > SfConstants.SCENE_WIDTH ->
+                nf.copy(x = camX + SfConstants.SCENE_WIDTH - margin)
+            nf.x - camX - margin < 0f -> nf.copy(x = camX + margin)
+            else -> nf
+        }
+        return clampToStage(nf)
+    }
+
+    /**
+     * Resuelve el solape de pushboxes entre `self` y `opponent`.
+     *
+     * `selfPush` / `oppPush` son las pushbox del FRAME ACTUAL de cada uno **en coordenadas de
+     * frame** (sin transformar a mundo): quien llama las saca del atlas, que es lo único que
+     * necesita Android. Así esta función se queda pura.
+     *
+     * Si no hay solape devuelve las posiciones ya clampadas, sin tocar nada más.
+     */
+    fun resolvePushboxes(
+        self: SfFighter,
+        opponent: SfFighter,
+        selfPush: SfBox,
+        oppPush: SfBox,
+        camX: Float,
+        dt: Float,
+        overlapping: Boolean,
+    ): PushResult {
+        val f0 = clampToViewport(self, camX)
+        if (!overlapping) return PushResult(f0, opponent)
+
+        var f = f0
+        var opp = opponent
+        if (f.x <= opp.x) {
+            val nx = opp.x + oppPush.x - (selfPush.x + selfPush.width)
+            f = f.copy(x = nx.coerceIn(SfConstants.STAGE_X_MIN, SfConstants.STAGE_X_MAX))
+            if (opp.state in PUSHABLE_STATES) {
+                opp = clampToStage(opp.copy(x = opp.x + SfConstants.FIGHTER_PUSH_FRICTION * dt))
+            }
+        } else {
+            val nx = minOf(
+                camX + SfConstants.SCENE_WIDTH - selfPush.width.coerceAtLeast(1f),
+                opp.x + oppPush.width,
+            )
+            f = f.copy(x = nx.coerceIn(SfConstants.STAGE_X_MIN, SfConstants.STAGE_X_MAX))
+            if (opp.state in PUSHABLE_STATES) {
+                opp = clampToStage(opp.copy(x = opp.x - SfConstants.FIGHTER_PUSH_FRICTION * dt))
+            }
+        }
+        return PushResult(clampToStage(f), clampToStage(opp))
+    }
 }

@@ -36,63 +36,34 @@ internal fun StreetFighterViewModel.frameDef(f: SfFighter) = dataFor(f).frames.g
 
 internal fun StreetFighterViewModel.pushBoxWorld(f: SfFighter): SfBox = SfBox.fromList(frameDef(f).push).toWorld(f.x, f.y, f.direction)
 
+/**
+ * Empuje contra los bordes y entre pushboxes.
+ *
+ * 🆕 (Fase 2c del refactor del motor) EL NÚCLEO YA NO VIVE AQUÍ: está en `SfPhysics`
+ * (módulo `:shared`), sin Android y con tests que corren TAMBIÉN en iOS. Lo único que se queda en
+ * el lado Android es leer las pushbox del atlas del frame actual, que es lo que necesita assets.
+ *
+ * ⚠️ No devuelvas la lógica aquí "para verla junta": dejaría de ejecutarse en iOS y perderías
+ * `SfPushboxesTest`.
+ */
 internal fun StreetFighterViewModel.updateStageConstraints(sim: StreetFighterViewModel.Sim, idx: Int, dt: Float) {
-    var f = sim.fighter(idx)
-    val push = SfBox.fromList(frameDef(f).push)
-
-    // 1) Clamp AL ESCENARIO MUNDO (nunca fuera del stage — evita “desaparecer”
-    // en IA vs IA cuando el empuje/slide los lanza fuera de cámara).
-    f = clampFighterToStage(f)
-
-    // 2) Límites del viewport (como el JS, contra la cámara)
-    val margin = SfConstants.FIGHTER_DEFAULT_WIDTH
-    if (f.x - sim.camX + margin > SfConstants.SCENE_WIDTH) {
-        f = f.copy(x = sim.camX + SfConstants.SCENE_WIDTH - margin)
-    } else if (f.x - sim.camX - margin < 0f) {
-        f = f.copy(x = sim.camX + margin)
-    }
-    f = clampFighterToStage(f)
-    sim.setFighter(idx, f)
-
-    // Empuje al traslaparse los pushbox (updateStageConstraints del JS)
-    var opp = sim.fighter(1 - idx)
-    if (!pushBoxWorld(f).overlaps(pushBoxWorld(opp))) {
-        // Aun sin overlap, re-asegura al rival (el otro update lo hará también)
-        return
-    }
-
-    // Incluye caminar: si no, al chocar en WALK se “congelan” empujándose sin resolverse.
-    val pushableStates = setOf(
-        SfFighterState.IDLE, SfFighterState.CROUCH, SfFighterState.JUMP_UP,
-        SfFighterState.JUMP_BACKWARD, SfFighterState.JUMP_FORWARD,
-        SfFighterState.WALK_FORWARD, SfFighterState.WALK_BACKWARD,
-        SfFighterState.IDLE_TURN, SfFighterState.CROUCH_TURN,
+    val self = sim.fighter(idx)
+    val opp = sim.fighter(1 - idx)
+    val r = SfPhysics.resolvePushboxes(
+        self = self,
+        opponent = opp,
+        selfPush = SfBox.fromList(frameDef(self).push),
+        oppPush = SfBox.fromList(frameDef(opp).push),
+        camX = sim.camX,
+        dt = dt,
+        // El solape se calcula AQUÍ porque necesita las cajas en coordenadas de MUNDO,
+        // que dependen del frame del atlas.
+        overlapping = pushBoxWorld(SfPhysics.clampToViewport(self, sim.camX)).overlaps(pushBoxWorld(opp)),
     )
-    if (f.x <= opp.x) {
-        val nx = opp.x + SfBox.fromList(frameDef(opp).push).x - (push.x + push.width)
-        f = f.copy(x = nx.coerceIn(StreetFighterViewModel.STAGE_X_MIN, StreetFighterViewModel.STAGE_X_MAX))
-        if (opp.state in pushableStates) {
-            opp = clampFighterToStage(
-                opp.copy(x = opp.x + SfConstants.FIGHTER_PUSH_FRICTION * dt),
-            )
-        }
-    } else {
-        val nx = minOf(
-            sim.camX + SfConstants.SCENE_WIDTH - push.width.coerceAtLeast(1f),
-            opp.x + SfBox.fromList(frameDef(opp).push).width,
-        )
-        f = f.copy(x = nx.coerceIn(StreetFighterViewModel.STAGE_X_MIN, StreetFighterViewModel.STAGE_X_MAX))
-        if (opp.state in pushableStates) {
-            opp = clampFighterToStage(
-                opp.copy(x = opp.x - SfConstants.FIGHTER_PUSH_FRICTION * dt),
-            )
-        }
-    }
-    sim.setFighter(idx, clampFighterToStage(f))
-    sim.setFighter(1 - idx, clampFighterToStage(opp))
+    sim.setFighter(idx, r.self)
+    sim.setFighter(1 - idx, r.opponent)
 }
 
-// 🆕 (2026-07-22, Fase 2b) Extraído a SfPhysics.clampToStage (puro); el VM solo delega.
 internal fun StreetFighterViewModel.clampFighterToStage(f: SfFighter): SfFighter = SfPhysics.clampToStage(f)
 
 internal fun StreetFighterViewModel.updateAttackBoxCollided(sim: StreetFighterViewModel.Sim, idx: Int, now: Long) {
