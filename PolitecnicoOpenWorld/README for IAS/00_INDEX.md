@@ -82,7 +82,8 @@
 | 10 | `10_ARQUITECTURA_SEPARACION.md` | 🧭 **¿EN QUÉ ARCHIVO TOCO ESTO?** Mapa de la separación tras el refactor de la Fase 5: los 2 módulos, MVVM, el patrón PARCIAL, tabla de "quiero cambiar X → archivo Y" y los 6 errores que más caro salen. **Pensado para que hasta una IA pequeña pueda trabajar aquí.** |
 | — | `PLAYSTORE_formulario_seguridad_datos.md` | 🛡️ **Play Store: formulario de Seguridad de los datos + políticas.** Valores EXACTOS aprobados, errores que nos rechazaron y checklist antes de cada envío. **Léelo antes de tocar la ficha o subir versión.** |
 | — | `ARRANQUE_MAC_iOS.md` | 🍏 **EMPIEZA AQUÍ si estás en el MAC.** Guion exacto de la primera compilación de `:shared` para iOS: rutas, JDK, comandos y dónde va a fallar. Las Fases 1-4 se hicieron en Windows, donde iOS NO compila. |
-| — | `PLAN_MIGRACION_KMP.md` | 🍏 **Migración a Kotlin Multiplatform / iOS — Fase 0 (auditoría).** Acoplamiento real MEDIDO, estado verificado de las libs KMP, decisión del mapa y qué NO se puede portar. **Estado: esperando decisión del dueño (§11); no se ha migrado nada.** |
+| — | `PLAN_MIGRACION_KMP.md` | 🍏 **Migración a Kotlin Multiplatform / iOS — el plan global.** Acoplamiento MEDIDO, estado de las libs KMP, decisión del mapa y qué NO se puede portar. **Estado: Fases 0-4 COMPLETAS y verdes; falta la 5 (la UI) y la 6 (assets).** |
+| — | `PLAN_SF_EN_iOS.md` | 🥊🍏 **Cómo hacer que el modo pelea corra en iOS** — el trozo concreto de la Fase 5. Bloqueadores contados archivo por archivo y 6 pasos, cada uno verificable en el simulador. ⚠️ **Se ejecuta EN EL MAC.** |
 
 ### 🌎 `MUNDO/` — mundo libre POW
 

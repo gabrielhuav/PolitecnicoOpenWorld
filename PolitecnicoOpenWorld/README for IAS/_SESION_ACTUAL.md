@@ -12,11 +12,12 @@
 > falta**) · actualiza PENDIENTE · comprueba las 200 líneas. Si te quedas sin tokens a media
 > tarea, **actualiza ESTE archivo ANTES de parar**.
 
-**Última actualización:** 2026-07-27 · Opus 5 · rama `fase0-auditoria-kmp` · *purgar §3 el 07-28*
+**Última actualización:** 2026-07-28 · Opus 5 · rama `fase0-auditoria-kmp` · *purgar §3bis el 07-30*
 
-> ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: **Fases 0-4 COMPLETAS y verdes.**
-> 🍏 iOS arranca (§3ter) · Kotlin 2.3.21 (§3quater) · refactor de tamaño (§3quinquies) ·
-> **motor compartido avanzando** (§3sexies: 178 tests). Siguiente: **auditar en el Mac**.
+> ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: **Fases 0-4 COMPLETAS y verdes (184 tests).**
+> 🍏 iOS arranca (§3ter) · Kotlin 2.3.21 (§3quater) · refactor (§3quinquies) · motor compartido
+> (§3sexies) · auditado en Mac + guarda de CI (§3septies) · **iOS = solo modo pelea** (§3octies).
+> **Siguiente: `PLAN_SF_EN_iOS.md` — se ejecuta EN EL MAC, paso a paso.**
 
 ## 🖥️ Rutas por PC
 
@@ -43,11 +44,6 @@ antes de tocar la ficha. `SF/` = peleas · `MUNDO/` = mundo libre · `_ARCHIVO/`
 assets con pipeline existente, tareas repetitivas) → **Gemini 3.6**.
 **Antes de delegar:** rutas absolutas, comando exacto, cómo se verifica y qué NO tocar.
 🆕 Para que una IA pequeña se oriente sola, pásale **`10_ARQUITECTURA_SEPARACION.md`**.
-
-## 3. Sesión 2026-07-26 — PURGADA (salió en la 1.0.0.14)
-
-Detalle en `_ARCHIVO/HISTORIAL_sesiones_2026-07-26.md`. ⚠️ Lo único VIVO de ahí está en los P0 de
-§4 (probar multijugador + redeploy Render).
 
 ## 3bis. Fases 0-4 COMPLETAS + auditoría (detalle en `PLAN_MIGRACION_KMP.md` y `git log`)
 
@@ -80,53 +76,38 @@ y la app iOS está en `iosApp/` (SwiftUI + `WKWebView`).
 - 🔴 **Deuda:** las rutas de assets ya están parametrizadas, pero el handler de iOS devuelve 404
   (los assets no se empaquetan hasta la Fase 6).
 
-## 3quater. Sesión 2026-07-27 (Opus 5, Windows) — ⬆️ Kotlin 2.3.21 + DSL de AGP 9
+## 3quater. ⬆️ Kotlin 2.3.21 + DSL de AGP 9 (cerrado; trampas que siguen VIVAS)
 
-**MEDIDO: `:app` 112 + `:shared` 49 = 161 tests, 0 fallos; `assembleDebug` y
-`compileReleaseKotlin` OK; detekt exit 0.**
-Kotlin **2.2.10 → 2.3.21** · KSP 2.3.2 → **2.3.10** · Hilt 2.57.1 → **2.60.1** ·
-Ktor 3.3.3 → **3.5.1** (desbloqueado) · serialization → 1.11.0 · Compose BOM 2024.09 → **2026.06**.
-- ⚠️⚠️ **NO SE PUEDE SUBIR A KOTLIN 2.4: KSP NO EXISTE para 2.4** (medido: 0 versiones en esa
-  línea; la última, 2.3.10, se construye contra 2.3.20). Y aquí KSP es obligatorio (Hilt + Room).
-  **2.3.21 es el techo real.** No pierdas una sesión intentándolo.
-- ⚠️ **Lo caro no fue Kotlin, fue el DSL de AGP 9.** Con Kotlin 2.3 lo que era aviso pasa a ERROR:
-  con `newDsl=false` el script NO compila; con `newDsl=true` `kotlin-android` es incompatible.
-  Única vía: **Kotlin INTEGRADO** (`android.builtInKotlin=true`, `:app` ya NO aplica
-  `kotlin-android`, `kotlinOptions` → `compilerOptions`). Y `:shared` pasa de
-  `com.android.library` a **`com.android.kotlin.multiplatform.library`** (AGP 9 ya no admite la
-  primera junto a KMP), con el target dentro de `kotlin { android { … } }`.
-- ⚠️⚠️ **LA TAREA DE TESTS DE `:shared` CAMBIÓ DE NOMBRE:** `testDebugUnitTest` →
-  **`testAndroidHostTest`**. Con el viejo, Gradle dice 'task not found'. Ya corregido en CI.
-- ✅ **iOS RE-VERIFICADO en el Mac tras el salto** (era el riesgo abierto): el `.klib` se regenera
-  entero con 2.3.21 y aun así **49 tests, 0 fallos**; framework relinkado y el mapa igual en el
-  simulador. **El cambio de plugin de `:shared` no rompió iOS.**
+Kotlin **2.2.10 → 2.3.21** · KSP **2.3.10** · Hilt **2.60.1** · Ktor **3.5.1** · Compose BOM **2026.06**.
+- ⚠️⚠️ **NO SE PUEDE SUBIR A KOTLIN 2.4: KSP NO EXISTE para 2.4** (medido: 0 versiones). Y aquí KSP
+  es obligatorio (Hilt + Room). **2.3.21 es el techo real.** No pierdas una sesión intentándolo.
+- ⚠️ **Lo caro fue el DSL de AGP 9**, no Kotlin: con `newDsl=false` el script NO compila; con
+  `true`, `kotlin-android` es incompatible. Única vía: **`android.builtInKotlin=true`** (`:app` ya
+  NO aplica `kotlin-android`; `kotlinOptions` → `compilerOptions`), y `:shared` con
+  **`com.android.kotlin.multiplatform.library`** (AGP 9 ya no admite `com.android.library` con KMP).
+- ⚠️⚠️ **Los tests de `:shared` son `testAndroidHostTest`**, NO `testDebugUnitTest` (cambió con AGP 9).
+- ✅ iOS re-verificado en el Mac tras el salto: el `.klib` se regenera entero y sigue verde.
 
-## 3quinquies. Refactor de TAMAÑO (Windows) — detalle en `10_ARQUITECTURA_SEPARACION.md`
+## 3quinquies. Refactor de TAMAÑO — detalle en `10_ARQUITECTURA_SEPARACION.md`
 
-`StreetFighterViewModel` **6220 → 2299** en 8 parciales por dominio · `StreetFighterScreen`
-**4029 → 1902** · `ZombieGameScreen` **1664 → 1343**. Verificado tras CADA extracción.
-- ⚠️ **Patrón PARCIAL:** los CAMPOS se quedan en la clase; `private` → `internal` solo lo que el
-  parcial necesite; **NUNCA recrees en la clase una función de un parcial** (gana la clase EN
-  SILENCIO). NO se puede mover una extensión declarada dentro de la clase sobre otro tipo
-  (doble receptor), p. ej. `SfInput.hasAttackOrSpecial`.
-- ⚠️ Trampas del extractor, en `10` §8: **LF vs CRLF**, **KDoc partido** y el **`inline fun` que
-  pierde el receptor**. Y mi extractor dejó **819 imports muertos** que hubo que limpiar aparte.
+`StreetFighterViewModel` **6220 → 2299** (8 parciales) · `StreetFighterScreen` **4029 → 1902** ·
+`ZombieGameScreen` **1664 → 1343**. Verificado tras CADA extracción.
+- ⚠️ **Patrón PARCIAL:** los CAMPOS se quedan en la clase; `private` → `internal` solo lo justo;
+  **NUNCA recrees en la clase una función de un parcial** (gana la clase EN SILENCIO). Y no se
+  puede mover una extensión sobre otro tipo declarada dentro de la clase (doble receptor).
+- ⚠️ Trampas del extractor (en `10` §8): **LF vs CRLF**, **KDoc partido**, **`inline fun` que
+  pierde el receptor**, **contar llaves falla con cuerpos-expresión** (`fun f() = …`) y los
+  **819 imports muertos** que hubo que limpiar aparte.
 
-## 3sexies. Motor compartido — 4 piezas mas a `:shared` CON TESTS (Windows)
+## 3sexies. Motor compartido en `:shared` CON TESTS
 
-**MEDIDO: `:app` 112 + `:shared` 66 = 178 tests, 0 fallos** (`:shared` iba por 49). Ademas
-**PROBADO EN EL EMULADOR** (AVD Nexus): arranca, menu, seleccion de peleador y PELEA con ronda 1,
-cero errores de POW en logcat. `assembleDebug` + `compileReleaseKotlin` + detekt exit 0.
-- `SfPhysics.resolvePushboxes` (empuje entre peleadores) · `SfCamera.follow` · `SfSplashes.advance`
-  · `SfHealthBar.rollUp`. Todas vivian dentro del VM de Android: **0 tests y 0 iOS**.
-- ⚠️ **DOS constantes que me invente y habrian cambiado el juego EN SILENCIO** (cazadas al
-  contrastar contra el original): `DRAIN_PER_SEC` es **200f** (puse 60f) y el tope de camara
-  lleva **`+ STAGE_PADDING`**. Ahora las fijan tests, porque el compilador no las ve.
-- ⚠️ **Delimitar funciones contando llaves FALLA con cuerpos-expresion** (`fun f() = ...`): se
-  come las funciones siguientes. Para esas, reemplazo por texto exacto.
-- 📌 **Lo que NO cambio:** `:shared` sigue siendo **~5%** del codigo. La logica de pelea sigue
-  escrita como extensiones de un ViewModel de Android; `applyAttackHit` solo toca **29 campos del
-  VM**. Sacar eso es la Fase 5 y son varias sesiones.
+`SfPhysics.resolvePushboxes` · `SfCamera.follow` · `SfSplashes.advance` · `SfHealthBar.rollUp`.
+Vivían dentro del VM de Android: **0 tests y 0 iOS**. Probado además en el emulador (pelea real).
+- ⚠️ **DOS constantes que me inventé y habrían cambiado el juego EN SILENCIO** (cazadas al
+  contrastar contra el original): `DRAIN_PER_SEC` es **200f** (puse 60f) y el tope de cámara lleva
+  **`+ STAGE_PADDING`**. Ahora las fijan tests, porque el compilador no las ve.
+- 📌 **`:shared` sigue siendo ~5% del código.** La lógica de pelea son extensiones de un ViewModel
+  de Android (`applyAttackHit` toca **29 campos del VM**). Sacar eso es la Fase 5.
 
 ## 3septies. iOS AUDITADO (Mac) + guarda para no repetir el viaje
 
@@ -140,6 +121,24 @@ sin tocar una sola aserción** — o sea la extracción fue correcta, no solo co
   `pr-quality-gate`. Corre en Linux en 2 segundos y convierte un viaje a la Mac en un fallo de CI.
   Verificada contra los 4 nombres reales que fallaron. **Documentar no bastó; esto sí.**
 
+## 3octies. 🍏 iOS = SOLO el modo pelea (decisión del dueño, 07-27)
+
+En iOS el menú principal muestra **únicamente AJUSTES, COLECCIONABLES y HUELUM VS. GOYA**. Mundo
+Libre, Modo Historia y Multijugador se **esconden**. **MEDIDO: `:app` 112 + `:shared` 72 = 184
+tests, 0 fallos; detekt exit 0; PROBADO en el emulador — el menú de Android sigue idéntico.**
+- El catálogo vive en **`PowModos.kt`** (`:shared`, dominio). **Lo único `expect/actual` es
+  `plataformaActual`**; qué modos hay es lógica PURA → **la regla de iOS se testea desde Android**,
+  sin Mac. `PowModosTest` (6) se pone rojo si alguien añade un modo a iOS: obliga a confirmar que
+  FUNCIONA en el simulador, no solo que el botón aparece. La UI solo pregunta `PowModo.X.disponible()`.
+- ⚠️ **Esconder el botón NO porta el modo.** Que el menú de iOS liste "Huelum vs. Goya" no lo hace
+  jugable allí: **SF son 14 618 líneas y siguen atadas a Android** (9 archivos `context.assets`,
+  6 `android.graphics`, 3 `android.media`, 4 ViewModel, +107 MB de assets sin empaquetar).
+- 🆕 **`PLAN_SF_EN_iOS.md`** = el desglose medido y el orden de ataque (6 pasos, cada uno
+  verificable en el simulador). **Se ejecuta EN EL MAC**: todo lo que queda es Compose
+  Multiplatform, assets y audio de iOS, y **nada de eso compila en Windows**.
+- 🆕 La guarda de nombres de test **cazó 2 comas en `PowModosTest` a las 2 h de existir**, en
+  Windows y en 2 segundos. Mismo error que ya tenía gotcha escrito.
+
 ## 4. PENDIENTE — por prioridad
 
 ### 🔴 P0 · Antes/durante el release
@@ -147,12 +146,11 @@ sin tocar una sola aserción** — o sea la extracción fue correcta, no solo co
    `SF-NET`). BT y LAN son lo que hay que validar sí o sí.
 2. **Redeploy de `MultiplayerSF/` en Render** para activar el P2P (no bloquea el release).
    Con 2 teléfonos en redes distintas, buscar en logcat `SF-RTC`: `DataChannel → OPEN`.
-3. **🍏 FASE 5 (2/2) — mover la UI a `commonMain` con Compose Multiplatform.** Lo ÚNICO que queda
-   entre el mapa y un juego jugable en iOS. ✅ Ya están hechos **la subida de Kotlin** (§3quater),
-   **la re-verificación de iOS** y **las 2 deudas de la Fase 1.5** (§3quinquies): la red de
-   seguridad existe en las DOS plataformas, así que esto ya no se hace a ciegas.
-   ⚠️ El bulto son las ~14 000 líneas de `StreetFighterViewModel`/`StreetFighterScreen` y el muro
-   de `android.graphics`. **Exige el compilador de iOS delante** → sesión de Mac.
+3. **🍏 FASE 5 (2/2) — que el modo pelea CORRA en iOS. Guion completo en `PLAN_SF_EN_iOS.md`.**
+   Ya está hecho el **catálogo de modos** (§3octies): el menú de iOS ya sale recortado. Falta lo
+   caro: Compose MP, `expect/actual` de assets/audio/gráficos, el ViewModel multiplataforma y
+   empaquetar 107 MB. **SESIÓN DE MAC, sin excepción** — nada de esto compila en Windows.
+   Empieza por los **pasos 1-4**: valen aunque el 5 (la UI) se retrase.
 
 ### 🟠 P1 · AUDIO (trabajo activo) — ver `SF/PROMPT_traspaso_audio_subtitulos.md`
 **29 clips demasiado largos** para su evento y **5 fuera de −16 ±2 LUFS** → **Gemini 3.6** (con los
@@ -186,8 +184,9 @@ esqueleto `SfEngine` y modos como estrategia. **Exige sesión CON compilador.** 
 En Windows `.\gradlew.bat`. En el Mac, antes:
 `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`.
 ⚠️ La tarea de `:shared` es **`testAndroidHostTest`**, NO `testDebugUnitTest` (cambió con AGP 9).
-⚠️ **Son 178 tests: 112 `:app` + 66 `:shared`** (contando los XML de `build/test-results`).
-Los "131" y los "47" de docs viejos son **stale**.
+⚠️ **Son 184 tests: 112 `:app` + 72 `:shared`** (contando los XML de `build/test-results`).
+Los "178", "131" y "47" de docs viejos son **stale**.
+⚠️ Si tocas `shared/src/commonTest`, pasa antes **`bash tools/check_kmp_test_names.sh`**.
 
 **detekt — usa EXACTAMENTE la invocación de CI** (desde la raíz del repo):
 ```bash
