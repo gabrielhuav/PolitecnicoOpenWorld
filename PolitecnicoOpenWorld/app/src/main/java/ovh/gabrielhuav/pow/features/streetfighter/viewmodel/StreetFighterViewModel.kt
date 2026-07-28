@@ -403,7 +403,7 @@ class StreetFighterViewModel @Inject constructor(
     // Frame data por peleador (cache perezoso por identidad; soporta CUALQUIER SfFighterId)
     private val dataCache = mutableMapOf<SfFighterId, SfFighterData>()
     internal fun dataFor(f: SfFighter): SfFighterData =
-        dataCache.getOrPut(f.id) { SfFrameCatalog.load(appContext, f.id) }
+        dataCache.getOrPut(f.id) { SfFrameCatalog.load(f.id) }
 
     // ---- reloj de juego virtual ----
     private var loopJob: Job? = null
@@ -1100,7 +1100,7 @@ class StreetFighterViewModel @Inject constructor(
     private fun hasAlphaFallback(f: SfFighter, state: SfFighterState): Boolean {
         val fallbackId = alphaFallbackId(f.id)
         if (fallbackId == f.id) return false
-        return !SfFrameCatalog.load(appContext, fallbackId)
+        return !SfFrameCatalog.load(fallbackId)
             .animations[state.jsKey].isNullOrEmpty()
     }
 

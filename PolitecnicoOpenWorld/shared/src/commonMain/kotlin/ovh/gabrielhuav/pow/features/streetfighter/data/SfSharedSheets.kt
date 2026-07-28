@@ -1,13 +1,14 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
-import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Canvas
-import android.graphics.Matrix
-import android.util.LruCache
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfSharedSet
+import ovh.gabrielhuav.pow.platform.assets.PowAssets
+import ovh.gabrielhuav.pow.platform.concurrencia.PowCerrojo
+import ovh.gabrielhuav.pow.platform.imagen.PowImagen
+import ovh.gabrielhuav.pow.platform.imagen.decodificarReducido
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -25,9 +26,22 @@ import kotlin.math.roundToInt
 // TARGET_H=100 px, con pies en (128,224) del lienzo 256². Es el mismo estándar que el packer
 // fuerza para sheets dedicados: compartidos y dedicados miden igual en la UI de pelea.
 //
-// Memoria (09 §6): la hoja armada mide 2560×2048 (≈20 MB ARGB) — IGUAL que decodificar los
-// PNG empaquetados que había antes; cache LRU de 3 (los 2 peleadores en pantalla + 1).
-// Costo de armado: una vez por peleador por sesión (~decenas de ms), al elegirlo.
+// ═════════════════════════════════════════════════════════════════════════════════════════
+// 🍏 FASE 5 — ESTE ARCHIVO YA ES MULTIPLATAFORMA.
+//
+// Era el que más `android.graphics` usaba (Bitmap, BitmapFactory, Canvas, Matrix). NO hizo falta
+// `expect/actual`: `ImageBitmap` y el `Canvas` de Compose ya son comunes, así que el port fue
+// traducir llamadas — la tabla de equivalencias está en `PowImagen`.
+//
+// DOS CAMBIOS DE COMPORTAMIENTO que hay que tener presentes:
+//
+//   1. **Ya no hay `recycle()`.** `ImageBitmap` no lo tiene: la memoria la gestiona el runtime.
+//      Las llamadas viejas se BORRARON, no se les buscó equivalente.
+//
+//   2. **`sampleSize` SE CONSERVA**, pero via `decodificarReducido` (expect/actual) — es el unico
+//      trozo de imagen que necesita codigo por plataforma. Sin el, la app de Android perderia el
+//      `inSampleSize` y volveria el OOM en gama baja. Ver [SfSharedSheets.sheetFor].
+// ═════════════════════════════════════════════════════════════════════════════════════════
 
 object SfSharedSheets {
 
@@ -38,54 +52,75 @@ object SfSharedSheets {
     private const val CENTER_X = 128
     private const val CENTER_ANCHOR_Y = 170
 
-    private val cache = LruCache<SfFighterId, Bitmap>(3)
+    /** Entradas de caché: los 2 peleadores en pantalla + 1. Era el tamaño del `LruCache`. */
+    private const val MAX_CACHE = 3
+
+    // `LruCache` es de Android y no existe en común. Se emula con un mapa + una lista de uso;
+    // con 3 entradas el coste de `remove`/`add` sobre la lista es irrelevante.
+    private val cache = mutableMapOf<SfFighterId, ImageBitmap>()
+    private val usoReciente = mutableListOf<SfFighterId>()
+
+    private val cerrojo = PowCerrojo()
 
     /**
-     * Hoja del peleador: EMPAQUETADA (assets, p. ej. Ryu/Ken/Prankedy) o COMPARTIDA
-     * (armada en runtime desde el set del mundo). Llamar fuera del hilo de dibujo si se puede.
-     */
-    @Synchronized
-    /**
+     * Hoja del peleador: EMPAQUETADA (assets, p. ej. Ryu/Ken/Prankedy) o COMPARTIDA (armada en
+     * runtime desde el set del mundo). Llamar fuera del hilo de dibujo si se puede.
+     *
      * 🆕 (2026-07-21) [sampleSize] > 1 decodifica el atlas DEDICADO a resolución reducida.
      *
-     * Los atlas croma llegan a 2560×7168: en ARGB_8888 son ~73 MB de RAM **por peleador**
-     * (×2 en pantalla). En gama baja eso provoca OOM y además muchas GPU antiguas ni
-     * siquiera aceptan texturas de ese tamaño. Con `sampleSize = 2` bajan a ~18 MB y, como
-     * los sprites se pintan a ~100 px dentro de una escena virtual de 382 px, la pérdida
-     * apenas se nota en un teléfono de gama baja. Las cajas/orígenes del JSON se dividen
-     * por el mismo factor en la View (ver `sheetSampleScale` en StreetFighterScreen).
-     * ⚠️ NO se puede usar RGB_565: los sprites necesitan canal alfa.
+     * Los atlas croma llegan a 2560×7168: en ARGB_8888 son ~73 MB de RAM **por peleador** (×2 en
+     * pantalla). En gama baja eso provoca OOM y además muchas GPU antiguas ni siquiera aceptan
+     * texturas de ese tamaño. Con `sampleSize = 2` bajan a ~18 MB y, como los sprites se pintan a
+     * ~100 px dentro de una escena virtual de 382 px, la pérdida apenas se nota en un teléfono de
+     * gama baja. Las cajas/orígenes del JSON se dividen por el mismo factor en la View (ver
+     * `sheetSampleScale` en StreetFighterScreen).
+     *
+     * ⚠️ Al portar, esto estuvo a punto de perderse: el decodificador común de Compose NO expone
+     * nada como `inSampleSize`, y dejarlo caer habría sido una regresión de memoria en la app que
+     * está en producción. Por eso existe [decodificarReducido] como `expect/actual` — es el ÚNICO
+     * trozo de imagen que necesita código por plataforma. Ver su KDoc: en Android no hay pico de
+     * memoria, en iOS sí.
+     *
+     * ⚠️ El [sampleSize] solo afecta al atlas DEDICADO. Las hojas COMPARTIDAS se arman en runtime
+     * a partir de sprites pequeños del mundo, así que ahí nunca hubo nada que reducir.
      */
-    fun sheetFor(context: Context, id: SfFighterId, sampleSize: Int = 1): Bitmap {
+    fun sheetFor(id: SfFighterId, sampleSize: Int = 1): ImageBitmap = cerrojo.ejecutar {
         val set = id.sharedSet
-            ?: return context.assets.open(id.spriteAsset).use { stream ->
-                val opts = BitmapFactory.Options().apply {
-                    inSampleSize = sampleSize.coerceAtLeast(1)
-                    inPreferredConfig = Bitmap.Config.ARGB_8888
-                }
-                BitmapFactory.decodeStream(stream, null, opts)
-                    ?: error("No se pudo decodificar ${id.spriteAsset}")
-            }
-        cache.get(id)?.let { return it }
-        val sheet = buildSharedSheet(context, set)
-        cache.put(id, sheet)
-        return sheet
+            ?: return@ejecutar decodificarReducido(PowAssets.bytes(id.spriteAsset), sampleSize)
+        cache[id]?.let { tocar(id); return@ejecutar it }
+        buildSharedSheet(set).also { guardar(id, it) }
     }
 
     /** Idle completo para el selector, recortado, orientado y normalizado a la misma altura. */
-    fun previewFramesFor(context: Context, set: SfSharedSet): List<Bitmap> = runCatching {
-        normalizeAnim(loadAnim(context, set, "Idle"))
+    fun previewFramesFor(set: SfSharedSet): List<ImageBitmap> = runCatching {
+        normalizeAnim(loadAnim(set, "Idle"))
     }.getOrDefault(emptyList())
+
+    // ═══════════════════════════════ caché LRU mínima ═══════════════════════════════
+
+    private fun tocar(id: SfFighterId) {
+        usoReciente.remove(id)
+        usoReciente.add(id)
+    }
+
+    private fun guardar(id: SfFighterId, sheet: ImageBitmap) {
+        cache[id] = sheet
+        tocar(id)
+        while (usoReciente.size > MAX_CACHE) {
+            // El primero de la lista es el que hace más tiempo que no se toca.
+            cache.remove(usoReciente.removeAt(0))
+        }
+    }
 
     // ══════════════════ armado de la hoja (port de gen_sf_frames_from_npc.py) ══════════════════
 
-    private fun buildSharedSheet(context: Context, set: SfSharedSet): Bitmap {
+    private fun buildSharedSheet(set: SfSharedSet): ImageBitmap {
         // Animaciones fuente (recortadas a bbox + espejadas), NORMALIZADAS por animación.
         // Mismos fallbacks que el tool (ya normalizados: reusar la lista es seguro).
-        val idle = normalizeAnim(loadAnim(context, set, "Idle"))
-        var walk = normalizeAnim(loadAnim(context, set, "Walk"))
-        var run = normalizeAnim(loadAnim(context, set, "Run"))
-        var special = normalizeAnim(loadAnim(context, set, "Special"))
+        val idle = normalizeAnim(loadAnim(set, "Idle"))
+        var walk = normalizeAnim(loadAnim(set, "Walk"))
+        var run = normalizeAnim(loadAnim(set, "Run"))
+        var special = normalizeAnim(loadAnim(set, "Special"))
         require(idle.isNotEmpty()) { "Set compartido sin Idle/: ${set.basePath}${set.folder}" }
         if (walk.isEmpty()) walk = run.ifEmpty { idle }
         if (run.isEmpty()) run = walk
@@ -96,16 +131,21 @@ object SfSharedSheets {
         val gen = buildGenFrames(idle, walk, run, special, scale = 1f)
 
         // Cuadros en el ORDEN del template ryu.json (mismo layout que SfFrameCatalog.remap)
-        val order = SfFrameCatalog.templateFrameOrder(context)
+        val order = SfFrameCatalog.templateFrameOrder()
         val rows = (order.size + COLS - 1) / COLS
-        val sheet = Bitmap.createBitmap(COLS * CELL, rows * CELL, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(sheet)
-        order.forEachIndexed { idx, key ->
-            val cell = gen[aliasFor(key)] ?: return@forEachIndexed // hueco = celda transparente
-            canvas.drawBitmap(cell, ((idx % COLS) * CELL).toFloat(), ((idx / COLS) * CELL).toFloat(), null)
+        return PowImagen.lienzo(COLS * CELL, rows * CELL) {
+            order.forEachIndexed { idx, key ->
+                val cell = gen[aliasFor(key)] ?: return@forEachIndexed // hueco = celda transparente
+                drawImage(
+                    image = cell,
+                    srcOffset = IntOffset.Zero,
+                    srcSize = IntSize(cell.width, cell.height),
+                    dstOffset = IntOffset((idx % COLS) * CELL, (idx / COLS) * CELL),
+                    dstSize = IntSize(cell.width, cell.height),
+                )
+            }
         }
-        gen.values.forEach { if (!it.isRecycled) it.recycle() }
-        return sheet
+        // (Aquí antes iba `gen.values.forEach { it.recycle() }`: ver la nota 1 de la cabecera.)
     }
 
     /** Mapeo de alias del packer: stun-1/2 reusan stun-3; "jump-start/land" = su cuadro único. */
@@ -126,34 +166,35 @@ object SfSharedSheets {
      * DENTRO de una animación (rebote al correr) se conserva porque la escala es por
      * animación, no por cuadro.
      */
-    private fun normalizeAnim(frames: List<Bitmap>): List<Bitmap> {
+    private fun normalizeAnim(frames: List<ImageBitmap>): List<ImageBitmap> {
         if (frames.isEmpty()) return frames
         val heights = frames.map { it.height }.sorted()
         val median = heights[heights.size / 2].toFloat()
         if (median <= 0f) return frames
         val s = TARGET_H / median
         return frames.map { f ->
-            val w = max(1, (f.width * s).roundToInt())
-            val h = max(1, (f.height * s).roundToInt())
-            Bitmap.createScaledBitmap(f, w, h, true)
+            PowImagen.escalar(
+                f,
+                max(1, (f.width * s).roundToInt()),
+                max(1, (f.height * s).roundToInt()),
+            )
         }
     }
 
     /** Carga y prepara una animación fuente: orden numérico, bbox, flip y filtro de corruptos. */
-    private fun loadAnim(context: Context, set: SfSharedSet, action: String): List<Bitmap> {
+    private fun loadAnim(set: SfSharedSet, action: String): List<ImageBitmap> {
         val dir = "${set.basePath}${set.folder}$action".trimEnd('/')
-        val names = runCatching { context.assets.list(dir)?.toList() }.getOrNull() ?: return emptyList()
+        // `PowAssets.listar` ya devuelve vacío si el directorio no existe — mismo contrato que el
+        // `assets.list(dir) ?: return emptyList()` de antes (ver `PowAssetsTest`).
+        val names = PowAssets.listar(dir)
+        if (names.isEmpty()) return emptyList()
         val frames = names
             .filter { it.endsWith(".webp", true) || it.endsWith(".png", true) }
             .sortedBy { n -> Regex("_(\\d+)\\.\\w+$").find(n)?.groupValues?.get(1)?.toIntOrNull() ?: 0 }
-            .mapNotNull { n ->
-                runCatching {
-                    context.assets.open("$dir/$n").use { BitmapFactory.decodeStream(it) }
-                }.getOrNull()
-            }
+            .mapNotNull { n -> runCatching { PowImagen.deAsset("$dir/$n") }.getOrNull() }
             .map { raw ->
-                val cropped = cropToOpaque(raw)
-                if (set.flip) flipHorizontal(cropped) else cropped
+                val cropped = PowImagen.recortarAOpaco(raw)
+                if (set.flip) PowImagen.voltearHorizontal(cropped) else cropped
             }
         // Filtro de cuadros DEGENERADOS (fuentes corruptas): alto < 40% del máximo del set
         val hMax = frames.maxOfOrNull { it.height } ?: return frames
@@ -162,16 +203,16 @@ object SfSharedSheets {
 
     /** Los 75 cuadros con las MISMAS transformaciones del tool (rotaciones/aplastados). */
     private fun buildGenFrames(
-        idle: List<Bitmap>,
-        walk: List<Bitmap>,
-        run: List<Bitmap>,
-        special: List<Bitmap>,
+        idle: List<ImageBitmap>,
+        walk: List<ImageBitmap>,
+        run: List<ImageBitmap>,
+        special: List<ImageBitmap>,
         scale: Float,
-    ): Map<String, Bitmap> {
+    ): Map<String, ImageBitmap> {
         fun <T> pick(l: List<T>, i: Int): T = l[i % l.size]
-        val out = mutableMapOf<String, Bitmap>()
+        val out = mutableMapOf<String, ImageBitmap>()
         // rot = grados ANTIHORARIOS (semántica de PIL, como el tool)
-        fun f(src: Bitmap, rot: Float = 0f, squashY: Float = 1f, dx: Int = 0, center: Boolean = false) =
+        fun f(src: ImageBitmap, rot: Float = 0f, squashY: Float = 1f, dx: Int = 0, center: Boolean = false) =
             makeFrame(src, scale, rot, squashY, dx, center)
 
         out["idle-1"] = f(pick(idle, 0)); out["idle-2"] = f(pick(idle, 1))
@@ -224,52 +265,30 @@ object SfSharedSheets {
 
     /** Escala/aplasta/rota y ancla un cuadro fuente en un lienzo 256² (pies en 128,224). */
     private fun makeFrame(
-        src: Bitmap,
+        src: ImageBitmap,
         scale: Float,
         rotCcw: Float,
         squashY: Float,
         dx: Int,
         centerAnchor: Boolean,
-    ): Bitmap {
+    ): ImageBitmap {
         val w = max(1, (src.width * scale).roundToInt())
         val h = max(1, (src.height * scale * squashY).roundToInt())
-        var img = Bitmap.createScaledBitmap(src, w, h, true)
-        if (rotCcw != 0f) {
-            // PIL rota ANTIHORARIO con ángulo positivo; Matrix.postRotate es HORARIO → negar
-            val m = Matrix().apply { postRotate(-rotCcw) }
-            img = Bitmap.createBitmap(img, 0, 0, img.width, img.height, m, true)
-        }
-        val canvas = Bitmap.createBitmap(CELL, CELL, Bitmap.Config.ARGB_8888)
+        val escalado = PowImagen.escalar(src, w, h)
+        // ⚠️ `PowImagen.rotar` YA niega el ángulo por dentro (PIL gira antihorario, Compose
+        // horario). Aquí se le pasa el valor de PIL tal cual, igual que hacía el código de Android
+        // con su `postRotate(-rotCcw)`. Negarlo otra vez aquí espejaría todas las reacciones.
+        val img = if (rotCcw != 0f) PowImagen.rotar(escalado, rotCcw) else escalado
         val x = CENTER_X - img.width / 2 + dx
         val y = if (centerAnchor) CENTER_ANCHOR_Y - img.height / 2 else FEET_Y - img.height
-        Canvas(canvas).drawBitmap(img, x.toFloat(), y.toFloat(), null)
-        return canvas
-    }
-
-    /** Recorta al rectángulo con píxeles opacos (equivalente a Image.getbbox de PIL). */
-    private fun cropToOpaque(bmp: Bitmap): Bitmap {
-        val w = bmp.width
-        val h = bmp.height
-        val px = IntArray(w * h)
-        bmp.getPixels(px, 0, w, 0, 0, w, h)
-        var minX = w; var minY = h; var maxX = -1; var maxY = -1
-        for (y in 0 until h) {
-            val rowBase = y * w
-            for (x in 0 until w) {
-                if ((px[rowBase + x] ushr 24) != 0) {
-                    if (x < minX) minX = x
-                    if (x > maxX) maxX = x
-                    if (y < minY) minY = y
-                    if (y > maxY) maxY = y
-                }
-            }
+        return PowImagen.lienzo(CELL, CELL) {
+            drawImage(
+                image = img,
+                srcOffset = IntOffset.Zero,
+                srcSize = IntSize(img.width, img.height),
+                dstOffset = IntOffset(x, y),
+                dstSize = IntSize(img.width, img.height),
+            )
         }
-        if (maxX < 0) return bmp
-        return Bitmap.createBitmap(bmp, minX, minY, maxX - minX + 1, maxY - minY + 1)
-    }
-
-    private fun flipHorizontal(bmp: Bitmap): Bitmap {
-        val m = Matrix().apply { preScale(-1f, 1f) }
-        return Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
     }
 }

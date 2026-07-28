@@ -454,7 +454,7 @@ internal fun StreetFighterViewModel.forceShowcaseState(sim: StreetFighterViewMod
  * de su special (special_<id>.ogg). Corre al armar cada peleadór del showcase.
  */
 internal fun StreetFighterViewModel.auditFighterAssets(id: SfFighterId) {
-    val data = runCatching { SfFrameCatalog.load(appContext, id) }.getOrElse {
+    val data = runCatching { SfFrameCatalog.load(id) }.getOrElse {
         logAssetIssue("JSON ILEGIBLE ${id.name} (${id.jsonAsset}): ${it.message}")
         return
     }

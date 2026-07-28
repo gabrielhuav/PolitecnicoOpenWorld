@@ -160,6 +160,7 @@ import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanGame
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfFrameCatalog
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfRoomSummary
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfSharedSheets
+import ovh.gabrielhuav.pow.platform.imagen.PowImagen
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfArcadeOutcome
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfOnlineStatus
@@ -330,8 +331,8 @@ fun StreetFighterScreen(
             }.getOrNull()
         }.filterValues { it != null }.mapValues { it.value!! }
     }
-    val playerData = remember(playerId) { SfFrameCatalog.load(context, playerId) }
-    val cpuData = remember(cpuId) { SfFrameCatalog.load(context, cpuId) }
+    val playerData = remember(playerId) { SfFrameCatalog.load(playerId) }
+    val cpuData = remember(cpuId) { SfFrameCatalog.load(cpuId) }
     val lowEnd = remember { viewModel.isLowEndDevice() }
     // 🆕 (2026-07-22, Bloque B) IDs de la pelea INCLUYENDO ambas identidades de una posible
     // metamorfosis. Es un SET (igualdad por contenido): cuando La Presidenta se transforma
@@ -366,7 +367,7 @@ fun StreetFighterScreen(
             // omite y drawFighter cae a la primera hoja disponible (feo pero jugable).
             val sheets = buildMap {
                 fightIds.forEach { id ->
-                    runCatching { SfSharedSheets.sheetFor(context, id, sheetSample).asImageBitmap() }
+                    runCatching { SfSharedSheets.sheetFor(id, sheetSample) }
                         .getOrNull()
                         ?.let { put(id.spriteAsset.substringAfterLast('/'), it) }
                 }
@@ -377,7 +378,7 @@ fun StreetFighterScreen(
             // (~63 → ~16 MB en gama alta, ~4 MB en baja), que era el sospechoso del crash por OOM.
             // Lleva SU escala en sheetScale.
             val needyId = fightIds.firstOrNull { id ->
-                val d = SfFrameCatalog.load(context, id)
+                val d = SfFrameCatalog.load(id)
                 SF_NEW_MOVE_STATES.any { d.animations[it.jsKey].isNullOrEmpty() }
             }
             val alpha = needyId?.let { needy ->
@@ -385,7 +386,7 @@ fun StreetFighterScreen(
                 val alphaSample = if (sheetSample > 1) sheetSample * 2 else 2
                 runCatching {
                     AlphaFallback(
-                        data = SfFrameCatalog.load(context, fallbackId),
+                        data = SfFrameCatalog.load(fallbackId),
                         sheetKey = fallbackId.spriteAsset.substringAfterLast('/'),
                         bitmap = context.assets.open(fallbackId.spriteAsset).use {
                             BitmapFactory.decodeStream(
@@ -406,7 +407,7 @@ fun StreetFighterScreen(
                 fightIds.associateWith { id ->
                     val sheet = sheets[id.spriteAsset.substringAfterLast('/')]
                     if (sheet != null) {
-                        measureFrameContentHeights(sheet, SfFrameCatalog.load(context, id).frames)
+                        measureFrameContentHeights(sheet, SfFrameCatalog.load(id).frames)
                     } else {
                         emptyMap()
                     }
@@ -1591,15 +1592,17 @@ private fun rememberFighterPreview(id: SfFighterId, animate: Boolean): ImageBitm
         runCatching {
             val shared = id.sharedSet
             if (shared != null) {
-                val raw = SfSharedSheets.previewFramesFor(context, shared)
+                // 🍏 Fase 5: `previewFramesFor` ya devuelve ImageBitmap (vive en `:shared`), así
+                // que el recorte usa `PowImagen` en vez del `trimTransparent` de Bitmap.
+                val raw = SfSharedSheets.previewFramesFor(shared)
                 val frames = if (animate) {
-                    raw.map { trimTransparent(it).asImageBitmap() }
+                    raw.map { PowImagen.recortarAOpaco(it) }
                 } else {
-                    listOfNotNull(raw.firstOrNull()?.let { trimTransparent(it).asImageBitmap() })
+                    listOfNotNull(raw.firstOrNull()?.let { PowImagen.recortarAOpaco(it) })
                 }
                 FighterPreviewAnimation(frames, List(frames.size) { PREVIEW_SHARED_MS })
             } else {
-                val data = SfFrameCatalog.load(context, id)
+                val data = SfFrameCatalog.load(id)
                 val decoder = context.assets.open(id.spriteAsset).use { ins ->
                     @Suppress("DEPRECATION")
                     BitmapRegionDecoder.newInstance(ins, false)

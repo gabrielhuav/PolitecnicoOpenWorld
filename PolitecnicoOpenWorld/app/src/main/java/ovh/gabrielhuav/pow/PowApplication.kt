@@ -3,6 +3,8 @@ package ovh.gabrielhuav.pow
 import android.app.Application
 import android.util.Log
 import dagger.hilt.android.HiltAndroidApp
+import ovh.gabrielhuav.pow.platform.assets.AssetsDeAndroid
+import ovh.gabrielhuav.pow.platform.assets.PowAssets
 
 /**
  * Application de POW. Punto único de inicialización temprana del proceso.
@@ -17,6 +19,11 @@ import dagger.hilt.android.HiltAndroidApp
 class PowApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        // 🍏 Fase 5: el código compartido lee assets sin conocer el `Context`, así que la fuente
+        // real hay que instalarla aquí. En iOS no hace falta (el bundle es global).
+        // ⚠️ ANTES QUE NADA: si una pantalla llegara a pedir un asset con esto sin instalar, el
+        // fallo es inmediato y con un mensaje que dice justo esta línea.
+        PowAssets.instalar(AssetsDeAndroid(this))
         try {
             com.google.firebase.FirebaseApp.initializeApp(this)
         } catch (e: Exception) {

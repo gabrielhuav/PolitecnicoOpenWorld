@@ -1,6 +1,5 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
-import android.content.Context
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.float
 import kotlinx.serialization.json.int
@@ -8,6 +7,8 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import ovh.gabrielhuav.pow.data.json.PowJson
+import ovh.gabrielhuav.pow.platform.assets.PowAssets
+import ovh.gabrielhuav.pow.platform.concurrencia.PowCerrojo
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAnimFrame
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterData
@@ -36,26 +37,26 @@ object SfFrameCatalog {
     private val cache = mutableMapOf<SfFighterId, SfFighterData>()
     private var templateCache: SfFighterData? = null
 
-    @Synchronized
-    fun load(context: Context, id: SfFighterId): SfFighterData = cache.getOrPut(id) {
-        if (id.sharedSet != null) {
-            remapToRuntimeGrid(template(context))
-        } else {
-            val json = context.assets.open(id.jsonAsset).bufferedReader().use { it.readText() }
-            parse(json)
+    // 🍏 Fase 5: sustituye a `@Synchronized`, que solo existe en la JVM. REENTRANTE porque `load`
+    // llama a `template()` y las dos cierran sobre este mismo cerrojo.
+    private val cerrojo = PowCerrojo()
+
+    fun load(id: SfFighterId): SfFighterData = cerrojo.ejecutar {
+        cache.getOrPut(id) {
+            if (id.sharedSet != null) {
+                remapToRuntimeGrid(template())
+            } else {
+                parse(PowAssets.texto(id.jsonAsset))
+            }
         }
     }
 
     /** Claves del template en su orden (define el layout de la hoja runtime compartida). */
-    @Synchronized
-    fun templateFrameOrder(context: Context): List<String> =
-        template(context).frames.keys.toList()
+    fun templateFrameOrder(): List<String> = cerrojo.ejecutar { template().frames.keys.toList() }
 
     /** Template de cajas/timings de los COMPARTIDOS (NO depende de ryu.json: release-safe). */
-    @Synchronized
-    private fun template(context: Context): SfFighterData = templateCache ?: run {
-        val json = context.assets.open(TEMPLATE_ASSET).bufferedReader().use { it.readText() }
-        parse(json).also { templateCache = it }
+    private fun template(): SfFighterData = cerrojo.ejecutar {
+        templateCache ?: parse(PowAssets.texto(TEMPLATE_ASSET)).also { templateCache = it }
     }
 
     /** Mismos frames/cajas/animaciones, pero con src = rejilla runtime y pies en (128,224). */
