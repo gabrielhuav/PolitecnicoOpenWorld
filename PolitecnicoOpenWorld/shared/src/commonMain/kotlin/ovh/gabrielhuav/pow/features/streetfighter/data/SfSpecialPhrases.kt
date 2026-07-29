@@ -1,6 +1,5 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
-import android.content.Context
 // 🍏 Accesores compatibles de `:shared` en vez de `org.json` (de la JVM, no existe en iOS).
 import ovh.gabrielhuav.pow.data.json.getJSONObject
 import ovh.gabrielhuav.pow.data.json.optJSONObject
@@ -8,8 +7,7 @@ import ovh.gabrielhuav.pow.data.json.optLong
 import ovh.gabrielhuav.pow.data.json.optString
 import ovh.gabrielhuav.pow.data.json.powJsonObjeto
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
-import java.util.Locale
-import java.util.concurrent.atomic.AtomicReference
+import ovh.gabrielhuav.pow.platform.assets.PowAssets
 
 /**
  * Catálogo de frases del special (audio + subtítulo i18n).
@@ -35,13 +33,13 @@ data class SfSpecialPhrase(
 ) {
     /** Texto a mostrar según locale del juego ("es" / "en" / otro → es). */
     fun textForLang(langTag: String): String {
-        val lang = langTag.lowercase(Locale.ROOT).take(2)
+        val lang = langTag.lowercase().take(2)
         return if (lang == "en") phraseEn else phraseEs
     }
 
     /** Línea para la fuente pixel (solo A-Z 0-9). */
     fun hudLine(): String = phraseHud.ifBlank {
-        phraseEs.uppercase(Locale.ROOT)
+        phraseEs.uppercase()
             .replace('Á', 'A').replace('É', 'E').replace('Í', 'I')
             .replace('Ó', 'O').replace('Ú', 'U').replace('Ñ', 'N')
             .replace('Ü', 'U')
@@ -53,22 +51,20 @@ data class SfSpecialPhrase(
 
 object SfSpecialPhrases {
     private const val ASSET = "STREETFIGHTER/DATA/special_phrases.json"
-    private val cache = AtomicReference<Map<SfFighterId, SfSpecialPhrase>?>(null)
+    private var cache: Map<SfFighterId, SfSpecialPhrase>? = null
 
     fun clearCache() {
-        cache.set(null)
+        cache = null
     }
 
-    fun load(context: Context): Map<SfFighterId, SfSpecialPhrase> {
-        cache.get()?.let { return it }
-        val loaded = runCatching {
-            context.assets.open(ASSET).bufferedReader().use { it.readText() }
-        }.getOrNull()?.let { parse(it) } ?: emptyMap()
-        cache.compareAndSet(null, loaded)
-        return cache.get() ?: loaded
+    fun load(): Map<SfFighterId, SfSpecialPhrase> {
+        cache?.let { return it }
+        val loaded = runCatching { PowAssets.texto(ASSET) }.getOrNull()?.let { parse(it) } ?: emptyMap()
+        cache = loaded
+        return loaded
     }
 
-    fun get(context: Context, id: SfFighterId): SfSpecialPhrase? = load(context)[id]
+    fun get(id: SfFighterId): SfSpecialPhrase? = load()[id]
 
     private fun parse(raw: String): Map<SfFighterId, SfSpecialPhrase> {
         val root = powJsonObjeto(raw)
@@ -81,7 +77,7 @@ object SfSpecialPhrases {
             if (es.isBlank()) continue
             val en = o.optString("phrase_en", es).ifBlank { es }
             val hud = o.optString("phrase_hud", "").ifBlank { es }
-            val audio = o.optString("audio", "special_${id.name.lowercase(Locale.ROOT)}.m4a")
+            val audio = o.optString("audio", "special_${id.name.lowercase()}.m4a")
             val ms = o.optLong("subtitle_ms", 2800L).coerceIn(800L, 9000L)
             val tier = o.optString("tier", "generic")
             out[id] = SfSpecialPhrase(

@@ -24,6 +24,8 @@ import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 
 // Cliente WebSocket del MULTIJUGADOR 1v1 del modo pelea (servidor MultiplayerSF/ en Render).
 // RELAY PURO: cada cliente simula a SU peleador; aquí solo viajan mensajes JSON.
@@ -247,9 +249,9 @@ class SfMatchClient : SfNetTransport {
                     requestTimeoutMillis = 10_000L
                 }
             }
-            val deadline = System.currentTimeMillis() + maxSeconds * 1000L
+            val started = TimeSource.Monotonic.markNow()
             var notified = false
-            while (System.currentTimeMillis() < deadline) {
+            while (started.elapsedNow() < maxSeconds.seconds) {
                 val ok = runCatching {
                     runBlocking { client.get(statusUrl).status.isSuccess() }
                 }.getOrDefault(false)
@@ -258,7 +260,7 @@ class SfMatchClient : SfNetTransport {
                     notified = true
                     runCatching { onSleeping() }
                 }
-                Thread.sleep(4000)
+                runBlocking { delay(4000) }
             }
             client.close()
             return false

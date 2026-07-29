@@ -1,6 +1,5 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
-import android.content.Context
 // 🍏 Accesores compatibles de `:shared` en vez de `org.json` (de la JVM, no existe en iOS).
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -10,8 +9,7 @@ import ovh.gabrielhuav.pow.data.json.optJSONObject
 import ovh.gabrielhuav.pow.data.json.optString
 import ovh.gabrielhuav.pow.data.json.powJsonObjeto
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
-import java.util.Locale
-import java.util.concurrent.atomic.AtomicReference
+import ovh.gabrielhuav.pow.platform.assets.PowAssets
 
 /**
  * 🆕 (2026-07-21) CATÁLOGO DE COMBOS de HUELUM VS. GOYA.
@@ -61,10 +59,10 @@ data class SfCombo(
     val ownerId: SfFighterId? = null,
 ) {
     fun name(langTag: String): String =
-        if (langTag.lowercase(Locale.ROOT).take(2) == "en") nameEn else nameEs
+        if (langTag.lowercase().take(2) == "en") nameEn else nameEs
 
     fun hint(langTag: String): String =
-        if (langTag.lowercase(Locale.ROOT).take(2) == "en") hintEn else hintEs
+        if (langTag.lowercase().take(2) == "en") hintEn else hintEs
 }
 
 /** Catálogo completo: básicos (una acción cada uno), combos universales y firmas. */
@@ -76,10 +74,10 @@ private class SfComboData(
 
 object SfCombos {
     private const val ASSET = "STREETFIGHTER/DATA/combos.json"
-    private val cache = AtomicReference<SfComboData?>(null)
+    private var cache: SfComboData? = null
 
     fun clearCache() {
-        cache.set(null)
+        cache = null
     }
 
     /**
@@ -87,33 +85,31 @@ object SfCombos {
      * cada puño, patada, bloqueo, dash, parry, agarre…). Son la primera mitad del tutorial:
      * antes de encadenar combos hay que saber ejecutar cada cosa.
      */
-    fun basics(context: Context): List<SfCombo> = load(context).basics
+    fun basics(): List<SfCombo> = load().basics
 
     /** Combos que valen para CUALQUIER peleador, ordenados por dificultad. */
-    fun universal(context: Context): List<SfCombo> = load(context).universal
+    fun universal(): List<SfCombo> = load().universal
 
     /** Combo de FIRMA del peleador (null si no tiene uno declarado). */
-    fun signature(context: Context, id: SfFighterId): SfCombo? = load(context).signatures[id]
+    fun signature(id: SfFighterId): SfCombo? = load().signatures[id]
 
     /** Universales + el de firma del peleador (lo que se LISTA en la hoja de combos). */
-    fun forFighter(context: Context, id: SfFighterId): List<SfCombo> =
-        universal(context) + listOfNotNull(signature(context, id))
+    fun forFighter(id: SfFighterId): List<SfCombo> =
+        universal() + listOfNotNull(signature(id))
 
     /**
      * Currículum COMPLETO del tutorial: primero los básicos (un movimiento cada uno) y
      * después los combos. Así se aprende "pasito a pasito" antes de encadenar.
      */
-    fun curriculum(context: Context, id: SfFighterId): List<SfCombo> =
-        basics(context) + forFighter(context, id)
+    fun curriculum(id: SfFighterId): List<SfCombo> =
+        basics() + forFighter(id)
 
-    private fun load(context: Context): SfComboData {
-        cache.get()?.let { return it }
-        val parsed = runCatching {
-            context.assets.open(ASSET).bufferedReader().use { it.readText() }
-        }.getOrNull()?.let { parse(it) }
+    private fun load(): SfComboData {
+        cache?.let { return it }
+        val parsed = runCatching { PowAssets.texto(ASSET) }.getOrNull()?.let { parse(it) }
             ?: SfComboData(emptyList(), emptyList(), emptyMap())
-        cache.compareAndSet(null, parsed)
-        return cache.get() ?: parsed
+        cache = parsed
+        return parsed
     }
 
     private fun steps(raw: JsonArray?): List<SfComboAction> {
@@ -160,7 +156,7 @@ object SfCombos {
                 val actions = steps(o.optJSONArray("steps"))
                 if (actions.isEmpty()) continue
                 signatures[id] = SfCombo(
-                    id = "signature_${name.lowercase(Locale.ROOT)}",
+                    id = "signature_${name.lowercase()}",
                     nameEs = o.optString("es", ""),
                     nameEn = o.optString("en", o.optString("es", "")),
                     hintEs = o.optString("hintEs", ""),
