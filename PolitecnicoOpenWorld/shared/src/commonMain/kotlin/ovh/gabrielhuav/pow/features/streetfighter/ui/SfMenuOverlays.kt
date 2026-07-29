@@ -1,6 +1,5 @@
 package ovh.gabrielhuav.pow.features.streetfighter.ui
 
-import android.graphics.BitmapRegionDecoder
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -45,17 +44,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-import ovh.gabrielhuav.pow.R
+import org.jetbrains.compose.resources.stringResource
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCpuDifficulty
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
-import ovh.gabrielhuav.pow.ui.components.PowButton
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfArcadeOutcome
+import ovh.gabrielhuav.pow.shared.recursos.*
+import ovh.gabrielhuav.pow.ui.components.PowButton
 
 // ────────────────────────────────────────────────────────────────────────────
 // 🎛️ OVERLAYS de MENÚ: modo de juego, selección de peleador, dificultad y resultado
@@ -72,7 +71,7 @@ import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfArcadeOutcome
 // ────────────────────────────────────────────────────────────────────────────
 
 @Composable
-internal fun GauntletReportOverlay(
+fun GauntletReportOverlay(
     progress: String,
     report: List<String>,
     path: String?,
@@ -90,7 +89,7 @@ internal fun GauntletReportOverlay(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = stringResource(R.string.sf_gauntlet_report_title),
+                text = stringResource(Res.string.sf_gauntlet_report_title),
                 color = Color(0xFFD4AF37),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Black,
@@ -114,7 +113,7 @@ internal fun GauntletReportOverlay(
             Spacer(modifier = Modifier.height(12.dp))
             if (report.isEmpty()) {
                 Text(
-                    text = stringResource(R.string.sf_gauntlet_no_issues),
+                    text = stringResource(Res.string.sf_gauntlet_no_issues),
                     color = Color(0xFF8BC34A),
                     fontSize = 13.sp,
                 )
@@ -132,7 +131,7 @@ internal fun GauntletReportOverlay(
             }
             Spacer(modifier = Modifier.height(16.dp))
             PowButton(
-                text = stringResource(R.string.sf_close),
+                text = stringResource(Res.string.sf_close),
                 onClick = onClose,
                 color = Color(0xFF1C4A6B),
                 modifier = Modifier.fillMaxWidth(0.5f),
@@ -142,7 +141,7 @@ internal fun GauntletReportOverlay(
 }
 
 @Composable
-internal fun SfModeMenuOverlay(
+fun SfModeMenuOverlay(
     // 🆕 (2026-07-18) Autojuego/Showcase son EXCLUSIVOS del Modo Desarrollador (QA interno).
     devMode: Boolean,
     audioShowcaseRunning: Boolean,
@@ -171,7 +170,7 @@ internal fun SfModeMenuOverlay(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = stringResource(R.string.menu_street_fighter),
+                text = stringResource(Res.string.menu_street_fighter),
                 color = Color(0xFFD4AF37),
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Black,
@@ -180,15 +179,15 @@ internal fun SfModeMenuOverlay(
             Spacer(modifier = Modifier.height(20.dp))
             // ARCADE — modalidad PRINCIPAL (grande y destacada, ahora ANIMADO como en el menú principal)
             FeaturedArcadeButton(
-                text = stringResource(R.string.sf_mode_arcade),
-                tag = stringResource(R.string.sf_mode_arcade_desc),
+                text = stringResource(Res.string.sf_mode_arcade),
+                tag = stringResource(Res.string.sf_mode_arcade_desc),
                 onClick = onArcade,
                 enabled = true
             )
             Spacer(modifier = Modifier.height(18.dp))
             // Otras modalidades (ahora respetando el color guinda del menú principal)
             PowButton(
-                text = stringResource(R.string.sf_mode_practice),
+                text = stringResource(Res.string.sf_mode_practice),
                 onClick = onPractice,
                 color = Color(0xFF8B1538),
                 modifier = Modifier.fillMaxWidth(0.68f),
@@ -196,14 +195,14 @@ internal fun SfModeMenuOverlay(
             Spacer(modifier = Modifier.height(8.dp))
             // 🆕 IA VS IA (CPU vs CPU a PESADILLA; para grabar en video)
             PowButton(
-                text = stringResource(R.string.sf_mode_ai_vs_ai),
+                text = stringResource(Res.string.sf_mode_ai_vs_ai),
                 onClick = onAiVsAi,
                 color = Color(0xFF8B1538),
                 modifier = Modifier.fillMaxWidth(0.68f),
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = stringResource(R.string.sf_mode_ai_vs_ai_desc),
+                text = stringResource(Res.string.sf_mode_ai_vs_ai_desc),
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
@@ -212,14 +211,14 @@ internal fun SfModeMenuOverlay(
             // una herramienta de QA: es como se aprende a jugar el modo).
             Spacer(modifier = Modifier.height(10.dp))
             PowButton(
-                text = stringResource(R.string.sf_mode_combos),
+                text = stringResource(Res.string.sf_mode_combos),
                 onClick = onCombos,
                 color = Color(0xFF1C6B4A),
                 modifier = Modifier.fillMaxWidth(0.68f),
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = stringResource(R.string.sf_mode_combos_desc),
+                text = stringResource(Res.string.sf_mode_combos_desc),
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
@@ -228,7 +227,7 @@ internal fun SfModeMenuOverlay(
             if (devMode) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = stringResource(R.string.sf_dev_tools_header),
+                    text = stringResource(Res.string.sf_dev_tools_header),
                     color = Color(0xFFFFD54A),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -236,21 +235,21 @@ internal fun SfModeMenuOverlay(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 PowButton(
-                    text = stringResource(R.string.sf_gauntlet_all),
+                    text = stringResource(Res.string.sf_gauntlet_all),
                     onClick = onGauntletAll,
                     color = Color(0xFF8B1538),
                     modifier = Modifier.fillMaxWidth(0.68f),
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 PowButton(
-                    text = stringResource(R.string.sf_gauntlet_arcade),
+                    text = stringResource(Res.string.sf_gauntlet_arcade),
                     onClick = onGauntletArcade,
                     color = Color(0xFF8B1538),
                     modifier = Modifier.fillMaxWidth(0.68f),
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 PowButton(
-                    text = stringResource(R.string.sf_gauntlet_showcase),
+                    text = stringResource(Res.string.sf_gauntlet_showcase),
                     onClick = onGauntletShowcase,
                     color = Color(0xFF8B1538),
                     modifier = Modifier.fillMaxWidth(0.68f),
@@ -258,7 +257,7 @@ internal fun SfModeMenuOverlay(
                 if (audioShowcaseRunning) {
                     Spacer(modifier = Modifier.height(6.dp))
                     PowButton(
-                        text = stringResource(R.string.sf_audio_showcase_stop),
+                        text = stringResource(Res.string.sf_audio_showcase_stop),
                         onClick = onAudioShowcaseStop,
                         color = Color(0xFF8B1538),
                         modifier = Modifier.fillMaxWidth(0.68f),
@@ -266,7 +265,7 @@ internal fun SfModeMenuOverlay(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = stringResource(
-                            R.string.sf_audio_showcase_progress,
+                            Res.string.sf_audio_showcase_progress,
                             audioShowcaseIndex,
                             audioShowcaseTotal,
                             audioShowcaseFighter?.shortName ?: "",
@@ -287,14 +286,14 @@ internal fun SfModeMenuOverlay(
             }
             Spacer(modifier = Modifier.height(8.dp))
             PowButton(
-                text = stringResource(R.string.sf_mode_multiplayer),
+                text = stringResource(Res.string.sf_mode_multiplayer),
                 onClick = onMultiplayer,
                 color = Color(0xFF8B1538),
                 modifier = Modifier.fillMaxWidth(0.68f),
             )
             Spacer(modifier = Modifier.height(16.dp))
             TextButton(onClick = onBack) {
-                Text(stringResource(R.string.sf_back), color = Color(0xFFD4AF37))
+                Text(stringResource(Res.string.sf_back), color = Color(0xFFD4AF37))
             }
         }
     }
@@ -409,7 +408,7 @@ internal fun SelectArrowHeader(showAlly: Boolean, showPick: Boolean) {
 }
 
 @Composable
-internal fun CharacterSelectOverlay(
+fun CharacterSelectOverlay(
     fighters: List<SfFighterId>, // DESBLOQUEADOS (RYU/KEN solo con Modo Desarrollador)
     onSelect: (SfFighterId) -> Unit,
     subtitle: String? = null,
@@ -440,7 +439,7 @@ internal fun CharacterSelectOverlay(
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = stringResource(R.string.sf_choose_fighter),
+                text = stringResource(Res.string.sf_choose_fighter),
                 color = Color(0xFFD4AF37),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Black,
@@ -491,7 +490,7 @@ internal fun CharacterSelectOverlay(
             }
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = stringResource(R.string.sf_alpha_note),
+                text = stringResource(Res.string.sf_alpha_note),
                 color = Color.White.copy(alpha = 0.6f),
                 fontSize = 11.sp,
             )
@@ -499,7 +498,7 @@ internal fun CharacterSelectOverlay(
             focusedId?.let { fid ->
                 Spacer(modifier = Modifier.height(8.dp))
                 PowButton(
-                    text = stringResource(R.string.sf_confirm),
+                    text = stringResource(Res.string.sf_confirm),
                     onClick = { onSelect(fid) },
                     color = Color(0xFFB8143A),
                     modifier = Modifier.fillMaxWidth(0.5f),
@@ -508,16 +507,16 @@ internal fun CharacterSelectOverlay(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 onArcade?.let {
                     Spacer(modifier = Modifier.height(6.dp))
-                    PowButton(text = stringResource(R.string.sf_arcade_button), onClick = it)
+                    PowButton(text = stringResource(Res.string.sf_arcade_button), onClick = it)
                 }
                 onOnline?.let {
                     Spacer(modifier = Modifier.height(6.dp))
-                    PowButton(text = stringResource(R.string.sf_mp_button), onClick = it)
+                    PowButton(text = stringResource(Res.string.sf_mp_button), onClick = it)
                 }
             }
             onBack?.let {
                 TextButton(onClick = it) {
-                    Text(backText ?: stringResource(R.string.sf_back), color = Color(0xFFD4AF37))
+                    Text(backText ?: stringResource(Res.string.sf_back), color = Color(0xFFD4AF37))
                 }
             }
         }
@@ -529,7 +528,7 @@ internal fun CharacterSelectOverlay(
 // ------------------------------------------------------------------
 
 @Composable
-internal fun ArcadeResultOverlay(
+fun ArcadeResultOverlay(
     outcome: SfArcadeOutcome,
     step: Int,
     total: Int,
@@ -555,49 +554,49 @@ internal fun ArcadeResultOverlay(
             when (outcome) {
                 SfArcadeOutcome.COMPLETED -> {
                     Text(
-                        text = stringResource(R.string.sf_arcade_champion),
+                        text = stringResource(Res.string.sf_arcade_champion),
                         color = Color(0xFFD4AF37), fontSize = 26.sp, fontWeight = FontWeight.Black,
                         letterSpacing = 2.sp,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = stringResource(R.string.sf_arcade_champion_sub),
+                        text = stringResource(Res.string.sf_arcade_champion_sub),
                         color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp,
                         textAlign = TextAlign.Center,
                     )
                     Spacer(modifier = Modifier.height(14.dp))
-                    PowButton(text = stringResource(R.string.sf_arcade_finish), onClick = onExit)
+                    PowButton(text = stringResource(Res.string.sf_arcade_finish), onClick = onExit)
                 }
                 SfArcadeOutcome.LOST -> {
                     Text(
-                        text = stringResource(R.string.sf_arcade_lost),
+                        text = stringResource(Res.string.sf_arcade_lost),
                         color = Color(0xFFEF5350), fontSize = 24.sp, fontWeight = FontWeight.Black,
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = stringResource(R.string.sf_arcade_lost_sub),
+                        text = stringResource(Res.string.sf_arcade_lost_sub),
                         color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp,
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        PowButton(text = stringResource(R.string.sf_arcade_retry), onClick = onRetry)
-                        PowButton(text = stringResource(R.string.sf_arcade_quit), onClick = onExit)
+                        PowButton(text = stringResource(Res.string.sf_arcade_retry), onClick = onRetry)
+                        PowButton(text = stringResource(Res.string.sf_arcade_quit), onClick = onExit)
                     }
                 }
                 else -> { // WON
                     Text(
-                        text = stringResource(R.string.sf_arcade_won),
+                        text = stringResource(Res.string.sf_arcade_won),
                         color = Color(0xFF81C784), fontSize = 24.sp, fontWeight = FontWeight.Black,
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = stringResource(R.string.sf_arcade_progress, step, total),
+                        text = stringResource(Res.string.sf_arcade_progress, step, total),
                         color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp,
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        PowButton(text = stringResource(R.string.sf_arcade_continue), onClick = onContinue)
-                        PowButton(text = stringResource(R.string.sf_arcade_quit), onClick = onExit)
+                        PowButton(text = stringResource(Res.string.sf_arcade_continue), onClick = onContinue)
+                        PowButton(text = stringResource(Res.string.sf_arcade_quit), onClick = onExit)
                     }
                 }
             }
@@ -612,7 +611,7 @@ internal fun ArcadeResultOverlay(
 // ------------------------------------------------------------------
 
 @Composable
-internal fun DifficultySelectOverlay(
+fun DifficultySelectOverlay(
     onSelect: (SfCpuDifficulty) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -626,7 +625,7 @@ internal fun DifficultySelectOverlay(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = stringResource(R.string.sf_choose_difficulty),
+                text = stringResource(Res.string.sf_choose_difficulty),
                 color = Color(0xFFD4AF37),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Black,
@@ -634,29 +633,29 @@ internal fun DifficultySelectOverlay(
             )
             Spacer(modifier = Modifier.height(14.dp))
             DifficultyOption(
-                title = stringResource(R.string.sf_diff_basic),
-                desc = stringResource(R.string.sf_diff_basic_desc),
+                title = stringResource(Res.string.sf_diff_basic),
+                desc = stringResource(Res.string.sf_diff_basic_desc),
                 onClick = { onSelect(SfCpuDifficulty.BASICA) },
             )
             DifficultyOption(
-                title = stringResource(R.string.sf_diff_normal),
-                desc = stringResource(R.string.sf_diff_normal_desc),
+                title = stringResource(Res.string.sf_diff_normal),
+                desc = stringResource(Res.string.sf_diff_normal_desc),
                 onClick = { onSelect(SfCpuDifficulty.NORMAL) },
             )
             DifficultyOption(
-                title = stringResource(R.string.sf_diff_advanced),
-                desc = stringResource(R.string.sf_diff_advanced_desc),
+                title = stringResource(Res.string.sf_diff_advanced),
+                desc = stringResource(Res.string.sf_diff_advanced_desc),
                 onClick = { onSelect(SfCpuDifficulty.AVANZADA) },
             )
             DifficultyOption(
-                title = stringResource(R.string.sf_diff_nightmare),
-                desc = stringResource(R.string.sf_diff_nightmare_desc),
+                title = stringResource(Res.string.sf_diff_nightmare),
+                desc = stringResource(Res.string.sf_diff_nightmare_desc),
                 onClick = { onSelect(SfCpuDifficulty.PESADILLA) },
             )
             Spacer(modifier = Modifier.height(4.dp))
             TextButton(onClick = onBack) {
                 Text(
-                    text = stringResource(R.string.sf_change_fighter),
+                    text = stringResource(Res.string.sf_change_fighter),
                     color = Color(0xFFD4AF37),
                     fontSize = 13.sp,
                 )
@@ -670,7 +669,7 @@ internal fun DifficultySelectOverlay(
  * Fácil → mapas de día · Medio → noche · Difícil → noche apocalíptica (noche_2).
  */
 @Composable
-internal fun ArcadeDifficultyOverlay(
+fun ArcadeDifficultyOverlay(
     onSelect: (SfCpuDifficulty) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -684,7 +683,7 @@ internal fun ArcadeDifficultyOverlay(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = stringResource(R.string.sf_choose_difficulty),
+                text = stringResource(Res.string.sf_choose_difficulty),
                 color = Color(0xFFD4AF37),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Black,
@@ -692,31 +691,31 @@ internal fun ArcadeDifficultyOverlay(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = stringResource(R.string.sf_arcade_diff_maps_hint),
+                text = stringResource(Res.string.sf_arcade_diff_maps_hint),
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 12.sp,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
             )
             Spacer(modifier = Modifier.height(10.dp))
             DifficultyOption(
-                title = stringResource(R.string.sf_arcade_diff_easy),
-                desc = stringResource(R.string.sf_arcade_diff_easy_desc),
+                title = stringResource(Res.string.sf_arcade_diff_easy),
+                desc = stringResource(Res.string.sf_arcade_diff_easy_desc),
                 onClick = { onSelect(SfCpuDifficulty.BASICA) },
             )
             DifficultyOption(
-                title = stringResource(R.string.sf_arcade_diff_medium),
-                desc = stringResource(R.string.sf_arcade_diff_medium_desc),
+                title = stringResource(Res.string.sf_arcade_diff_medium),
+                desc = stringResource(Res.string.sf_arcade_diff_medium_desc),
                 onClick = { onSelect(SfCpuDifficulty.NORMAL) },
             )
             DifficultyOption(
-                title = stringResource(R.string.sf_arcade_diff_hard),
-                desc = stringResource(R.string.sf_arcade_diff_hard_desc),
+                title = stringResource(Res.string.sf_arcade_diff_hard),
+                desc = stringResource(Res.string.sf_arcade_diff_hard_desc),
                 onClick = { onSelect(SfCpuDifficulty.AVANZADA) },
             )
             Spacer(modifier = Modifier.height(4.dp))
             TextButton(onClick = onBack) {
                 Text(
-                    text = stringResource(R.string.sf_change_fighter),
+                    text = stringResource(Res.string.sf_change_fighter),
                     color = Color(0xFFD4AF37),
                     fontSize = 13.sp,
                 )
