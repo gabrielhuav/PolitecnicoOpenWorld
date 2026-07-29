@@ -8,7 +8,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 
 /**
  * Retroalimentacion al PULSAR botones de la UI de juego (D-pad, botones A/B/X/Y, diamante PS4,
@@ -17,13 +16,13 @@ import ovh.gabrielhuav.pow.data.repository.SettingsRepository
  *   - SONIDO: AudioManager.playSoundEffect(FX_KEY_CLICK) a volumen = "Efectos" (Ajustes -> Audio).
  * El resalte VISUAL lo aplica cada boton con su estado `pressed`. Se crea 1 vez con rememberInputFeedback().
  */
-class InputFeedback(
+private class AndroidInputFeedback(
     private val view: View,
     private val audio: AudioManager?,
     private val sfxVolume: Float
-) {
+) : InputFeedback {
     /** Vibracion + click. Llamar en el flanco de BAJADA (cuando el dedo TOCA el boton). */
-    fun tap() {
+    override fun tap() {
         view.performHapticFeedback(
             HapticFeedbackConstants.VIRTUAL_KEY,
             HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING
@@ -35,12 +34,15 @@ class InputFeedback(
 }
 
 @Composable
-fun rememberInputFeedback(): InputFeedback {
+actual fun rememberInputFeedback(): InputFeedback {
     val view = LocalView.current
     val context = LocalContext.current
     return remember(view) {
         val audio = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-        val sfx = SettingsRepository(context).getSfxVolume()
-        InputFeedback(view, audio, sfx)
+        val sfx = context
+            .getSharedPreferences("pow_game_settings", Context.MODE_PRIVATE)
+            .getFloat("SFX_VOLUME", 1.0f)
+            .coerceIn(0f, 1f)
+        AndroidInputFeedback(view, audio, sfx)
     }
 }

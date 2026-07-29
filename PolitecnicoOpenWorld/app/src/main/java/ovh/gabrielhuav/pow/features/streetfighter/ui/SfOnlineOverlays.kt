@@ -1,7 +1,15 @@
 package ovh.gabrielhuav.pow.features.streetfighter.ui
 
 import android.Manifest
+import android.app.Activity
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -33,12 +41,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import ovh.gabrielhuav.pow.R
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfOnlineStatus
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterState
 import ovh.gabrielhuav.pow.ui.components.PowButton
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtDevice
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanGame
@@ -68,6 +81,225 @@ internal fun btScanPerms(): Array<String> = if (Build.VERSION.SDK_INT >= 31) {
     arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
 } else {
     emptyArray()
+}
+
+/** Rama Android de los estados online; este fichero queda fuera de iOS. */
+@Composable
+internal fun AndroidSfOnlineStatusContent(
+    state: StreetFighterState,
+    theme: SfTheme,
+    lowEnd: Boolean,
+    controller: StreetFighterController,
+) {
+    when (state.onlineStatus) {
+        SfOnlineStatus.CONNECTING -> OnlineInfoOverlay(
+            title = stringResource(R.string.sf_mp_connecting_title),
+            subtitle = stringResource(
+                when {
+                    (state.btMode || state.lanMode) && state.btHandshaking ->
+                        R.string.sf_bt_handshake_sub
+                    state.lanMode -> R.string.sf_lan_connecting_sub
+                    state.btMode -> R.string.sf_bt_connecting_sub
+                    state.onlineWaking -> R.string.sf_mp_connecting_sub
+                    else -> R.string.sf_mp_connecting_fast
+                },
+            ),
+            onCancel = controller::cancelOnline,
+        )
+        SfOnlineStatus.WAITING_OPPONENT -> if (state.lanMode) {
+            val ips = state.lanLocalIps.ifEmpty { listOfNotNull(state.lanLocalIp) }
+            OnlineInfoOverlay(
+                title = stringResource(R.string.sf_lan_host_title),
+                subtitle = if (ips.isNotEmpty()) {
+                    stringResource(R.string.sf_lan_host_sub, ips.joinToString("  •  "))
+                } else {
+                    stringResource(R.string.sf_lan_no_ip)
+                },
+                onCancel = controller::cancelOnline,
+            )
+        } else if (state.btMode) {
+            OnlineInfoOverlay(
+                title = stringResource(R.string.sf_bt_host_title),
+                subtitle = stringResource(R.string.sf_bt_host_sub),
+                onCancel = controller::cancelOnline,
+            )
+        } else if (state.roomCode != null) {
+            OnlineInfoOverlay(
+                title = stringResource(R.string.sf_mp_room, state.roomCode ?: ""),
+                subtitle = stringResource(R.string.sf_mp_waiting_sub),
+                onCancel = controller::cancelOnline,
+            )
+        } else {
+            PublicQueueOverlay(
+                rooms = state.activeRooms,
+                queueCount = state.queueCount,
+                awaitingHost = state.awaitingJoinOk,
+                notice = state.queueNotice,
+                onJoinRoom = controller::requestJoinRoom,
+                onCancel = controller::cancelOnline,
+            )
+        }
+        SfOnlineStatus.SELECTING -> CharacterSelectOverlay(
+            fighters = controller.selectableFighters(),
+            lockedFighters = controller.lockedFighters(),
+            subtitle = stringResource(R.string.sf_mp_pick_sub, state.roomCode ?: ""),
+            onSelect = { controller.selectCharacter(it) },
+            lowEnd = lowEnd,
+            isActuallyUnlocked = controller::isFighterActuallyUnlocked,
+        )
+        SfOnlineStatus.WAITING_MAP -> if (state.isHost) {
+            StageSelectOverlay(
+                theme = theme,
+                unlockedMaps = if (controller.devUnlockAll()) null else controller.unlockedMaps(),
+                onSelect = controller::chooseMapOnline,
+                onBack = null,
+                lowEnd = lowEnd,
+            )
+        } else {
+            OnlineInfoOverlay(
+                title = stringResource(R.string.sf_mp_room, state.roomCode ?: ""),
+                subtitle = stringResource(R.string.sf_mp_host_choosing_map),
+                onCancel = controller::cancelOnline,
+            )
+        }
+        else -> Unit
+    }
+}
+
+/** Permisos, menús BT/LAN y errores locales: Android puro. */
+@Composable
+internal fun AndroidSfOnlinePlatformOverlays(
+    state: StreetFighterState,
+    showOnlineMenu: Boolean,
+    onShowOnlineMenuChange: (Boolean) -> Unit,
+    controller: StreetFighterController,
+) {
+    val context = LocalContext.current
+    var pendingBtAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val btEnableLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val action = pendingBtAction
+        pendingBtAction = null
+        if (result.resultCode == Activity.RESULT_OK) action?.invoke()
+    }
+    val whenBtEnabled: (() -> Unit) -> Unit = { action ->
+        val adapter =
+            (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+        when {
+            adapter == null -> Unit
+            adapter.isEnabled -> action()
+            else -> {
+                pendingBtAction = action
+                runCatching {
+                    btEnableLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+                }
+            }
+        }
+    }
+    val btPermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { grants ->
+        val action = pendingBtAction
+        pendingBtAction = null
+        if (grants.values.all { it }) action?.invoke()
+    }
+    val withBtPerms: (Array<String>, () -> Unit) -> Unit = { permissions, action ->
+        val granted = Build.VERSION.SDK_INT < 31 || permissions.all {
+            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+        }
+        if (granted) {
+            whenBtEnabled(action)
+        } else {
+            pendingBtAction = { whenBtEnabled(action) }
+            btPermLauncher.launch(permissions)
+        }
+    }
+
+    if (showOnlineMenu && state.onlineStatus == SfOnlineStatus.OFF) {
+        OnlineMenuOverlay(
+            onCreate = {
+                onShowOnlineMenuChange(false)
+                controller.startOnline(create = true)
+            },
+            onJoin = { code ->
+                onShowOnlineMenuChange(false)
+                controller.startOnline(create = false, code = code)
+            },
+            onQuickMatch = {
+                onShowOnlineMenuChange(false)
+                controller.startOnlineQuick()
+            },
+            onBtHost = {
+                onShowOnlineMenuChange(false)
+                withBtPerms(btHostPerms()) {
+                    runCatching {
+                        context.startActivity(
+                            Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+                                .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300),
+                        )
+                    }
+                    controller.startBtHost()
+                }
+            },
+            onBtScan = {
+                onShowOnlineMenuChange(false)
+                withBtPerms(btScanPerms(), controller::startBtScan)
+            },
+            onLanHost = {
+                onShowOnlineMenuChange(false)
+                controller.startLanHost()
+            },
+            onLanJoin = { ip ->
+                onShowOnlineMenuChange(false)
+                controller.connectLanHost(ip)
+            },
+            lanDiscovered = state.lanDiscovered,
+            onLanScanStart = controller::startLanDiscovery,
+            onLanScanStop = controller::stopLanDiscovery,
+            onDismiss = { onShowOnlineMenuChange(false) },
+        )
+    }
+    if (state.btPicking) {
+        BtDevicePickerOverlay(
+            devices = state.btDevices,
+            onPick = controller::connectBtDevice,
+            onCancel = controller::cancelBtScan,
+        )
+    }
+    if (state.joinRequestPending) {
+        JoinRequestOverlay(
+            onAccept = { controller.respondJoin(true) },
+            onReject = { controller.respondJoin(false) },
+        )
+    }
+    if (state.btError != null && state.onlineStatus == SfOnlineStatus.OFF) {
+        BtRetryOverlay(
+            titleRes = if (state.lanMode) R.string.sf_lan_error_title else R.string.sf_bt_error_title,
+            error = state.btError ?: "",
+            hintRes = if (state.lanMode) R.string.sf_lan_error_hint else R.string.sf_bt_error_hint,
+            onRetry = {
+                val lanAddress = state.lanHostAddress
+                val btAddress = state.btRetryAddress
+                when {
+                    state.lanMode && lanAddress != null -> controller.connectLanHost(lanAddress)
+                    state.lanMode -> controller.startLanHost()
+                    btAddress != null ->
+                        withBtPerms(btScanPerms()) { controller.connectBtDevice(btAddress) }
+                    else -> withBtPerms(btHostPerms()) {
+                        runCatching {
+                            context.startActivity(
+                                Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+                                    .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300),
+                            )
+                        }
+                        controller.startBtHost()
+                    }
+                }
+            },
+            onCancel = controller::dismissBtError,
+        )
+    }
 }
 
 @Composable

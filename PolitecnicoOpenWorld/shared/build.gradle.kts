@@ -33,6 +33,9 @@ kotlin {
         namespace = "ovh.gabrielhuav.pow.shared"
         compileSdk = 36
         minSdk = 24
+        // AGP 9 no empaqueta los composeResources de un androidLibrary KMP si no se habilita.
+        // Sin esto compila, pero stringResource/painterResource fallan en runtime.
+        androidResources.enable = true
 
         // Los tests de `commonTest` que corren en la JVM del host (los 49 de siempre).
         withHostTestBuilder {}.configure {}

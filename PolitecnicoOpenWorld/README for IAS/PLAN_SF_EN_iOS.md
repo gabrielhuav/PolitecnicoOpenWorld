@@ -74,35 +74,29 @@ y perderlo sería una regresión de memoria en Android (los atlas croma son 2560
 
 ---
 
-## 3. Lo que FALTA — medido
+## 3. Lo que FALTA — medido 2026-07-28
 
-`features/streetfighter/` sigue teniendo **~14 000 líneas** en `:app`.
+✅ Los bloqueadores de código del modo pelea están resueltos: JSON, ViewModel/audio y las **7/7
+pantallas** viven o compilan desde `commonMain`. Los **82 OGG** se sustituyeron por **82 M4A/AAC**.
+Android conserva Hilt y el multijugador en adaptadores; `SfOnlineOverlays.kt` no entra en iOS.
 
-| Bloqueador | Archivos | Nota |
-|---|---:|---|
-| **`org.json`** (`JSONObject`, `optString`…) | 3 | `SfCombos`, `SfSpecialPhrases`, `SfVoicePhrases`. **Ya lo intenté y lo revertí**: es una reescritura a kotlinx, no un cambio de import. Son pequeños y **no dependen de nada más**: es el mejor punto de entrada. |
-| **UI de Compose atada a `Context`** | ~8 | `StreetFighterScreen` (1902), `SfSceneRenderer` (1122), `SfMenuOverlays` (749)… El bulto. |
-| **ViewModel** | 4 | Ya existe `PowViewModel`; falta que `StreetFighterViewModel` lo herede y cambiar `viewModelScope` → `scope`. |
-| **Hilt** | 1 | Solo el VM. En iOS se construye a mano. |
-| **BT + WebRTC** | 3 | ⚠️ **NO se portan**: en iOS el modo pelea sale **sin multijugador**. |
+✅ Los **107 MB** ya están en `<bundle>/assets/STREETFIGHTER/` y se leen en el simulador. Este
+proyecto Xcode 16 usa un `PBXFileSystemSynchronizedRootGroup`, así que la solución real es la fase
+`rsync` existente, no añadir otra referencia de carpeta. **No tocar: funciona.**
 
-**Y aparte:** los **107 MB** de `assets/STREETFIGHTER` tienen que entrar en el bundle de iOS.
-
-⚠️ **CÓMO SE METEN LOS ASSETS EN EL BUNDLE** (esto es Xcode, no código): `app/src/main/assets` se
-añade al target como **"folder reference" — la carpeta AZUL, no la amarilla**. La azul conserva las
-subcarpetas; la amarilla APLASTA todo a un nivel y entonces `STREETFIGHTER/DATA/x.json` deja de
-existir aunque el archivo esté ahí. No avisa de nada. `AssetsDeBundle` espera la carpeta en `assets`.
+Falta enlazar el framework en Mac, mostrar la pantalla raíz real desde la app iOS, revisar las cinco
+pantallas nuevas y oír una pelea completa. La tarea opcional `MainMenuScreen` sigue sin portar.
 
 ---
 
-## 4. Orden propuesto (cada paso deja Android verde)
+## 4. Estado del orden propuesto
 
-1. **Los 3 archivos de `org.json` → kotlinx.** Pequeños, aislados, y no hace falta Mac.
-2. **`StreetFighterViewModel` hereda de `PowViewModel`** (`viewModelScope` → `scope`).
-3. **Cambiar los usos de audio a `PowAudio`** en `StreetFighterScreen`.
-4. **Bajar la UI a `commonMain`**, empezando por lo pequeño (`SfBitmapText`, `SfComboSheetOverlay`)
-   y dejando `SfSceneRenderer` y `StreetFighterScreen` para el final.
-5. **Assets al bundle** y arrancar una pelea en el simulador.
+1. ✅ JSON y repositorio arcade.
+2. ✅ ViewModel/audio multiplataforma.
+3. ✅ `SfBitmapText`, `SfComboSheetOverlay`, `SfTutorialOverlay`, `SfStageSelectOverlay`,
+   `SfMenuOverlays`, `SfSceneRenderer` y `StreetFighterScreen` en `commonMain`.
+4. ✅ Android Nexus: pelea, ataques con pistas activas, pausa/reanudación; 218 tests y Native verde.
+5. ⏳ Mac: enlace/inspección visual/audio iOS. Después, opcionalmente, `MainMenuScreen`.
 
 ---
 

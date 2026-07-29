@@ -1,63 +1,7 @@
 package ovh.gabrielhuav.pow.features.streetfighter.ui
 
-// 🆕 Fase 5: EXTENSIONES del VM extraídas a `StreetFighterNet.kt` (multijugador). Al vivir en
-// otro paquete, la Screen las necesita IMPORTADAS una a una — es el mismo patrón que ya usan
-// las pantallas del mundo abierto con los parciales del WorldMapViewModel (ver 09 §0).
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.cycleShowcaseSpeed
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.dismissGauntletReport
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.goToPreviousShowcaseAnimation
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.skipShowcaseFighter
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.skipToNextShowcaseAnimation
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startAiVsAi
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startGauntletArcade
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startGauntletRoundRobin
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startShowcase
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.stopGauntlet
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.replayCurrentShowcaseAudio
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.stopAudioShowcase
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.arcadeContinue
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.arcadeExit
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.arcadeRetry
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.comboSheet
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.exitTutorial
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.resumeArcadeSession
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startArcade
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startTutorial
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.tutorialRestartLesson
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.tutorialSkipLesson
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.cancelBtScan
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.cancelOnline
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.chooseMapOnline
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.connectBtDevice
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.connectLanHost
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.dismissBtError
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.requestJoinRoom
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.respondJoin
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startBtHost
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startBtScan
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startLanDiscovery
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startLanHost
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startOnline
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.startOnlineQuick
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.stopLanDiscovery
-
-import android.Manifest
-import android.app.Activity
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothManager
-import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.BitmapRegionDecoder
-import android.graphics.Rect
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
-import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -111,29 +55,22 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
-import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import ovh.gabrielhuav.pow.R
+import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfBox
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackType
@@ -160,13 +97,15 @@ import ovh.gabrielhuav.pow.features.streetfighter.data.SfSharedSheets
 import ovh.gabrielhuav.pow.domain.streetfighter.SfVocesReglas
 import ovh.gabrielhuav.pow.platform.audio.PowAudio
 import ovh.gabrielhuav.pow.platform.audio.PowClip
+import ovh.gabrielhuav.pow.platform.assets.PowAssets
 import ovh.gabrielhuav.pow.platform.imagen.PowImagen
+import ovh.gabrielhuav.pow.platform.imagen.decodificarReducido
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfArcadeOutcome
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfOnlineStatus
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SF_STOP_SPECIALS_EVENT
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterState
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterViewModel
+import ovh.gabrielhuav.pow.shared.recursos.*
 
 // View Compose PURA del modo de pelea 1v1: observa el estado con collectAsState() y solo
 // emite intenciones al VM (contrato MVVM, README for IAS 01/09).
@@ -198,7 +137,10 @@ private fun playSfSpecial(
     assetPath: String,
     activePlayers: MutableMap<String, PowClip>,
 ): Boolean {
-    val decision = SfVocesReglas.decidir(assetPath, activePlayers.keys.toSet())
+    // SfVocesReglas conserva sus nombres lógicos históricos: cambiar el contenedor físico no debe
+    // alterar unas reglas de interrupción afinadas de oído. El clip real sí se abre como AAC/M4A.
+    val logicalPath = assetPath.removeSuffix(".m4a") + ".ogg"
+    val decision = SfVocesReglas.decidir(logicalPath, activePlayers.keys.toSet())
     if (decision.saltar) return false
     decision.aDetener.forEach { clave ->
         activePlayers.remove(clave)?.let { clip ->
@@ -215,10 +157,10 @@ private fun playSfSpecial(
     // contando como "sonando" y las reglas de interrupción se degradarían poco a poco (un peleador
     // dejaría de gritar porque su intro, acabada hace rato, sigue apuntada como en curso).
     clip.alTerminar {
-        if (activePlayers[assetPath] === clip) activePlayers.remove(assetPath)
+        if (activePlayers[logicalPath] === clip) activePlayers.remove(logicalPath)
         runCatching { clip.liberar() }
     }
-    activePlayers[assetPath] = clip
+    activePlayers[logicalPath] = clip
     clip.reproducir()
     return true
 }
@@ -234,12 +176,23 @@ private fun releaseSfSpecials(activePlayers: MutableMap<String, PowClip>) {
 }
 
 @Composable
-fun StreetFighterScreen(
+fun StreetFighterScreenCommon(
     onExitToMap: () -> Unit,
-    viewModel: StreetFighterViewModel = hiltViewModel(),
+    controller: StreetFighterController,
+    onlineStatusContent: @Composable (
+        StreetFighterState,
+        SfTheme,
+        Boolean,
+        StreetFighterController,
+    ) -> Unit = { _, _, _, _ -> },
+    onlinePlatformOverlays: @Composable (
+        StreetFighterState,
+        Boolean,
+        (Boolean) -> Unit,
+        StreetFighterController,
+    ) -> Unit = { _, _, _, _ -> },
 ) {
-    val state by viewModel.state.collectAsState()
-    val context = LocalContext.current
+    val state by controller.state.collectAsState()
     val theme = remember { SF_CLASSIC_THEME }
 
     // ---- Bitmaps del tema + sheets de los peleadores ACTUALES (decodificados una vez) ----
@@ -249,27 +202,19 @@ fun StreetFighterScreen(
     // los atlas llegaron a 2560×7168 (≈73 MB en ARGB_8888 por peleador, ×2 en pantalla):
     // demasiado para gama baja y para GPUs con tope de textura de 2048. A 1/2 quedan en
     // ~18 MB y 1280×3584. Todas las coordenadas del JSON se dividen por este factor.
-    val sheetSample = remember { if (viewModel.isLowEndDevice()) 2 else 1 }
+    val sheetSample = remember { if (controller.isLowEndDevice()) 2 else 1 }
     val sheetSampleScale = remember(sheetSample) { 1f / sheetSample }
     // 🆕 Hojas pesadas SOLO en pelea (no en selector → menos RAM/lag al abrir el modo).
     // En selector solo se usan thumbs de region-decoder por card.
     // Tema (HUD/sombra/splash): livianos, se decodifican una vez en composición.
     val themeImages = remember(theme) {
         theme.imageFiles.associateWith { name ->
-            // HUD/sombra: siempre; kenstage puede faltar
-            val opts = BitmapFactory.Options().apply {
-                inPreferredConfig = Bitmap.Config.RGB_565
-            }
-            runCatching {
-                context.assets.open(theme.imagesDir + name).use {
-                    BitmapFactory.decodeStream(it, null, opts)
-                }?.asImageBitmap()
-            }.getOrNull()
+            runCatching { PowImagen.deAsset(theme.imagesDir + name) }.getOrNull()
         }.filterValues { it != null }.mapValues { it.value!! }
     }
     val playerData = remember(playerId) { SfFrameCatalog.load(playerId) }
     val cpuData = remember(cpuId) { SfFrameCatalog.load(cpuId) }
-    val lowEnd = remember { viewModel.isLowEndDevice() }
+    val lowEnd = remember { controller.isLowEndDevice() }
     // 🆕 (2026-07-22, Bloque B) IDs de la pelea INCLUYENDO ambas identidades de una posible
     // metamorfosis. Es un SET (igualdad por contenido): cuando La Presidenta se transforma
     // a media pelea el set NO cambia → NO se re-decodifica nada (antes el remember se
@@ -298,7 +243,7 @@ fun StreetFighterScreen(
             return@LaunchedEffect
         }
         fightAssets = null
-        fightAssets = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        fightAssets = withContext(kotlinx.coroutines.Dispatchers.Default) {
             // BLINDAJE P0: un atlas que no decodifica (OOM/IO) NO tumba el juego — se
             // omite y drawFighter cae a la primera hoja disponible (feo pero jugable).
             val sheets = buildMap {
@@ -318,19 +263,16 @@ fun StreetFighterScreen(
                 SF_NEW_MOVE_STATES.any { d.animations[it.jsKey].isNullOrEmpty() }
             }
             val alpha = needyId?.let { needy ->
-                val fallbackId = viewModel.alphaFallbackId(needy)
+                val fallbackId = controller.alphaFallbackId(needy)
                 val alphaSample = if (sheetSample > 1) sheetSample * 2 else 2
                 runCatching {
                     AlphaFallback(
                         data = SfFrameCatalog.load(fallbackId),
                         sheetKey = fallbackId.spriteAsset.substringAfterLast('/'),
-                        bitmap = context.assets.open(fallbackId.spriteAsset).use {
-                            BitmapFactory.decodeStream(
-                                it,
-                                null,
-                                BitmapFactory.Options().apply { inSampleSize = alphaSample },
-                            )
-                        }?.asImageBitmap(),
+                        bitmap = decodificarReducido(
+                            PowAssets.bytes(fallbackId.spriteAsset),
+                            alphaSample,
+                        ),
                         sheetScale = 1f / alphaSample,
                     )
                 }.getOrNull()?.takeIf { it.bitmap != null }
@@ -386,9 +328,9 @@ fun StreetFighterScreen(
             return@LaunchedEffect
         }
         assetsLoading = true
-        stageBg = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        stageBg = withContext(kotlinx.coroutines.Dispatchers.Default) {
             effectiveBgFile?.let {
-                loadStageBackground(context, theme.imagesDir, it, lowEnd = lowEnd)
+                loadStageBackground(theme.imagesDir, it, lowEnd = lowEnd)
             }
         }
         assetsLoading = false
@@ -403,17 +345,17 @@ fun StreetFighterScreen(
     // Faltantes se omiten; el collect cae a "hadouken" si no hay special del id.
     val soundClips = remember(theme) {
         theme.soundKeys.distinct().mapNotNull { key ->
-            PowAudio.cargarEfecto("${theme.soundsDir}$key.ogg")?.let { key to it }
+            PowAudio.cargarEfecto("${theme.soundsDir}$key.m4a")?.let { key to it }
         }.toMap()
     }
     val activeSpecialPlayers = remember { mutableMapOf<String, PowClip>() }
     LaunchedEffect(soundClips) {
-        viewModel.soundEvents.collect { key ->
+        controller.soundEvents.collect { key ->
             if (key == SF_STOP_SPECIALS_EVENT) {
                 releaseSfSpecials(activeSpecialPlayers)
             } else if (key.startsWith("special_")) {
                 val played = playSfSpecial(
-                    assetPath = "${theme.soundsDir}$key.ogg",
+                    assetPath = "${theme.soundsDir}$key.m4a",
                     activePlayers = activeSpecialPlayers,
                 )
                 // Si el especial no sonó (no existe el clip, o las reglas de voz lo saltaron), cae
@@ -483,42 +425,32 @@ fun StreetFighterScreen(
 
     // PAUSA AUTOMÁTICA al bloquear el celular / minimizar: pausa + guarda sesión arcade
     // (forcePause → putString async, sin lag). Al volver, música reanuda; pelea sigue en PAUSA.
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            when (event) {
-                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> {
-                    viewModel.forcePause()
-                    runCatching { musicPlayer.value?.detener() }
-                    releaseSfSpecials(activeSpecialPlayers)
-                }
-                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> {
-                    // `detener()` rebobina, así que al volver la pista arranca desde el principio.
-                    // Es un cambio respecto al `pause()`/`start()` de antes; se acepta porque la
-                    // música es en bucle y nadie nota dónde reengancha.
-                    runCatching { musicPlayer.value?.reproducir(theme.musicVolume, bucle = true) }
-                }
-                else -> Unit
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
+    SfLifecycleEffect(
+        onPause = {
+            controller.forcePause()
+            runCatching { musicPlayer.value?.detener() }
+            releaseSfSpecials(activeSpecialPlayers)
+        },
+        onResume = {
+            // `detener()` rebobina, así que al volver la pista arranca desde el principio.
+            runCatching { musicPlayer.value?.reproducir(theme.musicVolume, bucle = true) }
+        },
+    )
 
     // 🆕 Retomar pelea arcade a medias (si saliste / minimizaste)
-    var showResumeDialog by remember { mutableStateOf(viewModel.hasArcadeSession()) }
+    var showResumeDialog by remember { mutableStateOf(controller.hasArcadeSession()) }
 
     // Textos del banner de RONDA (i18n; la fuente arcade solo tiene A-Z/0-9)
-    val roundBannerText = stringResource(R.string.sf_round_banner, state.roundNumber)
-    val fightBannerText = stringResource(R.string.sf_fight_banner)
+    val roundBannerText = stringResource(Res.string.sf_round_banner, state.roundNumber)
+    val fightBannerText = stringResource(Res.string.sf_fight_banner)
     // 🆕 (2026-07-20) Etiqueta del contador de COMBO ("GOLPES"/"HITS")
-    val comboHitsLabel = stringResource(R.string.sf_combo_hits)
+    val comboHitsLabel = stringResource(Res.string.sf_combo_hits)
     // 🆕 (2026-07-21) ¿El peleador elegido tiene el moveset nuevo? (botones extra)
-    val hasNewMoves = remember(state.player.id) { viewModel.playerHasNewMoves() }
+    val hasNewMoves = remember(state.player.id) { controller.playerHasNewMoves() }
     // 🆕 Ajustes → "Mostrar hitboxes" (se lee al entrar al modo)
-    val showHitboxes = remember { viewModel.showHitboxes() }
+    val showHitboxes = remember { controller.showHitboxes() }
     // 🆕 (2026-07-25) Ajustes → "Mostrar FPS (pelea)" (contador de cuadros por segundo)
-    val showSfFps = remember { viewModel.showSfFps() }
+    val showSfFps = remember { controller.showSfFps() }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         // ---- Escena completa (mundo + HUD) en un Canvas ----
@@ -531,7 +463,7 @@ fun StreetFighterScreen(
                     theme, state, images, playerData, cpuData, stageBg,
                     roundBannerText, fightBannerText, comboHitsLabel, showHitboxes,
                     playerContentH, cpuContentH, effectiveBgFile,
-                    playerSilhouette = !viewModel.isFighterActuallyUnlocked(state.player.id),
+                    playerSilhouette = !controller.isFighterActuallyUnlocked(state.player.id),
                     alphaFallback = alphaFallback,
                     sheetScale = sheetSampleScale,
                 )
@@ -544,7 +476,7 @@ fun StreetFighterScreen(
         // 🆕 (2026-07-22) Avisa al VM para CONGELAR el reloj de juego mientras carga: así el
         // 3-2-1 y el arranque se ven al terminar (antes se gastaban ocultos tras el CARGANDO,
         // sobre todo en gama baja e IA vs IA que decodifica dos atlas).
-        LaunchedEffect(fightLoading) { viewModel.setAssetsLoadingUi(fightLoading) }
+        LaunchedEffect(fightLoading) { controller.setAssetsLoadingUi(fightLoading) }
         // 🆕 (2026-07-25) Contador de FPS del modo pelea (Ajustes → Interfaz). Mide los cuadros
         // REALES de pantalla (withFrameNanos), no el tick del VM. Solo durante la pelea.
         if (showSfFps && !state.inCharacterSelect && !fightLoading) {
@@ -558,8 +490,8 @@ fun StreetFighterScreen(
             SfLoadingOverlay(
                 theme = theme,
                 arcadeText = "ESPERANDO",
-                fallbackText = stringResource(R.string.sf_waiting_opponent),
-                subtitle = stringResource(R.string.sf_waiting_opponent_sub),
+                fallbackText = stringResource(Res.string.sf_waiting_opponent),
+                subtitle = stringResource(Res.string.sf_waiting_opponent_sub),
             )
         }
 
@@ -577,12 +509,12 @@ fun StreetFighterScreen(
             val tutorialJoystick = tutorialStepLabel?.let(::sfJoystickHintForLabel)
             JoystickController(
                 modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
-                onRelease = viewModel::onJoystickRelease,
+                onRelease = controller::onJoystickRelease,
                 // 🆕 (2026-07-25) Respuesta INMEDIATA al toque: en la pelea los controles deben
                 // responder al instante (agacharse/caminar). Con el arrastre de siempre un tap se
                 // perdía y tocar-y-mantener no registraba hasta cruzar el touch-slop.
                 respondToTouchDown = true,
-                onMove = viewModel::onJoystickMove,
+                onMove = controller::onJoystickMove,
             )
             // 🆕 (2026-07-22) Guía de JOYSTICK del tutorial: gesto/dirección a marcar (↓, →, dash,
             // hadouken…), pulsando ENCIMA del joystick para que se sepa qué mover (p.ej. la Barrida
@@ -599,10 +531,10 @@ fun StreetFighterScreen(
             // los toques caen dentro del juego.
             FighterXboxButtons(
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 64.dp, bottom = 16.dp),
-                onPunch = { strength -> viewModel.onAttackPressed(strength, SfAttackType.PUNCH) },
-                onKick = viewModel::onKickPressed,
+                onPunch = { strength -> controller.onAttackPressed(strength, SfAttackType.PUNCH) },
+                onKick = controller::onKickPressed,
                 bonusPowerCount = state.player.id.bonusPowerCount,
-                onBonusPower = viewModel::onBonusPowerPressed,
+                onBonusPower = controller::onBonusPowerPressed,
                 highlight = tutorialButton,
             )
             // 🆕 (2026-07-21) Botones del moveset 3rd Strike. Solo se muestran si el
@@ -616,10 +548,10 @@ fun StreetFighterScreen(
                         .padding(start = 16.dp, bottom = 185.dp),
                     isLeft = true,
                     superReady = state.player.superReady,
-                    onParry = viewModel::onParryPressed,
-                    onGrab = viewModel::onGrabPressed,
-                    onTaunt = viewModel::onTauntPressed,
-                    onSuper = viewModel::onSuperArtPressed,
+                    onParry = controller::onParryPressed,
+                    onGrab = controller::onGrabPressed,
+                    onTaunt = controller::onTauntPressed,
+                    onSuper = controller::onSuperArtPressed,
                     highlight = tutorialButton,
                 )
                 // Gatillos R (derecha, encima del diamante) = R1 Agarre · R2 Súper.
@@ -629,10 +561,10 @@ fun StreetFighterScreen(
                         .padding(end = 16.dp, bottom = 190.dp),
                     isLeft = false,
                     superReady = state.player.superReady,
-                    onParry = viewModel::onParryPressed,
-                    onGrab = viewModel::onGrabPressed,
-                    onTaunt = viewModel::onTauntPressed,
-                    onSuper = viewModel::onSuperArtPressed,
+                    onParry = controller::onParryPressed,
+                    onGrab = controller::onGrabPressed,
+                    onTaunt = controller::onTauntPressed,
+                    onSuper = controller::onSuperArtPressed,
                     highlight = tutorialButton,
                 )
             }
@@ -649,11 +581,11 @@ fun StreetFighterScreen(
                     flash = state.tutorialFlash,
                     error = state.tutorialError,
                     completed = state.tutorialCompleted,
-                    onSkip = viewModel::tutorialSkipLesson,
-                    onRestart = viewModel::tutorialRestartLesson,
+                    onSkip = controller::tutorialSkipLesson,
+                    onRestart = controller::tutorialRestartLesson,
                     // `exitTutorial` devuelve el estado a selección de personaje; el
                     // LaunchedEffect(inCharacterSelect) reabre el flujo normal del modo.
-                    onExit = viewModel::exitTutorial,
+                    onExit = controller::exitTutorial,
                 )
             }
             // 🆕 (2026-07-22) El hint de controles al fondo se QUITÓ (pedido del dueño): estorbaba
@@ -664,8 +596,8 @@ fun StreetFighterScreen(
         // Durante el AUTOJUEGO se oculta: ahí manda el botón DETENER de abajo.
         if (!state.inCharacterSelect && state.aiVsAi && !state.showEndMenu && !state.gauntletRunning) {
             PowButton(
-                text = stringResource(R.string.sf_exit),
-                onClick = viewModel::backToCharacterSelect,
+                text = stringResource(Res.string.sf_exit),
+                onClick = controller::backToCharacterSelect,
                 color = Color(0xFF8B1538),
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -688,8 +620,8 @@ fun StreetFighterScreen(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 PowButton(
-                    text = stringResource(R.string.sf_gauntlet_stop),
-                    onClick = viewModel::stopGauntlet,
+                    text = stringResource(Res.string.sf_gauntlet_stop),
+                    onClick = controller::stopGauntlet,
                     color = Color(0xFF8B1538),
                     modifier = Modifier.fillMaxWidth(0.32f),
                 )
@@ -698,14 +630,14 @@ fun StreetFighterScreen(
                     Spacer(modifier = Modifier.height(6.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         PowButton(
-                            text = stringResource(R.string.sf_showcase_prev_animation),
-                            onClick = viewModel::goToPreviousShowcaseAnimation,
+                            text = stringResource(Res.string.sf_showcase_prev_animation),
+                            onClick = controller::goToPreviousShowcaseAnimation,
                             color = Color(0xFF1B5E20),
                             modifier = Modifier.width(156.dp),
                         )
                         PowButton(
-                            text = stringResource(R.string.sf_showcase_next_animation),
-                            onClick = viewModel::skipToNextShowcaseAnimation,
+                            text = stringResource(Res.string.sf_showcase_next_animation),
+                            onClick = controller::skipToNextShowcaseAnimation,
                             color = Color(0xFF1B5E20),
                             modifier = Modifier.width(156.dp),
                         )
@@ -713,17 +645,17 @@ fun StreetFighterScreen(
                     Spacer(modifier = Modifier.height(6.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         PowButton(
-                            text = stringResource(R.string.sf_showcase_next_fighter),
-                            onClick = viewModel::skipShowcaseFighter,
+                            text = stringResource(Res.string.sf_showcase_next_fighter),
+                            onClick = controller::skipShowcaseFighter,
                             color = Color(0xFF7B3F00),
                             modifier = Modifier.width(156.dp),
                         )
                         PowButton(
                             text = stringResource(
-                                R.string.sf_showcase_speed,
+                                Res.string.sf_showcase_speed,
                                 "${state.showcaseSpeed.toInt()}x",
                             ),
-                            onClick = viewModel::cycleShowcaseSpeed,
+                            onClick = controller::cycleShowcaseSpeed,
                             color = Color(0xFF1565C0),
                             modifier = Modifier.width(156.dp),
                         )
@@ -731,8 +663,8 @@ fun StreetFighterScreen(
                     Spacer(modifier = Modifier.height(6.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         PowButton(
-                            text = stringResource(R.string.sf_showcase_replay_audio),
-                            onClick = viewModel::replayCurrentShowcaseAudio,
+                            text = stringResource(Res.string.sf_showcase_replay_audio),
+                            onClick = controller::replayCurrentShowcaseAudio,
                             color = Color(0xFF6A1B9A),
                             modifier = Modifier.width(156.dp),
                         )
@@ -742,10 +674,10 @@ fun StreetFighterScreen(
                     Spacer(modifier = Modifier.height(6.dp))
                     PowButton(
                         text = stringResource(
-                            R.string.sf_showcase_speed,
+                            Res.string.sf_showcase_speed,
                             "${state.showcaseSpeed.toInt()}x",
                         ),
-                        onClick = viewModel::cycleShowcaseSpeed,
+                        onClick = controller::cycleShowcaseSpeed,
                         color = Color(0xFF1565C0),
                         modifier = Modifier.width(156.dp),
                     )
@@ -757,7 +689,7 @@ fun StreetFighterScreen(
                 progress = state.gauntletProgress,
                 report = state.gauntletReport,
                 path = state.gauntletReportPath,
-                onClose = viewModel::dismissGauntletReport,
+                onClose = controller::dismissGauntletReport,
             )
         }
 
@@ -791,49 +723,52 @@ fun StreetFighterScreen(
             }
         }
         if (state.inCharacterSelect) {
-            when (state.onlineStatus) {
+            if (state.onlineStatus != SfOnlineStatus.OFF) {
+                onlineStatusContent(state, theme, lowEnd, controller)
+            } else when (state.onlineStatus) {
+                /* Android: vive en SfOnlineOverlays.kt y entra por onlineStatusContent.
                 SfOnlineStatus.CONNECTING -> OnlineInfoOverlay(
-                    title = stringResource(R.string.sf_mp_connecting_title),
+                    title = stringResource(Res.string.sf_mp_connecting_title),
                     // BT/LAN en 2 etapas para que se ENTIENDA qué pasa: conectando → verificando
                     subtitle = stringResource(
                         when {
-                            (state.btMode || state.lanMode) && state.btHandshaking -> R.string.sf_bt_handshake_sub
-                            state.lanMode -> R.string.sf_lan_connecting_sub
-                            state.btMode -> R.string.sf_bt_connecting_sub
+                            (state.btMode || state.lanMode) && state.btHandshaking -> Res.string.sf_bt_handshake_sub
+                            state.lanMode -> Res.string.sf_lan_connecting_sub
+                            state.btMode -> Res.string.sf_bt_connecting_sub
                             // 🆕 (2026-07-26) El aviso de "hasta un minuto" SOLO si el servidor
                             // estaba dormido de verdad. Antes salía siempre y asustaba de gratis:
                             // con el servicio despierto la conexión es inmediata.
-                            state.onlineWaking -> R.string.sf_mp_connecting_sub
-                            else -> R.string.sf_mp_connecting_fast
+                            state.onlineWaking -> Res.string.sf_mp_connecting_sub
+                            else -> Res.string.sf_mp_connecting_fast
                         },
                     ),
-                    onCancel = { viewModel.cancelOnline() },
+                    onCancel = { controller.cancelOnline() },
                 )
                 SfOnlineStatus.WAITING_OPPONENT -> if (state.lanMode) {
                     // SERVIDOR LOCAL: mostrar TODAS las IPs a compartir (misma red Wi-Fi/hotspot);
                     // el rival prueba la alcanzable si el host tiene varias interfaces.
                     val ips = state.lanLocalIps.ifEmpty { listOfNotNull(state.lanLocalIp) }
                     OnlineInfoOverlay(
-                        title = stringResource(R.string.sf_lan_host_title),
+                        title = stringResource(Res.string.sf_lan_host_title),
                         subtitle = if (ips.isNotEmpty()) {
-                            stringResource(R.string.sf_lan_host_sub, ips.joinToString("  •  "))
+                            stringResource(Res.string.sf_lan_host_sub, ips.joinToString("  •  "))
                         } else {
-                            stringResource(R.string.sf_lan_no_ip)
+                            stringResource(Res.string.sf_lan_no_ip)
                         },
-                        onCancel = { viewModel.cancelOnline() },
+                        onCancel = { controller.cancelOnline() },
                     )
                 } else if (state.btMode) {
                     // ANFITRIÓN Bluetooth: visible + esperando que el rival conecte
                     OnlineInfoOverlay(
-                        title = stringResource(R.string.sf_bt_host_title),
-                        subtitle = stringResource(R.string.sf_bt_host_sub),
-                        onCancel = { viewModel.cancelOnline() },
+                        title = stringResource(Res.string.sf_bt_host_title),
+                        subtitle = stringResource(Res.string.sf_bt_host_sub),
+                        onCancel = { controller.cancelOnline() },
                     )
                 } else if (state.roomCode != null) {
                     OnlineInfoOverlay(
-                        title = stringResource(R.string.sf_mp_room, state.roomCode!!),
-                        subtitle = stringResource(R.string.sf_mp_waiting_sub),
-                        onCancel = { viewModel.cancelOnline() },
+                        title = stringResource(Res.string.sf_mp_room, state.roomCode!!),
+                        subtitle = stringResource(Res.string.sf_mp_waiting_sub),
+                        onCancel = { controller.cancelOnline() },
                     )
                 } else {
                     // SALA PÚBLICA (lista de espera): resumen + salas activas como tarjetas;
@@ -843,34 +778,35 @@ fun StreetFighterScreen(
                         queueCount = state.queueCount,
                         awaitingHost = state.awaitingJoinOk,
                         notice = state.queueNotice,
-                        onJoinRoom = viewModel::requestJoinRoom,
-                        onCancel = { viewModel.cancelOnline() },
+                        onJoinRoom = controller::requestJoinRoom,
+                        onCancel = { controller.cancelOnline() },
                     )
                 }
                 SfOnlineStatus.SELECTING -> CharacterSelectOverlay(
-                    fighters = viewModel.selectableFighters(),
-                    lockedFighters = viewModel.lockedFighters(),
-                    subtitle = stringResource(R.string.sf_mp_pick_sub, state.roomCode ?: ""),
-                    onSelect = viewModel::selectCharacter,
+                    fighters = controller.selectableFighters(),
+                    lockedFighters = controller.lockedFighters(),
+                    subtitle = stringResource(Res.string.sf_mp_pick_sub, state.roomCode ?: ""),
+                    onSelect = controller::selectCharacter,
                     lowEnd = lowEnd,
-                    isActuallyUnlocked = { viewModel.isFighterActuallyUnlocked(it) },
+                    isActuallyUnlocked = { controller.isFighterActuallyUnlocked(it) },
                 )
                 SfOnlineStatus.WAITING_MAP -> if (state.isHost) {
                     StageSelectOverlay(
                         theme = theme,
-                        unlockedMaps = if (viewModel.devUnlockAll()) null else viewModel.unlockedMaps(),
-                        onSelect = viewModel::chooseMapOnline,
+                        unlockedMaps = if (controller.devUnlockAll()) null else controller.unlockedMaps(),
+                        onSelect = controller::chooseMapOnline,
                         onBack = null,
                         lowEnd = lowEnd,
                     )
                 } else {
                     OnlineInfoOverlay(
-                        title = stringResource(R.string.sf_mp_room, state.roomCode ?: ""),
-                        subtitle = stringResource(R.string.sf_mp_host_choosing_map),
-                        onCancel = { viewModel.cancelOnline() },
+                        title = stringResource(Res.string.sf_mp_room, state.roomCode ?: ""),
+                        subtitle = stringResource(Res.string.sf_mp_host_choosing_map),
+                        onCancel = { controller.cancelOnline() },
                     )
                 }
                 SfOnlineStatus.COUNTDOWN -> Unit // el número gigante se dibuja abajo
+                */
                 else -> {
                     val fighter = pendingFighter
                     val rival = pendingRival
@@ -879,21 +815,21 @@ fun StreetFighterScreen(
                         // 🆕 (2026-07-21) HOJA DE COMBOS + TUTORIAL. Si aún no hay peleador
                         // elegido, primero se elige de entre los DESBLOQUEADOS.
                         showComboSheet && comboFighter == null -> CharacterSelectOverlay(
-                            fighters = viewModel.selectableFighters(),
-                            subtitle = stringResource(R.string.sf_combos_pick_fighter),
-                            lockedFighters = viewModel.lockedFighters(),
-                            isActuallyUnlocked = { viewModel.isFighterActuallyUnlocked(it) },
+                            fighters = controller.selectableFighters(),
+                            subtitle = stringResource(Res.string.sf_combos_pick_fighter),
+                            lockedFighters = controller.lockedFighters(),
+                            isActuallyUnlocked = { controller.isFighterActuallyUnlocked(it) },
                             lowEnd = lowEnd,
                             onSelect = { comboFighter = it },
                             onBack = { showComboSheet = false; sfMenu = true },
                         )
                         showComboSheet -> SfComboSheetOverlay(
                             fighterId = comboFighter!!,
-                            combos = remember(comboFighter) { viewModel.comboSheet(comboFighter!!) },
+                            combos = remember(comboFighter) { controller.comboSheet(comboFighter!!) },
                             onTry = {
                                 showComboSheet = false
                                 lastLaunchedMode = "combos" // 🆕 al salir del tutorial: la hoja
-                                viewModel.startTutorial(comboFighter!!)
+                                controller.startTutorial(comboFighter!!)
                             },
                             onChangeFighter = { comboFighter = null },
                             onBack = {
@@ -904,14 +840,14 @@ fun StreetFighterScreen(
                         )
                         // 🆕 MENÚ DE MODOS (estilo POW): ARCADE principal, PRÁCTICA, IA VS IA, MULTIJUGADOR
                         sfMenu -> SfModeMenuOverlay(
-                            devMode = viewModel.devUnlockAll(),
+                            devMode = controller.devUnlockAll(),
                             audioShowcaseRunning = state.audioShowcaseRunning,
                             audioShowcaseIndex = state.audioShowcaseIndex,
                             audioShowcaseTotal = state.audioShowcaseTotal,
                             audioShowcaseFighter = state.audioShowcaseFighter,
                             audioShowcasePhrase = state.audioShowcasePhrase,
                             onArcade = {
-                                viewModel.stopAudioShowcase()
+                                controller.stopAudioShowcase()
                                 sfMenu = false
                                 arcadeSetup = true
                                 aiVsAiSetup = false
@@ -920,7 +856,7 @@ fun StreetFighterScreen(
                                 pendingDifficulty = null
                             },
                             onPractice = {
-                                viewModel.stopAudioShowcase()
+                                controller.stopAudioShowcase()
                                 sfMenu = false
                                 arcadeSetup = false
                                 aiVsAiSetup = false
@@ -929,7 +865,7 @@ fun StreetFighterScreen(
                                 pendingDifficulty = null
                             },
                             onAiVsAi = {
-                                viewModel.stopAudioShowcase()
+                                controller.stopAudioShowcase()
                                 sfMenu = false
                                 arcadeSetup = false
                                 aiVsAiSetup = true
@@ -938,50 +874,50 @@ fun StreetFighterScreen(
                                 pendingDifficulty = null
                             },
                             onCombos = {
-                                viewModel.stopAudioShowcase()
+                                controller.stopAudioShowcase()
                                 showComboSheet = true
                             },
                             onMultiplayer = {
-                                viewModel.stopAudioShowcase()
+                                controller.stopAudioShowcase()
                                 showOnlineMenu = true
                             },
                             onGauntletAll = {
-                                viewModel.stopAudioShowcase()
+                                controller.stopAudioShowcase()
                                 sfMenu = false
                                 lastLaunchedMode = "menu" // 🆕 sin selector propio → menú
-                                viewModel.startGauntletRoundRobin()
+                                controller.startGauntletRoundRobin()
                             },
                             onGauntletArcade = {
-                                viewModel.stopAudioShowcase()
+                                controller.stopAudioShowcase()
                                 sfMenu = false
                                 lastLaunchedMode = "menu"
-                                viewModel.startGauntletArcade()
+                                controller.startGauntletArcade()
                             },
                             onGauntletShowcase = {
-                                viewModel.stopAudioShowcase()
+                                controller.stopAudioShowcase()
                                 sfMenu = false
                                 lastLaunchedMode = "menu"
-                                viewModel.startShowcase()
+                                controller.startShowcase()
                             },
-                            onAudioShowcaseStop = viewModel::stopAudioShowcase,
+                            onAudioShowcaseStop = controller::stopAudioShowcase,
                             onBack = onExitToMap,
                         )
                         // ARCADE: peleadór → Fácil/Medio/Difícil (día / noche / apocalipsis)
                         arcadeSetup && fighter == null -> CharacterSelectOverlay(
-                            fighters = viewModel.selectableFighters(),
-                            lockedFighters = viewModel.lockedFighters(),
-                            subtitle = stringResource(R.string.sf_arcade_pick_you),
+                            fighters = controller.selectableFighters(),
+                            lockedFighters = controller.lockedFighters(),
+                            subtitle = stringResource(Res.string.sf_arcade_pick_you),
                             onSelect = { pendingFighter = it },
                             onBack = { arcadeSetup = false; sfMenu = true },
-                            backText = stringResource(R.string.sf_other_modes),
+                            backText = stringResource(Res.string.sf_other_modes),
                             lowEnd = lowEnd,
-                            isActuallyUnlocked = { viewModel.isFighterActuallyUnlocked(it) },
+                            isActuallyUnlocked = { controller.isFighterActuallyUnlocked(it) },
                         )
                         arcadeSetup && difficulty == null -> ArcadeDifficultyOverlay(
                             onSelect = { d ->
                                 val p = fighter ?: return@ArcadeDifficultyOverlay
                                 lastLaunchedMode = "arcade" // 🆕 volver = selector de Arcade
-                                viewModel.startArcade(p, d)
+                                controller.startArcade(p, d)
                                 pendingFighter = null
                                 pendingDifficulty = null
                                 arcadeSetup = false
@@ -991,26 +927,26 @@ fun StreetFighterScreen(
                         // 🆕 IA VS IA: dos peleadores (CPU vs CPU a PESADILLA) → startAiVsAi
                         // Roster = selectableFighters() (completo si Modo Desarrollador activo).
                         aiVsAiSetup && fighter == null -> CharacterSelectOverlay(
-                            fighters = viewModel.selectableFighters(),
-                            lockedFighters = viewModel.lockedFighters(),
-                            subtitle = stringResource(R.string.sf_ai_vs_ai_pick_a),
+                            fighters = controller.selectableFighters(),
+                            lockedFighters = controller.lockedFighters(),
+                            subtitle = stringResource(Res.string.sf_ai_vs_ai_pick_a),
                             onSelect = { pendingFighter = it },
                             onBack = { aiVsAiSetup = false; sfMenu = true },
                             lowEnd = lowEnd,
-                            isActuallyUnlocked = { viewModel.isFighterActuallyUnlocked(it) },
+                            isActuallyUnlocked = { controller.isFighterActuallyUnlocked(it) },
                         )
                         aiVsAiSetup && rival == null -> CharacterSelectOverlay(
-                            fighters = viewModel.selectableFighters(),
-                            lockedFighters = viewModel.lockedFighters(),
-                            subtitle = stringResource(R.string.sf_ai_vs_ai_pick_b),
+                            fighters = controller.selectableFighters(),
+                            lockedFighters = controller.lockedFighters(),
+                            subtitle = stringResource(Res.string.sf_ai_vs_ai_pick_b),
                             allyId = fighter,        // 🆕 flecha AZUL sobre el P1 elegido
                             showPickArrow = true,    // 🆕 flecha ROJA sobre el P2 resaltado
                             onSelect = { b ->
                                 val a = fighter!!
                                 // Fondo al azar entre mapas DESBLOQUEADOS (o todos en Modo Dev)
                                 if (chosenBgFile == null) {
-                                    val unlocked = viewModel.unlockedMaps()
-                                    val pool = if (viewModel.devUnlockAll()) {
+                                    val unlocked = controller.unlockedMaps()
+                                    val pool = if (controller.devUnlockAll()) {
                                         theme.fullBackgrounds.map { it.file }
                                     } else {
                                         theme.fullBackgrounds.map { it.file }.filter { it in unlocked }
@@ -1019,35 +955,35 @@ fun StreetFighterScreen(
                                         ?: theme.fullBackgrounds.firstOrNull()?.file
                                 }
                                 lastLaunchedMode = "aivsai" // 🆕 volver = selector de IA vs IA
-                                viewModel.startAiVsAi(a, b)
+                                controller.startAiVsAi(a, b)
                                 pendingFighter = null
                                 pendingRival = null
                                 aiVsAiSetup = false
                             },
                             onBack = { pendingFighter = null },
                             lowEnd = lowEnd,
-                            isActuallyUnlocked = { viewModel.isFighterActuallyUnlocked(it) },
+                            isActuallyUnlocked = { controller.isFighterActuallyUnlocked(it) },
                         )
                         // PRÁCTICA (versus): peleador → RIVAL → DIFICULTAD → mapa
                         fighter == null -> CharacterSelectOverlay(
-                            fighters = viewModel.selectableFighters(),
-                            lockedFighters = viewModel.lockedFighters(),
+                            fighters = controller.selectableFighters(),
+                            lockedFighters = controller.lockedFighters(),
                             subtitle = state.onlineError,
                             onSelect = { pendingFighter = it },
                             onBack = { sfMenu = true },
                             lowEnd = lowEnd,
-                            isActuallyUnlocked = { viewModel.isFighterActuallyUnlocked(it) },
+                            isActuallyUnlocked = { controller.isFighterActuallyUnlocked(it) },
                         )
                         rival == null -> CharacterSelectOverlay(
-                            fighters = viewModel.selectableFighters(),
-                            lockedFighters = viewModel.lockedFighters(),
-                            subtitle = stringResource(R.string.sf_choose_rival),
+                            fighters = controller.selectableFighters(),
+                            lockedFighters = controller.lockedFighters(),
+                            subtitle = stringResource(Res.string.sf_choose_rival),
                             allyId = fighter,        // 🆕 flecha AZUL sobre el P1 elegido
                             showPickArrow = true,    // 🆕 flecha ROJA sobre el P2 resaltado
                             onSelect = { pendingRival = it },
                             onBack = { pendingFighter = null },
                             lowEnd = lowEnd,
-                            isActuallyUnlocked = { viewModel.isFighterActuallyUnlocked(it) },
+                            isActuallyUnlocked = { controller.isFighterActuallyUnlocked(it) },
                         )
                         difficulty == null -> DifficultySelectOverlay(
                             onSelect = { pendingDifficulty = it },
@@ -1055,10 +991,10 @@ fun StreetFighterScreen(
                         )
                         else -> StageSelectOverlay(
                             theme = theme,
-                            unlockedMaps = if (viewModel.devUnlockAll()) null else viewModel.unlockedMaps(),
+                            unlockedMaps = if (controller.devUnlockAll()) null else controller.unlockedMaps(),
                             onSelect = { file ->
-                                val unlocked = viewModel.unlockedMaps()
-                                val pool = if (viewModel.devUnlockAll()) {
+                                val unlocked = controller.unlockedMaps()
+                                val pool = if (controller.devUnlockAll()) {
                                     theme.fullBackgrounds.map { it.file }
                                 } else {
                                     theme.fullBackgrounds.map { it.file }.filter { it in unlocked }
@@ -1067,7 +1003,7 @@ fun StreetFighterScreen(
                                     ?: pool.randomOrNull()
                                     ?: theme.fullBackgrounds.firstOrNull()?.file
                                 lastLaunchedMode = "practice" // 🆕 volver = selector de práctica
-                                viewModel.selectCharacter(fighter, rival, difficulty)
+                                controller.selectCharacter(fighter, rival, difficulty)
                             },
                             onBack = { pendingFighter = null; pendingRival = null; pendingDifficulty = null },
                             lowEnd = lowEnd,
@@ -1077,6 +1013,9 @@ fun StreetFighterScreen(
             }
         }
 
+        onlinePlatformOverlays(state, showOnlineMenu, { showOnlineMenu = it }, controller)
+
+        /* Android: permisos/menús BT-LAN viven en SfOnlineOverlays.kt.
         // ---- Permisos BT runtime (solo Android 12+; en ≤11 son permisos normales y el
         // discovery usa la ubicación que la app YA tiene por los mapas — no se pide nada) ----
         // CADENA COMPLETA de "listo para BT": permisos → BT ENCENDIDO → acción. Si el BT está
@@ -1128,15 +1067,15 @@ fun StreetFighterScreen(
             OnlineMenuOverlay(
                 onCreate = {
                     showOnlineMenu = false
-                    viewModel.startOnline(create = true)
+                    controller.startOnline(create = true)
                 },
                 onJoin = { code ->
                     showOnlineMenu = false
-                    viewModel.startOnline(create = false, code = code)
+                    controller.startOnline(create = false, code = code)
                 },
                 onQuickMatch = {
                     showOnlineMenu = false
-                    viewModel.startOnlineQuick()
+                    controller.startOnlineQuick()
                 },
                 onBtHost = {
                     showOnlineMenu = false
@@ -1150,25 +1089,25 @@ fun StreetFighterScreen(
                                     .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300),
                             )
                         }
-                        viewModel.startBtHost()
+                        controller.startBtHost()
                     }
                 },
                 onBtScan = {
                     showOnlineMenu = false
-                    withBtPerms(btScanPerms()) { viewModel.startBtScan() }
+                    withBtPerms(btScanPerms()) { controller.startBtScan() }
                 },
                 // SERVIDOR LOCAL (LAN): sin permisos nuevos — directo al VM
                 onLanHost = {
                     showOnlineMenu = false
-                    viewModel.startLanHost()
+                    controller.startLanHost()
                 },
                 onLanJoin = { ip ->
                     showOnlineMenu = false
-                    viewModel.connectLanHost(ip)
+                    controller.connectLanHost(ip)
                 },
                 lanDiscovered = state.lanDiscovered,
-                onLanScanStart = viewModel::startLanDiscovery,
-                onLanScanStop = viewModel::stopLanDiscovery,
+                onLanScanStart = controller::startLanDiscovery,
+                onLanScanStop = controller::stopLanDiscovery,
                 onDismiss = { showOnlineMenu = false },
             )
         }
@@ -1177,16 +1116,16 @@ fun StreetFighterScreen(
         if (state.btPicking) {
             BtDevicePickerOverlay(
                 devices = state.btDevices,
-                onPick = viewModel::connectBtDevice,
-                onCancel = viewModel::cancelBtScan,
+                onPick = controller::connectBtDevice,
+                onCancel = controller::cancelBtScan,
             )
         }
 
         // (HOST) Solicitud de unión pendiente: ACEPTAR / RECHAZAR (lobby estilo AoE2)
         if (state.joinRequestPending) {
             JoinRequestOverlay(
-                onAccept = { viewModel.respondJoin(true) },
-                onReject = { viewModel.respondJoin(false) },
+                onAccept = { controller.respondJoin(true) },
+                onReject = { controller.respondJoin(false) },
             )
         }
 
@@ -1195,17 +1134,17 @@ fun StreetFighterScreen(
         // conexión); reintentar VUELVE A PEDIR los permisos si hicieran falta.
         if (state.btError != null && state.onlineStatus == SfOnlineStatus.OFF) {
             BtRetryOverlay(
-                titleRes = if (state.lanMode) R.string.sf_lan_error_title else R.string.sf_bt_error_title,
+                titleRes = if (state.lanMode) Res.string.sf_lan_error_title else Res.string.sf_bt_error_title,
                 error = state.btError!!,
-                hintRes = if (state.lanMode) R.string.sf_lan_error_hint else R.string.sf_bt_error_hint,
+                hintRes = if (state.lanMode) Res.string.sf_lan_error_hint else Res.string.sf_bt_error_hint,
                 onRetry = {
                     val lanAddr = state.lanHostAddress
                     val addr = state.btRetryAddress
                     when {
                         // LAN: repite exactamente lo que hacías (unirte a esa IP u hostear)
-                        state.lanMode && lanAddr != null -> viewModel.connectLanHost(lanAddr)
-                        state.lanMode -> viewModel.startLanHost()
-                        addr != null -> withBtPerms(btScanPerms()) { viewModel.connectBtDevice(addr) }
+                        state.lanMode && lanAddr != null -> controller.connectLanHost(lanAddr)
+                        state.lanMode -> controller.startLanHost()
+                        addr != null -> withBtPerms(btScanPerms()) { controller.connectBtDevice(addr) }
                         else -> withBtPerms(btHostPerms()) {
                             runCatching {
                                 context.startActivity(
@@ -1213,13 +1152,14 @@ fun StreetFighterScreen(
                                         .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300),
                                 )
                             }
-                            viewModel.startBtHost()
+                            controller.startBtHost()
                         }
                     }
                 },
-                onCancel = viewModel::dismissBtError,
+                onCancel = controller::dismissBtError,
             )
         }
+        */
 
         // Countdown 3-2-1 sincronizado por el servidor
         if (state.onlineStatus == SfOnlineStatus.COUNTDOWN) {
@@ -1235,7 +1175,7 @@ fun StreetFighterScreen(
 
         // Botón de salida
         TextButton(
-            onClick = viewModel::requestExit,
+            onClick = controller::requestExit,
             modifier = Modifier.align(Alignment.TopEnd).padding(2.dp),
         ) {
             Text("✕", color = Color.White, fontSize = 18.sp)
@@ -1249,9 +1189,9 @@ fun StreetFighterScreen(
                 step = state.arcadeStep,
                 total = state.arcadeTotal,
                 grade = state.matchGrade,
-                onContinue = viewModel::arcadeContinue,
-                onRetry = viewModel::arcadeRetry,
-                onExit = viewModel::arcadeExit,
+                onContinue = controller::arcadeContinue,
+                onRetry = controller::arcadeRetry,
+                onExit = controller::arcadeExit,
             )
         }
 
@@ -1269,7 +1209,7 @@ fun StreetFighterScreen(
                 // Aviso online: el rival ya pidió revancha
                 if (state.opponentWantsRematch && state.onlineStatus == SfOnlineStatus.FIGHTING) {
                     Text(
-                        text = stringResource(R.string.sf_mp_opp_wants_rematch),
+                        text = stringResource(Res.string.sf_mp_opp_wants_rematch),
                         color = Color(0xFFFFB74D), fontSize = 13.sp, fontWeight = FontWeight.Bold,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -1278,14 +1218,14 @@ fun StreetFighterScreen(
                     // Online: la revancha se PIDE (arranca cuando la pidan los dos); el rival
                     // que abandonó (OPPONENT_LEFT) ya no puede aceptar → sin botón de revancha.
                     if (state.onlineStatus != SfOnlineStatus.OPPONENT_LEFT) {
-                        PowButton(text = stringResource(R.string.sf_rematch), onClick = viewModel::restartBattle)
+                        PowButton(text = stringResource(Res.string.sf_rematch), onClick = controller::restartBattle)
                     }
                     if (state.onlineStatus == SfOnlineStatus.OFF) {
-                        PowButton(text = stringResource(R.string.sf_change_character), onClick = viewModel::backToCharacterSelect)
+                        PowButton(text = stringResource(Res.string.sf_change_character), onClick = controller::backToCharacterSelect)
                     } else {
-                        PowButton(text = stringResource(R.string.sf_mp_leave_room), onClick = { viewModel.cancelOnline() })
+                        PowButton(text = stringResource(Res.string.sf_mp_leave_room), onClick = { controller.cancelOnline() })
                     }
-                    PowButton(text = stringResource(R.string.sf_back_to_menu), onClick = onExitToMap)
+                    PowButton(text = stringResource(Res.string.sf_back_to_menu), onClick = onExitToMap)
                 }
             }
         }
@@ -1298,7 +1238,7 @@ fun StreetFighterScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = stringResource(R.string.sf_paused),
+                        text = stringResource(Res.string.sf_paused),
                         color = Color.White,
                         fontSize = 36.sp,
                         fontWeight = FontWeight.Black,
@@ -1307,7 +1247,7 @@ fun StreetFighterScreen(
                     // 🆕 (2026-07-22) En vez de los controles (desactualizados): logo + título.
                     Spacer(modifier = Modifier.height(16.dp))
                     Image(
-                        painter = painterResource(id = R.drawable.logo_pow),
+                        painter = painterResource(Res.drawable.logo_pow),
                         contentDescription = null,
                         modifier = Modifier.size(128.dp),
                     )
@@ -1325,7 +1265,7 @@ fun StreetFighterScreen(
                         letterSpacing = 2.sp,
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    PowButton(text = stringResource(R.string.sf_continue), onClick = viewModel::togglePause)
+                    PowButton(text = stringResource(Res.string.sf_continue), onClick = controller::togglePause)
                 }
             }
         }
@@ -1334,25 +1274,25 @@ fun StreetFighterScreen(
         if (showResumeDialog && state.inCharacterSelect) {
             AlertDialog(
                 onDismissRequest = {
-                    viewModel.discardArcadeSession()
+                    controller.discardArcadeSession()
                     showResumeDialog = false
                 },
                 containerColor = Color(0xFF1A1016),
                 titleContentColor = Color.White,
                 textContentColor = Color.White.copy(alpha = 0.8f),
-                title = { Text(stringResource(R.string.sf_resume_title)) },
-                text = { Text(stringResource(R.string.sf_resume_message)) },
+                title = { Text(stringResource(Res.string.sf_resume_title)) },
+                text = { Text(stringResource(Res.string.sf_resume_message)) },
                 confirmButton = {
                     TextButton(onClick = {
-                        if (viewModel.resumeArcadeSession()) showResumeDialog = false
+                        if (controller.resumeArcadeSession()) showResumeDialog = false
                         else showResumeDialog = false
-                    }) { Text(stringResource(R.string.sf_resume_yes), color = Color(0xFFD4AF37)) }
+                    }) { Text(stringResource(Res.string.sf_resume_yes), color = Color(0xFFD4AF37)) }
                 },
                 dismissButton = {
                     TextButton(onClick = {
-                        viewModel.discardArcadeSession()
+                        controller.discardArcadeSession()
                         showResumeDialog = false
-                    }) { Text(stringResource(R.string.sf_resume_no), color = Color.White.copy(alpha = 0.7f)) }
+                    }) { Text(stringResource(Res.string.sf_resume_no), color = Color.White.copy(alpha = 0.7f)) }
                 },
             )
         }
@@ -1361,20 +1301,20 @@ fun StreetFighterScreen(
         if (state.showExitDialog) {
             // Diálogo alineado al tema vino/dorado del modo (no el M3 default)
             AlertDialog(
-                onDismissRequest = viewModel::dismissExitDialog,
+                onDismissRequest = controller::dismissExitDialog,
                 containerColor = Color(0xFF1A1016),
                 titleContentColor = Color.White,
                 textContentColor = Color.White.copy(alpha = 0.8f),
-                title = { Text(stringResource(R.string.sf_exit_title)) },
-                text = { Text(stringResource(R.string.sf_exit_message)) },
+                title = { Text(stringResource(Res.string.sf_exit_title)) },
+                text = { Text(stringResource(Res.string.sf_exit_message)) },
                 confirmButton = {
                     // Al salir a menú con arcade activo, forcePause ya guardó; aquí re-guarda por si acaso
                     TextButton(onClick = {
-                        viewModel.forcePause()
+                        controller.forcePause()
                         onExitToMap()
-                    }) { Text(stringResource(R.string.sf_exit_confirm), color = Color(0xFFD4AF37)) }
+                    }) { Text(stringResource(Res.string.sf_exit_confirm), color = Color(0xFFD4AF37)) }
                 },
-                dismissButton = { TextButton(onClick = viewModel::dismissExitDialog) { Text(stringResource(R.string.sf_keep_fighting), color = Color.White.copy(alpha = 0.7f)) } },
+                dismissButton = { TextButton(onClick = controller::dismissExitDialog) { Text(stringResource(Res.string.sf_keep_fighting), color = Color.White.copy(alpha = 0.7f)) } },
             )
         }
     }
@@ -1385,7 +1325,8 @@ fun StreetFighterScreen(
 // se muestra ARCADE (principal), PRÁCTICA y MULTIJUGADOR. Arcade = solo eliges peleador.
 // ------------------------------------------------------------------
 
-private fun pixelateBitmap(src: ImageBitmap, targetW: Int): ImageBitmap {
+/* Portado a SfCharacterCard.kt en commonMain.
+private fun pixelateBitmapAndroidLegacy(src: ImageBitmap, targetW: Int): ImageBitmap {
     val bmp = src.asAndroidBitmap()
     val w = targetW.coerceAtLeast(1)
     val h = (w.toFloat() * bmp.height / bmp.width).toInt().coerceAtLeast(1)
@@ -1393,7 +1334,7 @@ private fun pixelateBitmap(src: ImageBitmap, targetW: Int): ImageBitmap {
 }
 
 @Composable
-internal fun CharacterCard(
+private fun CharacterCardAndroidLegacy(
     id: SfFighterId,
     onSelect: (SfFighterId) -> Unit,
     locked: Boolean = false,
@@ -1407,10 +1348,14 @@ internal fun CharacterCard(
     // 🆕 (2026-07-19) REVELAR a color: solo con sesión Google en Firebase + Modo Desarrollador.
     reveal: Boolean = false,
 ) {
-    val preview = rememberFighterPreview(id, animate = animate && (reveal || (!locked && !silhouette)))
+    val preview = rememberFighterPreviewAndroidLegacy(id, animate = animate && (reveal || (!locked && !silhouette)))
     // 🆕 BLOQUEADO / SILUETA: silueta pixelada negra (siempre estática). Con `reveal` se ve normal.
     val obscure = (locked || silhouette) && !reveal
-    val shown = if (obscure && preview != null) remember(preview) { pixelateBitmap(preview, 12) } else preview
+    val shown = if (obscure && preview != null) {
+        remember(preview) { pixelateBitmapAndroidLegacy(preview, 12) }
+    } else {
+        preview
+    }
     val shape = RoundedCornerShape(10.dp)
     // El recuadro del color de la flecha manda sobre el fondo/borde normales.
     val cardBg = highlightColor?.copy(alpha = 0.28f) ?: Color(0xFF23233A)
@@ -1500,7 +1445,7 @@ private const val PREVIEW_SHARED_MS = 170L // frame fijo para peleadores compart
  * Nunca decodifica la hoja completa: BitmapRegionDecoder o previewFramesFor.
  */
 @Composable
-private fun rememberFighterPreview(id: SfFighterId, animate: Boolean): ImageBitmap? {
+private fun rememberFighterPreviewAndroidLegacy(id: SfFighterId, animate: Boolean): ImageBitmap? {
     val context = LocalContext.current
     val animation = remember(id, animate) {
         runCatching {
@@ -1585,6 +1530,7 @@ private fun trimTransparent(bmp: Bitmap): Bitmap {
     if (maxX < 0) return bmp
     return Bitmap.createBitmap(bmp, minX, minY, maxX - minX + 1, maxY - minY + 1)
 }
+*/
 
 // ------------------------------------------------------------------
 // Diamante Xbox de POW (mismas letras/colores/posiciones que

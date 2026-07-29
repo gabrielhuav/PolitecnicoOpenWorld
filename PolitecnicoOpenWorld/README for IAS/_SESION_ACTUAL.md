@@ -12,13 +12,13 @@
 > falta**) · actualiza PENDIENTE · comprueba las 200 líneas. Si te quedas sin tokens a media
 > tarea, **actualiza ESTE archivo ANTES de parar**.
 
-**Última actualización:** 2026-07-28 · Opus 5 (Mac) · rama `fase0-auditoria-kmp` · *purgar §3bis el 07-30*
+**Última actualización:** 2026-07-28 · Codex/Sol 5.6 (Windows) · rama `fase0-auditoria-kmp` · *purgar §3bis el 07-30*
 
 > ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: Fases 0-4 completas; **la 5 EN MARCHA, 218
-> tests**. 🍏 **Compose MP corre en el simulador, los assets se leen y los strings ya están
-> desbloqueados** (§3undecies); del paso 4 van **2 de 7** pantallas.
-> **Siguiente: `PROMPT_SOL_paso4_UI_y_audio.md` (Sol 5.6, Windows)** — convertir los 82 `.ogg` (o
-> iOS sale mudo) y bajar las 5 pantallas que faltan.
+> tests**. 🍏 **Las 7 pantallas SF ya viven en `commonMain` y los 82 sonidos OGG se sustituyeron
+> por M4A/AAC** (§3undecies). Android: pelea, ataques, pausa/reanudación y audio activos en Nexus.
+> **Siguiente:** Mac enlaza y prueba visualmente la pelea completa + audio iOS; después portar
+> `MainMenuScreen` si se quiere cerrar también la tarea opcional 3.
 
 ## 🖥️ Rutas por PC
 
@@ -137,17 +137,17 @@ intacto: **114 + 104 = 218 tests, 0 fallos.**
   `rsync`** a `${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/assets/`, que además evita
   duplicar 106 MB. Exige **`ENABLE_USER_SCRIPT_SANDBOXING = NO`**.
 
-### 🔊 EL AUDIO DE iOS NO SUENA — es el CÓDEC, no la ruta (MEDIDO en el simulador)
-En el escaparate: `light-attack.ogg` → `cargarEfecto` da **null**; `prankedy_lobby.mp3` → **suena**.
-**AVAudioPlayer no abre Ogg Vorbis** y de `SOUNDS` (17 MB) hay **82 `.ogg`** y 6 `.mp3` → en iOS la
-pelea sale MUDA. La ruta es CORRECTA: hay que **convertir a `.m4a`**. 🐛 **Arreglado de paso:** el
-constructor de `AVAudioPlayer` LANZA (out-param `NSError**`) y sin `runCatching` **cerraba la app**.
-
-### ✅ El bloqueador `R.string` — RESUELTO
-✅ **RESUELTO.** `R` la genera AGP para `:app` y no existe en `:shared`, así que ninguna pantalla con
-textos podía bajar. Ya hay **196 claves** en `commonMain/composeResources/values{,-en}` y `Res`
-público en `ovh.gabrielhuav.pow.shared.recursos`. El patrón es mecánico: `R.string.x` →
-`Res.string.x` y el `stringResource` de `org.jetbrains.compose.resources`.
+### ✅ Paso 4 Windows — 7/7 pantallas y audio portable (MEDIDO 07-28)
+Los **82 `.ogg` se sustituyeron por 82 `.m4a` AAC 128 kb/s**, sin normalizar: todos decodifican,
+desviación máxima **35.102 ms**. Runtime/JSON/auditores usan M4A; `SfVocesReglas` quedó intacto.
+En Nexus: ataques → **4 pistas activas**, 0 errores/crashes; pausa/`Continue` reactiva el audio.
+- ✅ Las cinco pantallas pendientes + dependencias mínimas bajaron. Hilt/BT/LAN/WebRTC y
+  `SfOnlineOverlays.kt` siguen Android-only mediante adaptadores; lifecycle/input usan `expect/actual`.
+- ⚠️ AGP 9 exige `androidResources.enable = true` en `:shared`: sin ello compila pero el APK omite
+  `strings.commonMain.cvr` y SF cierra al abrir. Detectado y probado en Nexus; el APK ya contiene
+  strings EN/ES y `logo_pow.png`.
+- ✅ Verificación final: **114 + 104 = 218, 0 fallos**, iOS Native compila y gate de nombres pasa.
+  **FALTA en Mac:** enlazar/abrir las 5 pantallas y oír una pelea iOS; Windows no produce framework.
 
 ## 4. PENDIENTE — por prioridad
 
@@ -156,17 +156,16 @@ público en `ovh.gabrielhuav.pow.shared.recursos`. El patrón es mecánico: `R.s
    `SF-NET`). BT y LAN son lo que hay que validar sí o sí.
 2. **Redeploy de `MultiplayerSF/` en Render** para activar el P2P (no bloquea el release).
    Con 2 teléfonos en redes distintas, buscar en logcat `SF-RTC`: `DataChannel → OPEN`.
-3. **🍏 FASE 5 — que el modo pelea CORRA en iOS.** Delegado a Sol 5.6 en Windows:
-   **`PROMPT_SOL_paso4_UI_y_audio.md`** (tiene el desglose medido, el patrón de strings y las
-   trampas). Resumen: (a) convertir los **82 `.ogg` → `.m4a`** o iOS sale mudo; (b) bajar las **5
-   pantallas** que faltan + la cascada de `ui/components`; (c) `MainMenuScreen`.
-   ⚠️ Windows type-checkea iOS pero **no lo ve ni lo oye**: la pasada visual y de audio es del Mac.
+3. **🍏 FASE 5 — pasada final en Mac.** Windows terminó audio M4A y las 5 pantallas pendientes:
+   `compileKotlinIosSimulatorArm64` verde. Falta enlazar el framework, conectar la pantalla real al
+   escaparate/entrada iOS, revisar visualmente las cinco y **oír una pelea completa**. Opcional del
+   prompt aún no hecho: `MainMenuScreen` a `commonMain`.
 
 ### 🟠 P1 · AUDIO (activo) — ver `SF/PROMPT_traspaso_audio_subtitulos.md`
 **29 clips demasiado largos** y **5 fuera de −16 ±2 LUFS** → **Gemini 3.6** (con los segundos del
 dueño). **Faltan `attack`/`hurt`** en 6 peleadores → el dueño graba. ⚠️ **No repitas** el resumen
-que dice "100 % normalizados y sin faltantes": está medido y es **falso** (de los 80 `.ogg` solo
-**69 son voz**; 2 no se normalizan sin comprimir).
+que dice "100 % normalizados y sin faltantes": está medido y es **falso** (de los 82 `.m4a` solo
+**69 son voz**; los SFX globales no se normalizan como voces).
 
 ### 🟢 P2 · Animaciones congeladas (el arte se repite, **no es bug de código**) · 🔵 P2b motor
 `stun-1==stun-2==stun-3` en los 18; `bonus-7/8/9/10` estáticos en `lapresidenta`; `run-4==run-5` en

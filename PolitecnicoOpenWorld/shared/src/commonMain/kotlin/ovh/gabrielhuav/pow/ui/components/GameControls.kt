@@ -46,7 +46,7 @@ import kotlin.math.sqrt
 // que es a donde pertenecen. Si un control necesita un tipo de una feature, NO va aqui.
 
 // constante compartida
-internal val ControllerBaseSize = 180.dp
+val ControllerBaseSize = 180.dp
 
 // JoystickController
 @Composable
