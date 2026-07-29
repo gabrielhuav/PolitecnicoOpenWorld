@@ -15,7 +15,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireball
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireballState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHurtArea
-import ovh.gabrielhuav.pow.BuildConfig
+import android.content.Context
 import ovh.gabrielhuav.pow.features.streetfighter.data.SF_CLASSIC_THEME
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtClient
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanClient
@@ -59,7 +59,7 @@ internal fun StreetFighterViewModel.connectOnline(onReady: (SfMatchClient) -> Un
     _state.value = _state.value.copy(onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null)
     scope.launch(Dispatchers.IO) {
         val awake = SfMatchClient.warmupBlocking(
-            BuildConfig.SF_SERVER_URL,
+            environment.serverUrl,
             // 🆕 (2026-07-26) Solo si estaba dormido: la UI explica la espera en vez de
             // dejar al jugador mirando un "conectando…" durante un minuto sin motivo.
             onSleeping = {
@@ -79,7 +79,7 @@ internal fun StreetFighterViewModel.connectOnline(onReady: (SfMatchClient) -> Un
         transport = client
         relayClient = client // 🆕 canal de señalización y respaldo del P2P
         client.connect(
-            BuildConfig.SF_SERVER_URL,
+            environment.serverUrl,
             object : SfNetTransport.Listener {
                 override fun onOpen() {
                     onReady(client)
@@ -120,14 +120,14 @@ internal fun StreetFighterViewModel.connectOnline(onReady: (SfMatchClient) -> Un
 internal fun StreetFighterViewModel.maybeUpgradeToP2p(offerer: Boolean) {
     val s = _state.value
     if (s.btMode || s.lanMode) return
-    webRtc?.let {
+    (webRtc as? SfWebRtcClient)?.let {
         // Ya negociado. Si el que entra es un rival NUEVO (se fue uno y llegó otro), el canal
         // directo apunta al que se fue: se marca muerto para que todo salga por el relay.
         it.markPeerChanged()
         return
     }
     val relay = relayClient ?: return
-    val client = SfWebRtcClient(appContext, relay, isOfferer = offerer)
+    val client = SfWebRtcClient(appContext as Context, relay, isOfferer = offerer)
     webRtc = client
     transport = client
     client.start(makeNetListener())
@@ -157,7 +157,7 @@ fun StreetFighterViewModel.startBtHost() {
         btError = null, btRetryAddress = null, btHandshaking = false,
         lanMode = false, lanLocalIp = null, lanHostAddress = null,
     )
-    val client = SfBtClient(appContext)
+    val client = SfBtClient(appContext as Context)
     transport = client
     client.startHost(makeNetListener())
 }
@@ -169,7 +169,7 @@ fun StreetFighterViewModel.startBtScan() {
     _state.value = _state.value.copy(
         btPicking = true, btMode = true, btDevices = emptyList(), onlineError = null,
     )
-    val scanner = SfBtClient(appContext)
+    val scanner = SfBtClient(appContext as Context)
     btScanner = scanner
     val ok = scanner.startScan { dev ->
         _state.update { s ->
@@ -201,7 +201,7 @@ fun StreetFighterViewModel.connectBtDevice(address: String) {
         btMode = true, btError = null, btRetryAddress = address, btHandshaking = false,
         lanMode = false, lanLocalIp = null, lanHostAddress = null,
     )
-    val client = SfBtClient(appContext)
+    val client = SfBtClient(appContext as Context)
     transport = client
     client.connectToHost(address, makeNetListener())
 }
@@ -215,7 +215,7 @@ fun StreetFighterViewModel.connectBtDevice(address: String) {
 fun StreetFighterViewModel.startLanHost() {
     if (isOnline) return
     stopBtScanInternal()
-    lanDiscovery?.close() // cierra cualquier escucha previa antes de emitir la baliza
+    (lanDiscovery as? SfLanDiscovery)?.close() // cierra cualquier escucha previa antes de emitir la baliza
     val ips = SfLanClient.localIpAddresses()
     _state.value = _state.value.copy(
         onlineStatus = SfOnlineStatus.CONNECTING, onlineError = null,
@@ -223,11 +223,11 @@ fun StreetFighterViewModel.startLanHost() {
         lanLocalIp = ips.firstOrNull(), lanLocalIps = ips, lanHostAddress = null,
         btError = null, btRetryAddress = null, btHandshaking = false,
     )
-    val client = SfLanClient(appContext)
+    val client = SfLanClient(appContext as Context)
     transport = client
     client.startHost(makeNetListener())
     // 🆕 (2026-07-26) Emite la baliza para que el invitado encuentre esta sala sin teclear IP.
-    lanDiscovery = SfLanDiscovery(appContext).also { it.startBeacon(android.os.Build.MODEL ?: "POW") }
+    lanDiscovery = SfLanDiscovery(appContext as Context).also { it.startBeacon(android.os.Build.MODEL ?: "POW") }
 }
 
 /**
@@ -236,9 +236,9 @@ fun StreetFighterViewModel.startLanHost() {
  */
 fun StreetFighterViewModel.startLanDiscovery() {
     if (isOnline) return
-    lanDiscovery?.close()
+    (lanDiscovery as? SfLanDiscovery)?.close()
     _state.value = _state.value.copy(lanDiscovered = emptyList())
-    lanDiscovery = SfLanDiscovery(appContext).also { disc ->
+    lanDiscovery = SfLanDiscovery(appContext as Context).also { disc ->
         disc.startListening { game ->
             // Llega en hilo de fondo → re-postear a Main y deduplicar por IP.
             scope.launch {
@@ -253,7 +253,7 @@ fun StreetFighterViewModel.startLanDiscovery() {
 
 /** Detiene la escucha/baliza LAN y limpia la lista de partidas halladas. */
 fun StreetFighterViewModel.stopLanDiscovery() {
-    lanDiscovery?.close()
+    (lanDiscovery as? SfLanDiscovery)?.close()
     lanDiscovery = null
     if (_state.value.lanDiscovered.isNotEmpty()) {
         _state.value = _state.value.copy(lanDiscovered = emptyList())
@@ -273,7 +273,7 @@ fun StreetFighterViewModel.connectLanHost(addressRaw: String) {
         lanLocalIp = null, lanHostAddress = address,
         btError = null, btRetryAddress = null, btHandshaking = false,
     )
-    val client = SfLanClient(appContext)
+    val client = SfLanClient(appContext as Context)
     transport = client
     client.connectToHost(address, makeNetListener())
 }
@@ -294,7 +294,7 @@ fun StreetFighterViewModel.dismissBtError() {
  */
 internal fun StreetFighterViewModel.onLocalLinkFailed(reason: String?) {
     val s = _state.value
-    lanDiscovery?.close()
+    (lanDiscovery as? SfLanDiscovery)?.close()
     lanDiscovery = null
     transport?.close() // si es el P2P, su close() cierra también el relay que decora
     transport = null
@@ -318,10 +318,10 @@ internal fun StreetFighterViewModel.onLocalLinkFailed(reason: String?) {
 // Detiene los descubrimientos LOCALES en curso (scan BT + baliza/escucha LAN). Se llama en
 // todos los teardown/reinicio de sesión (cancelOnline, onCleared, y al arrancar host/join).
 internal fun StreetFighterViewModel.stopBtScanInternal() {
-    btScanner?.stopScan()
-    btScanner?.close()
+    (btScanner as? SfBtClient)?.stopScan()
+    (btScanner as? SfBtClient)?.close()
     btScanner = null
-    lanDiscovery?.close()
+    (lanDiscovery as? SfLanDiscovery)?.close()
     lanDiscovery = null
 }
 
@@ -381,7 +381,7 @@ fun StreetFighterViewModel.chooseMapOnline(file: String?) {
 internal fun StreetFighterViewModel.handleNetMessage(msg: SfNetMsg) {
     // 🆕 (2026-07-26) SEÑALIZACIÓN WebRTC: SIGNAL_OFFER/ANSWER/ICE son plomería para abrir
     // la conexión directa, no gameplay. Se los queda el transporte P2P y NO llegan al when.
-    if (webRtc?.consumeSignaling(msg) == true) return
+    if ((webRtc as? SfWebRtcClient)?.consumeSignaling(msg) == true) return
     val s = _state.value
     when (msg.type) {
         "ROOM_CREATED" -> _state.value = s.copy(
@@ -396,7 +396,7 @@ internal fun StreetFighterViewModel.handleNetMessage(msg: SfNetMsg) {
             maybeUpgradeToP2p(offerer = false)
         }
         "OPPONENT_JOINED" -> {
-            lanDiscovery?.stopBeacon() // 🆕 sala llena → deja de anunciarse por UDP
+            (lanDiscovery as? SfLanDiscovery)?.stopBeacon() // 🆕 sala llena → deja de anunciarse por UDP
             if (s.battleEnded || !s.inCharacterSelect) {
                 // Un rival NUEVO entró cuando la pelea anterior ya corrió/terminó (p. ej.
                 // en BT el host sigue aceptando tras un abandono): sala en limpio, como
@@ -683,7 +683,7 @@ internal fun StreetFighterViewModel.processNetDamage(sim: StreetFighterViewModel
         return
     }
     while (true) {
-        val m = netDamageQueue.poll() ?: break
+        val m = netDamageQueue.removeFirstOrNull() ?: break
         val strength = m.strength?.let { n -> runCatching { SfAttackStrength.valueOf(n) }.getOrNull() }
             ?: SfAttackStrength.LIGHT
         val type = m.atkType?.let { n -> runCatching { SfAttackType.valueOf(n) }.getOrNull() }
@@ -798,3 +798,20 @@ internal fun StreetFighterViewModel.idxOf(side: String?): Int = when (side) {
     "p2" -> if (_state.value.isHost) 1 else 0
     else -> 0
 }
+
+// Puentes públicos mínimos para que el ViewModel Hilt de :app conecte los hooks del motor.
+fun StreetFighterViewModel.androidApplyRemoteSnapshot(sim: StreetFighterViewModel.Sim, now: Long, dt: Float) =
+    applyRemoteSnapshot(sim, now, dt)
+
+fun StreetFighterViewModel.androidProcessNetDamage(sim: StreetFighterViewModel.Sim, now: Long) =
+    processNetDamage(sim, now)
+
+fun StreetFighterViewModel.androidAppendRemoteFireballs(sim: StreetFighterViewModel.Sim, now: Long) =
+    appendRemoteFireballs(sim, now)
+
+fun StreetFighterViewModel.androidSendNetState(sim: StreetFighterViewModel.Sim, now: Long) =
+    sendNetState(sim, now)
+
+fun StreetFighterViewModel.androidCancelOnline(errorMsg: String? = null) = cancelOnline(errorMsg)
+fun StreetFighterViewModel.androidOnLocalLinkFailed(reason: String?) = onLocalLinkFailed(reason)
+fun StreetFighterViewModel.androidStopBtScan() = stopBtScanInternal()

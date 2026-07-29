@@ -113,6 +113,9 @@ kotlin {
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
+            // WebRTC sigue Android-only: SfWebRtcClient vive ahora junto al VM en androidMain.
+            // No pongas abiFilters: el AVD "Nexus" necesita x86_64.
+            implementation("io.github.webrtc-sdk:android:144.7559.09")
             // Aporta `androidx.lifecycle.ViewModel` + `viewModelScope` al `actual` de PowViewModel.
             api(libs.androidx.lifecycle.viewmodel.ktx)
         }

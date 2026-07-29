@@ -4,7 +4,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackType
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCpuDifficulty
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterViewModel
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.AndroidStreetFighterViewModel
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.arcadeContinue
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.arcadeExit
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.arcadeRetry
@@ -45,7 +45,7 @@ import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.tutorialSkipLesson
 
 /** Adaptador del ViewModel Android al contrato de la pantalla común. */
 class AndroidStreetFighterController(
-    private val viewModel: StreetFighterViewModel,
+    private val viewModel: AndroidStreetFighterViewModel,
 ) : StreetFighterController {
     override val state get() = viewModel.state
     override val soundEvents get() = viewModel.soundEvents

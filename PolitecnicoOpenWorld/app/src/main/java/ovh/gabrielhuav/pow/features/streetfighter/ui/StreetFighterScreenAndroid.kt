@@ -3,13 +3,13 @@ package ovh.gabrielhuav.pow.features.streetfighter.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterViewModel
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.AndroidStreetFighterViewModel
 
 /** Entrada Android: Hilt queda fuera de la pantalla común. */
 @Composable
 fun StreetFighterScreen(
     onExitToMap: () -> Unit,
-    viewModel: StreetFighterViewModel = hiltViewModel(),
+    viewModel: AndroidStreetFighterViewModel = hiltViewModel(),
 ) {
     val controller = remember(viewModel) { AndroidStreetFighterController(viewModel) }
     StreetFighterScreenCommon(

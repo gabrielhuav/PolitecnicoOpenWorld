@@ -135,16 +135,6 @@ dependencies {
     // comparan el JSON nuevo contra el que producía Gson (partidas guardadas y formato de cable).
     // ⚠️ NO lo devuelvas a `implementation`: si vuelve, vuelve el bloqueo de iOS.
     testImplementation("com.google.code.gson:gson:2.10.1")
-    // 🆕 (2026-07-26) WebRTC para la pelea P2P (SfWebRtcClient): el gameplay va DIRECTO entre
-    // los 2 teléfonos y Render queda solo de cupido. Se usa `io.github.webrtc-sdk` porque el
-    // `org.webrtc:google-webrtc` oficial está SIN mantenimiento desde 2019.
-    // PESO MEDIDO (2026-07-26): .so de 11.5 MB en arm64-v8a y 6.5 MB en armeabi-v7a. El AAB
-    // pasa de 368.8 MiB a ~414 MiB con las 4 ABIs — sigue MUY por debajo del límite de Play,
-    // y cada teléfono descarga solo SU arquitectura.
-    // ⚠️ NO poner abiFilters para adelgazarlo: se cargaría x86_64, que es lo que usa el
-    // emulador (AVD "Nexus") con el que se prueba el juego.
-    implementation("io.github.webrtc-sdk:android:144.7559.09")
-
     // Firebase Authentication (Google Sign-In) — la BOM fija versiones compatibles.
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth.ktx)
