@@ -14,9 +14,10 @@
 
 **Última actualización:** 2026-07-28 · Codex 5.6 (Windows) · rama `fase0-auditoria-kmp` · *purgar §3bis el 07-30*
 
-> ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP Fase 5 implementada: UI y motor offline de SF
-> están en `commonMain`; iOS ya tiene controlador real y entrada **PELEA REAL**. **218 tests, 0
-> fallos** y Kotlin/Native verde en Windows. 🔴 Falta verificar esa pelea en el simulador Mac.
+> ➡️ **AHORA:** 1.0.0.14 en revisión en Play. **🥊🍏 LA PELEA DE SF CORRE, SE JUEGA Y SE GUARDA EN
+> iOS** — verificada en el simulador (§3terdecies): ronda completa, persistencia al minimizar y al
+> cerrar/reabrir. **218 tests, 0 fallos** en las dos plataformas. Falta: **que alguien la OIGA**,
+> `MainMenuScreen` a `commonMain` (iOS aún no tiene menú) y la Fase 6.
 
 ## 🖥️ Rutas por PC
 
@@ -95,11 +96,10 @@ crea nada. Nuevo en `:shared`: `PowImagen`, `PowAudio`, `PowAssets`, `PowViewMod
 - ⚠️ **NO se usó el `lifecycle-viewmodel` KMP oficial**: su única versión con iOS exige
   `compileSdk 37`. ⚠️ `@Synchronized`/`LruCache` no existen en común → `PowCerrojo` y LRU a mano.
 
-## 3decies. 🔊 El audio de SF, multiplataforma — y las reglas de voz por fin con red
+## 3decies. 🔊 El audio de SF, multiplataforma — y las reglas de voz con red
 
-`android.media` fuera de SF. Lo que faltaba en la API era el **aviso de fin de clip**
-(`PowClip.alTerminar`): sin él el mapa de voces no se vacía y el peleador acaba mudo porque su
-intro, terminada hace rato, sigue apuntada como en curso.
+`android.media` fuera de SF. Faltaba el **aviso de fin de clip** (`PowClip.alTerminar`): sin él el
+mapa de voces no se vacía y el peleador acaba mudo.
 - ⚠️⚠️ **El `delegate` de `AVAudioPlayer` es una referencia DÉBIL:** si no se guarda en un campo del
   clip, el aviso **no llega nunca**. ⚠️ **`SoundPool.play` abre un flujo NUEVO cada vez** y
   **`AVAudioPlayer.duration` viene en SEGUNDOS** (Android da ms): sin ×1000, subtítulos de 1 ms.
@@ -124,29 +124,34 @@ intro, terminada hace rato, sigue apuntada como en curso.
 
 ## 3duodecies. 🍏 Las 5 pantallas SE VEN en el simulador (Mac, 07-28)
 
-**VISTAS Y CORRECTAS:** Tutorial (lección, pasos, pista) · Selector de escenario **con las
-miniaturas reales de ESCOM** · Menú de modos (ARCADE/PRÁCTICA/IA VS IA/COMBOS/MULTIJUGADOR) ·
-Overlay de carga con la fuente arcade. **AUDIO: `.m4a` y `.mp3` cargan y reportan `reproduciendo`.**
-**MEDIDO: 114 + 104 = 218 tests, 0 fallos, en Android Y en iOS.**
+**VISTAS Y CORRECTAS:** Tutorial · Selector de escenario **con las miniaturas reales de ESCOM** ·
+Menú de modos · Overlay de carga con la fuente arcade.
 
 - ⚠️⚠️ **LOS `composeResources` NO IBAN AL BUNDLE → la app se CERRABA al abrir cualquier pantalla.**
-  Compose carga los strings en una **corrutina**, así que la excepción no la recoge nadie: sin error
-  y sin log, solo un `.ips` en `~/Library/Logs/DiagnosticReports`. **La trampa de fondo:**
-  `link*Framework*` genera los recursos de **TEST pero no los de Main** (por eso el bundle de tests
-  sí funcionaba). Arreglado con un `dependsOn` en `shared/build.gradle.kts` + la copia en la fase de
-  Xcode que ya existía. ⚠️ **NO se hace llamando a Gradle desde Xcode**: allí no hereda `JAVA_HOME`
-  y el wrapper no arranca.
-- 🆕 `SfEscaparate` es ahora un índice navegable: se le añade cada pantalla portada y sirve de
-  detector de assets, audio y recursos.
+  Compose los carga en una **corrutina**, así que la excepción no la recoge nadie: sin error y sin
+  log, solo un `.ips`. **La trampa de fondo:** `link*Framework*` genera los recursos de **TEST pero
+  no los de Main**. Arreglado con un `dependsOn` en `shared/build.gradle.kts` + la copia en la fase
+  de Xcode. ⚠️ **NO llamando a Gradle desde Xcode**: allí no hereda `JAVA_HOME`.
+- 🆕 `SfEscaparate` es un índice navegable: detector de assets, audio y recursos.
 
-### ✅ Motor offline en `commonMain` · 🔴 falta verlo en Mac
-`StreetFighterViewModel` y sus 7 parciales offline están en `commonMain`; combos/frases usan
-`PowAssets` y el loop usa `TimeSource.Monotonic`. `StreetFighterNet` + BT/LAN/WebRTC permanecen
-Android-only en `shared/androidMain`; Hilt y los repos Android se adaptan desde `:app`.
-`SfArcadeRepository` quedó intacto: **MEDIDO en Nexus** que reconoció el save previo, reanudó la
-pelea, guardó al minimizar y volvió a `PAUSED / Continue`, sin `AndroidRuntime`.
-`OfflineStreetFighterController` alimenta la entrada 5 de `SfEscaparate`; iOS persiste arcade en
-`NSUserDefaults`. **MEDIDO Windows:** 114 + 104 = 218 tests, iOS Native compile y nombres KMP verdes.
+## 3terdecies. 🥊🍏 LA PELEA CORRE EN iOS — verificada en el simulador (Mac, 07-28)
+
+**El modo pelea es JUGABLE en iOS.** Motor offline (`StreetFighterViewModel` + 7 parciales) en
+`commonMain`; BT/LAN/WebRTC siguen Android-only. **MEDIDO: 218 tests (114+104), 0 fallos, en las
+dos plataformas; guarda de nombres KMP verde.**
+
+**VISTO en el simulador, paso a paso:** selección de peleador con sprites y el candado del
+bloqueado → dificultad → **pelea real** (escenario del IPN, sprites, barras, KO, contador de
+golpes, daño y animación de derribo) → **ronda completa hasta `PERDISTE` con REINTENTAR/SALIR**.
+- ✅ **PERSISTENCIA COMPLETA, la cadena entera:** al mandar la app al fondo escribe el snapshot en
+  `NSUserDefaults` (`playerId`, paso 1/15, escalera de 15 rivales, `mapFile`, `cpuRoundWins`,
+  `paused:true`); al volver sale **PAUSA + Continuar** con el marcador intacto; y tras **cerrar y
+  reabrir** ofrece *"Hay una pelea de arcade a medias, ¿retomar?"* → CONTINUAR reanuda de verdad.
+- ⚠️ **Lo que NO puedo verificar yo: OÍR.** El audio carga (`.m4a` y `.mp3` dan clip no nulo y
+  `reproduciendo=true`), pero que suene bien —mezcla, cortes de voz, música— **lo tiene que
+  escuchar una persona**. Es lo único del guion que queda sin firmar.
+- 📐 **Observación:** la pelea gira a **horizontal** y los overlays de pausa/resultado vuelven a
+  vertical. Funciona, pero conviene comparar con Android antes de darlo por bueno.
 
 ## 4. PENDIENTE — por prioridad
 
@@ -155,9 +160,9 @@ pelea, guardó al minimizar y volvió a `PAUSED / Continue`, sin `AndroidRuntime
    `SF-NET`). BT y LAN son lo que hay que validar sí o sí.
 2. **Redeploy de `MultiplayerSF/` en Render** para activar el P2P (no bloquea el release).
    Con 2 teléfonos en redes distintas, buscar en logcat `SF-RTC`: `DataChannel → OPEN`.
-3. **🍏 Verificar la pelea real en el simulador Mac:** entrada 5 de `SfEscaparate`, ronda completa,
-   audio, fondo/retorno y save arcade en `NSUserDefaults`. Prompt:
-   **`PROMPT_MAC_verificar_pelea_iOS.md`**. Pendiente aparte: `MainMenuScreen` a `commonMain`.
+3. **🍏 ✅ La pelea en iOS YA ESTÁ VERIFICADA (§3terdecies).** Queda: **(a) que una persona OIGA**
+   una pelea en el simulador (yo no puedo); **(b) `MainMenuScreen` a `commonMain`** — hoy iOS no
+   tiene menú, solo el escaparate; **(c)** comparar con Android la rotación pelea/overlays.
 
 ### 🟠 P1 · AUDIO (activo) — ver `SF/PROMPT_traspaso_audio_subtitulos.md`
 **29 clips demasiado largos** y **5 fuera de −16 ±2 LUFS** → **Gemini 3.6** (con los segundos del
