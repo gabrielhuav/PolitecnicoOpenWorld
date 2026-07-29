@@ -25,10 +25,10 @@ import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import org.osmdroid.config.Configuration
 import ovh.gabrielhuav.pow.data.repository.CampaignRepository
-import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
+import ovh.gabrielhuav.pow.features.main_menu.viewmodel.AndroidCollectiblesViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.saveGame
-import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
+import ovh.gabrielhuav.pow.features.settings.viewmodel.AndroidSettingsViewModel
 import ovh.gabrielhuav.pow.ui.theme.PolitecnicoOpenWorldTheme
 import java.io.File
 
@@ -52,9 +52,9 @@ class MainActivity : ComponentActivity() {
     // gate isMapReady NO se reinician — ver 09 §12). El VM se pasa hacia abajo al AppNavGraph.
     private val worldMapViewModel: WorldMapViewModel by viewModels()
 
-    private val settingsViewModel: SettingsViewModel by viewModels()
+    private val settingsViewModel: AndroidSettingsViewModel by viewModels()
 
-    private val collectiblesViewModel: CollectiblesViewModel by viewModels()
+    private val collectiblesViewModel: AndroidCollectiblesViewModel by viewModels()
 
     // Autenticación Google + Firebase. Gestiona login, token (para el handshake WS) y borrado de cuenta.
     private val authManager by lazy { ovh.gabrielhuav.pow.data.auth.AuthManager(this) }

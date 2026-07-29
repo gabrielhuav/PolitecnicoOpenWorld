@@ -87,6 +87,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleMissionLog
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleSpeedometer
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleZoomWidget
 import ovh.gabrielhuav.pow.features.settings.ui.SettingsScreen
+import ovh.gabrielhuav.pow.features.settings.ui.AndroidAccountSettings
 import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -600,90 +601,39 @@ fun AppNavGraph(
                                 }
                             )
                         ) {
-                            val settingsState by settingsViewModel.state.collectAsState()
-
                             SettingsScreen(
-                                state = settingsState,
-                                onCategorySelected = { settingsViewModel.selectCategory(it) },
-                                onMapProviderChanged = { settingsViewModel.changeMapProvider(it) },
-                                onCacheToggled = { settingsViewModel.toggleCacheWidget(it) },
-                                onFpsToggled = { settingsViewModel.toggleFpsWidget(it) },
-                                onZoomWidgetToggled = {
-                                    settingsViewModel.toggleZoomWidget(it)
-                                    worldMapViewModel.toggleZoomWidget(it)
-                                },
-                                onSpeedometerToggled = {
-                                    settingsViewModel.toggleSpeedometer(it)
-                                    worldMapViewModel.toggleSpeedometer(it)
-                                },
-                                onCoordsWidgetToggled = {
-                                    settingsViewModel.toggleCoordsWidget(it)
-                                    worldMapViewModel.toggleCoordsWidget(it)
-                                },
-                                onDeveloperModeToggled = { settingsViewModel.toggleDeveloperMode(it) },
-                                onHitboxesToggled = { settingsViewModel.toggleHitboxes(it) },
-                                onSfFpsToggled = { settingsViewModel.toggleSfFps(it) },
-                                onVoiceSubtitlesToggled = { settingsViewModel.toggleVoiceSubtitles(it) },
-                                onWorldShouldersToggled = { settingsViewModel.toggleWorldShoulderButtons(it) },
-                                // Audio: persisten en Ajustes Y se aplican en vivo al SoundManager.
-                                onMusicVolumeChanged = {
-                                    settingsViewModel.changeMusicVolume(it)
+                                controller = settingsViewModel,
+                                onMusicVolumeApplied = {
                                     ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(activity).setMusicVolume(it)
                                 },
-                                onSfxVolumeChanged = {
-                                    settingsViewModel.changeSfxVolume(it)
+                                onSfxVolumeApplied = {
                                     ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(activity).setSfxVolume(it)
                                 },
-                                onRoadNetworkToggled = { settingsViewModel.toggleRoadNetwork(it) },
-                                onControlTypeChanged = { settingsViewModel.changeControlType(it) },
-                                onControlsScaleChanged = { settingsViewModel.changeControlsScale(it) },
-                                onSwapControlsToggled = { settingsViewModel.toggleSwapControls(it) },
-                                // Jugabilidad: persisten en Ajustes Y se aplican en vivo al mapa.
-                                onNpcDensityChanged = {
-                                    settingsViewModel.changeNpcDensity(it)
-                                    worldMapViewModel.setNpcDensity(it)
-                                },
-                                onNpcEmojiLodToggled = {
-                                    settingsViewModel.toggleNpcEmojiLod(it)
-                                    worldMapViewModel.setNpcEmojiLod(it)
-                                },
-                                onNpcFullEmojiToggled = {
-                                    settingsViewModel.toggleNpcFullEmoji(it)
-                                    worldMapViewModel.setNpcFullEmoji(it)
-                                },
-                                // Preset "Optimizar para mi dispositivo": aplica de un toque los 3 ajustes
-                                // de gama baja (persisten en Ajustes Y se aplican en vivo al mapa).
-                                onOptimizeForDevice = {
+                                onNpcDensityApplied = worldMapViewModel::setNpcDensity,
+                                onNpcEmojiLodApplied = worldMapViewModel::setNpcEmojiLod,
+                                onNpcFullEmojiApplied = worldMapViewModel::setNpcFullEmoji,
+                                onOptimizeApplied = {
                                     val minD = ovh.gabrielhuav.pow.data.repository.SettingsRepository.NPC_DENSITY_MIN
-                                    settingsViewModel.changeNpcDensity(minD); worldMapViewModel.setNpcDensity(minD)
-                                    settingsViewModel.toggleNpcEmojiLod(true); worldMapViewModel.setNpcEmojiLod(true)
-                                    settingsViewModel.toggleNpcFullEmoji(true); worldMapViewModel.setNpcFullEmoji(true)
+                                    worldMapViewModel.setNpcDensity(minD)
+                                    worldMapViewModel.setNpcEmojiLod(true)
+                                    worldMapViewModel.setNpcFullEmoji(true)
                                     android.widget.Toast.makeText(activity, activity.getString(R.string.settings_optimize_applied), android.widget.Toast.LENGTH_SHORT).show()
                                 },
                                 onNavigateBack = {
-                                    // Descartar cambios de controles no guardados al salir.
                                     settingsViewModel.discardControlsChanges()
                                     if (navController.currentDestination?.route?.startsWith("settings") == true) {
                                         navController.popBackStack()
                                     }
                                 },
-                                onSaveClicked = {
-                                    // 1. Sincronizar temporales → committeados y persistir.
-                                    settingsViewModel.saveControlsSettings()
-
-                                    // 2. Notificar al mapa con los valores recién guardados (temporales,
-                                    //    que son los que acaban de pasar a ser los definitivos).
+                                onControlsSaved = { saved ->
                                     worldMapViewModel.updateControlSettings(
-                                        type = settingsState.tempControlType,
-                                        scale = settingsState.tempControlsScale,
-                                        swap = settingsState.tempSwapControls
+                                        type = saved.tempControlType,
+                                        scale = saved.tempControlsScale,
+                                        swap = saved.tempSwapControls,
                                     )
-
                                     android.widget.Toast.makeText(activity, activity.getString(R.string.settings_controls_saved), android.widget.Toast.LENGTH_SHORT).show()
                                 },
-                                // Lógica para regresar al menú principal limpiando el mapa
                                 onExitToMainMenu = {
-                                    // Descartar cambios de controles no guardados al salir.
                                     settingsViewModel.discardControlsChanges()
                                     worldMapViewModel.disconnectFromMultiplayer()
                                     navController.navigate("main_menu") {
@@ -691,24 +641,21 @@ fun AppNavGraph(
                                         launchSingleTop = true
                                     }
                                 },
-                                authManager = authManager,
-                                // ELIMINAR CUENTA: AuthManager ya borró la identidad en Firebase; aquí
-                                // se borran los DATOS LOCALES del jugador (partidas de campaña) y se vuelve al menú.
-                                onAccountDeleted = {
-                                    worldMapViewModel.disconnectFromMultiplayer()
-                                    try {
-                                        val sg = SaveGameRepository(activity)
-                                        for (slot in 1..SaveGameRepository.SLOT_COUNT) sg.clear(slot)
-                                        campaignRepository.clearCampaign()
-                                    } catch (_: Exception) {}
-                                    navController.navigate("main_menu") {
-                                        popUpTo("main_menu") { inclusive = true }
-                                        launchSingleTop = true
+                                onLanguageApplied = { activity.recreate() },
+                                accountContent = {
+                                    AndroidAccountSettings(authManager) {
+                                        worldMapViewModel.disconnectFromMultiplayer()
+                                        runCatching {
+                                            val saves = SaveGameRepository(activity)
+                                            for (slot in 1..SaveGameRepository.SLOT_COUNT) saves.clear(slot)
+                                            campaignRepository.clearCampaign()
+                                        }
+                                        navController.navigate("main_menu") {
+                                            popUpTo("main_menu") { inclusive = true }
+                                            launchSingleTop = true
+                                        }
                                     }
                                 },
-                                // i18n: idioma actual + cambio (persiste; SettingsScreen recrea la Activity).
-                                currentLanguage = settingsState.language,
-                                onLanguageChanged = { tag -> settingsViewModel.changeLanguage(tag) }
                             )
                         }
 
@@ -890,7 +837,7 @@ fun AppNavGraph(
 
                         composable(route = "collectibles") {
                             CollectiblesScreen(
-                                viewModel = collectiblesViewModel,
+                                controller = collectiblesViewModel,
                                 onBack = {
                                     navController.popBackStack()
                                 }

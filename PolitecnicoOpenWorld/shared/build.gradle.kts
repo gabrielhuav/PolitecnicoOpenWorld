@@ -96,6 +96,7 @@ kotlin {
             api(compose.foundation)
             api(compose.ui)
             api(compose.material3)
+            api(compose.materialIconsExtended)
             // Carga de imágenes/fuentes empaquetadas por el propio Compose.
             @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
             api(compose.components.resources)

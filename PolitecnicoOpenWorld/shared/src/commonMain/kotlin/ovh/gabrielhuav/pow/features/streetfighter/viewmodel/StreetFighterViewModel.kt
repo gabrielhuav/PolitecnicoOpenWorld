@@ -70,6 +70,7 @@ internal const val AUDIO_SHOWCASE_FALLBACK_MS = 5000L
 internal val SHOWCASE_SPEEDS = listOf(1f, 2f, 4f)
 private val sfClockStart = TimeSource.Monotonic.markNow()
 internal fun sfElapsedRealtime(): Long = sfClockStart.elapsedNow().inWholeMilliseconds
+@Suppress("UnusedParameter")
 internal fun sfLog(message: String) = Unit
 
 // ViewModel del modo STREET FIGHTER: port fiel de Fighter.js/BattleScene.js/Fireball.js.

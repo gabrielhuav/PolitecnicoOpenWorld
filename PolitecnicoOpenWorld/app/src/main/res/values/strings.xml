@@ -34,7 +34,6 @@
     <string name="menu_signed_in_as">Conectado: %1$s</string>
     <string name="menu_local_mode">Modo local (sin sesión)</string>
     <!-- Botón genérico de retroceso (coleccionables, ajustes) -->
-    <string name="menu_back">VOLVER</string>
 
     <!-- ─── Modo Historia / Campaña (features/main_menu) ─── -->
     <string name="story_title">MODO HISTORIA</string>
@@ -57,59 +56,9 @@
     <string name="story_intro_begin">INICIAR</string>
 
     <!-- ─── Ajustes (features/settings) ─── -->
-    <string name="settings_title">AJUSTES DEL JUEGO</string>
-    <string name="settings_back">Volver</string>
     <string name="settings_exit_to_menu">SALIR AL MENÚ</string>
-    <string name="settings_none_available">Sin ajustes disponibles actualmente.</string>
-    <string name="settings_cat_map">Mapa</string>
-    <string name="settings_cat_controls">Controles</string>
-    <string name="settings_cat_gameplay">Jugabilidad</string>
-    <string name="settings_cat_interface">Interfaz</string>
-    <string name="settings_npc_count">Cantidad de NPCs</string>
-    <string name="settings_npc_count_desc">Multiplica peatones, autos y zombis. Se combina automáticamente con la gama de tu teléfono y con la densidad de la zona (ciudad = más). Actual: %1$d%%</string>
-    <string name="settings_npc_less">Menos (gama baja)</string>
-    <string name="settings_npc_more">Más (gama alta)</string>
-    <string name="settings_npc_lod_title">Optimizar dibujado de NPCs</string>
-    <string name="settings_npc_lod_desc">Dibuja como emoji 🧍🚗🧟 los NPCs lejanos y reserva el sprite completo solo para los muy cercanos. Reduce el costo de render (ideal en multijugador con muchos NPCs).</string>
-    <string name="settings_npc_full_title">Optimizar para gama baja</string>
-    <string name="settings_npc_full_desc">Reemplaza TODOS los assets de los NPCs por emojis 🧍🚗🧟👮, sin importar la distancia. No se generan sprites ni bitmaps: el modo más ligero posible, para equipos muy débiles.</string>
-    <string name="settings_optimize_device">Optimizar para mi dispositivo</string>
-    <string name="settings_optimize_device_desc">Aplica de un toque los ajustes más ligeros para gama baja: baja la cantidad de NPCs al mínimo y dibuja a todos como emoji.</string>
     <string name="settings_optimize_applied">Ajustes optimizados para gama baja</string>
-    <string name="settings_map_provider">Proveedor de Mapa</string>
-    <string name="settings_map_change">Cambiar Mapa</string>
-    <string name="settings_map_restore">Restaurar Mapa</string>
-    <string name="settings_road_network">Red de Caminos</string>
-    <string name="settings_road_network_desc">Dibuja las vías transitables en el mapa</string>
-    <string name="settings_move_style">Estilo de Movimiento</string>
-    <string name="settings_screen_size">Tamaño en Pantalla: %1$d%%</string>
-    <string name="settings_size_portrait">Límite ajustado a 100% por modo vertical.</string>
-    <string name="settings_size_landscape">No superará los límites de la pantalla.</string>
-    <string name="settings_swap_sides">Intercambiar Lados</string>
-    <string name="settings_swap_sides_desc">Mueve la acción a la izquierda</string>
-    <string name="settings_save">GUARDAR CONFIGURACIÓN</string>
-    <string name="settings_cache_widget">Widget de caché</string>
-    <string name="settings_cache_widget_desc">Muestra fuente de datos</string>
-    <string name="settings_fps_widget">Widget de FPS</string>
-    <string name="settings_fps_widget_desc">Mide el rendimiento gráfico</string>
-    <string name="settings_zoom_widget">Widget de zoom</string>
-    <string name="settings_zoom_widget_desc">Muestra el nivel de zoom actual en vivo</string>
-    <string name="settings_speedometer">Velocímetro</string>
-    <string name="settings_speedometer_desc">Muestra tu velocidad (km/h) al conducir</string>
-    <string name="settings_coords_widget">Coordenadas (X/Y/Z)</string>
-    <string name="settings_coords_widget_desc">Muestra tu posición X/Y/Z en el mundo y en interiores</string>
-    <string name="settings_developer_mode">Modo Desarrollador</string>
-    <string name="settings_developer_mode_desc">Muestra opciones y botones de prueba reservados para desarrollo</string>
-    <string name="settings_show_hitboxes">Mostrar hitboxes (modo pelea)</string>
-    <string name="settings_show_hitboxes_desc">Dibuja las cajas de colisión sobre los peleadores, como las hitboxes de Minecraft</string>
-    <string name="settings_show_sf_fps">Mostrar FPS (modo pelea)</string>
-    <string name="settings_show_sf_fps_desc">Muestra los cuadros por segundo durante el combate (útil para medir la fluidez en gama baja)</string>
-    <string name="settings_voice_subtitles">Subtítulos de voces (modo pelea)</string>
-    <string name="settings_voice_subtitles_desc">Muestra el texto de las frases habladas de cada peleador (special, victoria, etc.). Apagado por defecto</string>
-    <string name="settings_world_shoulders">Gatillos L1/L2/R1/R2 en el mundo</string>
-    <string name="settings_world_shoulders_desc">Muestra los cuatro gatillos del modo pelea también en el mundo abierto. Aviso: ahí todavía no tienen función, son solo visuales.</string>
     <!-- ─── Cuenta / Autenticación (Google Sign-In) ─── -->
-    <string name="settings_cat_account">Cuenta</string>
     <string name="settings_account_desc">Inicia sesión con Google para jugar en línea. El juego local y el Modo Historia no requieren cuenta.</string>
     <string name="settings_account_signed_in_as">Sesión iniciada como:\n%1$s</string>
     <string name="settings_account_not_signed_in">No has iniciado sesión.</string>
@@ -124,11 +73,6 @@
     <string name="settings_account_privacy">Ver política de privacidad</string>
     <!-- URL pública de la política de privacidad (compartida por todos los idiomas) -->
     <string name="settings_privacy_url" translatable="false">https://gabrielhuav.github.io/PolitecnicoOpenWorld/policy_en_es.html</string>
-    <string name="settings_cat_audio">Audio</string>
-    <string name="settings_music_volume">Volumen de música</string>
-    <string name="settings_sfx_volume">Volumen de efectos</string>
-    <string name="settings_language">Idioma</string>
-    <string name="settings_language_system">Sistema (predeterminado)</string>
     <string name="settings_controls_saved">Configuración de controles guardada</string>
 
     <!-- ─── HUD de interiores/zombis (features/interiores/zombies) ─── -->
@@ -143,7 +87,6 @@
 
     <!-- ─── Comunes Adicionales ─── -->
     <string name="common_close">Cerrar</string>
-    <string name="common_continue">CONTINUAR</string>
     <string name="common_save">Guardar</string>
     <string name="common_search">Buscar</string>
 
@@ -309,7 +252,6 @@
     <string name="wm_no_assets_available">No hay assets disponibles.</string>
     <string name="wm_select_asset_hint">Selecciona un asset. Se colocará en tu posición actual.</string>
     
-    <string name="wm_new_collectible">¡NUEVO COLECCIONABLE!</string>
     
     <string name="wm_designer_height">ALTO: %1$s</string>
     <string name="wm_designer_width">ANCHO: %1$s</string>
@@ -609,11 +551,6 @@
     <string name="sf_tutorial_repeat">REPETIR</string>
     <string name="sf_tutorial_skip">SALTAR</string>
     <string name="sf_tutorial_wrong">ESO NO ERA</string>
-    <!-- 🆕 (2026-07-21) Coleccionables de PELEADOR (recompensa del arcade en Difícil) -->
-    <string name="collectibles_tab_objects">OBJETOS</string>
-    <string name="collectibles_tab_fighters">PELEADORES</string>
-    <string name="collectibles_view_story">VER HISTORIA</string>
-    <string name="collectibles_story_soon">Próximamente: la historia de este personaje está en camino.</string>
     <string name="sf_controls_help">X/Y/B = puños ligero, medio y fuerte\nA neutro/adelante/atrás = patada ligera, media y fuerte\n↓ ↘ → + X/Y/B = especial ligero, medio o fuerte</string>
     <string name="sf_exit_title">Salir de la pelea</string>
     <string name="sf_exit_message">¿Abandonar la pelea y volver al menú principal?</string>
@@ -753,35 +690,4 @@
     <string name="sf_fighter_tap_hint">Toca para enfocar · otra vez para elegir</string>
 
     <!-- Tutorial de controles (optativo, i18n 2026-07-11) -->
-    <string name="tutorial_prompt_title">Tutorial de controles</string>
-    <string name="tutorial_prompt_msg">¿Quieres un repaso rápido de los controles? Puedes verlo cuando quieras en Ajustes → Controles.</string>
-    <string name="tutorial_prompt_yes">VER TUTORIAL</string>
-    <string name="tutorial_prompt_no">Ahora no</string>
-    <string name="tutorial_next">Siguiente</string>
-    <string name="tutorial_prev">Anterior</string>
-    <string name="tutorial_done">¡Entendido!</string>
-    <string name="tutorial_ext_title">Controles · Mundo abierto</string>
-    <string name="tutorial_int_title">Controles · Interiores</string>
-    <string name="tutorial_page_move_title">Moverte</string>
-    <string name="tutorial_page_move_body">Camina con el D-pad o el joystick. El estilo, tamaño y lado se cambian en Ajustes → Controles.</string>
-    <string name="tutorial_page_run_title">Correr</string>
-    <string name="tutorial_page_run_body">Mantén A mientras te mueves para correr.</string>
-    <string name="tutorial_page_ext_interact_title">Interactuar</string>
-    <string name="tutorial_page_ext_interact_body">Con X entras a edificios (ESCOM, metro, metrobús…), recoges coleccionables y usas objetos de misión.</string>
-    <string name="tutorial_page_ext_attack_title">Golpear</string>
-    <string name="tutorial_page_ext_attack_body">Con B lanzas golpes. Ojo: agredir civiles sube tu nivel de búsqueda y la policía irá por ti.</string>
-    <string name="tutorial_page_ext_vehicle_title">Conducir</string>
-    <string name="tutorial_page_ext_vehicle_body">Con Y subes o bajas del coche más cercano. Al volante, el mismo control de movimiento acelera, frena y gira.</string>
-    <string name="tutorial_page_ext_teleport_title">Teletransporte</string>
-    <string name="tutorial_page_ext_teleport_body">Abre el menú de opciones (arriba a la derecha) → Mapa → Puntos de teletransporte para viajar rápido.</string>
-    <string name="tutorial_page_int_interact_title">Interactuar</string>
-    <string name="tutorial_page_int_interact_body">Con X recoges llaves y objetos, usas objetos de misión (como la lata apestosa) y confirmas acciones.</string>
-    <string name="tutorial_page_int_attack_title">Atacar</string>
-    <string name="tutorial_page_int_attack_body">Con B atacas: golpe cuerpo a cuerpo o disparo, según el modo elegido. Los NPCs también reaccionan a tus golpes.</string>
-    <string name="tutorial_page_int_mode_title">Modo de golpe e inventario</string>
-    <string name="tutorial_page_int_mode_body">Mantén Y para abrir el menú combinado: cambia entre golpe y disparo, y revisa tu inventario.</string>
-    <string name="settings_tutorial_section">Referencia y tutorial</string>
-    <string name="settings_tutorial_hint">Repasa qué hace cada botón en cada mundo. Los ajustes de arriba (estilo, tamaño, lado) cambian cómo se acomodan en pantalla.</string>
-    <string name="settings_tutorial_exterior">TUTORIAL · MUNDO ABIERTO</string>
-    <string name="settings_tutorial_interior">TUTORIAL · INTERIORES</string>
 </resources>

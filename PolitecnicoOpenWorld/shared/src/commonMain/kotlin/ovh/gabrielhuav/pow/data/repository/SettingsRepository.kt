@@ -1,15 +1,19 @@
 package ovh.gabrielhuav.pow.data.repository
 
-import android.content.Context
-import com.russhwolf.settings.SharedPreferencesSettings
 import com.russhwolf.settings.Settings
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
-class SettingsRepository(context: Context) {
+/**
+ * Ajustes persistentes compartidos. La plataforma inyecta el almacén nativo sin cambiar claves.
+ */
+class SettingsRepository(
+    private val settings: Settings,
+    private val lowRamDefault: Boolean = false,
+) {
 
     companion object {
-        private const val PREFS_NAME = "pow_game_settings"
+        const val PREFS_NAME = "pow_game_settings"
         private const val KEY_CONTROL_TYPE = "CONTROL_TYPE"
         private const val KEY_CONTROLS_SCALE = "CONTROLS_SCALE"
         private const val KEY_SWAP_CONTROLS = "SWAP_CONTROLS"
@@ -42,19 +46,6 @@ class SettingsRepository(context: Context) {
         const val NPC_DENSITY_MIN = 0.4f
         const val NPC_DENSITY_MAX = 1.6f
     }
-
-    // 🍏 Fase 4: `Settings` (multiplatform-settings) en vez de tocar `SharedPreferences` directo.
-    // ⚠️ ENVUELVE EL MISMO FICHERO de siempre (`PREFS_NAME`), así que **los ajustes que ya tiene
-    // el jugador se conservan tal cual**: no hay migración de datos ni se pierde nada. El día que
-    // esta clase se mueva a `:shared`, lo único que cambia es quién construye el `Settings`
-    // (en iOS, `NSUserDefaultsSettings`).
-    private val settings: Settings =
-        SharedPreferencesSettings(context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE))
-
-    // Por defecto el LOD de emojis se activa SOLO en gama baja (se puede cambiar en Ajustes).
-    private val lowRamDefault: Boolean = try {
-        (context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).isLowRamDevice
-    } catch (e: Exception) { false }
 
     // ─── Controles ───────────────────────────────────────────────────────
 
