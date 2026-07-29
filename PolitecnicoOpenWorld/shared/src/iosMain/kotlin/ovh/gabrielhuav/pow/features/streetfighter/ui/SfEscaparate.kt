@@ -79,19 +79,25 @@ private fun PruebaDeAudio() {
     var clip by remember { mutableStateOf<PowClip?>(null) }
 
     Text(estado, color = Color(0xFFE0E0A0))
-    Text(
-        "▶ PROBAR SONIDO",
-        color = Color(0xFF8AE28A),
-        modifier = Modifier.clickable {
-            val ruta = "STREETFIGHTER/SOUNDS/light-attack.ogg"
-            val c = PowAudio.cargarEfecto(ruta)
-            clip = c
-            estado = if (c == null) {
-                "❌ cargarEfecto devolvió null para $ruta"
-            } else {
-                c.reproducir(volumen = 1f)
-                "✅ cargado; reproduciendo=${c.reproduciendo}"
-            }
-        },
-    )
+    // Se prueban los DOS formatos que hay en el juego. Comparar es lo que demuestra que la ruta
+    // del bundle está bien y que lo que falla es el CÓDEC, no dónde están los ficheros.
+    for (ruta in listOf(
+        "STREETFIGHTER/SOUNDS/light-attack.ogg",
+        "STREETFIGHTER/SOUNDS/prankedy_lobby.mp3",
+    )) {
+        Text(
+            "▶ ${ruta.substringAfterLast('/')}",
+            color = Color(0xFF8AE28A),
+            modifier = Modifier.clickable {
+                val c = PowAudio.cargarEfecto(ruta)
+                clip = c
+                estado = if (c == null) {
+                    "❌ null: ${ruta.substringAfterLast('.')}"
+                } else {
+                    c.reproducir(volumen = 1f)
+                    "✅ ${ruta.substringAfterLast('.')} suena=${c.reproduciendo}"
+                }
+            },
+        )
+    }
 }

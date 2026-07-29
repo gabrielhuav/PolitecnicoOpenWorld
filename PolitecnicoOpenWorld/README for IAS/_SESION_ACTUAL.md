@@ -15,10 +15,10 @@
 **Última actualización:** 2026-07-28 · Opus 5 (Mac) · rama `fase0-auditoria-kmp` · *purgar §3bis el 07-30*
 
 > ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: Fases 0-4 completas; **la 5 EN MARCHA, 218
-> tests**. 🍏 **Compose MP YA CORRE en el simulador y los 107 MB de assets están en el bundle**
-> (§3undecies); del paso 4 va **1 de 7** pantallas.
-> **Siguiente y BLOQUEANTE: migrar los strings a `composeResources`** — las 6 pantallas que faltan
-> usan `R.string`, que no existe en `:shared`. Sin eso el paso 4 no avanza.
+> tests**. 🍏 **Compose MP corre en el simulador, los assets se leen y los strings ya están
+> desbloqueados** (§3undecies); del paso 4 van **2 de 7** pantallas.
+> **Siguiente: `PROMPT_SOL_paso4_UI_y_audio.md` (Sol 5.6, Windows)** — convertir los 82 `.ogg` (o
+> iOS sale mudo) y bajar las 5 pantallas que faltan.
 
 ## 🖥️ Rutas por PC
 
@@ -91,12 +91,12 @@ con los cinterops de Apple resueltos: **el type-check de iOS ya no exige Mac**. 
 **`linkDebugFrameworkIosSimulatorArm64` MIENTE** fuera de un Mac: dice BUILD SUCCESSFUL y no crea
 nada. NO lo uses como prueba.
 
-**PROBADO EN EL EMULADOR** dos veces: sprites y audio. Nuevo en `:shared`: `PowImagen`, `PowAudio`,
-`PowAssets`, `PowViewModel`, `PowCerrojo`, `SfVocesReglas`, `SfSharedSheets`, `SfFrameCatalog`.
-**`android.graphics` y `android.media` han DESAPARECIDO de `features/streetfighter`** (medido: 0).
+Nuevo en `:shared`: `PowImagen`, `PowAudio`, `PowAssets`, `PowViewModel`, `PowCerrojo`,
+`SfVocesReglas`, `SfSharedSheets`, `SfFrameCatalog`. **`android.graphics` y `android.media` han
+DESAPARECIDO de `features/streetfighter`** (medido: 0).
 - 🎁 **Los gráficos NO necesitaron `expect/actual`**: `ImageBitmap`/`Canvas`/`readPixels` ya son
-  multiplataforma; el "muro" se cruza TRADUCIENDO llamadas (tabla en `PowImagen`). ⚠️ Única
-  excepción, **`decodificarReducido`**: sin `inSampleSize` sería REGRESIÓN DE MEMORIA en Android.
+  multiplataforma (tabla en `PowImagen`). ⚠️ Única excepción, **`decodificarReducido`**: sin
+  `inSampleSize` sería REGRESIÓN DE MEMORIA en Android.
 - ⚠️⚠️ **`iosX64` SE RETIRÓ y debe seguir fuera**: Compose MP 1.11.1 no publica para ese target y
   TODOS los source sets fallan con `Unresolved platforms: [iosX64]`, error que no menciona a Compose.
 - ⚠️ **NO se usó el `lifecycle-viewmodel` KMP oficial**: su única versión con iOS exige
@@ -122,31 +122,32 @@ intro, terminada hace rato, sigue apuntada como en curso.
 
 ## 3undecies. 🍏 Compose MP CORRIENDO en iOS + los assets en el bundle (Mac, 07-28)
 
-**MEDIDO EN EL SIMULADOR: `SfBitmapText` pinta "HUELUM VS GOYA" con la fuente arcade** → prueba la
-cadena entera: Compose MP vivo en iOS → `PowAssets` leyendo del bundle → `PowImagen` → `@Composable`
-de `commonMain` dibujando. Android intacto: **114 + 104 = 218 tests, 0 fallos.**
+**MEDIDO: `SfBitmapText` pinta "HUELUM VS GOYA" con la fuente arcade en el simulador** → prueba la
+cadena entera (Compose MP → `PowAssets` → `PowImagen` → `@Composable` de `commonMain`). Android
+intacto: **114 + 104 = 218 tests, 0 fallos.**
 - 🆕 **`SfEscaparate.kt` (`iosMain`) + pestaña SF en `iosApp`**: el hueco donde MIRAR cada pantalla
-  portada. Antes no existía → "portado" solo podía significar "compila".
+  portada, y donde se prueban assets y audio. Antes no existía → "portado" solo podía ser "compila".
 - ⚠️⚠️ **Compose MP ABORTA (SIGABRT) si falta `CADisableMinimumFrameDurationOnPhone` en el
-  Info.plist**, y el crash NO nombra la clave (hay que abrir el `.ips` de `~/Library/Logs/
-  DiagnosticReports`). Encadena 3 trampas: `INFOPLIST_KEY_…` **no sirve** (solo vale para claves que
-  Xcode conoce) → hace falta un `Info.plist` real; **no puede vivir en `iosApp/POW/`** (va a Copy
-  Bundle Resources → "Multiple commands produce"); y a mano hay que reponer `CFBundleIdentifier` o
-  la app **ni se instala**.
-- ✅ **Assets HECHOS: 107 MB en `<bundle>/assets/STREETFIGHTER/`** con `DATA`/`IMAGES`/`SOUNDS`
-  intactas. ⚠️ **NO por "folder reference" azul como decía el plan:** el proyecto usa
-  `PBXFileSystemSynchronizedRootGroup` (Xcode 16), que APLASTA subcarpetas. Se hace con una **fase
-  de script `rsync`** a `${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/assets/`, que
-  además evita duplicar 106 MB en `iosApp/`. Exige **`ENABLE_USER_SCRIPT_SANDBOXING = NO`** (si no:
-  `Sandbox: rsync deny(1) file-write-create`).
+  Info.plist**, y el crash NO nombra la clave (sale en el `.ips`). Encadena 3 trampas más:
+  `INFOPLIST_KEY_…` no sirve, el plist no puede vivir en `iosApp/POW/`, y a mano hay que reponer
+  `CFBundleIdentifier`. Todo en `iosApp/README.md`.
+- ✅ **Assets HECHOS: 107 MB en `<bundle>/assets/STREETFIGHTER/`** con las subcarpetas intactas.
+  ⚠️ **NO por "folder reference" azul como decía el plan:** el proyecto usa
+  `PBXFileSystemSynchronizedRootGroup` (Xcode 16), que APLASTA subcarpetas. Va por **fase de script
+  `rsync`** a `${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/assets/`, que además evita
+  duplicar 106 MB. Exige **`ENABLE_USER_SCRIPT_SANDBOXING = NO`**.
 
-### 🔴 BLOQUEADOR del paso 4: `R.string` — lo usan las 6 pantallas que faltan
-`SfBitmapText` (1/7) pudo bajar porque **no tenía ni un string**. Las otras seis usan **145 claves**
-vía `import ovh.gabrielhuav.pow.R`, y esa `R` la genera AGP para `:app`: **no existe en `:shared`**
-(`SfMenuOverlays` 57 · `StreetFighterScreen` 56 · `SfComboSheetOverlay` 19 · `SfTutorialOverlay` 9 ·
-`SfStageSelectOverlay` 6 · `SfSceneRenderer` 4). → Hay que **migrar los strings a `composeResources`**
-(`Res.string.*`), que hoy NO existe en el repo (`:app` tiene 701 en `values/` y 700 en `values-en/`).
-Es infraestructura, no un port más, y el plan no lo contemplaba.
+### 🔊 EL AUDIO DE iOS NO SUENA — es el CÓDEC, no la ruta (MEDIDO en el simulador)
+En el escaparate: `light-attack.ogg` → `cargarEfecto` da **null**; `prankedy_lobby.mp3` → **suena**.
+**AVAudioPlayer no abre Ogg Vorbis** y de `SOUNDS` (17 MB) hay **82 `.ogg`** y 6 `.mp3` → en iOS la
+pelea sale MUDA. La ruta es CORRECTA: hay que **convertir a `.m4a`**. 🐛 **Arreglado de paso:** el
+constructor de `AVAudioPlayer` LANZA (out-param `NSError**`) y sin `runCatching` **cerraba la app**.
+
+### ✅ El bloqueador `R.string` — RESUELTO
+✅ **RESUELTO.** `R` la genera AGP para `:app` y no existe en `:shared`, así que ninguna pantalla con
+textos podía bajar. Ya hay **196 claves** en `commonMain/composeResources/values{,-en}` y `Res`
+público en `ovh.gabrielhuav.pow.shared.recursos`. El patrón es mecánico: `R.string.x` →
+`Res.string.x` y el `stringResource` de `org.jetbrains.compose.resources`.
 
 ## 4. PENDIENTE — por prioridad
 
@@ -155,15 +156,12 @@ Es infraestructura, no un port más, y el plan no lo contemplaba.
    `SF-NET`). BT y LAN son lo que hay que validar sí o sí.
 2. **Redeploy de `MultiplayerSF/` en Render** para activar el P2P (no bloquea el release).
    Con 2 teléfonos en redes distintas, buscar en logcat `SF-RTC`: `DataChannel → OPEN`.
-3. **🍏 FASE 5 — que el modo pelea CORRA en iOS. Guion en `PLAN_SF_EN_iOS.md` §4.**
-   Hechos: catálogo de modos, Compose MP corriendo en el simulador, **assets en el bundle**,
-   gráficos, audio, ViewModel, cerrojo, `org.json` fuera, `SfSharedSheets`/`SfFrameCatalog` y
-   **1/7 del paso 4** (`SfBitmapText`).
-   **SIGUIENTE, y es un prerrequisito, no una pantalla más: migrar los strings a
-   `composeResources`** (§3undecies). Sin eso las 6 pantallas restantes NO pueden bajar.
-   Después, en orden: `SfComboSheetOverlay` → `SfTutorialOverlay` → `SfStageSelectOverlay` →
-   `SfMenuOverlays` → `SfSceneRenderer` → `StreetFighterScreen`.
-   ⚠️ **EN EL MAC**: cada pantalla hay que VERLA en la pestaña SF del escaparate.
+3. **🍏 FASE 5 — que el modo pelea CORRA en iOS.** Delegado a Sol 5.6 en Windows:
+   **`PROMPT_SOL_paso4_UI_y_audio.md`** (tiene el desglose medido, el patrón de strings y las
+   trampas). Resumen: (a) convertir los **82 `.ogg` → `.m4a`** o iOS sale mudo; (b) bajar las **5
+   pantallas** que faltan + la cascada de `ui/components`; (c) `MainMenuScreen`.
+   ⚠️ Windows type-checkea iOS pero **no lo ve ni lo oye**: la pasada visual y de audio es del Mac.
+
 ### 🟠 P1 · AUDIO (activo) — ver `SF/PROMPT_traspaso_audio_subtitulos.md`
 **29 clips demasiado largos** y **5 fuera de −16 ±2 LUFS** → **Gemini 3.6** (con los segundos del
 dueño). **Faltan `attack`/`hurt`** en 6 peleadores → el dueño graba. ⚠️ **No repitas** el resumen
