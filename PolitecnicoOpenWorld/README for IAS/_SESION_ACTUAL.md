@@ -14,11 +14,11 @@
 
 **Última actualización:** 2026-07-28 · Codex/Sol 5.6 (Windows) · rama `fase0-auditoria-kmp` · *purgar §3bis el 07-30*
 
-> ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: Fases 0-4 completas; **la 5 EN MARCHA, 218
-> tests**. 🍏 **Las 7 pantallas SF ya viven en `commonMain` y los 82 sonidos OGG se sustituyeron
-> por M4A/AAC** (§3undecies). Android: pelea, ataques, pausa/reanudación y audio activos en Nexus.
-> **Siguiente:** Mac sigue `PROMPT_MAC_continuar_SF_UI_y_audio.md`: enlace, revisión visual/audio y
-> controlador real iOS; después `MainMenuScreen` si se quiere cerrar también la tarea opcional 3.
+> ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: Fases 0-4 completas; **la 5 casi**: las **7
+> pantallas de SF están en `commonMain`** y las 4 revisables **SE VEN en el simulador**, con assets
+> y audio (§3duodecies). **218 tests, 0 fallos, en Android y en iOS.**
+> 🔴 **La pelea NO está portada:** falta un `StreetFighterController` de iOS y bajar el ViewModel
+> (6 433 líneas). Siguiente prompt para Windows: eso, que NO exige Mac.
 
 ## 🖥️ Rutas por PC
 
@@ -84,28 +84,18 @@ Historia y Multijugador se **esconden**. **PROBADO: el menú de Android sigue id
   simulador, no solo que el botón aparece.
 - ⚠️ **Esconder el botón NO porta el modo:** falta la UI (~14 000 líneas). Orden en `PLAN_SF_EN_iOS.md`.
 
-## 3nonies. 🍏🥊 Fase 5 EN MARCHA — Compose MP y el muro de `android.graphics`, cruzado
+## 3nonies. Fase 5 — Compose MP y el muro de `android.graphics` (cerrado; trampas VIVAS)
 
-**⚡ Kotlin/Native SÍ compila los klibs de iOS DESDE WINDOWS** (`compileKotlinIosSimulatorArm64`),
-con los cinterops de Apple resueltos: **el type-check de iOS ya no exige Mac**. ⚠️ Pero
-**`linkDebugFrameworkIosSimulatorArm64` MIENTE** fuera de un Mac: dice BUILD SUCCESSFUL y no crea
-nada. NO lo uses como prueba.
-
-Nuevo en `:shared`: `PowImagen`, `PowAudio`, `PowAssets`, `PowViewModel`, `PowCerrojo`,
-`SfVocesReglas`, `SfSharedSheets`, `SfFrameCatalog`. **`android.graphics` y `android.media` han
-DESAPARECIDO de `features/streetfighter`** (medido: 0).
-- 🎁 **Los gráficos NO necesitaron `expect/actual`**: `ImageBitmap`/`Canvas`/`readPixels` ya son
-  multiplataforma (tabla en `PowImagen`). ⚠️ Única excepción, **`decodificarReducido`**: sin
-  `inSampleSize` sería REGRESIÓN DE MEMORIA en Android.
-- ⚠️⚠️ **`iosX64` SE RETIRÓ y debe seguir fuera**: Compose MP 1.11.1 no publica para ese target y
-  TODOS los source sets fallan con `Unresolved platforms: [iosX64]`, error que no menciona a Compose.
+**⚡ Kotlin/Native SÍ compila los klibs de iOS DESDE WINDOWS**: el type-check de iOS no exige Mac.
+⚠️ Pero **`linkDebugFrameworkIosSimulatorArm64` MIENTE** fuera de un Mac: dice BUILD SUCCESSFUL y no
+crea nada. Nuevo en `:shared`: `PowImagen`, `PowAudio`, `PowAssets`, `PowViewModel`, `PowCerrojo`,
+`SfVocesReglas`, `SfSharedSheets`, `SfFrameCatalog`.
+- 🎁 **Los gráficos NO necesitaron `expect/actual`** (tabla en `PowImagen`). ⚠️ Única excepción,
+  **`decodificarReducido`**: sin `inSampleSize` sería REGRESIÓN DE MEMORIA en Android.
+- ⚠️⚠️ **`iosX64` SE RETIRÓ y debe seguir fuera**: Compose MP no publica para ese target y TODOS los
+  source sets fallan con `Unresolved platforms: [iosX64]`, error que no menciona a Compose.
 - ⚠️ **NO se usó el `lifecycle-viewmodel` KMP oficial**: su única versión con iOS exige
-  `compileSdk 37`. ⚠️ `@Synchronized`/`LruCache` no existen en común → `PowCerrojo` (REENTRANTE) y
-  LRU a mano; `recycle()` se BORRA, no se sustituye.
-
-- 📏 **Coste:** framework de 251 MB (153 682 símbolos de Compose) → **66 MB** de app enlazada;
-  enlazar tarda ~3 min y come 4 GB. 🔴 **DECISIÓN PENDIENTE (Fase 6):** el `deployment target` 16.0
-  se queda corto — la ICU de Compose MP está compilada para **iOS 18.5**.
+  `compileSdk 37`. ⚠️ `@Synchronized`/`LruCache` no existen en común → `PowCerrojo` y LRU a mano.
 
 ## 3decies. 🔊 El audio de SF, multiplataforma — y las reglas de voz por fin con red
 
@@ -113,41 +103,52 @@ DESAPARECIDO de `features/streetfighter`** (medido: 0).
 (`PowClip.alTerminar`): sin él el mapa de voces no se vacía y el peleador acaba mudo porque su
 intro, terminada hace rato, sigue apuntada como en curso.
 - ⚠️⚠️ **El `delegate` de `AVAudioPlayer` es una referencia DÉBIL:** si no se guarda en un campo del
-  clip, el aviso **no llega nunca**, sin error y sin log. ⚠️ **`SoundPool.play` abre un flujo NUEVO
-  cada vez** (eco si no paras el previo), y **`AVAudioPlayer.duration` viene en SEGUNDOS** (Android
-  da ms): sin ×1000 los subtítulos de iOS durarían 1 ms.
-- 🎁 **Las 4 reglas de interrupción salieron a `SfVocesReglas` con 14 tests** (estaban afinadas de
-  oído). ✅ **`SfArcadeRepository` ya no usa `org.json`**, con 2 tests que fijan el snapshot V1 y el
-  `"null"` literal; probado en el emulador minimizando y reanudando.
+  clip, el aviso **no llega nunca**. ⚠️ **`SoundPool.play` abre un flujo NUEVO cada vez** y
+  **`AVAudioPlayer.duration` viene en SEGUNDOS** (Android da ms): sin ×1000, subtítulos de 1 ms.
+- 🎁 **Las 4 reglas de interrupción salieron a `SfVocesReglas` con 14 tests.** ✅ **`SfArcadeRepository`
+  ya no usa `org.json`**, con 2 tests que fijan el snapshot V1 y el `"null"` literal.
 
-## 3undecies. 🍏 Compose MP CORRIENDO en iOS + los assets en el bundle (Mac, 07-28)
+## 3undecies. 🍏 Compose MP corre en iOS · assets en el bundle · strings desbloqueados
 
-**MEDIDO: `SfBitmapText` pinta "HUELUM VS GOYA" con la fuente arcade en el simulador** → prueba la
-cadena entera (Compose MP → `PowAssets` → `PowImagen` → `@Composable` de `commonMain`). Android
-intacto: **114 + 104 = 218 tests, 0 fallos.**
-- 🆕 **`SfEscaparate.kt` (`iosMain`) + pestaña SF en `iosApp`**: el hueco donde MIRAR cada pantalla
-  portada, y donde se prueban assets y audio. Antes no existía → "portado" solo podía ser "compila".
+- ✅ **107 MB en `<bundle>/assets/STREETFIGHTER/`** con las subcarpetas intactas. ⚠️ **NO por
+  "folder reference" azul:** el proyecto usa `PBXFileSystemSynchronizedRootGroup` (Xcode 16), que
+  APLASTA subcarpetas. Va por **fase de script `rsync`**, que además evita duplicar 106 MB. Exige
+  **`ENABLE_USER_SCRIPT_SANDBOXING = NO`**.
 - ⚠️⚠️ **Compose MP ABORTA (SIGABRT) si falta `CADisableMinimumFrameDurationOnPhone` en el
-  Info.plist**, y el crash NO nombra la clave (sale en el `.ips`). Encadena 3 trampas más:
-  `INFOPLIST_KEY_…` no sirve, el plist no puede vivir en `iosApp/POW/`, y a mano hay que reponer
-  `CFBundleIdentifier`. Todo en `iosApp/README.md`.
-- ✅ **Assets HECHOS: 107 MB en `<bundle>/assets/STREETFIGHTER/`** con las subcarpetas intactas.
-  ⚠️ **NO por "folder reference" azul como decía el plan:** el proyecto usa
-  `PBXFileSystemSynchronizedRootGroup` (Xcode 16), que APLASTA subcarpetas. Va por **fase de script
-  `rsync`** a `${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/assets/`, que además evita
-  duplicar 106 MB. Exige **`ENABLE_USER_SCRIPT_SANDBOXING = NO`**.
+  Info.plist**, y el crash NO nombra la clave. Encadena 3 trampas más: `INFOPLIST_KEY_…` no sirve,
+  el plist no puede vivir en `iosApp/POW/`, y a mano hay que reponer `CFBundleIdentifier`.
+  Todo en `iosApp/README.md`.
+- ✅ **`R.string` desbloqueado:** 196 claves en `commonMain/composeResources/values{,-en}` y `Res`
+  público en `ovh.gabrielhuav.pow.shared.recursos`. Patrón: `R.string.x` → `Res.string.x` con el
+  `stringResource` de `org.jetbrains.compose.resources`.
+- 📏 **Coste:** framework de 255 MB → **66 MB** de app enlazada. 🔴 **DECISIÓN PENDIENTE (Fase 6):**
+  el `deployment target` 16.0 se queda corto — la ICU de Compose MP es para **iOS 18.5**.
 
-### ✅ Paso 4 Windows — 7/7 pantallas y audio portable (MEDIDO 07-28)
-Los **82 `.ogg` se sustituyeron por 82 `.m4a` AAC 128 kb/s**, sin normalizar: todos decodifican,
-desviación máxima **35.102 ms**. Runtime/JSON/auditores usan M4A; `SfVocesReglas` quedó intacto.
-En Nexus: ataques → **4 pistas activas**, 0 errores/crashes; pausa/`Continue` reactiva el audio.
-- ✅ Las cinco pantallas pendientes + dependencias mínimas bajaron. Hilt/BT/LAN/WebRTC y
-  `SfOnlineOverlays.kt` siguen Android-only mediante adaptadores; lifecycle/input usan `expect/actual`.
-- ⚠️ AGP 9 exige `androidResources.enable = true` en `:shared`: sin ello compila pero el APK omite
-  `strings.commonMain.cvr` y SF cierra al abrir. Detectado y probado en Nexus; el APK ya contiene
-  strings EN/ES y `logo_pow.png`.
-- ✅ Verificación final: **114 + 104 = 218, 0 fallos**, iOS Native compila y gate de nombres pasa.
-  **FALTA en Mac:** enlazar/abrir las 5 pantallas y oír una pelea iOS; Windows no produce framework.
+## 3duodecies. 🍏 Las 5 pantallas SE VEN en el simulador (Mac, 07-28)
+
+**VISTAS Y CORRECTAS:** Tutorial (lección, pasos, pista) · Selector de escenario **con las
+miniaturas reales de ESCOM** · Menú de modos (ARCADE/PRÁCTICA/IA VS IA/COMBOS/MULTIJUGADOR) ·
+Overlay de carga con la fuente arcade. **AUDIO: `.m4a` y `.mp3` cargan y reportan `reproduciendo`.**
+**MEDIDO: 114 + 104 = 218 tests, 0 fallos, en Android Y en iOS.**
+
+- ⚠️⚠️ **LOS `composeResources` NO IBAN AL BUNDLE → la app se CERRABA al abrir cualquier pantalla.**
+  Compose carga los strings en una **corrutina**, así que la excepción no la recoge nadie: sin error
+  y sin log, solo un `.ips` en `~/Library/Logs/DiagnosticReports`. **La trampa de fondo:**
+  `link*Framework*` genera los recursos de **TEST pero no los de Main** (por eso el bundle de tests
+  sí funcionaba). Arreglado con un `dependsOn` en `shared/build.gradle.kts` + la copia en la fase de
+  Xcode que ya existía. ⚠️ **NO se hace llamando a Gradle desde Xcode**: allí no hereda `JAVA_HOME`
+  y el wrapper no arranca.
+- 🆕 `SfEscaparate` es ahora un índice navegable: se le añade cada pantalla portada y sirve de
+  detector de assets, audio y recursos.
+
+### 🔴 LA PELEA NO ESTÁ PORTADA — bloqueador medido
+`StreetFighterScreenCommon` compila pero **no se puede mostrar**: pide un `StreetFighterController`
+y solo existe `AndroidStreetFighterController`. Un controlador falso probaría el layout, **no la
+pelea**. Lo que falta bajar es el ViewModel: **6 433 líneas** en 9 ficheros, con muy poca atadura
+real a Android — `Context`/`appContext` (30+26 usos), `SystemClock` (11), `android.util.Log` (4),
+`@Inject`/`@HiltViewModel` (3). **BT y WebRTC están AISLADOS en `StreetFighterNet.kt`**, que no se
+porta (iOS no lleva multijugador). Es trabajo grande pero mecánico, y **no exige Mac**: se
+type-checkea desde Windows.
 
 ## 4. PENDIENTE — por prioridad
 
@@ -156,10 +157,11 @@ En Nexus: ataques → **4 pistas activas**, 0 errores/crashes; pausa/`Continue` 
    `SF-NET`). BT y LAN son lo que hay que validar sí o sí.
 2. **Redeploy de `MultiplayerSF/` en Render** para activar el P2P (no bloquea el release).
    Con 2 teléfonos en redes distintas, buscar en logcat `SF-RTC`: `DataChannel → OPEN`.
-3. **🍏 FASE 5 — pasada final en Mac.** Windows terminó audio M4A y las 5 pantallas pendientes:
-   `compileKotlinIosSimulatorArm64` verde. Falta enlazar el framework, conectar la pantalla real al
-   escaparate/entrada iOS, revisar visualmente las cinco y **oír una pelea completa**. Opcional del
-   prompt aún no hecho: `MainMenuScreen` a `commonMain`.
+3. **🍏 FASE 5 — bajar el ViewModel de combate a `commonMain` (6 433 líneas).** Es lo único que
+   separa a iOS de una pelea real (§3duodecies). **NO exige Mac**: se type-checkea desde Windows.
+   Después, en el Mac: `StreetFighterController` de iOS + pelea de verdad.
+   Pendiente aparte: `MainMenuScreen` a `commonMain` (632 líneas, 26 strings, cero `Context`) —
+   es lo que hace que el menú de iOS se parezca al de Android.
 
 ### 🟠 P1 · AUDIO (activo) — ver `SF/PROMPT_traspaso_audio_subtitulos.md`
 **29 clips demasiado largos** y **5 fuera de −16 ±2 LUFS** → **Gemini 3.6** (con los segundos del
