@@ -2,12 +2,29 @@ import SwiftUI
 import WebKit
 import Shared
 
-/// Pantalla única: el mapa del juego a pantalla completa.
+/// Dos pestañas: el MAPA (Leaflet en WKWebView) y el ESCAPARATE de las pantallas de SF que ya
+/// bajaron a `commonMain`.
+///
+/// ⚠️ Esto NO es el menú del juego. El escaparate existe para poder MIRAR en el simulador cada
+/// pantalla portada, que es lo que pide el paso 4 del plan; sin él, "portado" solo podría querer
+/// decir "compila".
+struct ContentView: View {
+    var body: some View {
+        TabView {
+            MapaTab()
+                .tabItem { Label("Mapa", systemImage: "map") }
+            SfEscaparateTab()
+                .tabItem { Label("SF", systemImage: "figure.boxing") }
+        }
+    }
+}
+
+/// El mapa del juego a pantalla completa.
 ///
 /// Las coordenadas NO son inventadas: son las de la ESCOM del IPN, la escuela que el juego trae
 /// como disponible en `SchoolCatalog.kt` (`CampaignSchool("escom", "IPN", 19.504603, -99.145985)`).
 /// Zoom 16, que es la escala a la que se juega el mundo abierto.
-struct ContentView: View {
+struct MapaTab: View {
 
     private let lat = 19.504603
     private let lng = -99.145985
@@ -27,6 +44,18 @@ struct ContentView: View {
                 .padding(.top, 8)
         }
     }
+}
+
+/// Aloja el `UIViewController` de Compose Multiplatform que devuelve `:shared`.
+///
+/// Este es el puente que hacía falta: a partir de aquí, cualquier `@Composable` de `commonMain` se
+/// puede ver en el simulador sin escribir nada de SwiftUI.
+struct SfEscaparateTab: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> UIViewController {
+        SfEscaparateKt.crearEscaparate()
+    }
+
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 }
 
 /// Envuelve un `WKWebView` para SwiftUI y le carga el mapa.

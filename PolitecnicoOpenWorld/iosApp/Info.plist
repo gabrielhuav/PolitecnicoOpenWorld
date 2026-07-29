@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  🍏 Info.plist EXPLÍCITO — antes se generaba solo (GENERATE_INFOPLIST_FILE).
+
+  ⚠️ POR QUÉ HAY QUE ESCRIBIRLO A MANO: Compose Multiplatform ejecuta un
+  `PlistSanityCheck` al mostrar el primer ComposeUIViewController y ABORTA la app
+  (SIGABRT) si falta `CADisableMinimumFrameDurationOnPhone`. Esa clave no está en
+  la lista de claves que Xcode conoce, así que `INFOPLIST_KEY_...` la IGNORA en
+  silencio: se puede poner en el .pbxproj y no aparece en el plist final.
+  El crash no menciona la clave por ningún lado; solo se ve en el informe .ips.
+-->
+<plist version="1.0">
+<dict>
+    <!-- Sin esto, Compose aborta al arrancar. Es lo que permite 120 Hz en ProMotion:
+         iOS limita las apps a 60 Hz salvo que declaren explícitamente lo contrario. -->
+    <key>CADisableMinimumFrameDurationOnPhone</key>
+    <true/>
+
+    <!-- ⚠️ Estas claves las ponía el generador de Xcode. Al escribir el plist a mano hay que
+         incluirlas o la app ni se instala ("Could not extract value ... CFBundleIdentifier").
+         Van por variable para que sigan atadas a los ajustes del proyecto y no se dupliquen. -->
+    <key>CFBundleDevelopmentRegion</key>
+    <string>$(DEVELOPMENT_LANGUAGE)</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>$(PRODUCT_NAME)</string>
+    <key>CFBundlePackageType</key>
+    <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(MARKETING_VERSION)</string>
+    <key>CFBundleVersion</key>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
+
+    <key>UIApplicationSupportsIndirectInputEvents</key>
+    <true/>
+    <key>UIApplicationSceneManifest</key>
+    <dict>
+        <key>UIApplicationSupportsMultipleScenes</key>
+        <false/>
+    </dict>
+    <key>UILaunchScreen</key>
+    <dict/>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+</dict>
+</plist>
