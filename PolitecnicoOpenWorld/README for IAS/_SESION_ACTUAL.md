@@ -52,14 +52,13 @@ Pásales rutas absolutas, comando exacto, cómo se verifica, qué NO tocar y el 
 - 🔴 **Dos bugs que el compilador NO ve:** `PowJson.encodeToString(x)` **PETA EN RUNTIME** si `x` no
   es serializable → con mapas usa `jsonOf`; y **kotlinx PETA si falta un campo sin default**.
 
-## 3ter. iOS arrancó (Mac) — el mapa Leaflet corre en el simulador
+## 3ter. iOS arrancó — el mapa Leaflet corre en el simulador (cerrado)
 
-`WorldMapLeafletHtml.kt` en `:shared`, que produce el framework `Shared`; la app iOS está en
-`iosApp/` (SwiftUI + `WKWebView`).
-- ⚠️ **El runtime del simulador lo instala XCODE** (no un DMG a mano: queda en cuarentena y los
-  tests mueren con `Abort trap` 134). **Genera el framework ANTES de abrir Xcode** (en el Mac) o
-  sale `No such module 'Shared'`. Y `gradle-wrapper.jar` no viaja por git → `SETUP_PC_NUEVA.md`.
-- ✅ La deuda de assets que decía esta sección **ya NO existe**: están en el bundle (§3undecies).
+`WorldMapLeafletHtml.kt` en `:shared`; la app iOS está en `iosApp/` (SwiftUI + `WKWebView`).
+- ⚠️ **El runtime del simulador lo instala XCODE** (`xcodebuild -downloadPlatform iOS`), no un DMG a
+  mano: queda en cuarentena y los tests mueren con `Abort trap` (134). **Genera el framework ANTES
+  de abrir Xcode** o sale `No such module 'Shared'`. Y `gradle-wrapper.jar` no viaja por git
+  (→ `SETUP_PC_NUEVA.md`).
 
 ## 3quater-septies. Kotlin 2.3.21 · AGP 9 · refactor · motor (cerrados; trampas VIVAS)
 
@@ -74,27 +73,25 @@ Pásales rutas absolutas, comando exacto, cómo se verifica, qué NO tocar y el 
 - 🆕 **GUARDA** `tools/check_kmp_test_names.sh` en el `pr-quality-gate`: los nombres de test con
   `(` `)` `,` compilan en la JVM y rompen Native. **Documentarlo NO bastó: pasó 3 veces.**
 
-## 3octies. 🍏 iOS = SOLO el modo pelea (decisión del dueño, 07-27)
+## 3octies. 🍏 iOS = SOLO el modo pelea (decisión del dueño)
 
-En iOS el menú muestra **únicamente AJUSTES, COLECCIONABLES y HUELUM VS. GOYA**; Mundo Libre, Modo
-Historia y Multijugador se **esconden**. **PROBADO: el menú de Android sigue idéntico.**
-- El catálogo vive en **`PowModos.kt`** (`:shared`); lo único `expect/actual` es `plataformaActual`.
-  `PowModosTest` se pone rojo si alguien añade un modo a iOS: obliga a confirmar que FUNCIONA en el
-  simulador, no solo que el botón aparece.
-- ⚠️ **Esconder el botón NO porta el modo:** falta la UI (~14 000 líneas). Orden en `PLAN_SF_EN_iOS.md`.
+El menú de iOS muestra **AJUSTES, COLECCIONABLES y HUELUM VS. GOYA**; Mundo Libre, Historia y
+Multijugador se esconden. El catálogo vive en **`PowModos.kt`** (`:shared`) y es la ÚNICA fuente de
+verdad: `PowModosTest` se pone rojo si alguien añade un modo a iOS sin confirmarlo en el simulador.
+⚠️ **Esconder el botón NO porta el modo.**
 
-## 3nonies. Fase 5 — Compose MP y el muro de `android.graphics` (cerrado; trampas VIVAS)
+## 3nonies. 🍏🥊 Compose MP + el muro de `android.graphics` (cerrado; trampas VIVAS)
 
-**⚡ Kotlin/Native SÍ compila los klibs de iOS DESDE WINDOWS**: el type-check de iOS no exige Mac.
-⚠️ Pero **`linkDebugFrameworkIosSimulatorArm64` MIENTE** fuera de un Mac: dice BUILD SUCCESSFUL y no
-crea nada. Nuevo en `:shared`: `PowImagen`, `PowAudio`, `PowAssets`, `PowViewModel`, `PowCerrojo`,
-`SfVocesReglas`, `SfSharedSheets`, `SfFrameCatalog`.
-- 🎁 **Los gráficos NO necesitaron `expect/actual`** (tabla en `PowImagen`). ⚠️ Única excepción,
-  **`decodificarReducido`**: sin `inSampleSize` sería REGRESIÓN DE MEMORIA en Android.
-- ⚠️⚠️ **`iosX64` SE RETIRÓ y debe seguir fuera**: Compose MP no publica para ese target y TODOS los
-  source sets fallan con `Unresolved platforms: [iosX64]`, error que no menciona a Compose.
+**⚡ Kotlin/Native compila los klibs de iOS DESDE WINDOWS** (`compileKotlinIosSimulatorArm64`): el
+type-check de iOS no exige Mac. ⚠️ Pero **`linkDebugFramework…` MIENTE** fuera de un Mac: dice BUILD
+SUCCESSFUL y no crea nada.
+- 🎁 Los gráficos NO necesitaron `expect/actual`: `ImageBitmap`/`Canvas`/`readPixels` ya son
+  multiplataforma. ⚠️ Única excepción, **`decodificarReducido`**: sin `inSampleSize` sería
+  REGRESIÓN DE MEMORIA en Android.
+- ⚠️⚠️ **`iosX64` FUERA**: Compose MP 1.11.1 no publica para ese target y rompe TODOS los source
+  sets con `Unresolved platforms: [iosX64]`, un error que no menciona a Compose.
 - ⚠️ **NO se usó el `lifecycle-viewmodel` KMP oficial**: su única versión con iOS exige
-  `compileSdk 37`. ⚠️ `@Synchronized`/`LruCache` no existen en común → `PowCerrojo` y LRU a mano.
+  `compileSdk 37`. ⚠️ `@Synchronized`/`LruCache` no existen en común → `PowCerrojo` + LRU a mano.
 
 ## 3decies. 🔊 El audio de SF, multiplataforma — y las reglas de voz con red
 
@@ -106,43 +103,28 @@ mapa de voces no se vacía y el peleador acaba mudo.
 - 🎁 **Las 4 reglas de interrupción salieron a `SfVocesReglas` con 14 tests.** ✅ **`SfArcadeRepository`
   ya no usa `org.json`**, con 2 tests que fijan el snapshot V1 y el `"null"` literal.
 
-## 3undecies. 🍏 Compose MP corre en iOS · assets en el bundle · strings desbloqueados
+## 3undecies-duodecies. 🍏 Compose MP en iOS: assets, strings y las 5 pantallas (cerrado)
 
-- ✅ **107 MB en `<bundle>/assets/STREETFIGHTER/`** con las subcarpetas intactas. ⚠️ **NO por
-  "folder reference" azul:** el proyecto usa `PBXFileSystemSynchronizedRootGroup` (Xcode 16), que
-  APLASTA subcarpetas. Va por **fase de script `rsync`**, que además evita duplicar 106 MB. Exige
-  **`ENABLE_USER_SCRIPT_SANDBOXING = NO`**.
-- ⚠️⚠️ **Compose MP ABORTA (SIGABRT) si falta `CADisableMinimumFrameDurationOnPhone` en el
-  Info.plist**, y el crash NO nombra la clave. Encadena 3 trampas más: `INFOPLIST_KEY_…` no sirve,
-  el plist no puede vivir en `iosApp/POW/`, y a mano hay que reponer `CFBundleIdentifier`.
-  Todo en `iosApp/README.md`.
-- ✅ **`R.string` desbloqueado:** 196 claves en `commonMain/composeResources/values{,-en}` y `Res`
-  público en `ovh.gabrielhuav.pow.shared.recursos`. Patrón: `R.string.x` → `Res.string.x` con el
-  `stringResource` de `org.jetbrains.compose.resources`.
-- 📏 **Coste:** framework de 255 MB → **66 MB** de app enlazada. 🔴 **DECISIÓN PENDIENTE (Fase 6):**
-  el `deployment target` 16.0 se queda corto — la ICU de Compose MP es para **iOS 18.5**.
-
-## 3duodecies. 🍏 Las 5 pantallas SE VEN en el simulador (Mac, 07-28)
-
-**VISTAS Y CORRECTAS:** Tutorial · Selector de escenario **con las miniaturas reales de ESCOM** ·
-Menú de modos · Overlay de carga con la fuente arcade.
-
-- ⚠️⚠️ **LOS `composeResources` NO IBAN AL BUNDLE → la app se CERRABA al abrir cualquier pantalla.**
-  Compose los carga en una **corrutina**, así que la excepción no la recoge nadie: sin error y sin
-  log, solo un `.ips`. **La trampa de fondo:** `link*Framework*` genera los recursos de **TEST pero
-  no los de Main**. Arreglado con un `dependsOn` en `shared/build.gradle.kts` + la copia en la fase
-  de Xcode. ⚠️ **NO llamando a Gradle desde Xcode**: allí no hereda `JAVA_HOME`.
-- 🆕 `SfEscaparate` es un índice navegable: detector de assets, audio y recursos.
+Compose MP corre en el simulador; los 107 MB de assets se leen de `<bundle>/assets/STREETFIGHTER/`.
+Tutorial, selector de escenario (con miniaturas reales), menú de modos y overlay de carga: **vistos
+y correctos**. **Trampas que siguen VIVAS:**
+- ⚠️⚠️ **Los `composeResources` NO iban al bundle → la app se CERRABA** con `stringResource`
+  (Compose los carga en corrutina: sin error ni log, solo un `.ips`). Causa: `link*Framework*` los
+  genera para TEST pero **no para Main**. Lo arregla el `dependsOn` de `shared/build.gradle.kts`
+  + la copia de la fase Xcode. **NO lo quites.**
+- ⚠️⚠️ **Compose ABORTA si falta `CADisableMinimumFrameDurationOnPhone`** en el `Info.plist`, y
+  `INFOPLIST_KEY_…` NO sirve para esa clave. Detalle en `iosApp/README.md`.
+- ⚠️ **Assets: NO por "folder reference" azul.** El proyecto usa `PBXFileSystemSynchronizedRootGroup`
+  (Xcode 16), que aplasta subcarpetas. Va por fase `rsync` + `ENABLE_USER_SCRIPT_SANDBOXING = NO`.
+- 🆕 `SfEscaparate` = índice navegable y detector de assets/audio/recursos. **Se borra cuando exista
+  la navegación real.**
 
 ## 3terdecies. 🥊🍏 LA PELEA CORRE EN iOS — verificada en el simulador (Mac, 07-28)
 
 **El modo pelea es JUGABLE en iOS.** Motor offline (`StreetFighterViewModel` + 7 parciales) en
-`commonMain`; BT/LAN/WebRTC siguen Android-only. **MEDIDO: 218 tests (114+104), 0 fallos, en las
-dos plataformas; guarda de nombres KMP verde.**
-
-**VISTO en el simulador, paso a paso:** selección de peleador con sprites y el candado del
-bloqueado → dificultad → **pelea real** (escenario del IPN, sprites, barras, KO, contador de
-golpes, daño y animación de derribo) → **ronda completa hasta `PERDISTE` con REINTENTAR/SALIR**.
+`commonMain`; BT/LAN/WebRTC siguen Android-only. **VISTO en el simulador:** selección de peleador
+con sprites y candado → dificultad → **pelea real** (escenario, barras, KO, daño, derribo) →
+**ronda completa hasta `PERDISTE`**.
 - ✅ **PERSISTENCIA COMPLETA, la cadena entera:** al mandar la app al fondo escribe el snapshot en
   `NSUserDefaults` (`playerId`, paso 1/15, escalera de 15 rivales, `mapFile`, `cpuRoundWins`,
   `paused:true`); al volver sale **PAUSA + Continuar** con el marcador intacto; y tras **cerrar y
@@ -153,6 +135,21 @@ golpes, daño y animación de derribo) → **ronda completa hasta `PERDISTE` con
 - 📐 **Observación:** la pelea gira a **horizontal** y los overlays de pausa/resultado vuelven a
   vertical. Funciona, pero conviene comparar con Android antes de darlo por bueno.
 
+## 3quaterdecies. 🧭 Menú principal en `commonMain` + el patrón de separación, escrito
+
+`MainMenuScreen` (632 líneas) bajó a `:shared`. **Port real, no un `git mv`**: usaba
+`hiltViewModel()`, `LocalContext`, `SettingsRepository`, `BuildConfig`, `AuthManager` y
+`LocalConfiguration`. **MEDIDO: 218 tests, 0 fallos; `assembleDebug` OK; compila para iOS.**
+- 🆕 **`10_ARQUITECTURA_SEPARACION.md` §2bis** documenta los **4 mecanismos** de separación
+  (expect/actual · fuente instalable · Environment · **Controller**), la regla para elegir y lo que
+  NO se hace nunca. Es lo que faltaba para que alguien menos experto toque `:shared` sin romperlo.
+- El menú es el **ejemplo canónico del Controller**: UNA pantalla; lo de Android entra como lambda
+  (`onMultiplayer`) y como **slot** (`chipDeCuenta`).
+- ✅ **PRE-ALPHA/BETA fuera de iOS** (`versionName` null, `mostrarInsignias` false); Android idéntico.
+  ⚠️ El controller devuelve solo el NÚMERO: el texto envolvente sigue en `Res.string.menu_version`,
+  traducido — formatearlo allí habría perdido el inglés.
+- ⚠️ **Falta VERLO en el simulador**: compila, pero aún no está enlazado a ninguna navegación.
+
 ## 4. PENDIENTE — por prioridad
 
 ### 🔴 P0 · Antes/durante el release
@@ -160,9 +157,16 @@ golpes, daño y animación de derribo) → **ronda completa hasta `PERDISTE` con
    `SF-NET`). BT y LAN son lo que hay que validar sí o sí.
 2. **Redeploy de `MultiplayerSF/` en Render** para activar el P2P (no bloquea el release).
    Con 2 teléfonos en redes distintas, buscar en logcat `SF-RTC`: `DataChannel → OPEN`.
-3. **🍏 ✅ La pelea en iOS YA ESTÁ VERIFICADA (§3terdecies).** Queda: **(a) que una persona OIGA**
-   una pelea en el simulador (yo no puedo); **(b) `MainMenuScreen` a `commonMain`** — hoy iOS no
-   tiene menú, solo el escaparate; **(c)** comparar con Android la rotación pelea/overlays.
+3. **🍏 TERMINAR SF EN iOS.** La pelea ya está verificada (§3terdecies) y el menú portado
+   (§3quaterdecies). Reparto acordado, y el ORDEN importa porque hay dependencia:
+   - **Windows/Sol PRIMERO** → `PROMPT_SOL_ajustes_y_coleccionables.md`: `SettingsRepository` a
+     `:shared`, Ajustes (~1 524 líneas, pártelas) y Coleccionables (378). **Y verificar en el
+     emulador que Android no se rompió** — en el Mac NO hay AVD, eso solo se puede hacer allí.
+   - **Mac DESPUÉS** → navegación real de iOS (menú → Ajustes/Coleccionables/SF), verlo en el
+     simulador y **borrar `SfEscaparate`**. No se puede escribir antes: necesita esas pantallas.
+   🔑 El desbloqueo por Modo Desarrollador **saldrá solo**: `KEY_DEVELOPER_MODE = "DEVELOPER_MODE"`
+   es la MISMA clave que `IosStreetFighterEnvironment` ya lee de `NSUserDefaults`.
+   ⚪ Mundo abierto (exteriores e interiores) = **trabajo futuro**, fuera de iOS por decisión del dueño.
 
 ### 🟠 P1 · AUDIO (activo) — ver `SF/PROMPT_traspaso_audio_subtitulos.md`
 **29 clips demasiado largos** y **5 fuera de −16 ±2 LUFS** → **Gemini 3.6** (con los segundos del
