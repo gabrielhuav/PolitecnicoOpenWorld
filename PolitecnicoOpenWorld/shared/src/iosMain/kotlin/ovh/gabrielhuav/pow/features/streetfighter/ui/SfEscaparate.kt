@@ -1,16 +1,24 @@
 package ovh.gabrielhuav.pow.features.streetfighter.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
+import ovh.gabrielhuav.pow.platform.audio.PowAudio
+import ovh.gabrielhuav.pow.platform.audio.PowClip
 import platform.UIKit.UIViewController
 
 /**
@@ -53,5 +61,37 @@ fun crearEscaparate(): UIViewController = ComposeUIViewController {
             "Si no ves letras arcade arriba, faltan los assets en el bundle.",
             color = Color(0xFFAA8888),
         )
+
+        PruebaDeAudio()
     }
+}
+
+/**
+ * Prueba de AUDIO en iOS: intenta cargar y sonar un efecto real del juego.
+ *
+ * Está aquí porque el audio es lo único de la cadena de assets que **no se puede comprobar
+ * mirando**: si `AVAudioPlayer` no sabe abrir el formato, `cargarEfecto` devuelve `null` y el
+ * juego se queda mudo sin un solo error. Este panel lo convierte en algo visible.
+ */
+@Composable
+private fun PruebaDeAudio() {
+    var estado by remember { mutableStateOf("pulsa para probar el audio") }
+    var clip by remember { mutableStateOf<PowClip?>(null) }
+
+    Text(estado, color = Color(0xFFE0E0A0))
+    Text(
+        "▶ PROBAR SONIDO",
+        color = Color(0xFF8AE28A),
+        modifier = Modifier.clickable {
+            val ruta = "STREETFIGHTER/SOUNDS/light-attack.ogg"
+            val c = PowAudio.cargarEfecto(ruta)
+            clip = c
+            estado = if (c == null) {
+                "❌ cargarEfecto devolvió null para $ruta"
+            } else {
+                c.reproducir(volumen = 1f)
+                "✅ cargado; reproduciendo=${c.reproduciendo}"
+            }
+        },
+    )
 }

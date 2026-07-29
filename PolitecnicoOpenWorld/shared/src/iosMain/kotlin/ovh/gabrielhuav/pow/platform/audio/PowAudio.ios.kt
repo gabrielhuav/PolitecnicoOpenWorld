@@ -42,7 +42,14 @@ class AudioDeAVFoundation(private val raiz: String = "assets") : PowAudioFuente 
         // Se comprueba antes de construir: el constructor de AVAudioPlayer con un archivo que no
         // existe devuelve un objeto inservible en vez de fallar de forma clara.
         if (!NSFileManager.defaultManager.fileExistsAtPath(absoluta)) return null
-        val player = AVAudioPlayer(NSURL.fileURLWithPath(absoluta), null) ?: return null
+        // ⚠️⚠️ EL `runCatching` NO ES DEFENSIVO DE ADORNO — SIN ÉL LA APP SE CIERRA.
+        // `initWithContentsOfURL:error:` lleva un out-param `NSError**`, así que Kotlin/Native lo
+        // mapea como función que LANZA. Si el formato no se soporta, la excepción sube sin que
+        // nadie la recoja y el proceso muere con SIGABRT (medido en el simulador, 2026-07-28).
+        // El contrato de `PowAudioFuente` dice "devuelve null si el asset no está": un sonido que
+        // no suena NUNCA debe tumbar una pelea.
+        val player = runCatching { AVAudioPlayer(NSURL.fileURLWithPath(absoluta), null) }
+            .getOrNull() ?: return null
         // Pre-decodifica: sin esto, el primer golpe llega tarde.
         player.prepareToPlay()
         return ClipAVAudio(player)
@@ -66,7 +73,9 @@ class AudioDeAVFoundation(private val raiz: String = "assets") : PowAudioFuente 
     override fun duracionMs(ruta: String): Long? {
         val absoluta = "$base/${ruta.trimStart('/')}"
         if (!NSFileManager.defaultManager.fileExistsAtPath(absoluta)) return null
-        val player = AVAudioPlayer(NSURL.fileURLWithPath(absoluta), null) ?: return null
+        // Mismo motivo que en `crear()`: sin el `runCatching`, un formato no soportado tumba la app.
+        val player = runCatching { AVAudioPlayer(NSURL.fileURLWithPath(absoluta), null) }
+            .getOrNull() ?: return null
         val segundos = player.duration
         return if (segundos > 0.0) (segundos * 1000.0).toLong() else null
     }
