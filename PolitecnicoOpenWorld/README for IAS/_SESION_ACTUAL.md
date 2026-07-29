@@ -17,8 +17,8 @@
 > ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: Fases 0-4 completas; **la 5 EN MARCHA, 218
 > tests**. 🍏 **Las 7 pantallas SF ya viven en `commonMain` y los 82 sonidos OGG se sustituyeron
 > por M4A/AAC** (§3undecies). Android: pelea, ataques, pausa/reanudación y audio activos en Nexus.
-> **Siguiente:** Mac enlaza y prueba visualmente la pelea completa + audio iOS; después portar
-> `MainMenuScreen` si se quiere cerrar también la tarea opcional 3.
+> **Siguiente:** Mac sigue `PROMPT_MAC_continuar_SF_UI_y_audio.md`: enlace, revisión visual/audio y
+> controlador real iOS; después `MainMenuScreen` si se quiere cerrar también la tarea opcional 3.
 
 ## 🖥️ Rutas por PC
 
