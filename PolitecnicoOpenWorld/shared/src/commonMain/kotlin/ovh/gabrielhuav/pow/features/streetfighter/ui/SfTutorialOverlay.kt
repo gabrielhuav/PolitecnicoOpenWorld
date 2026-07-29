@@ -24,12 +24,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ovh.gabrielhuav.pow.R
+import org.jetbrains.compose.resources.stringResource
+import ovh.gabrielhuav.pow.shared.recursos.Res
+import ovh.gabrielhuav.pow.shared.recursos.sf_back
+import ovh.gabrielhuav.pow.shared.recursos.sf_tutorial_combo_ok
+import ovh.gabrielhuav.pow.shared.recursos.sf_tutorial_done
+import ovh.gabrielhuav.pow.shared.recursos.sf_tutorial_progress
+import ovh.gabrielhuav.pow.shared.recursos.sf_tutorial_repeat
+import ovh.gabrielhuav.pow.shared.recursos.sf_tutorial_skip
+import ovh.gabrielhuav.pow.shared.recursos.sf_tutorial_step_ok
+import ovh.gabrielhuav.pow.shared.recursos.sf_tutorial_wrong
 import ovh.gabrielhuav.pow.ui.components.PowButton
 
 /**
@@ -114,7 +122,7 @@ fun SfTutorialOverlay(
         ) {
             if (completed) {
                 Text(
-                    text = stringResource(R.string.sf_tutorial_done),
+                    text = stringResource(Res.string.sf_tutorial_done),
                     color = Color(0xFFFFD54A),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Black,
@@ -151,7 +159,7 @@ fun SfTutorialOverlay(
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = stringResource(R.string.sf_tutorial_progress, lesson + 1, total),
+                    text = stringResource(Res.string.sf_tutorial_progress, lesson + 1, total),
                     color = Color.White.copy(alpha = 0.7f),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -179,9 +187,9 @@ fun SfTutorialOverlay(
         if (flash.isNotBlank()) {
             Text(
                 text = if (flash == "COMPLETO") {
-                    stringResource(R.string.sf_tutorial_combo_ok)
+                    stringResource(Res.string.sf_tutorial_combo_ok)
                 } else {
-                    stringResource(R.string.sf_tutorial_step_ok)
+                    stringResource(Res.string.sf_tutorial_step_ok)
                 },
                 color = if (flash == "COMPLETO") Color(0xFFFFD54A) else Color(0xFF7BE0A8),
                 fontSize = 26.sp,
@@ -200,7 +208,7 @@ fun SfTutorialOverlay(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = stringResource(R.string.sf_tutorial_wrong),
+                    text = stringResource(Res.string.sf_tutorial_wrong),
                     color = Color(0xFFFF8A80),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Black,
@@ -237,20 +245,20 @@ fun SfTutorialOverlay(
                 Spacer(Modifier.height(4.dp))
                 if (!completed) {
                     PowButton(
-                        text = stringResource(R.string.sf_tutorial_repeat),
+                        text = stringResource(Res.string.sf_tutorial_repeat),
                         onClick = { onRestart(); toolsOpen = false },
                         color = Color(0xFF3A3A44),
                     )
                     Spacer(Modifier.height(4.dp))
                     PowButton(
-                        text = stringResource(R.string.sf_tutorial_skip),
+                        text = stringResource(Res.string.sf_tutorial_skip),
                         onClick = { onSkip(); toolsOpen = false },
                         color = Color(0xFF3A3A44),
                     )
                     Spacer(Modifier.height(4.dp))
                 }
                 PowButton(
-                    text = stringResource(R.string.sf_back),
+                    text = stringResource(Res.string.sf_back),
                     onClick = onExit,
                     color = Color(0xFF8B1538),
                 )
