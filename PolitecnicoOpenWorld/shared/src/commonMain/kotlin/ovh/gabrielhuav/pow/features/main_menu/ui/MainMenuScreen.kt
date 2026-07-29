@@ -1,9 +1,5 @@
 package ovh.gabrielhuav.pow.features.main_menu.ui
 
-import android.content.res.Configuration
-import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -55,9 +51,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.layout.BoxWithConstraints
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -67,12 +62,10 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import ovh.gabrielhuav.pow.BuildConfig
 import ovh.gabrielhuav.pow.domain.platform.PowModo
+import ovh.gabrielhuav.pow.shared.recursos.Res
+import ovh.gabrielhuav.pow.shared.recursos.*
 import ovh.gabrielhuav.pow.domain.platform.disponible
-import ovh.gabrielhuav.pow.R
-import ovh.gabrielhuav.pow.features.main_menu.viewmodel.MainMenuState
-import ovh.gabrielhuav.pow.features.main_menu.viewmodel.MainMenuViewModel
 
 @Composable
 fun MainMenuScreen(
@@ -81,57 +74,40 @@ fun MainMenuScreen(
     onNavigateToCollectibles: () -> Unit,
     onNavigateToStory: () -> Unit,
     onNavigateToStreetFighter: () -> Unit = {},
-    authManager: ovh.gabrielhuav.pow.data.auth.AuthManager? = null
+    /**
+     * Lo que la pantalla necesita de la plataforma. Ver el patrón nº 4 (Controller) en
+     * `README for IAS/10_ARQUITECTURA_SEPARACION.md` §2bis.
+     */
+    controller: MainMenuController,
+    /**
+     * Acción del botón MULTIJUGADOR. Android inyecta aquí su **gate de Google Sign-In** (que usa
+     * `Intent` y `ActivityResult`, ambos inexistentes en iOS); por defecto se entra directo.
+     */
+    onMultiplayer: () -> Unit = { controller.onMultiplayerPressed() },
+    /**
+     * Chip de sesión de la esquina inferior izquierda ("Conectado: …" / "Modo local").
+     * Es un **slot**: Android mete su chip de Firebase y iOS no mete nada. Así hay UNA sola
+     * pantalla en vez de dos copias que se desincronizan.
+     */
+    chipDeCuenta: @Composable () -> Unit = {},
 ) {
-    val viewModel: MainMenuViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-    val state by viewModel.state.collectAsState()
-    val context = LocalContext.current
+    val state by controller.state.collectAsState()
 
-    // Nombre de jugador recordado entre sesiones (SharedPreferences). Se prellena al abrir.
-    val settingsRepo = remember { ovh.gabrielhuav.pow.data.repository.SettingsRepository(context) }
+    // Nombre de jugador recordado entre sesiones. Se prellena al abrir.
     // (2026-07-15) "HUELUM VS. GOYA" ya es PÚBLICO: el botón se muestra siempre. Lo que ahora
     // gatea el Modo Desarrollador son RYU y KEN dentro del selector (ver StreetFighterViewModel).
     LaunchedEffect(Unit) {
         if (state.playerName.isBlank()) {
-            val saved = settingsRepo.getPlayerName()
-            if (saved.isNotBlank()) viewModel.updatePlayerName(saved)
+            val saved = controller.nombreGuardado()
+            if (saved.isNotBlank()) controller.updatePlayerName(saved)
         }
     }
 
-    // GATE de Google Sign-In: el MULTIJUGADOR (y, a futuro, los LOGROS) exigen sesión.
-    // El juego local / Modo Historia NO requieren login. Al volver del selector de Google,
-    // si el login fue OK se continúa con el flujo normal de multijugador (warmup + nombre).
-    val signInLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        authManager?.handleSignInResult(result.data) { ok, err ->
-            if (ok) {
-                if (state.playerName.isBlank()) {
-                    authManager.currentDisplayName()?.let { viewModel.updatePlayerName(it) }
-                }
-                viewModel.onMultiplayerPressed()
-            } else if (!err.isNullOrBlank()) {
-                Toast.makeText(context, err, Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-    // Acción del botón MULTIJUGADOR (y reintento):
-    //  - Si Firebase NO está configurado en este build (sin google-services.json, p. ej. clones/PRs),
-    //    se entra ANÓNIMO: los servidores en modo suave aceptan la conexión sin token.
-    //  - Si Firebase está configurado y NO hay sesión, se abre Google Sign-In.
-    //  - Si ya hay sesión, se sigue el flujo normal.
-    val onMultiplayer: () -> Unit = {
-        if (authManager == null || !authManager.isAvailable() || authManager.isSignedIn())
-            viewModel.onMultiplayerPressed()
-        else
-            signInLauncher.launch(authManager.signInIntent())
-    }
-
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val bg = Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11)))
 
-    Box(modifier = Modifier.fillMaxSize().background(bg)) {
+    // `LocalConfiguration` es de Android. `BoxWithConstraints` da lo mismo y es multiplataforma.
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(bg)) {
+        val isLandscape = maxWidth > maxHeight
         if (isLandscape) {
             Row(
                 modifier = Modifier.fillMaxSize().padding(32.dp),
@@ -150,7 +126,7 @@ fun MainMenuScreen(
                 ) {
                     MenuButtonsList(
                         state = state,
-                        viewModel = viewModel,
+                        controller = controller,
                         onNavigateToMap = onNavigateToMap,
                         onNavigateToSettings = onNavigateToSettings,
                         onNavigateToCollectibles = onNavigateToCollectibles,
@@ -170,7 +146,7 @@ fun MainMenuScreen(
                 Spacer(modifier = Modifier.height(48.dp))
                 MenuButtonsList(
                     state = state,
-                    viewModel = viewModel,
+                    controller = controller,
                     onNavigateToMap = onNavigateToMap,
                     onNavigateToSettings = onNavigateToSettings,
                     onNavigateToCollectibles = onNavigateToCollectibles,
@@ -181,49 +157,48 @@ fun MainMenuScreen(
             }
         }
 
-        Text(
-            text = stringResource(R.string.menu_version, BuildConfig.VERSION_NAME), color = Color.White.copy(alpha = 0.3f),
-            fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
-        )
+        // ⚠️ En iOS `etiquetaVersion` es null y esto NO se pinta: la App Store no admite etiquetas
+        // tipo PRE-ALPHA en una ficha publicada. En Android sigue saliendo igual que siempre.
+        controller.versionName?.let { version ->
+            Text(
+                text = stringResource(Res.string.menu_version, version),
+                color = Color.White.copy(alpha = 0.3f),
+                fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+            )
+        }
 
-        // Chip de estado de sesión (abajo-izquierda): "Conectado: …" o "Modo local".
-        val accountLabel = authManager?.currentEmail() ?: authManager?.currentDisplayName()
-        Text(
-            text = if (accountLabel != null) stringResource(R.string.menu_signed_in_as, accountLabel)
-                   else stringResource(R.string.menu_local_mode),
-            color = if (accountLabel != null) Color(0xFFD4AF37).copy(alpha = 0.7f) else Color.White.copy(alpha = 0.3f),
-            fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
-            modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)
-        )
+        // Chip de estado de sesión (abajo-izquierda). Lo aporta la plataforma: Android pinta el de
+        // Firebase, iOS no pinta nada porque allí no hay Google Sign-In.
+        Box(modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)) { chipDeCuenta() }
 
         // ─── Diálogo de nombre del jugador (solo aparece tras warmup OK) ──
         if (state.showMultiplayerDialog) {
             AlertDialog(
-                onDismissRequest = { viewModel.updateShowMultiplayerDialog(false) },
-                title = { Text(stringResource(R.string.menu_mp_dialog_title)) },
+                onDismissRequest = { controller.updateShowMultiplayerDialog(false) },
+                title = { Text(stringResource(Res.string.menu_mp_dialog_title)) },
                 text = {
                     OutlinedTextField(
                         value = state.playerName,
-                        onValueChange = { viewModel.updatePlayerName(it) },
-                        label = { Text(stringResource(R.string.menu_mp_username_label)) },
+                        onValueChange = { controller.updatePlayerName(it) },
+                        label = { Text(stringResource(Res.string.menu_mp_username_label)) },
                         singleLine = true
                     )
                 },
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            viewModel.updateShowMultiplayerDialog(false)
+                            controller.updateShowMultiplayerDialog(false)
                             // "Jugador_" es un id generado de respaldo (no es texto de UI traducible).
                             val finalName = state.playerName.ifBlank { "Jugador_${(1000..9999).random()}" }
-                            settingsRepo.savePlayerName(finalName)   // recuérdalo para la próxima vez
+                            controller.guardarNombre(finalName)   // recuérdalo para la próxima vez
                             onNavigateToMap(true, finalName)
                         }
-                    ) { Text(stringResource(R.string.menu_mp_connect)) }
+                    ) { Text(stringResource(Res.string.menu_mp_connect)) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { viewModel.updateShowMultiplayerDialog(false) }) {
-                        Text(stringResource(R.string.menu_cancel))
+                    TextButton(onClick = { controller.updateShowMultiplayerDialog(false) }) {
+                        Text(stringResource(Res.string.menu_cancel))
                     }
                 }
             )
@@ -233,25 +208,25 @@ fun MainMenuScreen(
         if (state.isWarmingUp) {
             WarmupDialog(
                 secondsElapsed = state.warmupSeconds,
-                onCancel = { viewModel.cancelWarmup() }
+                onCancel = { controller.cancelWarmup() }
             )
         }
 
         // ─── Banner de error si el warmup hace timeout ───────────────────
         if (state.warmupFailed) {
             AlertDialog(
-                onDismissRequest = { viewModel.dismissWarmupError() },
-                title = { Text(stringResource(R.string.menu_warmup_fail_title)) },
-                text = { Text(stringResource(R.string.menu_warmup_fail_text)) },
+                onDismissRequest = { controller.dismissWarmupError() },
+                title = { Text(stringResource(Res.string.menu_warmup_fail_title)) },
+                text = { Text(stringResource(Res.string.menu_warmup_fail_text)) },
                 confirmButton = {
                     TextButton(onClick = {
-                        viewModel.dismissWarmupError()
+                        controller.dismissWarmupError()
                         onMultiplayer() // reintenta (re-aplica el gate de sesión)
-                    }) { Text(stringResource(R.string.menu_retry)) }
+                    }) { Text(stringResource(Res.string.menu_retry)) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { viewModel.dismissWarmupError() }) {
-                        Text(stringResource(R.string.menu_close))
+                    TextButton(onClick = { controller.dismissWarmupError() }) {
+                        Text(stringResource(Res.string.menu_close))
                     }
                 }
             )
@@ -312,13 +287,13 @@ private fun AutoResizeText(
 
 @Composable
 fun MenuButtonsList(
-    state: MainMenuState,
-    viewModel: MainMenuViewModel,
+    state: MainMenuUiState,
+    controller: MainMenuController,
     onNavigateToMap: (isMultiplayer: Boolean, playerName: String?) -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToCollectibles: () -> Unit,
     onNavigateToStory: () -> Unit,
-    onMultiplayerClick: () -> Unit = { viewModel.onMultiplayerPressed() },
+    onMultiplayerClick: () -> Unit = { controller.onMultiplayerPressed() },
     onNavigateToStreetFighter: () -> Unit = {}
 ) {
     // 🍏 Los modos que NO existen en iOS ni siquiera se pintan. El catálogo vive en `:shared`
@@ -327,11 +302,11 @@ fun MenuButtonsList(
 
     // MUNDO LIBRE: el open world sin campaña (antes "Iniciar Juego"). Spawn por defecto.
     if (PowModo.MUNDO_LIBRE.disponible()) {
-        WithCornerBadge(stringResource(R.string.badge_alpha), Color(0xFF8A5A12)) {
+        WithCornerBadge(stringResource(Res.string.badge_alpha), Color(0xFF8A5A12), controller.mostrarInsignias) {
             MenuButton(
-                text = stringResource(R.string.menu_start_game),
+                text = stringResource(Res.string.menu_start_game),
                 onClick = {
-                    viewModel.onStartGame()
+                    controller.onStartGame()
                     onNavigateToMap(false, null)
                 },
                 enabled = !state.isLoading && !state.isWarmingUp
@@ -342,9 +317,9 @@ fun MenuButtonsList(
 
     // MODO HISTORIA: abre la pantalla de campaña (prólogo + elegir escuela + cargar partida).
     if (PowModo.MODO_HISTORIA.disponible()) {
-        WithCornerBadge(stringResource(R.string.badge_alpha), Color(0xFF8A5A12)) {
+        WithCornerBadge(stringResource(Res.string.badge_alpha), Color(0xFF8A5A12), controller.mostrarInsignias) {
             MenuButton(
-                text = stringResource(R.string.menu_load_game),
+                text = stringResource(Res.string.menu_load_game),
                 onClick = onNavigateToStory,
                 enabled = !state.isWarmingUp
             )
@@ -356,9 +331,9 @@ fun MenuButtonsList(
     // de nombre. Mientras dura el warmup queda deshabilitado para evitar
     // que el usuario lance dos pings en paralelo.
     if (PowModo.MULTIJUGADOR.disponible()) {
-        WithCornerBadge(stringResource(R.string.badge_alpha), Color(0xFF8A5A12)) {
+        WithCornerBadge(stringResource(Res.string.badge_alpha), Color(0xFF8A5A12), controller.mostrarInsignias) {
             MenuButton(
-                text = stringResource(R.string.menu_multiplayer),
+                text = stringResource(Res.string.menu_multiplayer),
                 onClick = onMultiplayerClick,
                 enabled = !state.isWarmingUp
             )
@@ -367,7 +342,7 @@ fun MenuButtonsList(
     }
 
     MenuButton(
-        text = stringResource(R.string.menu_settings),
+        text = stringResource(Res.string.menu_settings),
         onClick = onNavigateToSettings,
         enabled = !state.isWarmingUp,
         color = Color(0xFF6B1C3A)
@@ -375,7 +350,7 @@ fun MenuButtonsList(
     Spacer(Modifier.height(16.dp))
 
     MenuButton(
-        text = stringResource(R.string.menu_collectibles),
+        text = stringResource(Res.string.menu_collectibles),
         onClick = onNavigateToCollectibles,
         enabled = !state.isWarmingUp,
         color = Color(0xFF6B1C3A)
@@ -384,10 +359,10 @@ fun MenuButtonsList(
     // 🆕 HUELUM VS. GOYA — MODO PRINCIPAL: botón DESTACADO y ANIMADO (pulso + brillo dorado que
     // barre + borde y sombra que laten) para que resalte enormemente sobre los demás modos.
     Spacer(Modifier.height(20.dp))
-    WithCornerBadge(stringResource(R.string.badge_beta), Color(0xFF1C6B4A)) {
+    WithCornerBadge(stringResource(Res.string.badge_beta), Color(0xFF1C6B4A), controller.mostrarInsignias) {
         FeaturedStreetFighterButton(
-            text = stringResource(R.string.menu_street_fighter),
-            tag = stringResource(R.string.menu_featured_tag),
+            text = stringResource(Res.string.menu_street_fighter),
+            tag = stringResource(Res.string.menu_featured_tag),
             onClick = onNavigateToStreetFighter,
             enabled = !state.isWarmingUp,
         )
@@ -525,16 +500,27 @@ private fun StageBadge(text: String, color: Color, modifier: Modifier = Modifier
  * estable y no dependa de cómo se midió el botón de dentro.
  */
 @Composable
-private fun WithCornerBadge(text: String, color: Color, button: @Composable () -> Unit) {
+private fun WithCornerBadge(
+    text: String,
+    color: Color,
+    /**
+     * ⚠️ `false` en iOS: la App Store no admite etiquetas PRE-ALPHA/BETA en una ficha publicada.
+     * El botón se pinta IGUAL, solo desaparece la insignia — así no hay dos layouts que mantener.
+     */
+    mostrar: Boolean,
+    button: @Composable () -> Unit,
+) {
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         button()
-        StageBadge(
-            text = text,
-            color = color,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 2.dp, end = 12.dp),
-        )
+        if (mostrar) {
+            StageBadge(
+                text = text,
+                color = color,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 2.dp, end = 12.dp),
+            )
+        }
     }
 }
 
@@ -588,7 +574,7 @@ private fun WarmupDialog(secondsElapsed: Int, onCancel: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = stringResource(R.string.menu_warmup_title),
+                    text = stringResource(Res.string.menu_warmup_title),
                     color = Color(0xFFD4AF37),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
@@ -603,7 +589,7 @@ private fun WarmupDialog(secondsElapsed: Int, onCancel: () -> Unit) {
                 )
 
                 Text(
-                    text = stringResource(R.string.menu_warmup_text, secondsElapsed),
+                    text = stringResource(Res.string.menu_warmup_text, secondsElapsed),
                     color = Color.White.copy(alpha = 0.85f),
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
@@ -611,7 +597,7 @@ private fun WarmupDialog(secondsElapsed: Int, onCancel: () -> Unit) {
                 )
 
                 Text(
-                    text = stringResource(R.string.menu_warmup_hint),
+                    text = stringResource(Res.string.menu_warmup_hint),
                     color = Color.White.copy(alpha = 0.5f),
                     fontSize = 11.sp,
                     textAlign = TextAlign.Center
@@ -624,7 +610,7 @@ private fun WarmupDialog(secondsElapsed: Int, onCancel: () -> Unit) {
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
                 ) {
-                    Text(stringResource(R.string.menu_cancel_caps), fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+                    Text(stringResource(Res.string.menu_cancel_caps), fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
                 }
             }
         }

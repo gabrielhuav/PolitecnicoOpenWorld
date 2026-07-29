@@ -35,6 +35,79 @@ Android → `:shared`. Si no estás seguro → `:app` (moverla después es fáci
 
 ---
 
+## 2bis. 🍏 Cómo se separa iOS de Android (LÉELO ANTES DE TOCAR `:shared`)
+
+`:shared` no puede ver Android. Cuando algo SÍ necesita la plataforma hay **cuatro mecanismos**, y
+elegir mal es lo que ensucia el módulo. Van de menos a más potencia: **usa el primero que te sirva.**
+
+| # | Mecanismo | Cuándo | Ejemplo real |
+|---|---|---|---|
+| 1 | **`expect/actual`** | Una primitiva pequeña y sin estado | `decodificarReducido`, `plataformaActual`, `PowViewModel` |
+| 2 | **Fuente instalable** | Un servicio global que la app instala al arrancar | `PowAssets`, `PowAudio` |
+| 3 | **Environment** | Un puñado de datos/almacenes que necesita UN ViewModel | `StreetFighterEnvironment` |
+| 4 | **Controller** | Una PANTALLA de `commonMain` que necesitaba Hilt/`Context` | `StreetFighterController`, `MainMenuController` |
+
+### 1. `expect/actual` — para una pieza pequeña
+```kotlin
+// commonMain
+expect fun decodificarReducido(bytes: ByteArray, reduccion: Int): ImageBitmap
+```
+⚠️ **No lo uses para clases grandes.** Un `expect class` con 20 miembros obliga a escribir DOS
+implementaciones completas y a mantenerlas sincronizadas a mano.
+
+### 2. Fuente instalable — un servicio para toda la app
+Una `interface` en `commonMain`, un `object` que delega, y cada app instala su implementación al
+arrancar. Así el código común llama a `PowAssets.bytes(...)` sin saber si detrás hay un
+`AssetManager` o un `NSBundle`.
+```kotlin
+PowAssets.instalar(AssetsDeAndroid(this))   // PowApplication.onCreate()
+PowAssets.instalar(AssetsDeBundle())        // lado iOS
+```
+⚠️ **Si se olvida el `instalar`, falla en RUNTIME, no al compilar.** Es el precio de este patrón.
+
+### 3. Environment — lo que necesita un ViewModel
+```kotlin
+interface StreetFighterEnvironment {
+    val developerMode: Boolean get() = false   // el default hace que iOS no tenga que implementarlo
+    val arcade: SfArcadeStore
+}
+```
+El VM vive en `commonMain` y recibe el entorno por constructor. **Pon defaults sensatos**: así una
+plataforma nueva solo implementa lo que de verdad le importa.
+
+### 4. Controller — para una PANTALLA
+Es la inversión de dependencia para UI. La pantalla declara **qué necesita**, no **de dónde sale**:
+
+```
+StreetFighterScreenCommon(controller)          ← commonMain, no sabe de Hilt ni de Context
+   ├── AndroidStreetFighterController          ← :app, envuelve el VM de Hilt
+   └── OfflineStreetFighterController          ← commonMain/iOS, sin red
+```
+
+**Por qué así y no `expect/actual` de la pantalla:** habría dos copias de la UI que se desincronizan
+en silencio. Con el controller **hay UNA pantalla** y dos formas de alimentarla.
+
+### La regla para decidir, en una línea
+> ¿Es un dato o una función suelta? → **1**. ¿Un servicio de toda la app? → **2**.
+> ¿Lo necesita un ViewModel? → **3**. ¿Lo necesita una pantalla? → **4**.
+
+### Lo que NO se hace nunca
+- ❌ **Copiar una pantalla a `iosMain`.** Si hay dos copias, en un mes divergen.
+- ❌ **Un `if (esIOS)` dentro de `commonMain`.** Las diferencias de plataforma van en el `actual` o
+  en el controller. La ÚNICA excepción viva es `PowModo.disponible()`, que es *catálogo de negocio*
+  (qué modos ofrece cada tienda), no una rama técnica — y está testeada.
+- ❌ **Meter `android.*` en `commonMain` "temporalmente".** No compila para iOS y bloquea a todos.
+
+### Cómo se apaga un modo en iOS
+No se borra código ni se bifurca la UI: se pregunta al catálogo.
+```kotlin
+if (PowModo.MUNDO_LIBRE.disponible()) { /* el botón solo existe donde el modo corre */ }
+```
+`PowModos.kt` (`:shared`) es la ÚNICA fuente de verdad, y `PowModosTest` se pone rojo si alguien
+añade un modo a iOS sin confirmarlo en el simulador.
+
+---
+
 ## 3. MVVM: quién puede hablar con quién
 
 ```

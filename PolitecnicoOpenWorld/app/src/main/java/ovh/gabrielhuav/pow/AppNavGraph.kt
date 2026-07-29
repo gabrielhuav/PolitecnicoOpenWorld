@@ -205,6 +205,37 @@ fun AppNavGraph(
                                         scaleOut(animationSpec = tween(700), targetScale = 1.2f)
                             }
                         ) {
+                            // La pantalla vive en `:shared` y no sabe de Hilt ni de Context: se le
+                            // pasa un controller (ver 10_ARQUITECTURA_SEPARACION.md §2bis, patrón 4).
+                            val menuVm: ovh.gabrielhuav.pow.features.main_menu.viewmodel.MainMenuViewModel =
+                                androidx.hilt.navigation.compose.hiltViewModel()
+                            val menuScope = androidx.compose.runtime.rememberCoroutineScope()
+                            val menuController = remember(menuVm) {
+                                ovh.gabrielhuav.pow.features.main_menu.ui.AndroidMainMenuController(
+                                    viewModel = menuVm,
+                                    settings = ovh.gabrielhuav.pow.data.repository.SettingsRepository(activity),
+                                    scope = menuScope,
+                                )
+                            }
+                            // Al volver del selector de Google: si el login fue OK se continúa con el
+                            // flujo normal de multijugador (warmup + nombre).
+                            val signInLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                                androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+                            ) { result ->
+                                authManager.handleSignInResult(result.data) { ok, err ->
+                                    if (ok) {
+                                        if (menuController.state.value.playerName.isBlank()) {
+                                            authManager.currentDisplayName()
+                                                ?.let { menuController.updatePlayerName(it) }
+                                        }
+                                        menuController.onMultiplayerPressed()
+                                    } else if (!err.isNullOrBlank()) {
+                                        android.widget.Toast
+                                            .makeText(activity, err, android.widget.Toast.LENGTH_LONG)
+                                            .show()
+                                    }
+                                }
+                            }
                             MainMenuScreen(
                                 onNavigateToMap = { isMultiplayer, playerName ->
                                     // MUNDO LIBRE (sin campaña): no es una sesión de Modo Historia,
@@ -245,7 +276,21 @@ fun AppNavGraph(
                                 onNavigateToStreetFighter = {
                                     navController.navigate("street_fighter")
                                 },
-                                authManager = authManager
+                                controller = menuController,
+                                // GATE de Google Sign-In: MULTIJUGADOR (y a futuro los LOGROS) exigen
+                                // sesión; el juego local y el Modo Historia NO. Si Firebase no está
+                                // configurado en este build (clones/PRs sin google-services.json) se
+                                // entra ANÓNIMO: los servidores en modo suave aceptan sin token.
+                                // Vive AQUÍ y no en la pantalla porque usa Intent/ActivityResult, que
+                                // no existen en iOS.
+                                onMultiplayer = {
+                                    if (!authManager.isAvailable() || authManager.isSignedIn()) {
+                                        menuController.onMultiplayerPressed()
+                                    } else {
+                                        signInLauncher.launch(authManager.signInIntent())
+                                    }
+                                },
+                                chipDeCuenta = { ovh.gabrielhuav.pow.features.main_menu.ui.ChipDeCuenta(authManager) },
                             )
                         }
 
