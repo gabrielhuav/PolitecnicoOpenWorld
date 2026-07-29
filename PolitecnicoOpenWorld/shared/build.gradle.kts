@@ -131,6 +131,27 @@ kotlin {
 room { schemaDirectory("$projectDir/schemas") }
 
 /*
+ * 🍏 Al ENLAZAR el framework de iOS, generar también los `composeResources` de `Main`.
+ *
+ * ⚠️ NO es cosmético, y costó una sesión encontrarlo: la tarea de link genera los recursos de TEST
+ * pero **no los de Main**. Sin ellos la app COMPILA, ARRANCA y luego **se cierra en cuanto una
+ * pantalla llama a `stringResource`** — Compose los carga en una corrutina y la excepción no la
+ * recoge nadie, así que no hay ni error ni log: solo el `.ips` en DiagnosticReports.
+ *
+ * Se engancha aquí, y no en una fase de Xcode que llame a Gradle, porque Xcode no hereda el
+ * `JAVA_HOME` del proyecto y el wrapper no arranca desde allí. Así el flujo de siempre
+ * ("genera el framework antes de abrir Xcode") ya deja los recursos listos, y la fase de Xcode se
+ * limita a COPIARLOS al bundle.
+ */
+listOf("IosSimulatorArm64", "IosArm64").forEach { destino ->
+    listOf("Debug", "Release").forEach { variante ->
+        tasks.matching { it.name == "link${variante}Framework$destino" }.configureEach {
+            dependsOn("assemble${destino}MainResources")
+        }
+    }
+}
+
+/*
  * 🍏 STRINGS COMPARTIDOS — el reemplazo de `R.string` para la UI que vive en `commonMain`.
  *
  * ⚠️ Esto era EL BLOQUEADOR del paso 4 de `PLAN_SF_EN_iOS.md`: la clase `R` la genera AGP para
