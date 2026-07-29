@@ -20,14 +20,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
-import ovh.gabrielhuav.pow.R
+import ovh.gabrielhuav.pow.shared.recursos.Res
+import ovh.gabrielhuav.pow.shared.recursos.*
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.ui.components.PowButton
 
@@ -58,7 +59,7 @@ fun SfComboSheetOverlay(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = stringResource(R.string.sf_combos_title),
+                text = stringResource(Res.string.sf_combos_title),
                 color = Color(0xFF7BE0A8),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Black,
@@ -69,7 +70,7 @@ fun SfComboSheetOverlay(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = stringResource(R.string.sf_combos_with_fighter, fighterId.shortName),
+                text = stringResource(Res.string.sf_combos_with_fighter, fighterId.shortName),
                 color = Color.White.copy(alpha = 0.75f),
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
@@ -78,21 +79,21 @@ fun SfComboSheetOverlay(
             // 🆕 (2026-07-22) Botones ARRIBA de la hoja (antes iban al final y nadie leía la hoja).
             Spacer(Modifier.height(16.dp))
             PowButton(
-                text = stringResource(R.string.sf_combos_try),
+                text = stringResource(Res.string.sf_combos_try),
                 onClick = onTry,
                 color = Color(0xFF1C6B4A),
                 modifier = Modifier.fillMaxWidth(0.8f),
             )
             Spacer(Modifier.height(8.dp))
             PowButton(
-                text = stringResource(R.string.sf_combos_change_fighter),
+                text = stringResource(Res.string.sf_combos_change_fighter),
                 onClick = onChangeFighter,
                 color = Color(0xFF8B1538),
                 modifier = Modifier.fillMaxWidth(0.8f),
             )
             Spacer(Modifier.height(8.dp))
             PowButton(
-                text = stringResource(R.string.sf_back),
+                text = stringResource(Res.string.sf_back),
                 onClick = onBack,
                 color = Color(0xFF3A3A44),
                 modifier = Modifier.fillMaxWidth(0.8f),
@@ -100,22 +101,22 @@ fun SfComboSheetOverlay(
 
             // ── Controles básicos (la HOJA queda debajo de los botones) ──
             Spacer(Modifier.height(18.dp))
-            SectionTitle(stringResource(R.string.sf_combos_controls))
-            ControlRow(stringResource(R.string.sf_ctl_move), stringResource(R.string.sf_ctl_move_v))
-            ControlRow(stringResource(R.string.sf_ctl_punch), stringResource(R.string.sf_ctl_punch_v))
-            ControlRow(stringResource(R.string.sf_ctl_kick), stringResource(R.string.sf_ctl_kick_v))
-            ControlRow(stringResource(R.string.sf_ctl_block), stringResource(R.string.sf_ctl_block_v))
-            ControlRow(stringResource(R.string.sf_ctl_dash), stringResource(R.string.sf_ctl_dash_v))
-            ControlRow(stringResource(R.string.sf_ctl_parry), stringResource(R.string.sf_ctl_parry_v))
-            ControlRow(stringResource(R.string.sf_ctl_grab), stringResource(R.string.sf_ctl_grab_v))
-            ControlRow(stringResource(R.string.sf_ctl_sweep), stringResource(R.string.sf_ctl_sweep_v))
-            ControlRow(stringResource(R.string.sf_ctl_overhead), stringResource(R.string.sf_ctl_overhead_v))
-            ControlRow(stringResource(R.string.sf_ctl_special), stringResource(R.string.sf_ctl_special_v))
-            ControlRow(stringResource(R.string.sf_ctl_super), stringResource(R.string.sf_ctl_super_v))
+            SectionTitle(stringResource(Res.string.sf_combos_controls))
+            ControlRow(stringResource(Res.string.sf_ctl_move), stringResource(Res.string.sf_ctl_move_v))
+            ControlRow(stringResource(Res.string.sf_ctl_punch), stringResource(Res.string.sf_ctl_punch_v))
+            ControlRow(stringResource(Res.string.sf_ctl_kick), stringResource(Res.string.sf_ctl_kick_v))
+            ControlRow(stringResource(Res.string.sf_ctl_block), stringResource(Res.string.sf_ctl_block_v))
+            ControlRow(stringResource(Res.string.sf_ctl_dash), stringResource(Res.string.sf_ctl_dash_v))
+            ControlRow(stringResource(Res.string.sf_ctl_parry), stringResource(Res.string.sf_ctl_parry_v))
+            ControlRow(stringResource(Res.string.sf_ctl_grab), stringResource(Res.string.sf_ctl_grab_v))
+            ControlRow(stringResource(Res.string.sf_ctl_sweep), stringResource(Res.string.sf_ctl_sweep_v))
+            ControlRow(stringResource(Res.string.sf_ctl_overhead), stringResource(Res.string.sf_ctl_overhead_v))
+            ControlRow(stringResource(Res.string.sf_ctl_special), stringResource(Res.string.sf_ctl_special_v))
+            ControlRow(stringResource(Res.string.sf_ctl_super), stringResource(Res.string.sf_ctl_super_v))
 
             // ── Combos ──
             Spacer(Modifier.height(16.dp))
-            SectionTitle(stringResource(R.string.sf_combos_list))
+            SectionTitle(stringResource(Res.string.sf_combos_list))
             combos.forEachIndexed { index, (name, hint, steps) ->
                 ComboCard(index + 1, name, hint, steps)
             }

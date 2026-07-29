@@ -127,6 +127,22 @@ kotlin {
 // Room exige un directorio de esquemas cuando se usa su plugin.
 room { schemaDirectory("$projectDir/schemas") }
 
+/*
+ * 🍏 STRINGS COMPARTIDOS — el reemplazo de `R.string` para la UI que vive en `commonMain`.
+ *
+ * ⚠️ Esto era EL BLOQUEADOR del paso 4 de `PLAN_SF_EN_iOS.md`: la clase `R` la genera AGP para
+ * `:app` y NO existe en `:shared`, asi que ninguna pantalla con textos podia bajar. Los .xml de
+ * `commonMain/composeResources/values*` los lee este plugin y genera `Res.string.*`.
+ *
+ * `publicResClass = true` porque `:app` tambien consume estas pantallas y necesita ver la clase;
+ * con el `internal` por defecto no compilaria desde el modulo de la app.
+ */
+compose.resources {
+    publicResClass = true
+    packageOfResClass = "ovh.gabrielhuav.pow.shared.recursos"
+    generateResClass = auto
+}
+
 // ⚠️ ESTE BLOQUE VA AL FINAL, DESPUÉS de `kotlin { }`, y no es cosmético: las configuraciones
 // `kspAndroid`/`kspIosArm64`/… las CREA el plugin al declarar cada target. Si este bloque va
 // arriba, el build falla con "Configuration with name 'kspAndroid' not found".
