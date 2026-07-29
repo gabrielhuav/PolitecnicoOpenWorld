@@ -17,7 +17,7 @@ import kotlin.test.assertTrue
  */
 class PowJsonLecturaTest {
 
-    // ── Nunca lanzan, salvo getInt/getDouble ─────────────────────────────────
+    // ── Los opt* nunca lanzan; los get* sí fijan campos obligatorios ─────────
 
     @Test
     fun `un texto que no es JSON da objeto vacio en vez de reventar`() {
@@ -58,6 +58,8 @@ class PowJsonLecturaTest {
         assertEquals("12", o.optString("n"))
         assertEquals("1.5", o.optString("d"))
         assertEquals("true", o.optString("b"))
+        assertEquals("12", o.getString("n"))
+        assertFailsWith<PowJsonException> { o.getString("noExiste") }
     }
 
     @Test
@@ -90,8 +92,10 @@ class PowJsonLecturaTest {
         val arr = powJsonObjeto("""{"a":["x",{"k":1}]}""").optJSONArray("a")!!
         assertEquals(2, arr.size)
         assertEquals("x", arr.optString(0))
+        assertEquals("x", arr.getString(0))
         assertEquals(1, arr.optJSONObject(1)?.optInt("k"))
         assertEquals("", arr.optString(99))
+        assertFailsWith<PowJsonException> { arr.getString(99) }
         assertNull(arr.optJSONObject(99))
     }
 

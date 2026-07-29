@@ -23,9 +23,10 @@ import kotlinx.serialization.json.jsonObject
  *
  * ## Las 3 reglas de `org.json` que aquí se respetan a propósito
  *
- * 1. **Nunca lanzan.** Si falta la clave, el tipo no encaja o el valor es `null`, devuelven el
- *    default. `org.json` se comporta así y los JSON del juego dependen de ello (hay campos
- *    opcionales por todas partes: `phrase_en`, `hintEs`, `tier`…).
+ * 1. **Los `opt*` nunca lanzan.** Si falta la clave, el tipo no encaja o el valor es `null`,
+ *    devuelven el default. `org.json` se comporta así y los JSON del juego dependen de ello (hay
+ *    campos opcionales por todas partes: `phrase_en`, `hintEs`, `tier`…). Los `get*`, en cambio,
+ *    lanzan porque se usan para campos obligatorios y el llamador ya está dentro de `runCatching`.
  * 2. **`optString` COERCIONA.** Un número o un booleano se leen como su texto (`12` → `"12"`).
  *    kotlinx no lo hace solo; si no se imitara, cualquier campo numérico escrito sin comillas
  *    volvería al default sin avisar.
@@ -58,6 +59,11 @@ fun JsonObject.getJSONObject(key: String): JsonObject = optJSONObject(key) ?: Js
 /** `JSONObject.optString(key, fallback)`, con la coerción de números y booleanos a texto. */
 fun JsonObject.optString(key: String, fallback: String = ""): String =
     (this[key] as? JsonPrimitive)?.contentOrNull ?: fallback
+
+/** `JSONObject.getString(key)` — LANZA si falta o el valor es `null`. */
+fun JsonObject.getString(key: String): String =
+    (this[key] as? JsonPrimitive)?.contentOrNull
+        ?: throw PowJsonException("falta el texto '$key' o es null")
 
 /** `JSONObject.optInt(key, fallback)`. Acepta el entero escrito como texto, igual que `org.json`. */
 fun JsonObject.optInt(key: String, fallback: Int = 0): Int =
@@ -101,6 +107,11 @@ class PowJsonException(mensaje: String) : Exception(mensaje)
 /** `JSONArray.optString(index)`, con la misma coerción que su hermana de objeto. */
 fun JsonArray.optString(index: Int, fallback: String = ""): String =
     (getOrNull(index) as? JsonPrimitive)?.contentOrNull ?: fallback
+
+/** `JSONArray.getString(index)` — LANZA si el índice no existe o el valor es `null`. */
+fun JsonArray.getString(index: Int): String =
+    (getOrNull(index) as? JsonPrimitive)?.contentOrNull
+        ?: throw PowJsonException("falta el texto en el índice $index o es null")
 
 /** `JSONArray.optJSONObject(index)`: el objeto en esa posición, o `null`. */
 fun JsonArray.optJSONObject(index: Int): JsonObject? = getOrNull(index) as? JsonObject

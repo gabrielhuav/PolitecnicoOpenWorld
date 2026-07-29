@@ -6,8 +6,14 @@ import com.russhwolf.settings.SharedPreferencesSettings
 import com.russhwolf.settings.Settings
 import kotlinx.serialization.encodeToString
 import ovh.gabrielhuav.pow.data.json.PowJson
-import org.json.JSONArray
-import org.json.JSONObject
+import ovh.gabrielhuav.pow.data.json.getInt
+import ovh.gabrielhuav.pow.data.json.getString
+import ovh.gabrielhuav.pow.data.json.jsonOf
+import ovh.gabrielhuav.pow.data.json.optBoolean
+import ovh.gabrielhuav.pow.data.json.optInt
+import ovh.gabrielhuav.pow.data.json.optJSONArray
+import ovh.gabrielhuav.pow.data.json.optString
+import ovh.gabrielhuav.pow.data.json.powJsonObjeto
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStageCatalog
 
@@ -45,6 +51,52 @@ class SfArcadeRepository(context: Context) {
         val DEFAULT_FIGHTERS = setOf("ESCOMBOY", "ESCOMGIRL", "ROBOT")
         /** Mapa desbloqueado de arranque (hogar de los starters = ESCOM día). */
         const val DEFAULT_MAP = "fondo_escom_anim.webp"
+
+        /**
+         * Escribe exactamente el snapshot que producía `JSONObject`: conserva el orden y omite
+         * `mapFile` cuando es null. `jsonOf` es obligatorio aquí porque un `Map<String, Any?>`
+         * pasado a `PowJson.encodeToString` compila pero falla en runtime.
+         */
+        internal fun encodeSession(session: ArcadeSession): String = jsonOf(
+            "v" to 2,
+            "playerId" to session.playerId,
+            "step" to session.step,
+            "total" to session.total,
+            "mapFile" to session.mapFile?.let(SfStageCatalog::normalizeFile),
+            "playerRoundWins" to session.playerRoundWins,
+            "cpuRoundWins" to session.cpuRoundWins,
+            "difficulty" to session.difficulty,
+            "baseDifficulty" to session.baseDifficulty,
+            "paused" to session.paused,
+            "ladderRivals" to session.ladderRivals,
+        )
+
+        /**
+         * Lee snapshots de todas las versiones con la semántica tolerante de `org.json`.
+         * Los tres campos obligatorios siguen lanzando dentro del `runCatching`: un save truncado
+         * no se convierte silenciosamente en una sesión distinta.
+         */
+        internal fun decodeSession(raw: String): ArcadeSession? = runCatching {
+            val o = powJsonObjeto(raw)
+            val rivals = o.optJSONArray("ladderRivals")
+                ?.let { arr -> List(arr.size) { index -> arr.getString(index) } }
+                .orEmpty()
+            ArcadeSession(
+                playerId = o.getString("playerId"),
+                step = o.getInt("step"),
+                total = o.getInt("total"),
+                ladderRivals = rivals,
+                // Algunas versiones antiguas guardaron el texto literal "null": se conserva.
+                mapFile = o.optString("mapFile")
+                    .takeIf { it.isNotEmpty() && it != "null" }
+                    ?.let(SfStageCatalog::normalizeFile),
+                playerRoundWins = o.optInt("playerRoundWins", 0),
+                cpuRoundWins = o.optInt("cpuRoundWins", 0),
+                difficulty = o.optString("difficulty", "NORMAL"),
+                baseDifficulty = o.optString("baseDifficulty", ""),
+                paused = o.optBoolean("paused", true),
+            )
+        }.getOrNull()
     }
 
     private val prefs: SharedPreferences =
@@ -218,47 +270,13 @@ class SfArcadeRepository(context: Context) {
      * Llamar SOLO desde forcePause / salir — nunca por tick.
      */
     fun saveSession(session: ArcadeSession) {
-        val o = JSONObject()
-            .put("v", 2) // versión del snapshot (2 = con baseDifficulty, 2026-07-20)
-            .put("playerId", session.playerId)
-            .put("step", session.step)
-            .put("total", session.total)
-            .put("mapFile", session.mapFile?.let(SfStageCatalog::normalizeFile))
-            .put("playerRoundWins", session.playerRoundWins)
-            .put("cpuRoundWins", session.cpuRoundWins)
-            .put("difficulty", session.difficulty)
-            .put("baseDifficulty", session.baseDifficulty)
-            .put("paused", session.paused)
-        val arr = JSONArray()
-        session.ladderRivals.forEach { arr.put(it) }
-        o.put("ladderRivals", arr)
-        settings.putString(KEY_SESSION, o.toString())
+        settings.putString(KEY_SESSION, encodeSession(session))
     }
 
     /** Lee la sesión en curso; null si no hay o el JSON es inválido. */
     fun loadSession(): ArcadeSession? {
         val raw = settings.getStringOrNull(KEY_SESSION) ?: return null
-        return runCatching {
-            val o = JSONObject(raw)
-            val arr = o.optJSONArray("ladderRivals") ?: JSONArray()
-            val rivals = buildList {
-                for (i in 0 until arr.length()) add(arr.getString(i))
-            }
-            ArcadeSession(
-                playerId = o.getString("playerId"),
-                step = o.getInt("step"),
-                total = o.getInt("total"),
-                ladderRivals = rivals,
-                mapFile = (o.opt("mapFile") as? String)
-                    ?.takeIf { it.isNotEmpty() && it != "null" }
-                    ?.let(SfStageCatalog::normalizeFile),
-                playerRoundWins = o.optInt("playerRoundWins", 0),
-                cpuRoundWins = o.optInt("cpuRoundWins", 0),
-                difficulty = o.optString("difficulty", "NORMAL"),
-                baseDifficulty = o.optString("baseDifficulty", ""),
-                paused = o.optBoolean("paused", true),
-            )
-        }.getOrNull()
+        return decodeSession(raw)
     }
 
     fun hasSession(): Boolean = !settings.getStringOrNull(KEY_SESSION).isNullOrEmpty()

@@ -12,9 +12,9 @@
 > falta**) · actualiza PENDIENTE · comprueba las 200 líneas. Si te quedas sin tokens a media
 > tarea, **actualiza ESTE archivo ANTES de parar**.
 
-**Última actualización:** 2026-07-28 · Opus 5 (Windows) · rama `fase0-auditoria-kmp` · *purgar §3bis el 07-30*
+**Última actualización:** 2026-07-28 · Codex (Escritorio) · rama `fase0-auditoria-kmp` · *purgar §3bis el 07-30*
 
-> ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: **Fases 0-4 completas; la 5 EN MARCHA (216
+> ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: **Fases 0-4 completas; la 5 EN MARCHA (218
 > tests).** 🍏 iOS = solo modo pelea (§3octies) · Compose MP con su **checkpoint verificado en el
 > Mac: el framework enlaza** · gráficos, assets y **audio** ya multiplataforma (§3nonies).
 > **Siguiente: `PLAN_SF_EN_iOS.md` §4 paso 4 — bajar la UI a `commonMain`, que es el bulto.**
@@ -24,7 +24,7 @@
 | PC | Raíz del PROYECTO (aquí están `gradlew` y `tools/`) |
 |---|---|
 | **Laptop** (referencia) | `C:\Users\gabri\AndroidStudioProjects\PolitecnicoOpenWorld\PolitecnicoOpenWorld` |
-| **Escritorio** | `C:\Users\gabri\Documents\GitHub Desktop\PolitecnicoOpenWorld\PolitecnicoOpenWorld` |
+| **Escritorio** (MEDIDO 07-28) | `C:\Users\gabri\Documents\GitHub Desktop\PolitecnicoOpenWorld\PolitecnicoOpenWorld` |
 | **🍏 Mac** (iOS) | `/Users/gabrielhuav/Documents/GitHub/PolitecnicoOpenWorld/PolitecnicoOpenWorld` |
 
 ⚠️ **La carpeta es doble**: el proyecto Gradle está DENTRO del repo, en `PolitecnicoOpenWorld/`; las
@@ -97,7 +97,7 @@ Historia y Multijugador se **esconden**. **PROBADO: el menú de Android sigue id
 no exige Mac.** ⚠️ Pero **`linkDebugFrameworkIosSimulatorArm64` MIENTE**: fuera de un Mac dice BUILD
 SUCCESSFUL y **no crea nada**. NO lo uses como prueba.
 
-**MEDIDO: `:app` 112 + `:shared` 104 = 216 tests, 0 fallos; detekt exit 0.** **PROBADO EN EL
+**MEDIDO: `:app` 114 + `:shared` 104 = 218 tests, 0 fallos; detekt exit 0.** **PROBADO EN EL
 EMULADOR** dos veces: los sprites (pelea con peleadores de set COMPARTIDO, cuyas hojas arma en
 runtime el código portado) y el AUDIO (§3decies). Nuevo en `:shared`: `PowImagen`, `PowAudio`,
 `PowAssets`, `PowViewModel`, `PowCerrojo`, `SfVocesReglas`, `SfSharedSheets`, `SfFrameCatalog`.
@@ -137,10 +137,10 @@ poder gritar porque su intro, terminada hace rato, sigue apuntada como en curso.
 - ⚠️ **`SoundPool.play` abre un flujo NUEVO cada vez.** Sin parar el previo, dos golpes iguales
   seguidos se solapan y suena a eco; `reproducir()` ya reinicia. Y `AVAudioPlayer.duration` viene en
   **SEGUNDOS** (Android da ms): sin el ×1000 los subtítulos de iOS durarían 1 ms.
-- 🔴 **`SfArcadeRepository` NO se tocó, a propósito.** El encargo lo daba por "solo cambiar el
-  import" y no lo es: también **escribe** JSON (necesita `jsonOf`, no `PowJsonLectura`) y es el
-  único con migración real de datos. Hay saves viejos con la cadena literal `"null"` en `mapFile`
-  — lo delata el `it != "null"` al leer. Eso se toca con calma, no al final de una sesión.
+- ✅ **`SfArcadeRepository` ya no usa `org.json`:** lee con `PowJsonLectura` y escribe con
+  `jsonOf` (omite `mapFile` nulo, como `.put(clave, null)`). Dos tests fijan un snapshot V1 con la
+  cadena literal `"null"` y el formato nuevo. **EMULADOR `Nexus`:** al minimizar escribió el JSON
+  V2 completo; al volver abrió la misma pelea pausada y `Continue` la reanudó. MEDIDO 07-28.
 
 ## 4. PENDIENTE — por prioridad
 
@@ -155,10 +155,6 @@ poder gritar porque su intro, terminada hace rato, sigue apuntada como en curso.
    **Falta el bulto: bajar la UI a `commonMain` (~14 000 líneas) y meter los 107 MB en el bundle.**
    ⚠️ **Eso se hace EN EL MAC**: cada pantalla portada hay que VERLA en el simulador; en Windows
    solo se type-checkea.
-4. **🖥️ Lo ÚNICO que le queda a Windows: `SfArcadeRepository`** (§3decies). Necesita emulador
-   Android para probar el ida y vuelta de guardar/cargar, y en el Mac **no hay AVD**. Se puede hacer
-   EN PARALELO con el Mac: son archivos distintos. ⚠️ Misma rama → `git pull` antes de cada push.
-
 ### 🟠 P1 · AUDIO (activo) — ver `SF/PROMPT_traspaso_audio_subtitulos.md`
 **29 clips demasiado largos** y **5 fuera de −16 ±2 LUFS** → **Gemini 3.6** (con los segundos del
 dueño). **Faltan `attack`/`hurt`** en 6 peleadores → el dueño graba. ⚠️ **No repitas** el resumen
@@ -188,7 +184,7 @@ que dice "100 % normalizados y sin faltantes": está medido y es **falso** (de l
 ```
 En Windows `.\gradlew.bat`. En el Mac, antes: `export JAVA_HOME="/Applications/Android
 Studio.app/Contents/jbr/Contents/Home"`. ⚠️ La tarea de `:shared` es **`testAndroidHostTest`**
-(cambió con AGP 9). ⚠️ **Son 216: 112 `:app` + 104 `:shared`**; los "190"/"184"/"178"/"47" de
+(cambió con AGP 9). ⚠️ **Son 218: 114 `:app` + 104 `:shared`**; los "190"/"184"/"178"/"47" de
 docs viejos son **stale**. ⚠️ Si tocas `commonTest`, pasa **`bash tools/check_kmp_test_names.sh`**.
 
 **detekt — EXACTAMENTE la invocación de CI** (desde la raíz del repo):

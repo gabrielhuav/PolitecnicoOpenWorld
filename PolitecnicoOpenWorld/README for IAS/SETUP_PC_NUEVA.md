@@ -73,11 +73,15 @@ git checkout -- gradlew gradlew.bat gradle/wrapper/gradle-wrapper.properties
 
 ### 2.2 `secrets.properties` (en `PolitecnicoOpenWorld/`)
 
-Clave de Google Maps. **Vacía es válida** para compilar y para los tests — es justo lo que hace CI:
+Clave de Google Maps. Sin una clave real, usa el marcador no secreto que ya trae
+`local.defaults.properties`:
 
 ```
-MAPS_API_KEY=
+MAPS_API_KEY=DEFAULT_API_KEY
 ```
+
+⚠️ **MEDIDO en el escritorio (07-28):** dejarla vacía genera
+`public static final String MAPS_API_KEY = ;` y rompe `compileDebugJavaWithJavac`.
 
 ### 2.3 `google-services.json` — OPCIONAL
 
