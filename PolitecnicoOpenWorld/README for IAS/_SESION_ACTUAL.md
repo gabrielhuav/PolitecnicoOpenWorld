@@ -158,10 +158,10 @@ type-checkea desde Windows.
 2. **Redeploy de `MultiplayerSF/` en Render** para activar el P2P (no bloquea el release).
    Con 2 teléfonos en redes distintas, buscar en logcat `SF-RTC`: `DataChannel → OPEN`.
 3. **🍏 FASE 5 — bajar el ViewModel de combate a `commonMain` (6 433 líneas).** Es lo único que
-   separa a iOS de una pelea real (§3duodecies). **NO exige Mac**: se type-checkea desde Windows.
-   Después, en el Mac: `StreetFighterController` de iOS + pelea de verdad.
-   Pendiente aparte: `MainMenuScreen` a `commonMain` (632 líneas, 26 strings, cero `Context`) —
-   es lo que hace que el menú de iOS se parezca al de Android.
+   separa a iOS de una pelea real (§3duodecies). Delegado a Sol en Windows, **no exige Mac**:
+   **`PROMPT_SOL_viewmodel_combate.md`** (lleva el desglose de cada atadura y a dónde va).
+   Después, en el Mac: `StreetFighterController` de iOS + pelea de verdad. Pendiente aparte:
+   `MainMenuScreen` a `commonMain` — es lo que hace que el menú de iOS se parezca al de Android.
 
 ### 🟠 P1 · AUDIO (activo) — ver `SF/PROMPT_traspaso_audio_subtitulos.md`
 **29 clips demasiado largos** y **5 fuera de −16 ±2 LUFS** → **Gemini 3.6** (con los segundos del
