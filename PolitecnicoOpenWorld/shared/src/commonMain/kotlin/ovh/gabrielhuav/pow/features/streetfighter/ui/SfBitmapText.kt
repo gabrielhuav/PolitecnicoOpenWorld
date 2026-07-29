@@ -1,6 +1,5 @@
 package ovh.gabrielhuav.pow.features.streetfighter.ui
 
-import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -8,14 +7,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import ovh.gabrielhuav.pow.features.streetfighter.data.SF_CLASSIC_THEME
+import ovh.gabrielhuav.pow.platform.imagen.PowImagen
 
 /**
  * 🆕 (2026-07-21) TEXTO con la FUENTE ARCADE del modo pelea (la del HUD, `sf_hud_pow.png`)
@@ -44,15 +42,12 @@ fun SfBitmapText(
     /** Alto del glifo; el avance por carácter es 12/16 de ese alto (como en el HUD). */
     glyphHeight: Dp = 14.dp,
 ) {
-    val context = LocalContext.current
     val theme = remember { SF_CLASSIC_THEME }
     // El atlas del HUD es pequeño y se cachea por composición: barato incluso en gama baja.
+    // 🍏 `PowImagen.deAsset` en vez de `context.assets` + `BitmapFactory`: ya no hace falta el
+    // `LocalContext`, que era lo único que ataba este Composable a Android.
     val hud: ImageBitmap? = remember {
-        runCatching {
-            context.assets.open(theme.imagesDir + theme.hudImage).use {
-                BitmapFactory.decodeStream(it)
-            }?.asImageBitmap()
-        }.getOrNull()
+        runCatching { PowImagen.deAsset(theme.imagesDir + theme.hudImage) }.getOrNull()
     }
     val clean = remember(text) { sfFontSanitize(text) }
     if (hud == null || clean.isEmpty()) return
