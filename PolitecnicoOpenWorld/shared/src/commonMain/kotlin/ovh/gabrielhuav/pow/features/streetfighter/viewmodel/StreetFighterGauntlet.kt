@@ -12,10 +12,10 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfInput
 import ovh.gabrielhuav.pow.domain.models.streetfighter.bonusPowerIndex
-import ovh.gabrielhuav.pow.data.repository.SfArcadeRepository
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStageCatalog
 import ovh.gabrielhuav.pow.features.streetfighter.data.SF_CLASSIC_THEME
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfFrameCatalog
+import ovh.gabrielhuav.pow.platform.assets.PowAssets
 import kotlin.random.Random
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -310,16 +310,16 @@ internal fun StreetFighterViewModel.finishGauntlet() {
 }
 
 internal fun StreetFighterViewModel.writeGauntletReport(issues: List<String>): String? = runCatching {
-    val dir = appContext.getExternalFilesDir(null) ?: appContext.filesDir
-    val stamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
-    val file = java.io.File(dir, "sf_diagnostico_$stamp.txt")
+    val fileName = "sf_diagnostico_${sfElapsedRealtime()}.txt"
     val header = "POW — Diagnóstico IA vs IA (autojuego)\n" +
         "Peleas: $gauntletDone/$gauntletTotal\n" +
         "Rondas por KO: $gauntletKoRounds\n" +
         "Rondas por tiempo: $gauntletTimeoutRounds\n" +
         "Problemas: ${issues.size}\n\n"
-    file.writeText(header + if (issues.isEmpty()) "Sin problemas detectados." else issues.joinToString("\n"))
-    file.absolutePath
+    environment.writeGauntletReport(
+        fileName,
+        header + if (issues.isEmpty()) "Sin problemas detectados." else issues.joinToString("\n"),
+    )
 }.getOrNull()
 
 /** Detiene el gauntlet en curso y muestra el reporte con lo detectado hasta ahora. */
@@ -523,7 +523,7 @@ internal fun StreetFighterViewModel.auditThemeSounds() {
 
 /** ¿Existe el asset? (open+close barato; solo se usa en auditorías puntuales). */
 internal fun StreetFighterViewModel.sfAssetExists(path: String): Boolean =
-    runCatching { appContext.assets.open(path).close() }.isSuccess
+    runCatching { PowAssets.existe(path) }.getOrDefault(false)
 
 // ------------------------------------------------------------------
 // 🆕 MODO ARCADE (escalera de 11 peleas, OFFLINE). Ver SfArcadeLadder + SfArcadeRepository.

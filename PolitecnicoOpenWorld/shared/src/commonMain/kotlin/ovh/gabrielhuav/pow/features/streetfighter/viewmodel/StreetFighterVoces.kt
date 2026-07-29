@@ -74,7 +74,7 @@ internal fun StreetFighterViewModel.queueNetAudio(name: String) {
 }
 
 /** Solo A-Z/0-9 para la fuente pixel del HUD (acentos/ñ/puntuación → simplificados). */
-internal fun StreetFighterViewModel.sfHudSanitize(s: String): String = s.uppercase(java.util.Locale.ROOT)
+internal fun StreetFighterViewModel.sfHudSanitize(s: String): String = s.uppercase()
     .replace('Á', 'A').replace('É', 'E').replace('Í', 'I').replace('Ó', 'O').replace('Ú', 'U')
     .replace('Ñ', 'N').replace('Ü', 'U')
     .replace(Regex("[^A-Z0-9 ]"), " ").replace(Regex("\\s+"), " ").trim()
@@ -115,7 +115,7 @@ internal fun StreetFighterViewModel.emitVoiceLines(lines: List<StreetFighterView
     if (lines.isEmpty()) return false
     val line = lines.random()
     if (!emitVoiceClip(line.file)) return false
-    val phrase = voicePhrases[line.file]?.textForLang(java.util.Locale.getDefault().language)
+    val phrase = voicePhrases[line.file]?.textForLang(environment.languageTag)
         ?: line.phrase
     if (phrase.isNotBlank()) setVoiceSubtitle(phrase, now)
     return true
@@ -214,7 +214,7 @@ internal fun StreetFighterViewModel.emitSpecialVoice(id: SfFighterId, now: Long)
     val phrase = specialPhrases[id] ?: return
     // 🆕 (2026-07-21g) Usaba phraseEs FIJO: la traducción `phrase_en` del catálogo no se
     // mostraba nunca, ni con el juego en inglés. Mismo criterio que emitVoiceLines.
-    setVoiceSubtitle(phrase.textForLang(java.util.Locale.getDefault().language), now)
+    setVoiceSubtitle(phrase.textForLang(environment.languageTag), now)
 }
 
 /** Reproduce otra vez la voz completa del peleador visible en el showcase. */

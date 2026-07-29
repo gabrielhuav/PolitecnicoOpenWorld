@@ -1,14 +1,9 @@
 package ovh.gabrielhuav.pow.features.streetfighter.viewmodel
 
-import android.content.Context
-import android.os.SystemClock
-import android.util.Log
 // 🍏 `PowViewModel` (`:shared`) en vez de `androidx.lifecycle.ViewModel`. En Android **ES** un
 // ViewModel de androidx por dentro (`expect/actual`), así que Hilt, el ciclo de vida y el
 // `NavBackStackEntry` no se enteran del cambio; en iOS es una clase normal con su propio scope.
 import ovh.gabrielhuav.pow.presentation.PowViewModel
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -59,31 +54,23 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfInput
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfProjectileEvent
 import ovh.gabrielhuav.pow.domain.models.streetfighter.bonusPowerIndex
 import ovh.gabrielhuav.pow.domain.models.streetfighter.sfBonusPowerState
-import ovh.gabrielhuav.pow.BuildConfig
-import ovh.gabrielhuav.pow.data.auth.AuthManager
-import ovh.gabrielhuav.pow.data.repository.SettingsRepository
-import ovh.gabrielhuav.pow.data.repository.SfArcadeRepository
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStageCatalog
 import ovh.gabrielhuav.pow.features.streetfighter.data.SF_CLASSIC_THEME
-import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtClient
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfFrameCatalog
-import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanClient
-import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanDiscovery
-import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanGame
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfMatchClient
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetFireball
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetMsg
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetTransport
-import ovh.gabrielhuav.pow.features.streetfighter.data.SfWebRtcClient
-import ovh.gabrielhuav.pow.features.streetfighter.data.isSfLowEnd
-import java.util.concurrent.ConcurrentLinkedQueue
-import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.random.Random
+import kotlin.time.TimeSource
 
 internal const val AUDIO_SHOWCASE_GAP_MS = 500L
 internal const val AUDIO_SHOWCASE_FALLBACK_MS = 5000L
 internal val SHOWCASE_SPEEDS = listOf(1f, 2f, 4f)
+private val sfClockStart = TimeSource.Monotonic.markNow()
+internal fun sfElapsedRealtime(): Long = sfClockStart.elapsedNow().inWholeMilliseconds
+internal fun sfLog(message: String) = Unit
 
 // ViewModel del modo STREET FIGHTER: port fiel de Fighter.js/BattleScene.js/Fireball.js.
 // - requestAnimationFrame → coroutine a ~60 fps con dt medido y RELOJ DE JUEGO VIRTUAL
@@ -94,12 +81,12 @@ internal val SHOWCASE_SPEEDS = listOf(1f, 2f, 4f)
 // Estado inmutable: la simulación del tick trabaja en un holder mutable local (Sim) y
 // publica UNA vez con _state.update (convención 09). Scope: NavBackStackEntry.
 
-@HiltViewModel
-class StreetFighterViewModel @Inject constructor(
-    @ApplicationContext internal val appContext: Context,
+open class StreetFighterViewModel(
     // 🆕 (2026-07-21) Recompensa de ARCADE en DIFÍCIL: el coleccionable del rival vencido.
-    internal val collectibleRepo: ovh.gabrielhuav.pow.data.repository.CollectibleRepository,
+    val environment: StreetFighterEnvironment = DefaultStreetFighterEnvironment,
 ) : PowViewModel() {
+
+    val appContext: Any? get() = environment.platformContext
 
     internal val _state = MutableStateFlow(StreetFighterState())
     val state: StateFlow<StreetFighterState> = _state.asStateFlow()
@@ -111,7 +98,7 @@ class StreetFighterViewModel @Inject constructor(
     internal var audioShowcaseJob: Job? = null
 
     internal val specialPhrases by lazy {
-        ovh.gabrielhuav.pow.features.streetfighter.data.SfSpecialPhrases.load(appContext)
+        ovh.gabrielhuav.pow.features.streetfighter.data.SfSpecialPhrases.load()
     }
 
     // ── 🆕 (2026-07-18o/p/q) PACK DE VOCES por EVENTO con FRASE (subtítulo) por peleadór ──
@@ -312,10 +299,10 @@ class StreetFighterViewModel @Inject constructor(
     )
 
     /** Emite un clip de voz `special_<name>.m4a` si el asset existe. true = se emitió. */
-    internal val voiceSubtitlesEnabled = SettingsRepository(appContext).getShowVoiceSubtitles()
+    internal val voiceSubtitlesEnabled = environment.showVoiceSubtitles
 
     internal val voicePhrases by lazy {
-        ovh.gabrielhuav.pow.features.streetfighter.data.SfVoicePhrases.load(appContext)
+        ovh.gabrielhuav.pow.features.streetfighter.data.SfVoicePhrases.load()
     }
 
     /** Emite una LÍNEA del evento (al azar) + su subtítulo si tiene frase (catálogo > inline). */
@@ -328,10 +315,10 @@ class StreetFighterViewModel @Inject constructor(
 
     /** Voz de DAÑO (pack HURT, variante al azar) con cooldown por índice.
      * Si la vida baja del 25% (<= 50 de 200) y tiene audio de lowHp de una sola vez, lo prioriza. */
-    internal val arcadeRepo = SfArcadeRepository(appContext)
+    internal val arcadeRepo = environment.arcade
 
     // 🆕 Gama baja: tick más lento (~30 fps) y menos trabajo por segundo (ver SfDeviceTier).
-    private val lowEndDevice: Boolean = appContext.isSfLowEnd()
+    private val lowEndDevice: Boolean = environment.lowEndDevice
     private val tickMs: Long = if (lowEndDevice) 33L else 16L
     private val gauntletAuditSteps = 6
 
@@ -342,7 +329,7 @@ class StreetFighterViewModel @Inject constructor(
     fun hasArcadeSession(): Boolean = arcadeRepo.hasSession()
 
     /** 🆕 Modo Desarrollador (Ajustes): si está ON, TODO desbloqueado (personajes y mapas). */
-    fun devUnlockAll(): Boolean = SettingsRepository(appContext).getDeveloperMode()
+    fun devUnlockAll(): Boolean = environment.developerMode
 
     /** 🆕 (2026-07-19) Si el personaje fue realmente desbloqueado por progresión (inicial o ganado). */
     fun isFighterActuallyUnlocked(id: SfFighterId): Boolean =
@@ -351,16 +338,16 @@ class StreetFighterViewModel @Inject constructor(
         revealLockedArt() || arcadeRepo.unlockedFighters().contains(id.name)
 
     /** 🆕 Ajustes → "Mostrar hitboxes": dibuja las cajas push/hurt/hit sobre los peleadores. */
-    fun showHitboxes(): Boolean = SettingsRepository(appContext).getShowHitboxes()
+    fun showHitboxes(): Boolean = environment.showHitboxes
 
     /** 🆕 (2026-07-25) Ajustes → "Mostrar FPS (pelea)": contador de cuadros por segundo en el HUD. */
-    fun showSfFps(): Boolean = SettingsRepository(appContext).getShowSfFps()
+    fun showSfFps(): Boolean = environment.showSfFps
 
     /**
      * 🆕 REVELAR el arte de los bloqueados (a color, sin pixelar) — siempre que el Modo Desarrollador esté activo.
      */
     fun revealLockedArt(): Boolean =
-        SettingsRepository(appContext).getDeveloperMode()
+        environment.developerMode
 
     /** Ids desbloqueados (arcade) como SfFighterId (ignora nombres inválidos). */
     private fun unlockedIds(): Set<SfFighterId> =
@@ -610,14 +597,14 @@ class StreetFighterViewModel @Inject constructor(
     // 🆕 (2026-07-26) P2P: cuando la sala ONLINE ya tiene a los 2, se intenta subir la pelea a
     // una conexión DIRECTA teléfono-a-teléfono (Render pasa a ser solo cupido). Si no se logra,
     // `transport` sigue mandando todo por el relay: el decorador cae solo. Ver SfWebRtcClient.
-    internal var webRtc: SfWebRtcClient? = null
+    var webRtc: Any? = null
     // El cliente de relay crudo: hace de canal de SEÑALIZACIÓN y de respaldo del P2P.
     internal var relayClient: SfMatchClient? = null
-    internal var btScanner: SfBtClient? = null   // discovery del selector "BUSCAR RIVAL"
+    var btScanner: Any? = null   // discovery del selector "BUSCAR RIVAL"
     // 🆕 (2026-07-26) Autodescubrimiento LAN por UDP: baliza del host + escucha del invitado.
-    internal var lanDiscovery: SfLanDiscovery? = null
-    @Volatile internal var remoteSnapshot: SfNetMsg? = null
-    internal val netDamageQueue = ConcurrentLinkedQueue<SfNetMsg>()
+    var lanDiscovery: Any? = null
+    var remoteSnapshot: SfNetMsg? = null
+    val netDamageQueue = ArrayDeque<SfNetMsg>()
     // 🆕 (2026-07-26) AUDIO SINCRONIZADO EN RED. Antes los dos jugadores VEÍAN lo mismo pero no
     // OÍAN lo mismo: `applyRemoteSnapshot` asigna el estado del rival DIRECTO, sin pasar por
     // `changeState`, que es donde se emite todo el audio. Ahora:
@@ -778,17 +765,17 @@ class StreetFighterViewModel @Inject constructor(
         awaitingPeerReady = true
         localReadySent = false
         peerReady = false
-        val nowReal = SystemClock.elapsedRealtime()
+        val nowReal = sfElapsedRealtime()
         readyArmedRealMs = nowReal
         readyBarrierUntilMs = nowReal + READY_TIMEOUT_MS
-        Log.d(SF_NET_TAG, "barrera armada (esperando PLAYER_READY del rival)")
+        sfLog("barrera armada (esperando PLAYER_READY del rival)")
     }
 
     private fun sendLocalReady() {
         if (localReadySent) return
         localReadySent = true
         transport?.sendReady()
-        Log.d(SF_NET_TAG, "PLAYER_READY enviado")
+        sfLog("PLAYER_READY enviado")
         maybeStartAfterReady()
     }
 
@@ -804,16 +791,16 @@ class StreetFighterViewModel @Inject constructor(
         if (_state.value.waitingForOpponentReady) {
             _state.value = _state.value.copy(waitingForOpponentReady = false)
         }
-        Log.d(SF_NET_TAG, "barrera liberada: arranca la ronda")
+        sfLog("barrera liberada: arranca la ronda")
     }
 
     private fun startGameLoop() {
         if (loopJob?.isActive == true) return
-        lastRealMs = SystemClock.elapsedRealtime()
+        lastRealMs = sfElapsedRealtime()
         loopJob = scope.launch {
             while (isActive) {
                 delay(tickMs) // 16 ms (~60) o 33 ms (~30) en gama baja
-                val real = SystemClock.elapsedRealtime()
+                val real = sfElapsedRealtime()
                 val dtMs = (real - lastRealMs).coerceAtMost(100L)
                 lastRealMs = real
                 val s = _state.value
@@ -857,7 +844,7 @@ class StreetFighterViewModel @Inject constructor(
 
     /** Holder mutable de la simulación de UN tick; se publica al final. */
     // ⚠️ `internal`: los parciales del VM (extensiones en el mismo paquete) reciben el `Sim`.
-    internal class Sim(
+    class Sim(
         var p0: SfFighter,
         var p1: SfFighter,
         val fireballs: MutableList<SfFireball>,
@@ -906,8 +893,8 @@ class StreetFighterViewModel @Inject constructor(
         if (!sim.battleEnded && !showcaseMode && now >= roundIntroUntilMs) updateTimer(sim, now)
 
         if (online) {
-            applyRemoteSnapshot(sim, now, dt) // posición/estado/hp del rival (red, interpolado)
-            processNetDamage(sim, now)        // daño que el rival ME mandó (yo soy la autoridad de mi HP)
+            platformApplyRemoteSnapshot(sim, now, dt)
+            platformProcessNetDamage(sim, now)
         }
 
         // Durante el banner la pelea sigue bloqueada, pero el Idle completo avanza: los
@@ -961,17 +948,17 @@ class StreetFighterViewModel @Inject constructor(
         watchStalemate(sim, now) // 🆕 diagnóstico de estancamiento (sin daño) + empujón a la IA
         updateFireballs(sim, now, dt)
         // 🆕 FIREBALL-VS-FIREBALL offline: ambos dueños viven en sim.fireballs
-        if (!online) collideFireballPairs(sim, now)
+        if (!online) collideFireballPairsCommon(sim, now)
         updateSplashes(sim, now)
         updateCamera(sim)
         updateKoFlash(sim, now)
 
         if (online) {
-            appendRemoteFireballs(sim, now) // render de los proyectiles del rival (extrapolados)
+            platformAppendRemoteFireballs(sim, now)
             // 🆕 FIREBALL-VS-FIREBALL online: los MÍOS contra los del rival (simétrico: él hace
             // lo mismo con los suyos). ANTES de sendNetState para avisar el COLLIDED sin demora.
-            collideFireballPairs(sim, now)
-            sendNetState(sim, now)
+            collideFireballPairsCommon(sim, now)
+            platformSendNetState(sim, now)
         }
 
         // 🆕 ROLL-UP del HUD: el HP mostrado drena gradual hacia el real (subir = instantáneo,
@@ -1365,7 +1352,7 @@ class StreetFighterViewModel @Inject constructor(
                         "sin daño >${reportAfterMs / 1000}s; " +
                         "P1 x=${sim.p0.x.toInt()} ${sim.p0.direction}/${sim.p0.state} hp=$hp0; " +
                         "P2 x=${sim.p1.x.toInt()} ${sim.p1.direction}/${sim.p1.state} hp=$hp1"
-                android.util.Log.w("SF-DIAG", issue)
+                sfLog(issue)
                 if (gauntletActive) logAssetIssue(issue)
                 lastStalemateLogMs = now
             }
@@ -1383,7 +1370,7 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     internal fun logAssetIssue(msg: String) {
-        if (assetIssues.add(msg)) android.util.Log.w("SF-DIAG", msg)
+        if (assetIssues.add(msg)) sfLog(msg)
     }
 
     /** Reporte de problemas detectados en la sesión (assets rotos / atascos / estancamientos). */
@@ -1531,7 +1518,7 @@ class StreetFighterViewModel @Inject constructor(
         // lado, la cara vieja invertía las direcciones y girar era "muy complicado" (había que
         // soltar todo y quedar quieto). Ahora se voltea solo, como ya hacía la CPU.
         repairFacing(sim, 0, now)
-        val idle = SystemClock.elapsedRealtime() - joyLastMs > JOYSTICK_IDLE_MS
+        val idle = sfElapsedRealtime() - joyLastMs > JOYSTICK_IDLE_MS
         val left = joyLeft && !idle
         val right = joyRight && !idle
         val up = joyUp && !idle
@@ -1612,10 +1599,10 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     // ── 🆕 (2026-07-21) Intenciones del moveset nuevo que emite la View (botones) ──
-    @Volatile private var pendingParry = false
-    @Volatile private var pendingGrab = false
-    @Volatile private var pendingTaunt = false
-    @Volatile private var pendingSuperArt = false
+    private var pendingParry = false
+    private var pendingGrab = false
+    private var pendingTaunt = false
+    private var pendingSuperArt = false
 
     /** Botón PARRY: desvía el golpe si se aprieta a tiempo (alto de pie, bajo agachado). */
     fun onParryPressed() { pendingParry = true }
@@ -1682,8 +1669,8 @@ class StreetFighterViewModel @Inject constructor(
     // La IA encola los pasos de una ruta y los ejecuta EN ORDEN; el tutorial usa la misma
     // traducción acción→input para validar lo que hace el jugador.
 
-    internal val comboCatalog by lazy { SfCombos.universal(appContext) }
-    internal fun signatureCombo(id: SfFighterId) = SfCombos.signature(appContext, id)
+    internal val comboCatalog by lazy { SfCombos.universal() }
+    internal fun signatureCombo(id: SfFighterId) = SfCombos.signature(id)
 
     /** Cola de acciones pendientes por índice (la IA ejecuta una por decisión). */
     internal val cpuComboQueue = Array(2) { ArrayDeque<SfComboAction>() }
@@ -1715,14 +1702,14 @@ class StreetFighterViewModel @Inject constructor(
         joyLeft = cosA < -0.38
         joyUp = sinA > 0.5
         joyDown = sinA < -0.5
-        joyLastMs = SystemClock.elapsedRealtime()
+        joyLastMs = sfElapsedRealtime()
     }
 
     /** 🆕 (2026-07-22) Al SOLTAR el joystick: limpia direcciones YA (sin esperar el timer idle),
      *  para que agacharse/caminar se corten al instante (antes se sentía "pegado"). */
     fun onJoystickRelease() {
         joyLeft = false; joyRight = false; joyUp = false; joyDown = false
-        joyLastMs = SystemClock.elapsedRealtime()
+        joyLastMs = sfElapsedRealtime()
     }
 
     /** Encola un ataque (usado por los botones del diamante Xbox). */
@@ -1739,7 +1726,7 @@ class StreetFighterViewModel @Inject constructor(
     fun onKickPressed() {
         val s = _state.value
         if (s.battleEnded || s.isPaused || s.showExitDialog) return
-        val idle = SystemClock.elapsedRealtime() - joyLastMs > JOYSTICK_IDLE_MS
+        val idle = sfElapsedRealtime() - joyLastMs > JOYSTICK_IDLE_MS
         val dir = s.player.direction
         val forward = !idle && ((joyRight && dir == SfDirection.RIGHT) || (joyLeft && dir == SfDirection.LEFT))
         val backward = !idle && ((joyLeft && dir == SfDirection.RIGHT) || (joyRight && dir == SfDirection.LEFT))
@@ -1786,12 +1773,12 @@ class StreetFighterViewModel @Inject constructor(
     }
 
     fun dismissExitDialog() {
-        lastRealMs = SystemClock.elapsedRealtime()
+        lastRealMs = sfElapsedRealtime()
         _state.value = _state.value.copy(showExitDialog = false)
     }
 
     fun togglePause() {
-        lastRealMs = SystemClock.elapsedRealtime()
+        lastRealMs = sfElapsedRealtime()
         _state.value = _state.value.copy(isPaused = !_state.value.isPaused)
     }
 
@@ -1858,7 +1845,7 @@ class StreetFighterViewModel @Inject constructor(
     /** Vuelve al selector de personaje (desde el menú de fin de pelea). */
     fun backToCharacterSelect() {
         if (isOnline) {
-            cancelOnline()
+            platformCancelOnline()
             return
         }
         resetInternals()
@@ -1901,7 +1888,7 @@ class StreetFighterViewModel @Inject constructor(
     )
     internal fun resetInternals() {
         gameNow = 0L
-        lastRealMs = SystemClock.elapsedRealtime()
+        lastRealMs = sfElapsedRealtime()
         lastHpSeen.fill(-1)
         lastDamageMs = 0L
         lastStalemateLogMs = -100000L
@@ -2062,7 +2049,7 @@ class StreetFighterViewModel @Inject constructor(
             roundResetAtMs = now + ROUND_RESET_DELAY_MS
             if (isOnline && !roundEndSent) {
                 roundEndSent = true
-                transport?.sendRoundEnded(sideOf(winnerIdx), outcome.name)
+                transport?.sendRoundEnded(networkSideOf(winnerIdx), outcome.name)
             }
         }
     }
@@ -2089,7 +2076,7 @@ class StreetFighterViewModel @Inject constructor(
     internal fun roundEndedFromNet(winnerSide: String?, outcomeName: String?) {
         val s = _state.value
         if (s.battleEnded || s.onlineStatus != SfOnlineStatus.FIGHTING) return
-        val winnerIdx = idxOf(winnerSide)
+        val winnerIdx = networkIndexOf(winnerSide)
         val now = gameNow
         roundEndSent = true // ya lo publicó el otro lado; no re-enviar
         // 🆕 (2026-07-25) Grado que viajó desde el lado que simuló el KO (PERFECT/COMBO/SUPER/TIME).
@@ -2237,14 +2224,14 @@ class StreetFighterViewModel @Inject constructor(
     private fun sendOnlineEnd(winnerIdx: Int) {
         if (onlineEndSent) return
         onlineEndSent = true
-        transport?.sendMatchEnded(sideOf(winnerIdx))
+        transport?.sendMatchEnded(networkSideOf(winnerIdx))
     }
 
     /** MATCH_ENDED recibido: reconcilia el final del COMBATE (por si mi sim no lo detectaba). */
     internal fun endFromNet(winnerSide: String?) {
         val s = _state.value
         if (s.battleEnded && s.showEndMenu) return
-        val winnerIdx = idxOf(winnerSide)
+        val winnerIdx = networkIndexOf(winnerSide)
         onlineEndSent = true
         matchOver = true
         endMenuAtMs = 0L      // que el tick no re-oculte el menú
@@ -2262,17 +2249,71 @@ class StreetFighterViewModel @Inject constructor(
         val s = _state.value
         if ((s.btMode || s.lanMode) && !s.battleEnded && s.onlineStatus != SfOnlineStatus.OPPONENT_LEFT) {
             // BT/LAN sin pelea terminada: reintento (overlay), no selector offline
-            onLocalLinkFailed(reason)
+            platformOnLocalLinkFailed(reason)
             return
         }
-        cancelOnline(reason?.let { "Conexión perdida: $it" } ?: "Conexión perdida con el servidor")
+        platformCancelOnline(reason?.let { "Conexión perdida: $it" } ?: "Conexión perdida con el servidor")
     }
+
+    private fun collideFireballPairsCommon(sim: Sim, now: Long) {
+        if (sim.fireballs.size < 2) return
+        for (i in sim.fireballs.indices) {
+            val a = sim.fireballs[i]
+            if (a.state != SfFireballState.ACTIVE) continue
+            for (j in i + 1 until sim.fireballs.size) {
+                val b = sim.fireballs[j]
+                if (b.state != SfFireballState.ACTIVE || b.ownerIndex == a.ownerIndex) continue
+                val boxA = fireballBox.toWorld(a.x, a.y, a.direction)
+                val boxB = fireballBox.toWorld(b.x, b.y, b.direction)
+                if (!boxA.overlaps(boxB)) continue
+                sim.fireballs[i] = a.copy(
+                    velocity = a.velocity * 0.33f,
+                    state = SfFireballState.COLLIDED,
+                    animationFrame = 0,
+                    animationTimerMs = now +
+                        (fireballCollidedDelays[0] * SfConstants.FRAME_TIME_MS).toLong(),
+                )
+                sim.fireballs[j] = b.copy(
+                    velocity = b.velocity * 0.33f,
+                    state = SfFireballState.COLLIDED,
+                    animationFrame = 0,
+                    animationTimerMs = now +
+                        (fireballCollidedDelays[0] * SfConstants.FRAME_TIME_MS).toLong(),
+                )
+                _soundEvents.tryEmit("light-punch-hit")
+                return
+            }
+        }
+    }
+
+    private fun networkSideOf(winnerIdx: Int): String {
+        val iAmP1 = _state.value.isHost
+        return if (winnerIdx == 0) {
+            if (iAmP1) "p1" else "p2"
+        } else {
+            if (iAmP1) "p2" else "p1"
+        }
+    }
+
+    private fun networkIndexOf(side: String?): Int = when (side) {
+        "p1" -> if (_state.value.isHost) 0 else 1
+        "p2" -> if (_state.value.isHost) 1 else 0
+        else -> 0
+    }
+
+    protected open fun platformApplyRemoteSnapshot(sim: Sim, now: Long, dt: Float) = Unit
+    protected open fun platformProcessNetDamage(sim: Sim, now: Long) = Unit
+    protected open fun platformAppendRemoteFireballs(sim: Sim, now: Long) = Unit
+    protected open fun platformSendNetState(sim: Sim, now: Long) = Unit
+    protected open fun platformCancelOnline(errorMsg: String? = null) = Unit
+    protected open fun platformOnLocalLinkFailed(reason: String?) = Unit
+    protected open fun platformStopBtScan() = Unit
 
     // ⚠️ `alLimpiar()`, NO `onCleared()`: en `PowViewModel` el `onCleared` de androidx es FINAL y
     // delega aquí, para que este teardown se ejecute igual en Android y en iOS. Cancelar el scope
     // lo hace la clase base; aquí solo va lo que es de esta pantalla.
     override fun alLimpiar() {
         transport?.close()
-        stopBtScanInternal()
+        platformStopBtScan()
     }
 }

@@ -4,7 +4,6 @@ import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfArcadeLadder
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCpuDifficulty
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
-import ovh.gabrielhuav.pow.data.repository.SfArcadeRepository
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStageCatalog
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -24,7 +23,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStageCatalog
 internal fun StreetFighterViewModel.persistArcadeSession(s: StreetFighterState = _state.value) {
     if (!s.arcadeActive || arcadeLadder.isEmpty()) return
     arcadeRepo.saveSession(
-        SfArcadeRepository.ArcadeSession(
+        SfArcadeSession(
             playerId = arcadePlayer.name,
             step = s.arcadeStep,
             total = s.arcadeTotal,
@@ -50,7 +49,7 @@ internal fun StreetFighterViewModel.persistArcadeCheckpoint(nextStep: Int) {
     val idx = nextStep.coerceIn(1, arcadeLadder.size)
     val stepData = arcadeLadder[idx - 1]
     arcadeRepo.saveSession(
-        SfArcadeRepository.ArcadeSession(
+        SfArcadeSession(
             playerId = arcadePlayer.name,
             step = idx,
             total = arcadeLadder.size,
@@ -220,7 +219,7 @@ internal fun StreetFighterViewModel.handleArcadeMatchEnd(winnerIdx: Int) {
                 arcadeRepo.unlockFighter(step.rival.name)
                 step.mapFile?.let { arcadeRepo.unlockMap(it) }
                 scope.launch {
-                    runCatching { collectibleRepo.unlockFighterCollectible(step.rival.name) }
+                    runCatching { environment.unlockFighterCollectible(step.rival.name) }
                 }
             }
         }

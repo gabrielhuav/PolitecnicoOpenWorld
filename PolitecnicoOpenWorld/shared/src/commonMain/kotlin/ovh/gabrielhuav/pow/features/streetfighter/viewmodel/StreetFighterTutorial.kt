@@ -27,15 +27,15 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterState
  * muñeco: se usa el mismo peleador para no depender de otro set de assets.
  */
 fun StreetFighterViewModel.startTutorial(playerId: SfFighterId) {
-    val lang = java.util.Locale.getDefault().language
+    val lang = environment.languageTag
     // Currículum COMPLETO: primero los BÁSICOS (un movimiento por lección) y después
     // los combos. Se filtran los que este peleador no puede hacer (sin arte propia).
     // Se filtra por ARTE, no por recursos: el medidor de la súper se llena durante la
     // propia lección pegándole al muñeco (con `canPerform` estas lecciones se caían).
     val probe = _state.value.player.copy(id = playerId)
-    tutorialCombos = SfCombos.curriculum(appContext, playerId)
+    tutorialCombos = SfCombos.curriculum(playerId)
         .filter { combo -> combo.steps.all { hasArtFor(probe, it) } }
-        .ifEmpty { SfCombos.basics(appContext) }
+        .ifEmpty { SfCombos.basics() }
     resetInternals()
     val base = StreetFighterState()
     _state.value = base.copy(
@@ -148,7 +148,7 @@ internal fun StreetFighterViewModel.tickTutorial(sim: StreetFighterViewModel.Sim
         _state.update {
             it.copy(tutorialStepIndex = nextStep, tutorialFlash = "COMPLETO", tutorialError = "")
         }
-        loadTutorialLesson(s.tutorialLesson + 1, java.util.Locale.getDefault().language)
+        loadTutorialLesson(s.tutorialLesson + 1, environment.languageTag)
         tutorialLessonReadyMs = now + StreetFighterViewModel.TUTORIAL_LESSON_COUNTDOWN_MS // 🆕 pausa 3-2-1 antes de la nueva
     }
 }
@@ -183,14 +183,14 @@ fun StreetFighterViewModel.tutorialSkipLesson() {
     if (!_state.value.tutorialActive) return
     loadTutorialLesson(
         _state.value.tutorialLesson + 1,
-        java.util.Locale.getDefault().language,
+        environment.languageTag,
     )
 }
 
 /** Repetir la lección en curso desde el primer paso. */
 fun StreetFighterViewModel.tutorialRestartLesson() {
     if (!_state.value.tutorialActive) return
-    loadTutorialLesson(_state.value.tutorialLesson, java.util.Locale.getDefault().language)
+    loadTutorialLesson(_state.value.tutorialLesson, environment.languageTag)
 }
 
 /** Salir del tutorial al menú de modos. */
@@ -202,8 +202,8 @@ fun StreetFighterViewModel.exitTutorial() {
 
 /** Combos que se listan en la HOJA (para la View; ya resueltos al idioma). */
 fun StreetFighterViewModel.comboSheet(id: SfFighterId): List<Triple<String, String, List<String>>> {
-    val lang = java.util.Locale.getDefault().language
-    return SfCombos.forFighter(appContext, id).map { combo ->
+    val lang = environment.languageTag
+    return SfCombos.forFighter(id).map { combo ->
         Triple(combo.name(lang), combo.hint(lang), combo.steps.map(::actionLabel))
     }
 }
