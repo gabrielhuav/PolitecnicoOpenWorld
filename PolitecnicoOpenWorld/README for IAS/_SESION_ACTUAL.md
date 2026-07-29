@@ -12,13 +12,11 @@
 > falta**) · actualiza PENDIENTE · comprueba las 200 líneas. Si te quedas sin tokens a media
 > tarea, **actualiza ESTE archivo ANTES de parar**.
 
-**Última actualización:** 2026-07-28 · Codex/Sol 5.6 (Windows) · rama `fase0-auditoria-kmp` · *purgar §3bis el 07-30*
+**Última actualización:** 2026-07-28 · Codex 5.6 (Windows) · rama `fase0-auditoria-kmp` · *purgar §3bis el 07-30*
 
-> ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP: Fases 0-4 completas; **la 5 casi**: las **7
-> pantallas de SF están en `commonMain`** y las 4 revisables **SE VEN en el simulador**, con assets
-> y audio (§3duodecies). **218 tests, 0 fallos, en Android y en iOS.**
-> 🔴 **La pelea NO está portada:** falta un `StreetFighterController` de iOS y bajar el ViewModel
-> (6 433 líneas). Siguiente prompt para Windows: eso, que NO exige Mac.
+> ➡️ **AHORA:** 1.0.0.14 en revisión en Play. KMP Fase 5 implementada: UI y motor offline de SF
+> están en `commonMain`; iOS ya tiene controlador real y entrada **PELEA REAL**. **218 tests, 0
+> fallos** y Kotlin/Native verde en Windows. 🔴 Falta verificar esa pelea en el simulador Mac.
 
 ## 🖥️ Rutas por PC
 
@@ -141,14 +139,14 @@ Overlay de carga con la fuente arcade. **AUDIO: `.m4a` y `.mp3` cargan y reporta
 - 🆕 `SfEscaparate` es ahora un índice navegable: se le añade cada pantalla portada y sirve de
   detector de assets, audio y recursos.
 
-### 🔴 LA PELEA NO ESTÁ PORTADA — bloqueador medido
-`StreetFighterScreenCommon` compila pero **no se puede mostrar**: pide un `StreetFighterController`
-y solo existe `AndroidStreetFighterController`. Un controlador falso probaría el layout, **no la
-pelea**. Lo que falta bajar es el ViewModel: **6 433 líneas** en 9 ficheros, con muy poca atadura
-real a Android — `Context`/`appContext` (30+26 usos), `SystemClock` (11), `android.util.Log` (4),
-`@Inject`/`@HiltViewModel` (3). **BT y WebRTC están AISLADOS en `StreetFighterNet.kt`**, que no se
-porta (iOS no lleva multijugador). Es trabajo grande pero mecánico, y **no exige Mac**: se
-type-checkea desde Windows.
+### ✅ Motor offline en `commonMain` · 🔴 falta verlo en Mac
+`StreetFighterViewModel` y sus 7 parciales offline están en `commonMain`; combos/frases usan
+`PowAssets` y el loop usa `TimeSource.Monotonic`. `StreetFighterNet` + BT/LAN/WebRTC permanecen
+Android-only en `shared/androidMain`; Hilt y los repos Android se adaptan desde `:app`.
+`SfArcadeRepository` quedó intacto: **MEDIDO en Nexus** que reconoció el save previo, reanudó la
+pelea, guardó al minimizar y volvió a `PAUSED / Continue`, sin `AndroidRuntime`.
+`OfflineStreetFighterController` alimenta la entrada 5 de `SfEscaparate`; iOS persiste arcade en
+`NSUserDefaults`. **MEDIDO Windows:** 114 + 104 = 218 tests, iOS Native compile y nombres KMP verdes.
 
 ## 4. PENDIENTE — por prioridad
 
@@ -157,11 +155,9 @@ type-checkea desde Windows.
    `SF-NET`). BT y LAN son lo que hay que validar sí o sí.
 2. **Redeploy de `MultiplayerSF/` en Render** para activar el P2P (no bloquea el release).
    Con 2 teléfonos en redes distintas, buscar en logcat `SF-RTC`: `DataChannel → OPEN`.
-3. **🍏 FASE 5 — bajar el ViewModel de combate a `commonMain` (6 433 líneas).** Es lo único que
-   separa a iOS de una pelea real (§3duodecies). Delegado a Sol en Windows, **no exige Mac**:
-   **`PROMPT_SOL_viewmodel_combate.md`** (lleva el desglose de cada atadura y a dónde va).
-   Después, en el Mac: `StreetFighterController` de iOS + pelea de verdad. Pendiente aparte:
-   `MainMenuScreen` a `commonMain` — es lo que hace que el menú de iOS se parezca al de Android.
+3. **🍏 Verificar la pelea real en el simulador Mac:** entrada 5 de `SfEscaparate`, ronda completa,
+   audio, fondo/retorno y save arcade en `NSUserDefaults`. Prompt:
+   **`PROMPT_MAC_verificar_pelea_iOS.md`**. Pendiente aparte: `MainMenuScreen` a `commonMain`.
 
 ### 🟠 P1 · AUDIO (activo) — ver `SF/PROMPT_traspaso_audio_subtitulos.md`
 **29 clips demasiado largos** y **5 fuera de −16 ±2 LUFS** → **Gemini 3.6** (con los segundos del
