@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
 import ovh.gabrielhuav.pow.features.streetfighter.data.SF_CLASSIC_THEME
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.IosStreetFighterEnvironment
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterViewModel
 import ovh.gabrielhuav.pow.platform.audio.PowAudio
 import platform.UIKit.UIViewController
 
@@ -75,9 +77,17 @@ fun crearEscaparate(): UIViewController = ComposeUIViewController {
                 // De `SfSceneRenderer`: usa la fuente arcade del HUD, así que también prueba assets.
                 SfLoadingOverlay(theme = SF_CLASSIC_THEME)
             }
+            Pantalla.PELEA -> StreetFighterScreenCommon(
+                onExitToMap = { pantalla = Pantalla.INDICE },
+                controller = remember {
+                    OfflineStreetFighterController(
+                        StreetFighterViewModel(IosStreetFighterEnvironment()),
+                    )
+                },
+            )
         }
 
-        if (pantalla != Pantalla.INDICE) {
+        if (pantalla != Pantalla.INDICE && pantalla != Pantalla.PELEA) {
             Text(
                 "‹ VOLVER",
                 color = Color(0xFF8AE28A),
@@ -90,7 +100,7 @@ fun crearEscaparate(): UIViewController = ComposeUIViewController {
     }
 }
 
-private enum class Pantalla { INDICE, TUTORIAL, ESCENARIOS, MENU, CARGANDO }
+private enum class Pantalla { INDICE, TUTORIAL, ESCENARIOS, MENU, CARGANDO, PELEA }
 
 @Composable
 private fun Indice(ir: (Pantalla) -> Unit) {
@@ -113,11 +123,7 @@ private fun Indice(ir: (Pantalla) -> Unit) {
         Enlace("2 · Selector de escenario") { ir(Pantalla.ESCENARIOS) }
         Enlace("3 · Menú de modos") { ir(Pantalla.MENU) }
         Enlace("4 · Overlay de carga (SfSceneRenderer)") { ir(Pantalla.CARGANDO) }
-        Text(
-            "5 · StreetFighterScreenCommon: NO se muestra. Necesita un StreetFighterController " +
-                "de iOS, que todavía no existe. Un controlador falso solo probaría el layout.",
-            color = Color(0xFFAA8888),
-        )
+        Enlace("5 · PELEA REAL (motor commonMain)") { ir(Pantalla.PELEA) }
     }
 }
 
