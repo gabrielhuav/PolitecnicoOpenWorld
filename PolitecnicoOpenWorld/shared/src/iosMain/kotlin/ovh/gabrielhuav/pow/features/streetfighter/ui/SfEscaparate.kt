@@ -82,7 +82,7 @@ private fun PruebaDeAudio() {
     // Se prueban los DOS formatos que hay en el juego. Comparar es lo que demuestra que la ruta
     // del bundle está bien y que lo que falla es el CÓDEC, no dónde están los ficheros.
     for (ruta in listOf(
-        "STREETFIGHTER/SOUNDS/light-attack.ogg",
+        "STREETFIGHTER/SOUNDS/light-attack.m4a",
         "STREETFIGHTER/SOUNDS/prankedy_lobby.mp3",
     )) {
         Text(

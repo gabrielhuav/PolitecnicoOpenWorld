@@ -11,7 +11,7 @@ import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * 🆕 (2026-07-20) Catálogo de FRASES por CLIP de voz (subtítulo de cada `special_*.ogg`).
+ * 🆕 (2026-07-20) Catálogo de FRASES por CLIP de voz (subtítulo de cada `special_*.m4a`).
  *
  * Fuente: `assets/STREETFIGHTER/DATA/voice_phrases.json`, generado/actualizado por
  * `tools/build_voice_phrases_catalog.py` (conserva lo curado por el dueño; los `draft`
@@ -37,7 +37,7 @@ object SfVoicePhrases {
         cache.set(null)
     }
 
-    /** Mapa clip (nombre base del .ogg) → frase curada. Clips sin `es` no aparecen. */
+    /** Mapa clip (nombre base del .m4a) → frase curada. Clips sin `es` no aparecen. */
     fun load(context: Context): Map<String, SfVoicePhrase> {
         cache.get()?.let { return it }
         val loaded = runCatching {

@@ -161,7 +161,7 @@ internal fun StreetFighterViewModel.applyAttackHit(
     // 🆕 (2026-07-18j) SHOWCASE: los golpes/proyectiles espejados NO restan vida ni cambian
     // el estado (el guion controla las poses; antes los 10 poderes de La Presidenta sumaban
     // 200 de daño → KO y el combate se cortaba a media pasarela). Solo suenan y hacen splash
-    // (de paso es el QA de los .ogg de impacto).
+    // (de paso es el QA de los .m4a de impacto).
     if (showcaseMode) {
         _soundEvents.tryEmit("${strength.name.lowercase()}-${type.name.lowercase()}-hit")
         sim.setFighter(attackerIdx, attacker.copy(attackStruck = true))

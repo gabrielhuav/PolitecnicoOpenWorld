@@ -27,7 +27,7 @@ import kotlin.random.Random
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * SFX del especial/bonus por peleador: `special_<sf_fighter_id_lower>.ogg`
+ * SFX del especial/bonus por peleador: `special_<sf_fighter_id_lower>.m4a`
  * (pipeline tools/scrape_sf_voices.py + pack_sf_character_sfx.py).
  * La View hace fallback a `hadouken` si falta el asset.
  */
@@ -36,7 +36,7 @@ internal fun StreetFighterViewModel.specialSfxKey(id: SfFighterId): String = "sp
 /** Frases special (ES/EN + HUD) de los 21 peleadores. Lazy desde assets. */
 
 internal fun StreetFighterViewModel.emitVoiceClip(name: String): Boolean {
-    if (!sfAssetExists("STREETFIGHTER/SOUNDS/$name.ogg")) return false
+    if (!sfAssetExists("STREETFIGHTER/SOUNDS/$name.m4a")) return false
     _soundEvents.tryEmit(name)
     // 🆕 (2026-07-26) Si es la voz de MI peleador en una pelea en red, se encola para que
     // el rival reproduzca EL MISMO clip (ver pendingNetAudio).
@@ -223,7 +223,7 @@ fun StreetFighterViewModel.replayCurrentShowcaseAudio() {
     emitSpecialVoice(_state.value.player.id, gameNow)
 }
 
-/** Recorre las 21 voces completas respetando la duración real de cada OGG. */
+/** Recorre las 21 voces completas respetando la duración real de cada M4A. */
 fun StreetFighterViewModel.startAudioShowcase() {
     if (audioShowcaseJob?.isActive == true) return
     val fighters = SfArcadeLadder.ALL_PARTICIPANTS.filter { it in specialPhrases }
@@ -268,7 +268,7 @@ fun StreetFighterViewModel.stopAudioShowcase() {
 internal fun StreetFighterViewModel.specialAudioDurationMs(id: SfFighterId): Long {
     val fallbackMs = specialPhrases[id]?.subtitleMs ?: AUDIO_SHOWCASE_FALLBACK_MS
     // 🍏 Fase 5: la lectura de duración pasa por `PowAudio`, que en iOS usa `AVAudioPlayer.duration`.
-    return PowAudio.duracionMs("STREETFIGHTER/SOUNDS/${specialSfxKey(id)}.ogg") ?: fallbackMs
+    return PowAudio.duracionMs("STREETFIGHTER/SOUNDS/${specialSfxKey(id)}.m4a") ?: fallbackMs
 }
 
 // 🆕 Progreso del ARCADE (guardado LOCAL). Define qué peleadores/mapas están desbloqueados.

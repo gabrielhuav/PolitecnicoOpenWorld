@@ -81,7 +81,7 @@ object SfSpecialPhrases {
             if (es.isBlank()) continue
             val en = o.optString("phrase_en", es).ifBlank { es }
             val hud = o.optString("phrase_hud", "").ifBlank { es }
-            val audio = o.optString("audio", "special_${id.name.lowercase(Locale.ROOT)}.ogg")
+            val audio = o.optString("audio", "special_${id.name.lowercase(Locale.ROOT)}.m4a")
             val ms = o.optLong("subtitle_ms", 2800L).coerceIn(800L, 9000L)
             val tier = o.optString("tier", "generic")
             out[id] = SfSpecialPhrase(
@@ -89,7 +89,7 @@ object SfSpecialPhrases {
                 phraseEs = es,
                 phraseEn = en,
                 phraseHud = hud,
-                audioKey = audio.removeSuffix(".ogg"),
+                audioKey = audio.removeSuffix(".m4a").removeSuffix(".ogg").removeSuffix(".mp3"),
                 subtitleMs = ms,
                 tier = tier,
             )

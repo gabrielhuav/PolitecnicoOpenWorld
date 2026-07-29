@@ -81,8 +81,6 @@ import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.random.Random
 
-internal const val SF_STOP_SPECIALS_EVENT = "__sf_stop_specials__"
-
 internal const val AUDIO_SHOWCASE_GAP_MS = 500L
 internal const val AUDIO_SHOWCASE_FALLBACK_MS = 5000L
 internal val SHOWCASE_SPEEDS = listOf(1f, 2f, 4f)
@@ -106,7 +104,7 @@ class StreetFighterViewModel @Inject constructor(
     internal val _state = MutableStateFlow(StreetFighterState())
     val state: StateFlow<StreetFighterState> = _state.asStateFlow()
 
-    /** Claves de sonido (nombre base del .ogg en STREETFIGHTER/SOUNDS). */
+    /** Claves de sonido (nombre base del .m4a en STREETFIGHTER/SOUNDS). */
     internal val _soundEvents = MutableSharedFlow<String>(extraBufferCapacity = 32)
     val soundEvents: SharedFlow<String> = _soundEvents.asSharedFlow()
 
@@ -298,7 +296,7 @@ class StreetFighterViewModel @Inject constructor(
     // 🆕 (2026-07-18u) GRITO DE ATAQUE POR DEFECTO (masculino): sonido normal (no especial) que
     // suena AL AZAR cuando un peleadór HOMBRE golpea y NO tiene voz de ataque propia. El ENEMIGO
     // (índice 1) lo emite más seguido; el jugador (índice 0) muy rara vez (para no saturar tu voz).
-    // Archivo: special_male_attack_grunt.ogg (del "ZA ZA", seg 8-10).
+    // Archivo: special_male_attack_grunt.m4a (del "ZA ZA", seg 8-10).
     internal val maleGruntClip = "special_male_attack_grunt"
     internal val sfMaleFighters = setOf(
         SfFighterId.PRANKEDY, SfFighterId.SENOR_TIENDA, SfFighterId.PAPARAZZI_1, SfFighterId.PAPARAZZI_5,
@@ -307,13 +305,13 @@ class StreetFighterViewModel @Inject constructor(
         SfFighterId.PARAMEDICO_CRUZ_ROJA, SfFighterId.PARAMEDICO,
     )
 
-    // 🆕 (2026-07-18s) Peleadores SIN voz a propósito (special_<id>.ogg borrado por el dueño):
+    // 🆕 (2026-07-18s) Peleadores SIN voz a propósito (special_<id>.m4a borrado por el dueño):
     // su poder especial suena con el hadouken genérico. La auditoría NO los marca como faltantes.
     internal val sfVoicelessFighters = setOf(
         SfFighterId.LAZARO, SfFighterId.PARAMEDICO, SfFighterId.PRANKEDY,
     )
 
-    /** Emite un clip de voz `special_<name>.ogg` si el asset existe. true = se emitió. */
+    /** Emite un clip de voz `special_<name>.m4a` si el asset existe. true = se emitió. */
     internal val voiceSubtitlesEnabled = SettingsRepository(appContext).getShowVoiceSubtitles()
 
     internal val voicePhrases by lazy {
@@ -1217,7 +1215,7 @@ class StreetFighterViewModel @Inject constructor(
         if (newState == SfFighterState.JUMP_START || newState == SfFighterState.JUMP_LAND) {
             airAttackUsed[idx.coerceIn(0, 1)] = false
         }
-        // 🆕 (2026-07-18k) VICTORY con la VOZ del peleadór (reutiliza su special_<id>.ogg):
+        // 🆕 (2026-07-18k) VICTORY con la VOZ del peleadór (reutiliza su special_<id>.m4a):
         // la celebración de fin de ronda estaba muda; el dueño pidió reutilizar audios
         // correctos antes que dejar animaciones sin sonido.
         if (newState == SfFighterState.VICTORY && f.state != SfFighterState.VICTORY) {

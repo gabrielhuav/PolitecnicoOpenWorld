@@ -42,7 +42,7 @@ data class SfTheme(
     val soundsDir: String,
     /** Nombres de archivo de imagen que la View decodifica al entrar. */
     val imageFiles: List<String>,
-    /** Claves de sonido (nombre base .ogg) que emite el VM. */
+    /** Claves de sonido (nombre base .m4a) que emite el VM. */
     val soundKeys: List<String>,
     /** Música por defecto / respaldo (se usa si [lobbyMusic]/[battleMusic] están vacías). */
     val musicFile: String,
@@ -109,9 +109,9 @@ val SF_CLASSIC_THEME = SfTheme(
     // 🆕 kenstage.png ELIMINADO (copyright). hud.png (SF original) REEMPLAZADO por sf_hud_pow.png
     // (fuente + barra + KO + timer POW, generado con GPT). Ver GUIA / build_hud.
     imageFiles = listOf("shadow.png", "sf_decals_pow.png", "sf_hud_pow.png"),
-    // "hadouken" = fallback genérico si falta special_<fighter>.ogg (voces scrapeadas X/local).
-    // 🆕 (2026-07-26) El .ogg fue REFACTORIZADO a un sonido PROPIO de POW (conserva el nombre
-    // `hadouken.ogg` pero ya NO es el audio con copyright); se CONSERVA. Los specials por personaje
+    // "hadouken" = fallback genérico si falta special_<fighter>.m4a (voces scrapeadas X/local).
+    // 🆕 (2026-07-26) El audio fue REFACTORIZADO a un sonido PROPIO de POW (conserva el nombre
+    // `hadouken.m4a` pero ya NO es el audio con copyright); se CONSERVA. Los specials por personaje
     // se cargan dinámicamente en StreetFighterScreen.
     soundKeys = listOf(
         "light-attack", "medium-attack", "heavy-attack",

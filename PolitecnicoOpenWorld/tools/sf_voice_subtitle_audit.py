@@ -205,7 +205,7 @@ def main() -> None:
     clips = json.load(open(VOICE_JSON, encoding="utf-8"))["clips"]
     specials = json.load(open(SPECIAL_JSON, encoding="utf-8"))["fighters"]
 
-    on_disk = sorted(f[:-4] for f in os.listdir(SOUNDS) if f.endswith(".ogg"))
+    on_disk = sorted(f[:-4] for f in os.listdir(SOUNDS) if f.endswith(".m4a"))
     disk_set = set(on_disk)
 
     # Un clip puede sonar por TRES rutas distintas; solo la primera lleva subtitulo por clip.
@@ -229,7 +229,7 @@ def main() -> None:
     rows, findings = [], []
 
     for name in on_disk:
-        path = os.path.join(SOUNDS, name + ".ogg")
+        path = os.path.join(SOUNDS, name + ".m4a")
         dur = _duration(path)
         sig = _decode(path)
         lufs = _loudness(path)
@@ -295,19 +295,19 @@ def main() -> None:
 
     for name in mapping:
         if name not in disk_set:
-            findings.append("MAPEADO EN KOTLIN PERO NO EXISTE EL .ogg: %s" % name)
+            findings.append("MAPEADO EN KOTLIN PERO NO EXISTE EL .m4a: %s" % name)
     for name in clips:
         if name not in disk_set:
-            findings.append("EN voice_phrases.json PERO NO EXISTE EL .ogg: %s" % name)
+            findings.append("EN voice_phrases.json PERO NO EXISTE EL .m4a: %s" % name)
 
     # subtitle_ms de special_phrases.json contra la duracion medida
     for fid, meta in specials.items():
         audio = meta.get("audio", "")
-        base = audio[:-4] if audio.endswith(".ogg") else audio
+        base = audio[:-4] if audio.endswith((".m4a", ".ogg")) else audio
         if base not in disk_set:
             findings.append("special_phrases[%s].audio no existe: %s" % (fid, audio))
             continue
-        real_ms = _duration(os.path.join(SOUNDS, base + ".ogg")) * 1000
+        real_ms = _duration(os.path.join(SOUNDS, base + ".m4a")) * 1000
         declared = meta.get("subtitle_ms", 0)
         if abs(declared - real_ms) > 1500:
             findings.append(
@@ -324,7 +324,7 @@ def main() -> None:
     write_markdown(args.md, rows, findings)
 
     voces = [r for r in rows if r["tipo"] in ("VOZ", "SPECIAL", "VOZ_GENERICA")]
-    print("clips .ogg totales      : %d" % len(rows))
+    print("clips .m4a totales      : %d" % len(rows))
     for k in ("VOZ", "SPECIAL", "VOZ_GENERICA", "SFX_GLOBAL", "HUERFANO"):
         n = sum(1 for r in rows if r["tipo"] == k)
         if n:

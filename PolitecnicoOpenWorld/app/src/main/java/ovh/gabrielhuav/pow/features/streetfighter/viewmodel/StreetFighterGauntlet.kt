@@ -106,7 +106,7 @@ fun StreetFighterViewModel.startGauntletRoundRobin() {
  * agacharse, giros, los 6 golpes, especial L/M/F, poderes y 🆕 2026-07-18j: también los
  * HURT_*, KO, VICTORY y la metamorfosis de La Presidenta) reproduciendo sus sonidos, para
  * verlos/oírlos y detectar los rotos. Además corre una AUDITORÍA ESTÁTICA por peleadór
- * (animaciones faltantes/vacías, frames rotos, .ogg del special y SFX del tema).
+ * (animaciones faltantes/vacías, frames rotos, .m4a del special y SFX del tema).
  * Recorre TODOS los peleadores. (No es pelea real.)
  */
 fun StreetFighterViewModel.startShowcase() {
@@ -179,7 +179,7 @@ internal fun StreetFighterViewModel.startNextGauntletFight() {
         showcaseForcedState = null
         // Cap POR PASOS: el guion completo (con extras/metamorfosis) supera los 60 s fijos
         gauntletFightCapCurMs = (showcaseTotalSteps(next.player) + 3L) * showcaseStepMs + 4000L
-        // 🆕 Auditoría estática del peleadór (anims + frames + special_<id>.ogg)
+        // 🆕 Auditoría estática del peleadór (anims + frames + special_<id>.m4a)
         auditFighterAssets(next.player)
     } else {
         gauntletFightCapCurMs = gauntletFightCapMs
@@ -423,7 +423,7 @@ internal fun StreetFighterViewModel.forceShowcaseState(sim: StreetFighterViewMod
     nf = withAnimationFrame(nf, 0, now)
     sim.setFighter(idx, nf)
     // 🆕 (2026-07-18k) AUDIO del guion: los estados forzados NO pasan por applyAttackHit/
-    // changeState, así que su sonido se emite aquí reutilizando los .ogg correctos del tema
+    // changeState, así que su sonido se emite aquí reutilizando los .m4a correctos del tema
     // (pedido del dueño: mejor repetir un audio correcto que dejar la animación muda).
     // Solo idx 0: el guion es espejo y emitir dos veces duplicaba el volumen.
     // 🆕 (2026-07-18o/p) Voz de DAÑO del pack en el showcase (bypass del cooldown, es demo).
@@ -451,7 +451,7 @@ internal fun StreetFighterViewModel.forceShowcaseState(sim: StreetFighterViewMod
  * 🆕 AUDITORÍA ESTÁTICA por peleadór (2026-07-18j): recorre TODAS las claves de animación
  * esperadas (SfFighterState.jsKey, poderes solo hasta su bonusPowerCount) y reporta las que
  * FALTEN o estén vacías, y las que referencien frames inexistentes; además verifica la voz
- * de su special (special_<id>.ogg). Corre al armar cada peleadór del showcase.
+ * de su special (special_<id>.m4a). Corre al armar cada peleadór del showcase.
  */
 internal fun StreetFighterViewModel.auditFighterAssets(id: SfFighterId) {
     val data = runCatching { SfFrameCatalog.load(id) }.getOrElse {
@@ -482,27 +482,27 @@ internal fun StreetFighterViewModel.auditFighterAssets(id: SfFighterId) {
             )
         }
     }
-    // 🆕 (2026-07-18o/p/q) Voz del peleadór: si tiene PACK, verifica cada LÍNEA (archivo .ogg)
-    // de todos sus eventos; si no, su special_<id>.ogg.
+    // 🆕 (2026-07-18o/p/q) Voz del peleadór: si tiene PACK, verifica cada LÍNEA (archivo .m4a)
+    // de todos sus eventos; si no, su special_<id>.m4a.
     val pack = sfVoicePacks[id]
     if (pack != null) {
         (pack.intro + pack.attack + pack.hurt + pack.power + pack.win).forEach { line ->
-            if (!sfAssetExists("STREETFIGHTER/SOUNDS/${line.file}.ogg")) {
-                logAssetIssue("FALTA VOZ ${line.file}.ogg (${id.name})")
+            if (!sfAssetExists("STREETFIGHTER/SOUNDS/${line.file}.m4a")) {
+                logAssetIssue("FALTA VOZ ${line.file}.m4a (${id.name})")
             }
         }
     } else if (id !in sfVoicelessFighters &&
-        !sfAssetExists("STREETFIGHTER/SOUNDS/${specialSfxKey(id)}.ogg")
+        !sfAssetExists("STREETFIGHTER/SOUNDS/${specialSfxKey(id)}.m4a")
     ) {
-        logAssetIssue("FALTA SONIDO ${specialSfxKey(id)}.ogg (${id.name})")
+        logAssetIssue("FALTA SONIDO ${specialSfxKey(id)}.m4a (${id.name})")
     }
 }
 
-/** 🆕 Verifica los .ogg COMPARTIDOS del tema (golpes/impactos/land/hadouken) + música. */
+/** 🆕 Verifica los .m4a COMPARTIDOS del tema (golpes/impactos/land/hadouken) + música. */
 internal fun StreetFighterViewModel.auditThemeSounds() {
     SF_CLASSIC_THEME.soundKeys.forEach { key ->
-        if (!sfAssetExists("${SF_CLASSIC_THEME.soundsDir}$key.ogg")) {
-            logAssetIssue("FALTA SFX DEL TEMA: $key.ogg")
+        if (!sfAssetExists("${SF_CLASSIC_THEME.soundsDir}$key.m4a")) {
+            logAssetIssue("FALTA SFX DEL TEMA: $key.m4a")
         }
     }
     if (!sfAssetExists(SF_CLASSIC_THEME.soundsDir + SF_CLASSIC_THEME.musicFile)) {
@@ -516,8 +516,8 @@ internal fun StreetFighterViewModel.auditThemeSounds() {
         }
     }
     // 🆕 (2026-07-18u) Grito de ataque masculino por defecto (pendiente: "ZA ZA" seg 8-10).
-    if (!sfAssetExists("STREETFIGHTER/SOUNDS/$maleGruntClip.ogg")) {
-        logAssetIssue("FALTA (opcional) $maleGruntClip.ogg — grito de ataque masculino por defecto")
+    if (!sfAssetExists("STREETFIGHTER/SOUNDS/$maleGruntClip.m4a")) {
+        logAssetIssue("FALTA (opcional) $maleGruntClip.m4a — grito de ataque masculino por defecto")
     }
 }
 
