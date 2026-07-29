@@ -55,6 +55,7 @@
 				B8F0263130183CE50056240D /* Sources */,
 				B8F0263230183CE50056240D /* Frameworks */,
 				B8F0263330183CE50056240D /* Resources */,
+				B8F0269930183CE50056240D /* Assets de SF al bundle */,
 			);
 			buildRules = (
 			);
@@ -103,6 +104,24 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		B8F0269930183CE50056240D /* Assets de SF al bundle */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Assets de SF al bundle";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${ACTION}\" = \"indexbuild\" ]; then exit 0; fi\nSRC=\"${SRCROOT}/../app/src/main/assets/STREETFIGHTER\"\nDST=\"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/assets/STREETFIGHTER\"\nif [ ! -d \"$SRC\" ]; then echo \"error: no existe $SRC\"; exit 1; fi\nmkdir -p \"$(dirname \"$DST\")\"\nrsync -a --delete \"$SRC/\" \"$DST/\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXResourcesBuildPhase section */
 		B8F0263330183CE50056240D /* Resources */ = {
@@ -253,6 +272,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -293,6 +313,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
