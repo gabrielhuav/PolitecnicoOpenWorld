@@ -83,9 +83,6 @@ data class SfNetMsg(
     val queue: Int? = null,          // jugadores esperando sala pública
 )
 
-@Serializable
-data class SfRoomSummary(val code: String = "", val players: Int = 0, val phase: String = "")
-
 // ⚠️ TODOS los campos con DEFAULT a proposito (Fase 3): kotlinx.serialization LANZA
 // EXCEPCION si el JSON no trae un campo sin default, mientras que Gson lo dejaba en
 // null/0. Como esto llega de la RED (o de assets), un emisor viejo o un mensaje

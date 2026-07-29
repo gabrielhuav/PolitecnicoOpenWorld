@@ -10,6 +10,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHitSplash
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtDevice
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanGame
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfRoomSummary
+import ovh.gabrielhuav.pow.features.streetfighter.ui.SfSceneState
 
 // Estado UI inmutable del modo STREET FIGHTER. UN solo data class observado por la
 // View con collectAsState() (contrato MVVM, README for IAS 01/09).
@@ -18,13 +19,13 @@ data class StreetFighterState(
     // Peleadores (0 = jugador con PRANKEDY, 1 = CPU con REY GRUPERO). ⚠️ El default de la CPU
     // era KEN: sus assets ahora viven SOLO en debug (copyright) y el default se DECODIFICA al
     // abrir el modo → en release crashearía. Defaults SIEMPRE de peleadores POW.
-    val player: SfFighter = SfFighter(
+    override val player: SfFighter = SfFighter(
         id = SfFighterId.PRANKEDY,
         playerIndex = 0,
         x = SfConstants.STAGE_MID_POINT + SfConstants.STAGE_PADDING - SfConstants.FIGHTER_START_DISTANCE,
         direction = SfDirection.RIGHT,
     ),
-    val cpu: SfFighter = SfFighter(
+    override val cpu: SfFighter = SfFighter(
         id = SfFighterId.REY_GRUPERO,
         playerIndex = 1,
         x = SfConstants.STAGE_MID_POINT + SfConstants.STAGE_PADDING + SfConstants.FIGHTER_START_DISTANCE,
@@ -32,27 +33,27 @@ data class StreetFighterState(
     ),
 
     // Entidades efímeras
-    val fireballs: List<SfFireball> = emptyList(),
-    val splashes: List<SfHitSplash> = emptyList(),
+    override val fireballs: List<SfFireball> = emptyList(),
+    override val splashes: List<SfHitSplash> = emptyList(),
 
     // Cámara (Camera.js): esquina superior izquierda del viewport en coords de mundo
-    val cameraX: Float = SfConstants.STAGE_PADDING + SfConstants.STAGE_MID_POINT - SfConstants.SCENE_WIDTH / 2f,
-    val cameraY: Float = 16f,
+    override val cameraX: Float = SfConstants.STAGE_PADDING + SfConstants.STAGE_MID_POINT - SfConstants.SCENE_WIDTH / 2f,
+    override val cameraY: Float = 16f,
 
     // Batalla (StatusBar/BattleScene)
-    val displayTime: Int = SfConstants.BATTLE_TIME,  // ya clampeado a >= 0
-    val timeFlashing: Boolean = false,               // últimos segundos parpadean
-    val playerScore: Int = 0,
-    val cpuScore: Int = 0,
-    val battleEnded: Boolean = false,                // fin de RONDA (congela); el combate sigue si nadie llegó a 2
-    val winnerIndex: Int? = null,
+    override val displayTime: Int = SfConstants.BATTLE_TIME,  // ya clampeado a >= 0
+    override val timeFlashing: Boolean = false,               // últimos segundos parpadean
+    override val playerScore: Int = 0,
+    override val cpuScore: Int = 0,
+    override val battleEnded: Boolean = false,                // fin de RONDA (congela); el combate sigue si nadie llegó a 2
+    override val winnerIndex: Int? = null,
     val showEndMenu: Boolean = false,                // Revancha / Volver al menú (solo con el COMBATE decidido)
-    val koFlash: Boolean = false,                    // parpadeo del icono KO en el HUD
+    override val koFlash: Boolean = false,                    // parpadeo del icono KO en el HUD
 
     // 🆕 ROLL-UP del HUD: HP MOSTRADO en las barras (drena GRADUAL hacia el hitPoints real;
     // subir — reset de ronda/revancha — es instantáneo). La View pinta las barras con ESTOS.
-    val displayHp0: Float = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat(),
-    val displayHp1: Float = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat(),
+    override val displayHp0: Float = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat(),
+    override val displayHp1: Float = SfConstants.HEALTH_MAX_HIT_POINTS.toFloat(),
 
     // ─── 🆕 TUTORIAL INTERACTIVO (2026-07-21) ───
     // Modo entrenamiento guiado: el rival es un MUÑECO inerte y la pantalla pide un
@@ -80,30 +81,30 @@ data class StreetFighterState(
     // ─── 🆕 COMBO estilo SF III 3rd Strike (2026-07-20) ───
     // Golpes CONECTADOS encadenados del combo en curso. El VM lo llena/expira (ventana
     // RAPID_HIT_WINDOW_MS); la View SOLO lo pinta ("N GOLPES") cuando comboCount >= 2.
-    val comboCount: Int = 0,
-    val comboPlayerId: Int = -1,   // índice del atacante del combo (0/1); -1 = sin combo
+    override val comboCount: Int = 0,
+    override val comboPlayerId: Int = -1,   // índice del atacante del combo (0/1); -1 = sin combo
 
     // ─── 🆕 RONDAS estilo SF (2026-07-16): mejor de 3 — gana quien tome 2 rondas ───
     // Cada ronda termina por KO o timeout (más vida gana; EMPATE exacto → azar; online el
     // azar es DETERMINISTA con semilla compartida para que ambos lados coincidan).
-    val playerRoundWins: Int = 0,
-    val cpuRoundWins: Int = 0,
+    override val playerRoundWins: Int = 0,
+    override val cpuRoundWins: Int = 0,
     val roundNumber: Int = 1,                        // 1..3
-    val showRoundIntro: Boolean = false,             // banner "RONDA N / PELEA" (input congelado)
-    val roundIntroCountdown: Int = 0,                // 🆕 (2026-07-22) 3→2→1 del banner (0 = "PELEA")
+    override val showRoundIntro: Boolean = false,             // banner "RONDA N / PELEA" (input congelado)
+    override val roundIntroCountdown: Int = 0,                // 🆕 (2026-07-22) 3→2→1 del banner (0 = "PELEA")
 
     // 🆕 (2026-07-25) GRADO de la RONDA anterior estilo SF III: se pinta bajo la barra del
     // GANADOR durante el intro de la ronda SIGUIENTE (PERFECT/COMBO/SUPER/TIME; NORMAL = sin
     // etiqueta). Lo llena resetRound con el resultado de la ronda que acaba de cerrar.
-    val roundResultLabel: String = "",               // texto arcade (A-Z 0-9); "" = no mostrar
-    val roundResultWinnerIdx: Int = -1,              // índice del ganador de esa ronda (0/1); -1 = ninguno
+    override val roundResultLabel: String = "",               // texto arcade (A-Z 0-9); "" = no mostrar
+    override val roundResultWinnerIdx: Int = -1,              // índice del ganador de esa ronda (0/1); -1 = ninguno
 
     // 🆕 (2026-07-25) NOTA del combate estilo SF III (E/D/C/B/A/S/MS) del JUGADOR; se muestra en el
     // menú de fin cuando gana. "" = sin nota (perdió, o modo sin humano: IA vs IA/showcase/tutorial).
     val matchGrade: String = "",
 
     // Reloj de juego virtual (ms); la View lo usa para animaciones del escenario
-    val gameTimeMs: Long = 0L,
+    override val gameTimeMs: Long = 0L,
 
     // Overlays / control
     val isPaused: Boolean = false,
@@ -152,9 +153,9 @@ data class StreetFighterState(
 
     // ─── 🆕 Subtítulo del special (frase ES/EN del catálogo; fuente arcade HUD) ───
     // Se muestra un momento al lanzar special/bonus; se limpia cuando specialSubtitleUntilMs <= gameTimeMs.
-    val specialSubtitleHud: String? = null,            // A-Z 0-9 para drawFontText
-    val specialSubtitleUntilMs: Long = 0L,             // gameTimeMs límite (0 = oculto)
-    val specialSubtitleStartMs: Long = 0L,             // 🆕 (2026-07-22) inicio: reparte los tramos '|' en [start,until]
+    override val specialSubtitleHud: String? = null,            // A-Z 0-9 para drawFontText
+    override val specialSubtitleUntilMs: Long = 0L,             // gameTimeMs límite (0 = oculto)
+    override val specialSubtitleStartMs: Long = 0L,             // 🆕 (2026-07-22) inicio: reparte los tramos '|' en [start,until]
 
     // ─── 🆕 MULTIJUGADOR 1v1 (servidor MultiplayerSF/ en Render, relay puro) ───
     val onlineStatus: SfOnlineStatus = SfOnlineStatus.OFF,
@@ -203,7 +204,7 @@ data class StreetFighterState(
     // 🆕 (2026-07-26) AUTODESCUBRIMIENTO: partidas LAN halladas por UDP broadcast en la misma red
     // (el invitado las toca para unirse sin teclear IP). Se llena al abrir la sección UNIRSE de LAN.
     val lanDiscovered: List<SfLanGame> = emptyList(),
-)
+) : SfSceneState
 
 /**
  * 🆕 (2026-07-25) GRADO de una ronda ganada estilo SF III (se muestra bajo la barra del ganador
@@ -215,14 +216,6 @@ enum class SfRoundOutcome(val label: String) {
     COMBO("COMBO"),    // el golpe de KO formó parte de un combo
     SUPER("SUPER"),    // el KO vino de un Super Art / Fatality
     TIME("TIME"),      // victoria por tiempo (más vida al agotarse el reloj)
-}
-
-/** Resultado de una pelea de arcade (dirige el overlay de fin del modo arcade). */
-enum class SfArcadeOutcome {
-    NONE,       // no aplica (fuera del arcade o pelea en curso)
-    WON,        // ganaste el escalón → CONTINUAR al siguiente rival
-    LOST,       // perdiste → REINTENTAR (retrocede 1 pelea)
-    COMPLETED,  // venciste al jefe final (Prankedy) → ¡campeón!
 }
 
 /** Fase del flujo online (OFF = jugando offline contra la CPU). */

@@ -1,8 +1,5 @@
 package ovh.gabrielhuav.pow.features.streetfighter.ui
 
-import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,19 +31,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ovh.gabrielhuav.pow.R
+import org.jetbrains.compose.resources.stringResource
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfBox
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BONUS_POWER_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfConstants
@@ -62,7 +55,10 @@ import ovh.gabrielhuav.pow.data.json.getInt
 import ovh.gabrielhuav.pow.data.json.powJsonObjeto
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFrameDef
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterState
+import ovh.gabrielhuav.pow.platform.assets.PowAssets
+import ovh.gabrielhuav.pow.platform.imagen.PowImagen
+import ovh.gabrielhuav.pow.platform.imagen.decodificarReducido
+import ovh.gabrielhuav.pow.shared.recursos.*
 
 // ────────────────────────────────────────────────────────────────────────────
 // 🎨 RENDER de la escena de pelea (Canvas): fondos, sprites, hitboxes y overlays
@@ -83,7 +79,7 @@ import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterState
  * 🆕 (2026-07-21) Arte PRESTADA para el placeholder ALPHA: hoja del estudiante del mismo
  * género que se usa cuando al peleador le falta la hoja de un movimiento nuevo.
  */
-internal class AlphaFallback(
+class AlphaFallback(
     val data: SfFighterData,
     val sheetKey: String,
     val bitmap: ImageBitmap?,
@@ -96,7 +92,7 @@ internal class AlphaFallback(
  * bajo el overlay CARGANDO: atlas por identidad (incluye ambas caras de una metamorfosis),
  * placeholder ALPHA y alturas de contenido opaco por identidad (vacío en gama baja).
  */
-internal class SfFightAssets(
+class SfFightAssets(
     val sheets: Map<String, ImageBitmap>,
     val alpha: AlphaFallback?,
     val contentH: Map<SfFighterId, Map<String, Int>>,
@@ -113,9 +109,9 @@ internal class SceneCtx(
     val camY: Float,
 )
 
-internal fun DrawScope.drawScene(
+fun DrawScope.drawScene(
     theme: SfTheme,
-    state: StreetFighterState,
+    state: SfSceneState,
     images: Map<String, ImageBitmap>,
     playerData: SfFighterData,
     cpuData: SfFighterData,
@@ -435,7 +431,7 @@ internal fun DrawScope.drawScene(
  * pintando un sub-rect distinto por frame (col = i % cols, row = i / cols). minSdk=24 → NO
  * usamos WebP animado (AnimatedImageDrawable es API 28+); el atlas funciona en todas.
  */
-internal sealed interface SfStageBackground {
+sealed interface SfStageBackground {
     data class Static(val image: ImageBitmap) : SfStageBackground
     data class Animated(
         val atlas: ImageBitmap,
@@ -494,28 +490,16 @@ internal fun framingForBg(file: String?): SfBgFraming =
  * RGB_565 (sin alpha). En [lowEnd] usa inSampleSize=2 (~¼ de RAM de textura) y deriva
  * frameW/H del atlas real (no del JSON a full-res).
  */
-internal fun loadStageBackground(
-    context: Context,
+fun loadStageBackground(
     imagesDir: String,
     file: String,
     lowEnd: Boolean = false,
 ): SfStageBackground? {
     return runCatching {
-        val opts = BitmapFactory.Options().apply {
-            inPreferredConfig = Bitmap.Config.RGB_565
-            // Gama baja: 1/4 de lado (~1/16 texels, 1920→480). Sigue jugable y mucho menos lag.
-            // Media: 1/2. Alta: full.
-            inSampleSize = when {
-                lowEnd -> 4
-                else -> 1
-            }
-        }
-        val bmp = context.assets.open(imagesDir + file).use { BitmapFactory.decodeStream(it, null, opts) }
-            ?: return null
+        val reduction = if (lowEnd) 4 else 1
+        val bmp = decodificarReducido(PowAssets.bytes(imagesDir + file), reduction)
         val jsonName = file.substringBeforeLast('.') + ".json"
-        val meta = runCatching {
-            context.assets.open(imagesDir + jsonName).use { it.readBytes().decodeToString() }
-        }.getOrNull()
+        val meta = runCatching { PowAssets.texto(imagesDir + jsonName) }.getOrNull()
         if (file.endsWith("_anim.webp") && meta != null) {
             val o = powJsonObjeto(meta)
             val cols = o.getInt("cols").coerceAtLeast(1)
@@ -526,7 +510,7 @@ internal fun loadStageBackground(
             // Gama baja: bajar fps de anim del fondo (menos “trabajo” visual; sigue vivo)
             val fps = o.getDouble("fps").toFloat().let { if (lowEnd) (it * 0.66f).coerceAtLeast(6f) else it }
             SfStageBackground.Animated(
-                atlas = bmp.asImageBitmap(),
+                atlas = bmp,
                 frameW = cellW,
                 frameH = cellH,
                 cols = cols,
@@ -535,7 +519,7 @@ internal fun loadStageBackground(
                 fps = fps,
             )
         } else {
-            SfStageBackground.Static(bmp.asImageBitmap())
+            SfStageBackground.Static(bmp)
         }
     }.getOrNull()
 }
@@ -546,7 +530,7 @@ internal fun loadStageBackground(
  * Autocontenido: se descarta con el composable al salir de la pelea.
  */
 @Composable
-internal fun SfFpsOverlay(modifier: Modifier = Modifier) {
+fun SfFpsOverlay(modifier: Modifier = Modifier) {
     var fps by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) {
         var frames = 0
@@ -579,44 +563,18 @@ internal fun SfFpsOverlay(modifier: Modifier = Modifier) {
 }
 
 /**
- * 🆕 (2026-07-25) Insignia de la NOTA del combate (E..MS) estilo SF III. Color por rango:
- * MS/S dorado, A/B verde, C plateado, D/E rojizo apagado.
- */
-@Composable
-internal fun SfGradeBadge(grade: String) {
-    val color = when (grade) {
-        "MS", "S" -> Color(0xFFFFD24A)
-        "A", "B" -> Color(0xFF7CFF7C)
-        "C" -> Color(0xFFD0D0D0)
-        else -> Color(0xFFE08A7A)
-    }
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = stringResource(R.string.sf_grade_label),
-            color = Color(0xFFD4AF37), fontSize = 12.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Bold,
-        )
-        Text(text = grade, color = color, fontSize = 46.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp)
-    }
-}
-
-/**
  * Overlay CARGANDO con la fuente arcade POW (sf_hud_pow.png).
  * Se muestra al decodificar atlas/hojas en gama baja (entrada a pelea puede tardar).
  */
 @Composable
-internal fun SfLoadingOverlay(
+fun SfLoadingOverlay(
     theme: SfTheme,
     arcadeText: String = "CARGANDO",   // glifos A-Z 0-9 (fuente del HUD)
-    fallbackText: String = stringResource(R.string.sf_loading),
-    subtitle: String = stringResource(R.string.sf_loading_sub),
+    fallbackText: String = stringResource(Res.string.sf_loading),
+    subtitle: String = stringResource(Res.string.sf_loading_sub),
 ) {
-    val context = LocalContext.current
     val hud = remember(theme) {
-        runCatching {
-            context.assets.open(theme.imagesDir + theme.hudImage).use {
-                BitmapFactory.decodeStream(it)
-            }?.asImageBitmap()
-        }.getOrNull()
+        runCatching { PowImagen.deAsset(theme.imagesDir + theme.hudImage) }.getOrNull()
     }
     Box(
         modifier = Modifier
@@ -808,14 +766,15 @@ internal fun SfFighterState.keepsNaturalHeight(): Boolean = when (this) {
  * Mide, por frameKey, la altura de píxeles opacos en el recorte src de la hoja.
  * Se calcula UNA vez al cargar el personaje (no por tick).
  */
-internal fun measureFrameContentHeights(
+fun measureFrameContentHeights(
     sheet: ImageBitmap,
     frames: Map<String, SfFrameDef>,
 ): Map<String, Int> {
-    val bmp = sheet.asAndroidBitmap()
     val out = HashMap<String, Int>(frames.size)
-    val wBmp = bmp.width
-    val hBmp = bmp.height
+    val wBmp = sheet.width
+    val hBmp = sheet.height
+    val pixels = IntArray(wBmp * hBmp)
+    sheet.readPixels(pixels, 0, 0, wBmp, hBmp)
     for ((key, fr) in frames) {
         if (key.startsWith("proj")) continue
         val src = fr.src
@@ -832,7 +791,7 @@ internal fun measureFrameContentHeights(
             var x = x0
             var rowHit = false
             while (x < x1) {
-                if ((bmp.getPixel(x, y) ushr 24) > 16) {
+                if ((pixels[y * wBmp + x] ushr 24) > 16) {
                     rowHit = true
                     break
                 }
@@ -1002,7 +961,7 @@ internal fun DrawScope.drawShadow(ctx: SceneCtx, theme: SfTheme, shadowImg: Imag
     )
 }
 
-internal fun DrawScope.drawHud(ctx: SceneCtx, theme: SfTheme, hud: ImageBitmap, state: StreetFighterState) {
+internal fun DrawScope.drawHud(ctx: SceneCtx, theme: SfTheme, hud: ImageBitmap, state: SfSceneState) {
     // Barras de vida (la derecha espejada)
     drawSprite(ctx, hud, theme.healthBar, 31f, 20f)
     drawHudMirrored(ctx, hud, theme.healthBar, 353f, 20f)

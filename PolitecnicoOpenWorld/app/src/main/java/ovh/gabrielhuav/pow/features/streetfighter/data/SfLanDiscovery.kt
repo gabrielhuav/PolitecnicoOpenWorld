@@ -23,9 +23,6 @@ import java.net.InetSocketAddress
 //
 // ⚠️ La I/O corre en hilos propios (nunca en Main) — misma lección que el NetworkOnMainThreadException.
 
-/** Una partida LAN descubierta (IP del anfitrión + nombre a mostrar). */
-data class SfLanGame(val ip: String, val name: String)
-
 class SfLanDiscovery(private val context: Context) {
 
 

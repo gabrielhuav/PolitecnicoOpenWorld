@@ -24,9 +24,6 @@ import java.util.UUID
 // Console): la conexión vive con la Activity y close() cierra los sockets al salir.
 // Los permisos runtime los pide la UI ANTES de llamar aquí (de ahí el @SuppressLint).
 
-/** Dispositivo visible/emparejado para el selector "BUSCAR RIVAL". */
-data class SfBtDevice(val name: String, val address: String)
-
 @SuppressLint("MissingPermission") // la UI pide CONNECT/SCAN/ADVERTISE antes de instanciar
 class SfBtClient(
     private val context: Context,
