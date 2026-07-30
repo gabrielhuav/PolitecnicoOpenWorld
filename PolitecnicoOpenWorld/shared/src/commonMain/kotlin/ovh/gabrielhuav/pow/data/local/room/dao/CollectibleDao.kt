@@ -34,4 +34,13 @@ interface CollectibleDao {
     // (un REPLACE ciego borraría el isCollected ya ganado).
     @Query("SELECT * FROM collectibles")
     suspend fun getAllCollectibles(): List<CollectibleEntity>
+
+    /**
+     * 🆕 (2026-07-29) Corrige la RUTA DEL ARTE de una fila ya existente, sin tocar nada más.
+     *
+     * ⚠️ Actualiza SOLO `assetPath` a propósito: `isCollected` es el progreso del jugador y un
+     * `@Insert(REPLACE)` lo borraría. Ver `CollectibleRepository.repararRutasDeArte`.
+     */
+    @Query("UPDATE collectibles SET assetPath = :assetPath WHERE id = :collectibleId")
+    suspend fun updateAssetPath(collectibleId: String, assetPath: String)
 }

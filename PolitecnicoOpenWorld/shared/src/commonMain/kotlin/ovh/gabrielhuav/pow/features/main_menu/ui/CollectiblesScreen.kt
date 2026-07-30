@@ -52,6 +52,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CollectibleClaimD
 import ovh.gabrielhuav.pow.features.streetfighter.ui.SfBitmapText
 import ovh.gabrielhuav.pow.platform.assets.PowAssets
 import ovh.gabrielhuav.pow.platform.imagen.PowImagen
+import ovh.gabrielhuav.pow.platform.imagen.rememberImagenDeAsset
 import ovh.gabrielhuav.pow.platform.imagen.decodificarReducido
 import ovh.gabrielhuav.pow.shared.recursos.Res
 import ovh.gabrielhuav.pow.shared.recursos.*
@@ -61,14 +62,20 @@ fun CollectiblesScreen(controller: CollectiblesController, onBack: () -> Unit) {
     val collectibles by controller.collectiblesList.collectAsState()
     var selected by remember { mutableStateOf<ActiveCollectible?>(null) }
     var showFighters by remember { mutableStateOf(false) }
-    val background = Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11)))
+    // `remember`: el degradado es inmutable, pero sin esto se reconstruye (Brush + List + 2 Color)
+    // en CADA recomposicion — y aqui recompone al cambiar de pestana y al girar el telefono.
+    val background = remember {
+        Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11)))
+    }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(background)) {
         val landscape = maxWidth > maxHeight
         val columns = if (landscape) 4 else 2
-        val fighters = collectibles.filter { it.id.startsWith(FIGHTER_PREFIX) }
-        val objects = collectibles.filterNot { it.id.startsWith(FIGHTER_PREFIX) }
-        val shown = if (showFighters) fighters else objects
+        // Las dos particiones se recalculaban enteras en cada recomposicion (2 recorridos + 2
+        // listas nuevas). Dependen SOLO de la lista, asi que se atan a ella.
+        val shown = remember(collectibles, showFighters) {
+            collectibles.filter { it.id.startsWith(FIGHTER_PREFIX) == showFighters }
+        }
 
         Column(
             Modifier.fillMaxSize().systemBarsPadding().padding(32.dp),
@@ -107,7 +114,10 @@ fun CollectiblesScreen(controller: CollectiblesController, onBack: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.weight(1f),
             ) {
-                items(shown) { item ->
+                // ⚠️ `key` NO es opcional aqui: sin el, al cambiar de pestana Compose reutiliza
+                // las ranuras POR POSICION, tira el estado de cada card y vuelve a montarlas.
+                // Con la clave, las cards que sobreviven al cambio se reaprovechan.
+                items(shown, key = { it.id }) { item ->
                     CollectibleCard(item) {
                         selected = ActiveCollectible(
                             id = item.id,
@@ -121,7 +131,7 @@ fun CollectiblesScreen(controller: CollectiblesController, onBack: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(16.dp))
-            val shape = CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp)
+            val shape = remember { CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp) }
             Button(
                 onClick = onBack,
                 shape = shape,
@@ -203,17 +213,20 @@ private fun FighterStoryDialog(collectible: ActiveCollectible, onDismiss: () -> 
 
 @Composable
 private fun FighterPortrait(assetPath: String) {
-    val portrait = remember(assetPath) {
-        runCatching {
-            val reduced = decodificarReducido(PowAssets.bytes(assetPath), reduccion = 4)
+    // El atlas de pelea llega a 2560x7680: decodificarlo entero seria ~78 MB. Con `reduccion = 4`
+    // baja a ~5 MB y la celda 0 (idle-1) sigue teniendo de sobra para 140 dp.
+    // Va por la cache, asi que abrir dos veces la ficha del mismo peleador NO vuelve a decodificar.
+    val atlas = rememberImagenDeAsset(assetPath, reduccion = 4)
+    val portrait = remember(atlas) {
+        atlas?.let {
             PowImagen.recortar(
-                reduced,
+                it,
                 x = 0,
                 y = 0,
-                ancho = minOf(64, reduced.width),
-                alto = minOf(64, reduced.height),
+                ancho = minOf(64, it.width),
+                alto = minOf(64, it.height),
             )
-        }.getOrNull()
+        }
     }
     if (portrait != null) {
         Image(portrait, contentDescription = null, modifier = Modifier.size(140.dp))
@@ -222,10 +235,16 @@ private fun FighterPortrait(assetPath: String) {
 
 @Composable
 fun CollectibleCard(item: CollectibleEntity, onClick: () -> Unit) {
-    val bitmap: ImageBitmap? = remember(item.isCollected, item.assetPath) {
-        if (item.isCollected) runCatching { PowImagen.deAsset(item.assetPath) }.getOrNull() else null
-    }
-    val shape = CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp)
+    // MEDIDO: los `SPRITES/COLLECTIBLES/*.webp` son de ~600x420 y aqui se pintan a **64 dp**. A
+    // tamano completo son ~1 MB cada uno en ARGB_8888 (6,7 MB los siete); con `reduccion = 2` son
+    // ~0,25 MB y siguen sobrando pixeles incluso a densidad 3x (296x211 contra 192 px).
+    //
+    // Antes esto decodificaba DENTRO de `remember`, o sea en el hilo de composicion, y se repetia
+    // cada vez que la card volvia a entrar en pantalla (LazyGrid destruye lo que sale). Ahora
+    // decodifica en segundo plano y queda cacheado.
+    val bitmap: ImageBitmap? =
+        if (item.isCollected) rememberImagenDeAsset(item.assetPath, reduccion = 2) else null
+    val shape = remember { CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp) }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,

@@ -90,6 +90,9 @@ class MainActivity : ComponentActivity() {
             ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceNpcSpriteManager.clearCaches()
             ovh.gabrielhuav.pow.features.map_exterior.ui.components.MapZombieSpriteManager.clearCaches()
             ovh.gabrielhuav.pow.features.interiores.zombies.ui.ZombieSpriteManager.clearCaches()
+            // 🖼️ Arte de menús (coleccionables, retratos) cacheado en `:shared`. Mismo criterio que
+            // los sprite managers: bajo presión de memoria se suelta y se vuelve a decodificar.
+            ovh.gabrielhuav.pow.platform.imagen.PowImagenCache.limpiar()
         }
     }
 
