@@ -95,7 +95,7 @@ pantallas nuevas y oír una pelea completa. La tarea opcional `MainMenuScreen` s
 2. ✅ ViewModel/audio multiplataforma.
 3. ✅ `SfBitmapText`, `SfComboSheetOverlay`, `SfTutorialOverlay`, `SfStageSelectOverlay`,
    `SfMenuOverlays`, `SfSceneRenderer` y `StreetFighterScreen` en `commonMain`.
-4. ✅ Android Nexus: pelea, ataques con pistas activas, pausa/reanudación; 218 tests y Native verde.
+4. ✅ Android Nexus: pelea, ataques con pistas activas, pausa/reanudación; 228 tests y Native verde.
 5. ⏳ Mac: enlace/inspección visual/audio iOS. Después, opcionalmente, `MainMenuScreen`.
 
 ---

@@ -106,7 +106,7 @@ Desde `<repo>/PolitecnicoOpenWorld`:
 .\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest
 ```
 
-Esperado hoy: **216 tests, 0 fallos** (112 `:app` + 104 `:shared`).
+Esperado hoy: **228 tests, 0 fallos** (114 `:app` + 114 `:shared`).
 
 Luego el type-check de iOS, que **también corre en Windows** (se descubrió el 07-28):
 

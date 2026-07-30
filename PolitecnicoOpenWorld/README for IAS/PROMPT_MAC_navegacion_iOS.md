@@ -16,7 +16,7 @@ Rama `fase0-auditoria-kmp`. Haz `git pull` antes de nada y lee completos:
 - `MainMenuScreen`, Ajustes y Coleccionables ya viven en `commonMain`.
 - Windows verificó Ajustes/Coleccionables en el AVD Nexus, incluidos Español/English,
   persistencia y `DEVELOPER_MODE` desbloqueando/bloqueando peleadores.
-- 218 tests (114 app + 104 shared), 0 fallos; Android e iOS compilan.
+- 228 tests (114 app + 114 shared), 0 fallos; Android e iOS compilan.
 
 ## No tocar
 
@@ -90,7 +90,7 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 bash tools/check_kmp_test_names.sh
 ```
 
-Esperado: 218 tests, 0 fallos. Abre Xcode solo después de generar el framework. Si una pantalla
+Esperado: 228 tests, 0 fallos. Abre Xcode solo después de generar el framework. Si una pantalla
 se cierra sin log, revisa primero `~/Library/Logs/DiagnosticReports/*.ips`.
 
 Al terminar actualiza `_SESION_ACTUAL.md` (máximo 200 líneas), haz `git pull` inmediatamente antes

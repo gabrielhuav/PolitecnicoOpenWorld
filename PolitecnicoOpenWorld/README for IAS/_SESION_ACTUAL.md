@@ -82,10 +82,21 @@ punta a punta en el emulador.**
   coleccionable **desbloqueado, con nombre y borde dorado, y círculo gris**. Sin error ni log.
   Reproducido con una BD real y arreglado conservando `isCollected`.
   ⚠️ **NO lo "simplifiques" a `@Insert(REPLACE)`**: eso borra el progreso del jugador. Hay 5 tests.
+- 🐢 **Selector de peleadores:** `rememberFighterPreview` armaba la vista previa dentro de
+  `remember` (18 peleadores contra una caché de 3 hojas → reconstrucción constante en el hilo de
+  UI). Ahora `SfPreviewCache` la construye en `Dispatchers.Default` y cachea (LRU 8). El código de
+  construcción se movió TAL CUAL: los cuadros y tiempos tienen que salir idénticos.
+  **Probado:** roster recorrido entero ida y vuelta, todas las previews cargan, 0 errores, 0 OOM.
+- 🧹 **`PowCaches.liberarTodo()` es el ÚNICO punto** para soltar memoria reciclable de `:shared`.
+  Si añades una caché, súmala ahí y no toques `MainActivity`. Razón en su KDoc.
+- 📘 **`11_SEPARACION_IOS_ANDROID.md`** (nuevo): dónde va cada cosa, escrito para Jr Devs.
+  Árbol de decisión, las 10 costuras, qué se queda en `:app` y por qué, y las 5 trampas caras.
 - 🐢 `CollectibleCard` decodificaba en el hilo de composición y LazyGrid lo repetía al hacer scroll.
   MEDIDO: ~600×420 pintados a **64 dp** → ~1 MB cada uno, **6,7 MB los siete**. Ahora
   `PowImagenCache` (LRU acotada, como `nativeDrawableCache`) + `rememberImagenDeAsset`
   (`Dispatchers.Default`), con `reduccion = 2` → ~1,7 MB. Colgada de `onTrimMemory`.
+- 🔴 **Deuda anotada:** la UI compartida de SF tiene ~12 literales en español sin pasar por
+  `composeResources` (el diálogo "Continuar pelea" sale en español con la app en inglés).
 - ⚠️ **Gotcha nuevo:** en Kotlin los comentarios de bloque **se anidan**, así que una ruta con
   comodín dentro de un KDoc abre un comentario que nunca cierra (`Unclosed comment`).
 
@@ -98,15 +109,6 @@ punta a punta en el emulador.**
    `MapaTab` y el tab de escaparate.
 2. Probar multijugador en dos dispositivos: ambos deben oír lo mismo (`SF-NET`).
 3. Redeploy `MultiplayerSF/` en Render; con redes distintas buscar `SF-RTC: DataChannel → OPEN`.
-
-### 🟠 P1 · 🐢 gama baja: el selector de peleadores arma sprites en el hilo de UI
-
-`rememberFighterPreview` (`SfCharacterCard.kt`) llama a `SfSharedSheets.sheetFor` **dentro de
-`remember`**, o sea durante la composición — y su propio KDoc dice "llamar fuera del hilo de dibujo
-si se puede". Se usa en la rejilla del selector (`SfMenuOverlays.kt:470`): con 18 peleadores y una
-caché de **3** entradas, recorrer el roster reconstruye hojas una y otra vez en el hilo de UI.
-**Es anterior al PR 40d532b5.** La receta ya existe: `rememberImagenDeAsset` + `PowImagenCache`
-(rama `perf-gama-baja-coleccionables`). Verificar en el emulador, no solo compilar.
 
 ### 🟠 P1 · audio
 

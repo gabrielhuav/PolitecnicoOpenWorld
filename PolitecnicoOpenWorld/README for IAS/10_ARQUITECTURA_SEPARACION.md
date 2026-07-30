@@ -205,7 +205,7 @@ El `WorldMapViewModel` ya estaba partido en parciales (`WorldMapCombat.kt`, `Wor
 ./gradlew :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest
 ```
 
-**Debe salir: `BUILD SUCCESSFUL` y 178 tests (112 en `:app` + 66 en `:shared`), 0 fallos.**
+**Debe salir: `BUILD SUCCESSFUL` y 228 tests (114 en `:app` + 114 en `:shared`), 0 fallos.**
 En Windows es `.\gradlew.bat`. ⚠️ La tarea de `:shared` se llama **`testAndroidHostTest`**, no
 `testDebugUnitTest`.
 
