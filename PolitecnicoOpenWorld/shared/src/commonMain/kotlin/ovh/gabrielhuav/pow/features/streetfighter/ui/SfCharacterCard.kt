@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -32,7 +33,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfConstants
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterState
@@ -40,15 +43,6 @@ import ovh.gabrielhuav.pow.features.streetfighter.data.SfFrameCatalog
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfSharedSheets
 import ovh.gabrielhuav.pow.platform.imagen.PowImagen
 
-private const val PREVIEW_SAMPLE_SIZE = 4
-private const val PREVIEW_SLOWDOWN = 1.8f
-private const val PREVIEW_MIN_MS = 95L
-private const val PREVIEW_SHARED_MS = 170L
-
-private data class FighterPreviewAnimation(
-    val frames: List<ImageBitmap>,
-    val delaysMs: List<Long>,
-)
 
 private fun pixelateBitmap(src: ImageBitmap, targetW: Int): ImageBitmap {
     val width = targetW.coerceAtLeast(1)
@@ -138,60 +132,28 @@ internal fun CharacterCard(
  * Preview del selector. Las hojas dedicadas se cargan reducidas 4× mediante la misma abstracción
  * multiplataforma del combate y todos los recortes ajustan sus coordenadas al mismo factor.
  */
+/**
+ * Vista previa del peleador, **sin construirla en el hilo de UI**.
+ *
+ * ⚠️ Antes todo el armado (cargar assets, decodificar el atlas, recortar cada celda a su bbox
+ * opaco) vivía dentro de un `remember { }`, o sea DURANTE LA COMPOSICIÓN. En la rejilla del roster
+ * eso son 18 peleadores contra una caché de 3 hojas: se reconstruía sin parar, y en gama baja se
+ * notaba al abrir el selector y al hacer scroll. Ahora lo hace [SfPreviewCache] en segundo plano.
+ *
+ * Si la vista previa YA está en memoria se devuelve en la misma composición, sin pasar por `null`:
+ * así al volver a subir en la lista la card no parpadea.
+ */
 @Composable
 private fun rememberFighterPreview(id: SfFighterId, animate: Boolean): ImageBitmap? {
-    val animation = remember(id, animate) {
-        runCatching {
-            val shared = id.sharedSet
-            if (shared != null) {
-                val raw = SfSharedSheets.previewFramesFor(shared)
-                val frames = if (animate) {
-                    raw.map { PowImagen.recortarAOpaco(it) }
-                } else {
-                    listOfNotNull(raw.firstOrNull()?.let { PowImagen.recortarAOpaco(it) })
-                }
-                FighterPreviewAnimation(frames, List(frames.size) { PREVIEW_SHARED_MS })
-            } else {
-                val data = SfFrameCatalog.load(id)
-                val sheet = SfSharedSheets.sheetFor(id, sampleSize = PREVIEW_SAMPLE_SIZE)
-
-                fun decodeState(
-                    stateKey: String,
-                    maxFrames: Int = Int.MAX_VALUE,
-                ): Pair<List<ImageBitmap>, List<Long>> {
-                    val steps = data.animations[stateKey].orEmpty().filter { it.delay > 0 }.take(maxFrames)
-                    val frames = steps.mapNotNull { step ->
-                        val src = data.frames[step.frameKey]?.src ?: return@mapNotNull null
-                        val x = src[0] / PREVIEW_SAMPLE_SIZE
-                        val y = src[1] / PREVIEW_SAMPLE_SIZE
-                        val width = (src[2] / PREVIEW_SAMPLE_SIZE).coerceAtLeast(1)
-                        val height = (src[3] / PREVIEW_SAMPLE_SIZE).coerceAtLeast(1)
-                        PowImagen.recortarAOpaco(PowImagen.recortar(sheet, x, y, width, height))
-                    }
-                    val delays = steps.take(frames.size).map {
-                        (it.delay * SfConstants.FRAME_TIME_MS * PREVIEW_SLOWDOWN).toLong()
-                            .coerceAtLeast(PREVIEW_MIN_MS)
-                    }
-                    return frames to delays
-                }
-
-                if (!animate) {
-                    val (idleFrames, idleDelays) =
-                        decodeState(SfFighterState.IDLE.jsKey, maxFrames = 1)
-                    FighterPreviewAnimation(
-                        idleFrames,
-                        idleDelays.ifEmpty { listOf(PREVIEW_MIN_MS) },
-                    )
-                } else {
-                    val (idleFrames, idleDelays) = decodeState(SfFighterState.IDLE.jsKey)
-                    val (walkFrames, walkDelays) = decodeState(SfFighterState.WALK_FORWARD.jsKey)
-                    FighterPreviewAnimation(
-                        idleFrames + walkFrames,
-                        idleDelays + walkDelays,
-                    )
-                }
-            }
-        }.getOrNull()?.takeIf { it.frames.isNotEmpty() }
+    var animation by remember(id, animate) {
+        mutableStateOf(SfPreviewCache.enMemoria(id, animate))
+    }
+    LaunchedEffect(id, animate) {
+        if (animation == null) {
+            // `Dispatchers.Default` (no `IO`: no existe en Kotlin/Native). Mismo dispatcher que
+            // usa StreetFighterScreen para cargar los atlas de la pelea.
+            animation = withContext(Dispatchers.Default) { SfPreviewCache.cargar(id, animate) }
+        }
     }
     var frameIndex by remember(id, animation, animate) { mutableIntStateOf(0) }
     LaunchedEffect(id, animation, animate) {
