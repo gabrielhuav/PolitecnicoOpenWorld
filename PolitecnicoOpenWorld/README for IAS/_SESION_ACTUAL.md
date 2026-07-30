@@ -3,12 +3,13 @@
 > Único traspaso entre IAs. Ventana de 2 días; máximo 200 líneas. Aquí va estado medido,
 > trabajo abierto y trampas caras. Diseño e historia viven en los documentos de cada área.
 
-**Última actualización:** 2026-07-29 · Codex 5.6 (Windows) · rama `fase0-auditoria-kmp`
+**Última actualización:** 2026-07-30 · Opus 5 (laptop) · ramas `fase0-auditoria-kmp` + `perf-gama-baja-coleccionables`
 
 > ➡️ **AHORA:** la pelea de SF corre, suena, se juega y guarda en iOS. Menú, Ajustes y
 > Coleccionables ya están en `commonMain`. **Siguiente paso:** Mac enlaza la navegación real
 > menú → Ajustes/Coleccionables/SF y elimina `SfEscaparate` solo después de verla completa.
-> Guion: `PROMPT_MAC_navegacion_iOS.md`.
+> Guion: `PROMPT_MAC_navegacion_iOS.md`. **En paralelo hay un PR de gama baja abierto** (§3undecies):
+> arregla el arte roto de coleccionables en partidas viejas. 228 tests.
 
 ## 🖥️ Rutas por PC
 
@@ -65,22 +66,28 @@ PC nueva: `SETUP_PC_NUEVA.md`; `gradle-wrapper.jar` y `secrets.properties` no vi
   Imágenes usan `PowAssets`/`PowImagen`; Android conserva adaptadores Hilt pequeños.
 - Strings ES/EN migrados a `composeResources` sin segunda fuente en `app`.
 
-**Medido en AVD `Nexus`:**
+**Medido en AVD `Nexus`:** las 6 categorías abren con textos completos; ES→EN recrea la Activity
+y carga ambos catálogos; `DEVELOPER_MODE` persiste en el mismo XML y gatea los 18 peleadores;
+Coleccionables abre ITEMS/FIGHTERS; los porcentajes muestran `100%`, no `100%%`.
 
-1. Map, Controls, Gameplay, Interface, Audio y Account abren con textos completos.
-2. Español → English recrea la Activity y carga ambos catálogos.
-3. `DEVELOPER_MODE=true` queda en el mismo XML y muestra los 18 peleadores sin candado.
-4. `false` vuelve a mostrar `🔒`/`???` desde Paparazzi 1.
-5. Coleccionables abre ITEMS/FIGHTERS y muestra el progreso bloqueado existente.
-6. Tras `force-stop`/reabrir persisten `APP_LANGUAGE=en` y `DEVELOPER_MODE=false`.
-7. El formato de porcentajes muestra `100%`, no `100%%`. AVD quedó en el menú principal.
+## 3undecies. 🐢 Revisión de gama baja del PR 40d532b5 (laptop, 07-30)
 
-**Verificación final:** 218 tests, 0 fallos/errores (114 app + 104 shared);
-`:app:assembleDebug`, `:shared:compileKotlinIosSimulatorArm64` y guard Native verdes.
-
-Prompts completados y borrados: `PROMPT_MAC_verificar_pelea_iOS.md` y
-`PROMPT_SOL_ajustes_y_coleccionables.md`. Los prompts Fable/Gemini/traspaso se conservaron
-porque todavía contienen trabajo abierto.
+Rama **`perf-gama-baja-coleccionables`** (PR abierto). El refactor de Ajustes/Coleccionables está
+bien hecho; esto es deuda que arrastraba el código original y que al bajar a `commonMain` heredaría
+también iOS. **MEDIDO: `:app` 114 + `:shared` 114 = 228 tests, 0 fallos; detekt exit 0; probado de
+punta a punta en el emulador.**
+- 🔴 **BUG REAL, visible y silencioso:** el arte de los coleccionables estaba ROTO en partidas
+  viejas. El sembrado solo corría con la tabla VACÍA, así que al renombrarse la carpeta
+  (`coleccionables/` → `SPRITES/COLLECTIBLES/`, PR #126) esos jugadores quedaron con rutas muertas:
+  coleccionable **desbloqueado, con nombre y borde dorado, y círculo gris**. Sin error ni log.
+  Reproducido con una BD real y arreglado conservando `isCollected`.
+  ⚠️ **NO lo "simplifiques" a `@Insert(REPLACE)`**: eso borra el progreso del jugador. Hay 5 tests.
+- 🐢 `CollectibleCard` decodificaba en el hilo de composición y LazyGrid lo repetía al hacer scroll.
+  MEDIDO: ~600×420 pintados a **64 dp** → ~1 MB cada uno, **6,7 MB los siete**. Ahora
+  `PowImagenCache` (LRU acotada, como `nativeDrawableCache`) + `rememberImagenDeAsset`
+  (`Dispatchers.Default`), con `reduccion = 2` → ~1,7 MB. Colgada de `onTrimMemory`.
+- ⚠️ **Gotcha nuevo:** en Kotlin los comentarios de bloque **se anidan**, así que una ruta con
+  comodín dentro de un KDoc abre un comentario que nunca cierra (`Unclosed comment`).
 
 ## 4. PENDIENTE — prioridad
 
@@ -91,6 +98,15 @@ porque todavía contienen trabajo abierto.
    `MapaTab` y el tab de escaparate.
 2. Probar multijugador en dos dispositivos: ambos deben oír lo mismo (`SF-NET`).
 3. Redeploy `MultiplayerSF/` en Render; con redes distintas buscar `SF-RTC: DataChannel → OPEN`.
+
+### 🟠 P1 · 🐢 gama baja: el selector de peleadores arma sprites en el hilo de UI
+
+`rememberFighterPreview` (`SfCharacterCard.kt`) llama a `SfSharedSheets.sheetFor` **dentro de
+`remember`**, o sea durante la composición — y su propio KDoc dice "llamar fuera del hilo de dibujo
+si se puede". Se usa en la rejilla del selector (`SfMenuOverlays.kt:470`): con 18 peleadores y una
+caché de **3** entradas, recorrer el roster reconstruye hojas una y otra vez en el hilo de UI.
+**Es anterior al PR 40d532b5.** La receta ya existe: `rememberImagenDeAsset` + `PowImagenCache`
+(rama `perf-gama-baja-coleccionables`). Verificar en el emulador, no solo compilar.
 
 ### 🟠 P1 · audio
 
