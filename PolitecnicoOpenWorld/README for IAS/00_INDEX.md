@@ -62,7 +62,7 @@
 > | Capa | Archivo | Regla |
 > |---|---|---|
 > | **Memoria de trabajo** | `_SESION_ACTUAL.md` | **Ventana de 2 días · máx. 200 líneas.** Lo único que se lee SIEMPRE. Lo que pase de ahí se purga. |
-> | **Conocimiento estable** | `00`–`09`, `MUNDO/`, `SF/` | Se ACTUALIZA cuando cambia el código. No lleva historia de sesiones. |
+> | **Conocimiento estable** | `00`–`11`, `MUNDO/`, `SF/`, `../iosApp/README.md` | Se ACTUALIZA cuando cambia el código. No lleva historia de sesiones. |
 > | **Histórico** | `_ARCHIVO/` | Solo lectura, para arqueología. **NO son tareas.** |
 >
 > **La regla que hace que esto funcione:** `_SESION_ACTUAL.md` se lee en cada arranque, así que
@@ -81,12 +81,11 @@
 | 07 | `07_OTHER_FEATURES.md` | Menú principal, ajustes, ShineCTO, coleccionables (+ 🥊 SF; ⚠️ su parte de SF debería migrar a `SF/`) |
 | 09 | `09_CONVENTIONS_GOTCHAS.md` | Convenciones, reglas de gama baja, protocolo de actualización de docs |
 | 10 | `10_ARQUITECTURA_SEPARACION.md` | 🧭 **¿EN QUÉ ARCHIVO TOCO ESTO?** Mapa de la separación tras el refactor de la Fase 5: los 2 módulos, MVVM, el patrón PARCIAL, tabla de "quiero cambiar X → archivo Y" y los 6 errores que más caro salen. **Pensado para que hasta una IA pequeña pueda trabajar aquí.** |
-| 11 | `11_SEPARACION_IOS_ANDROID.md` | 🧭 **iOS y Android: dónde va cada cosa. EMPIEZA AQUÍ si vas a tocar código que corre en las dos.** Árbol de decisión (¿commonMain, `expect/actual` o Controller?), las 10 costuras que existen, qué se queda en `:app` y por qué, reglas de gama baja y las 5 trampas más caras. **Escrito para alguien que acaba de entrar al equipo.** |
+| 11 | `11_SEPARACION_IOS_ANDROID.md` | 🧭 **iOS y Android: dónde va cada cosa. EMPIEZA AQUÍ si vas a tocar código que corre en las dos.** Árbol de decisión (¿commonMain, `expect/actual` o Controller?), las 10 costuras que existen, los 4 controllers, dónde vive la navegación de cada plataforma, qué se queda en `:app` y por qué, gama baja, y **las 5 trampas que solo se ven abriendo el simulador** (§8bis). **Escrito para alguien que acaba de entrar al equipo.** |
 | — | `PLAYSTORE_formulario_seguridad_datos.md` | 🛡️ **Play Store: formulario de Seguridad de los datos + políticas.** Valores EXACTOS aprobados, errores que nos rechazaron y checklist antes de cada envío. **Léelo antes de tocar la ficha o subir versión.** |
-| — | `ARRANQUE_MAC_iOS.md` | 🍏 **EMPIEZA AQUÍ si estás en el MAC.** Guion exacto de la primera compilación de `:shared` para iOS: rutas, JDK, comandos y dónde va a fallar. ⚠️ Su premisa de que "iOS no compila en Windows" quedó DESMENTIDA el 07-28: `compileKotlinIosSimulatorArm64` sí corre allí. Lo que solo funciona en Mac es enlazar el framework y el simulador. |
-| — | `PLAN_MIGRACION_KMP.md` | 🍏 **Migración a Kotlin Multiplatform / iOS — el plan global.** Acoplamiento MEDIDO, estado de las libs KMP, decisión del mapa y qué NO se puede portar. **Estado: Fases 0-6 hechas — la UI y los assets ya están en iOS.** Queda pulir, no portar. |
+| — | `PLAN_MIGRACION_KMP.md` | 🍏 **Migración a Kotlin Multiplatform / iOS — el plan global.** Acoplamiento MEDIDO, estado de las libs KMP, decisión del mapa y qué NO se puede portar. **Estado (07-30): el modo pelea CORRE ENTERO en iOS, con menú, Ajustes y Coleccionables.** Queda pulir y decidir firma/App Store; el mundo abierto es trabajo futuro. |
 | — | `SETUP_PC_NUEVA.md` | 🖥️ **Poner el repo a compilar en una PC Windows nueva.** Los 4 archivos que NO viajan por git (⚠️ `gradle-wrapper.jar` bloquea hasta `gradlew`), la prueba de humo y cómo se verifica iOS desde Windows. |
-| — | `PLAN_SF_EN_iOS.md` | 🥊🍏 **Cómo hacer que el modo pelea corra en iOS** — el trozo concreto de la Fase 5. Bloqueadores contados archivo por archivo. **Los pasos 1-4 están hechos**; queda la verificación visual en el simulador. |
+| — | `../iosApp/README.md` | 🍏 **El proyecto Xcode.** Cómo compilarlo (⚠️ el framework de Kotlin NO se construye solo), qué assets entran en el bundle y qué ajustes de Xcode no se tocan. **Para añadir una pantalla a iOS se toca `PowAppIos.kt`, no este proyecto.** |
 
 ### 🌎 `MUNDO/` — mundo libre POW
 
@@ -117,31 +116,46 @@ reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `stree
 **HUELUM VS. GOYA — lo estable:**
 - Modos: **ARCADE** (default) / PRÁCTICA / **IA VS IA** / MULTIJUGADOR (Render / BT / LAN / P2P).
 - **Arcade:** peleador → Fácil/Medio/Difícil → escalera 15. Mapas = hogar del **rival** + luz.
-  Tabla peleador→mapa: **`SF_STAGES_MAPS_UNLOCK.md`**.
+  Tabla peleador→mapa: **`SF/SF_STAGES_MAPS_UNLOCK.md`**.
 - **Roster:** 18 dedicados. NO arcade: Lázaro / Granadero / Paramédico (alpha+shared).
 - **Presidenta** ≤1/4 vida → metamorfosis. **Gama baja:** tick ~30 fps, atlas ≤2048, CARGANDO.
 
-### Docs de trabajo / Working docs (no son 00–09)
+### 📱 Qué corre en cada plataforma (MEDIDO 2026-07-30)
+
+| Modo | Android | iOS | Nota |
+|---|:---:|:---:|---|
+| Menú principal, Ajustes, Coleccionables | ✅ | ✅ | Misma pantalla de `commonMain`, distinto Controller |
+| 🥊 Huelum vs. Goya — arcade, práctica, IA vs IA | ✅ | ✅ | Verificado en simulador: pelea, audio, guardado, modo desarrollador |
+| 🥊 Multijugador (Render / BT / LAN / P2P) | ✅ | ❌ | RFCOMM no existe en iOS; WebRTC y UDP multicast no se portaron |
+| 🌎 Mundo libre, interiores, zombis | ✅ | ❌ | **Trabajo futuro.** El puente del mapa está hecho y desconectado |
+| 📖 Modo Historia | ✅ | ❌ | Va con el mundo abierto |
+
+⚠️ **Quien decide esta tabla es `PowModos.kt`**, no la UI. Añadir un modo a `modosDe(IOS)` **no lo
+porta**: solo deja de esconder el botón. Detalle en `11_SEPARACION_IOS_ANDROID.md` §5.
+
+### Docs de trabajo / Working docs (no son 00–11)
+
+> ⚠️ **La RUTA de esta tabla importa.** Casi ninguno de estos archivos está en la raíz de la
+> carpeta: viven en `SF/`, `MUNDO/` o `_ARCHIVO/`. Buscarlos por el nombre suelto no los encuentra.
 
 | Archivo / File | Contenido / Contents |
 |---|---|
-| **`FLUJO_ASSETS_SF.md`** | **⭐ FLUJO COMPLETO de assets de pelea: identificar → recortar → empacar → QA + trampas conocidas.** |
-| **`PENDIENTES_2026-07-20.md`** | **⭐ Lista VIVA de deudas post-release 1.0.0.12 (dueño vs código).** |
-| `GUIA_mantenimiento_no_senior.md` | **EMPEZAR AQUÍ si eres IA/dev nuevo:** 7 reglas, chuleta, qué NO hacer. |
-| `DISENO_ARCADE_SF_POW.md` | Diseño + avance del ARCADE POW (escalera, desbloqueos, IA por fases). |
-| **`SF_STAGES_MAPS_UNLOCK.md`** | **16 mapas × 3 luces, peleadór→hogar (tabla dueño), desbloqueos MP.** |
-| **`QA_SF_STAGES_2026-07-18.md`** | **QA de fondos (dueño): encuadre `SfBgFraming` (5 mapas nuevos ✅ + salto), pendientes: sombra Isla Muñecas, video día FES Acatlán, subtítulos que se salen.** |
-| **`AUDIO_INVENTARIO_SF.md`** | **Qué audio tiene cada peleadór, globales vs por-peleadór, qué borrar, y el fix de tamaño AAB (atlas lossless→lossy 221→82 MB). Script `tools/sf_audio_review.sh`.** |
-| **`PROMPT_panoramico_todos_los_mapas.md`** | **Trabajo FINAL diferido: aplicar el encuadre panorámico + salto a los 16 mapas, uno por uno. Prompt autónomo con todo lo necesario.** |
-| `AUDIT_SF_MULTIPLAYER.md` | Multijugador 1v1: protocolo, server `MultiplayerSF/`, BT/LAN. |
-| `ASSETS_STREETFIGHTER_MIGRACION.md` | Pipeline assets pelea (JSON, pack, migración SF→POW). |
-| **`SF_SPECIAL_VOICES_SFX.md`** | Voces/SFX v3: 21/21 español, cortes locales, Whisper, hashes, `MediaPlayer`; v1/v2 queda histórico. ✅ **2026-07-22: subtítulos de frases ACTIVOS** (`voiceSubtitlesEnabled=true`; frases curadas en `voice_phrases.json`, 64 `es` + `en` completo). |
-| `GUIA_regeneracion_sprites_croma.md` | Regenerar sprites croma pelea+mundo (proceso VIGENTE de recorte). |
-| **`PROMPT_SOL56_TANDAS_NUEVAS.md`** | **⭐ Prompt de las 10 hojas NUEVAS (20–29, moveset 3rd Strike) por personaje + rutas de assets + estándar de calidad.** |
-| `NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |
-| `CHECKPOINT_SENIOR_refactor.md` | Receta del patrón manager/Hilt/detekt (referencia). |
-| `CAMPAIGN/` | Guion Modo Historia (misiones 1–3 + side). |
-| `_ARCHIVO/` | Histórico + prompts: **`PROMPT_traspaso_Gemini_2026-07-18_audio.md`** (SIGUIENTE SESIÓN: sistema de voces + pendiente "ZA ZA" grito masculino + policías), `PROMPT_traspaso_GPT56_2026-07-18_git_audio.md`, `PROMPT_traspaso_Fable_2026-07-18_voces.md`. |
+| **`SF/FLUJO_ASSETS_SF.md`** | **⭐ FLUJO COMPLETO de assets de pelea: identificar → recortar → empacar → QA + trampas conocidas.** |
+| `GUIA_mantenimiento_no_senior.md` | **EMPEZAR AQUÍ si eres IA/dev nuevo:** 7 reglas, chuleta, qué NO hacer. *(sí está en la raíz)* |
+| `SF/DISENO_ARCADE_SF_POW.md` | Diseño + avance del ARCADE POW (escalera, desbloqueos, IA por fases). |
+| **`SF/SF_STAGES_MAPS_UNLOCK.md`** | **16 mapas × 3 luces, peleador→hogar (tabla dueño), desbloqueos MP.** |
+| **`SF/QA_SF_STAGES_2026-07-18.md`** | **QA de fondos (dueño): encuadre `SfBgFraming` (5 mapas nuevos ✅ + salto), pendientes: sombra Isla Muñecas, video día FES Acatlán, subtítulos que se salen.** |
+| **`SF/AUDIO_INVENTARIO_SF.md`** | **Qué audio tiene cada peleador, globales vs por-peleador, qué borrar, y el fix de tamaño AAB (atlas lossless→lossy 221→82 MB). Script `tools/sf_audio_review.sh`.** |
+| **`MUNDO/PROMPT_panoramico_todos_los_mapas.md`** | **Trabajo FINAL diferido: aplicar el encuadre panorámico + salto a los 16 mapas, uno por uno. Prompt autónomo con todo lo necesario.** |
+| `SF/AUDIT_SF_MULTIPLAYER.md` | Multijugador 1v1: protocolo, server `MultiplayerSF/`, BT/LAN. |
+| `SF/ASSETS_STREETFIGHTER_MIGRACION.md` | Pipeline assets pelea (JSON, pack, migración SF→POW). |
+| **`SF/SF_SPECIAL_VOICES_SFX.md`** | Voces/SFX v3: 21/21 español, cortes locales, Whisper, hashes, `MediaPlayer`; v1/v2 queda histórico. ✅ **2026-07-22: subtítulos de frases ACTIVOS** (`voiceSubtitlesEnabled=true`; frases curadas en `voice_phrases.json`, 64 `es` + `en` completo). |
+| `SF/GUIA_regeneracion_sprites_croma.md` | Regenerar sprites croma pelea+mundo (proceso VIGENTE de recorte). |
+| **`SF/PROMPT_SOL56_TANDAS_NUEVAS.md`** | **⭐ Prompt de las 10 hojas NUEVAS (20–29, moveset 3rd Strike) por personaje + rutas de assets + estándar de calidad.** |
+| `MUNDO/NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |
+| `CHECKPOINT_SENIOR_refactor.md` | Receta del patrón manager/Hilt/detekt (referencia). *(raíz)* |
+| `MUNDO/CAMPAIGN/` | Guion Modo Historia (misiones 1–3 + side). |
+| `_ARCHIVO/` | **Histórico. NO son tareas.** Incluye los guiones de iOS ya ejecutados (`ARRANQUE_MAC_iOS.md`, `PLAN_SF_EN_iOS.md`, `PROMPT_MAC_navegacion_iOS.md`), `PENDIENTES_2026-07-20.md` y los prompts de traspaso a Gemini/GPT/Fable. |
 
 ---
 
@@ -152,10 +166,18 @@ reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `stree
 - **Arquitectura / Architecture:** MVVM estricto por *feature* / strict MVVM by feature
 - **Servidores / Servers:** 2× Node.js + `ws` (open world `Multiplayer/`, zombi `MultiplayerInteriores/`), dockerizados en Render
 - **Room DB:** versión 8 (`MIGRATION_7_8` + destructive fallback)
-- **~229 archivos Kotlin / Kotlin files**, ~47k líneas / lines (2026-07-16). 8 archivos >1000 (ninguno >2100):
-  `StreetFighterViewModel`(~2145, creció con multijugador BT/LAN+rondas+red SESIÓN 4+IA con 3 dificultades),
-  `ZombieGameScreen`(1591), `WorldMapViewModel`(1583), `WorldMapScreen`(1460), `NativeOsmMap`(1458),
-  `StreetFighterScreen`(~1767 con rondas/LAN/selector de dificultad), `ZombieInteriorViewModel`(1137), `AppNavGraph`(1093)
+- **336 archivos Kotlin / Kotlin files**, ~66k líneas (MEDIDO 2026-07-30), repartidos así:
+
+  | Source set | Archivos | Líneas | Corre en |
+  |---|---:|---:|---|
+  | `shared/commonMain` | 101 | 20 576 | Android **+ iOS** |
+  | `shared/androidMain` | 16 | 2 543 | Android |
+  | `shared/iosMain` | 14 | **695** | iOS |
+  | `app/src/main` | 205 | 42 632 | Android |
+
+  **9 archivos pasan de 1000 líneas** (tabla con módulo en `10 §8`); solo 2 están en `:shared`.
+  ⚠️ **`commonMain` tiene 0 imports de `android.*`** y eso no es negociable: es lo que hace que iOS
+  compile.
 - **🆕 Assets COMPARTIDOS SF⇄mundo (2026-07-15/17):** 3 de los 22 peleadores de "HUELUM VS. GOYA"
   se arman EN RUNTIME desde los sets del mundo (`SPRITES/PLAYER|NPC/`) — sin sheets duplicados
   en el APK: Lázaro, Granadero y Paramédico. Los otros 17 POW tienen hojas croma
@@ -175,20 +197,20 @@ reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `stree
 > **ES:** "Lee la carpeta `README for IAS` (ese es todo el contexto del proyecto POW).
 > Implementa <tarea> siguiendo el patrón MVVM y las convenciones del archivo 09. No me pidas
 > más código a menos que un archivo citado en las tablas 'Key files' (04/05) falte. Al
-> terminar, dime qué líneas de estos docs (00–09) hay que actualizar (y del README público de la
+> terminar, dime qué líneas de estos docs (00–11) hay que actualizar (y del README público de la
 > raíz si el cambio es user-facing)."
 >
 > **EN:** "Read the `README for IAS` folder (that is the full context of the POW project).
 > Implement <task> following the MVVM pattern and the conventions in file 09. Don't ask me for
 > more code unless a file referenced in the 'Key files' tables (04/05) is missing. When done,
-> tell me which lines of these docs (00–09) to update (and the public root README if user-facing)."
+> tell me which lines of these docs (00–11) to update (and the public root README if user-facing)."
 
 ---
 
 ## Relación con los otros docs / Relationship to the other docs
 
 **ES:** La RAÍZ del repo tiene un `README.md` **público** (bilingüe, orientado a humanos) que es la
-visión general. Esta carpeta (`00`–`09`) es la versión **granular y por archivo** para alimentar a un
+visión general. Esta carpeta (`00`–`11`) es la versión **granular y por archivo** para alimentar a un
 asistente de IA: incluye firmas de funciones, campos de estado, pseudocódigo y *gotchas* que el README
 público no lista. *(Antes había aquí copias `README.md` (136 KB) y `plan.artifact.md` redundantes con
 `00`–`09`; se eliminaron el 2026-06-22 para no mantener triplicado.)* Si hay contradicción, **el código
@@ -204,4 +226,4 @@ then sync these docs and, if user-facing, the public root README.
 Arcade/VS/IA-vs-IA/Autoplay; se corrigió el aterrizaje eterno en `JUMP_*`, la orientación tras
 cruces, hitboxes BODY/LEGS, variedad/defensa/cooldowns y el bucle de hit-stun. El auditor ahora
 falla por pasividad o timeout y valida 306 cruces everyone-vs-everyone; detalle en `07` y
-`DISENO_ARCADE_SF_POW.md`.
+`SF/DISENO_ARCADE_SF_POW.md`.

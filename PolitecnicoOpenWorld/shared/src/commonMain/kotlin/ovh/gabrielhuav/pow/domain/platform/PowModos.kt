@@ -3,10 +3,10 @@ package ovh.gabrielhuav.pow.domain.platform
 /**
  * 🍏 QUÉ MODOS OFRECE CADA PLATAFORMA.
  *
- * POR QUÉ EXISTE: iOS arranca con **solo el modo pelea**. El mundo abierto, la campaña y el
- * multijugador dependen de cosas que hoy NO existen allí (osmdroid/WebView con datos, Bluetooth
- * RFCOMM, WebRTC de Android). En vez de esparcir `if (esAndroid)` por la UI, el catálogo de modos
- * vive aquí, en un solo sitio, y la pantalla solo pregunta.
+ * POR QUÉ EXISTE: iOS ofrece **AJUSTES, COLECCIONABLES y el modo pelea**, y nada más. El mundo
+ * abierto, la campaña y el multijugador dependen de cosas que hoy NO existen allí (osmdroid/WebView
+ * con datos, Bluetooth RFCOMM, WebRTC de Android). En vez de esparcir `if (esAndroid)` por la UI,
+ * el catálogo de modos vive aquí, en un solo sitio, y la pantalla solo pregunta.
  *
  * ⚠️ Nota de diseño: lo ÚNICO que se resuelve por `expect/actual` es **en qué plataforma estoy**.
  * La decisión de qué modos hay es LÓGICA PURA ([modosDe]), así que se puede testear el

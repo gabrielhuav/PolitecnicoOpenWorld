@@ -25,9 +25,11 @@ esa pregunta está escrita en su **cabecera**, en las primeras 10 líneas.
 | **`:shared`** | Kotlin Multiplatform: Android **+ iOS** | ⚠️ **NADA de Android aquí.** Ni `android.*`, ni `androidx.*` que no sea multiplataforma, ni osmdroid, ni Gson. Si algo necesita plataforma, va por `expect/actual`. |
 | **`:app`** | La app Android | Puede usar todo lo de Android. Consume `:shared`. |
 
-**Qué vive ya en `:shared`:** el dominio puro de las peleas (`SfStateMachine`, `SfDamage`,
-`SfPhysics`…), el punto lat/lon (`GeoPoint`), el JSON (`PowJson`, `jsonOf`), la base de datos
-(Room), los ajustes (`Settings`), el WebSocket (Ktor) y el generador del mapa Leaflet.
+**Qué vive ya en `:shared`** (101 archivos, 20 576 líneas medidas el 07-30): el dominio puro de las
+peleas (`SfStateMachine`, `SfDamage`, `SfPhysics`…), el punto lat/lon (`GeoPoint`), el JSON
+(`PowJson`, `jsonOf`), la base de datos (Room), los ajustes (`Settings`), el WebSocket (Ktor), el
+generador del mapa Leaflet **y ya también las PANTALLAS**: menú principal, Ajustes, Coleccionables
+y la pelea entera, en Compose Multiplatform.
 
 **Cómo saber dónde poner una clase nueva:** ¿la necesitaría también un iPhone? Si sí y no toca
 Android → `:shared`. Si no estás seguro → `:app` (moverla después es fácil; sacar Android de
@@ -36,6 +38,11 @@ Android → `:shared`. Si no estás seguro → `:app` (moverla después es fáci
 ---
 
 ## 2bis. 🍏 Cómo se separa iOS de Android (LÉELO ANTES DE TOCAR `:shared`)
+
+> 📘 **Si vas a tocar código de las dos plataformas, el documento largo es
+> [`11_SEPARACION_IOS_ANDROID.md`](11_SEPARACION_IOS_ANDROID.md)**: árbol de decisión, las 10
+> costuras que existen hoy, qué se queda en `:app`, gama baja y las trampas que solo se ven en el
+> simulador. Esta sección es el **resumen**: los cuatro mecanismos y cuándo usa cada uno.
 
 `:shared` no puede ver Android. Cuando algo SÍ necesita la plataforma hay **cuatro mecanismos**, y
 elegir mal es lo que ensucia el módulo. Van de menos a más potencia: **usa el primero que te sirva.**
@@ -178,6 +185,17 @@ Kotlin no admite eso fuera de la clase. **Se queda como miembro.** Está avisado
 | Pantallas de conexión (online / BT / LAN) | `ui/SfOnlineOverlays.kt` |
 | La raíz de la pantalla y su orquestación | `ui/StreetFighterScreen.kt` |
 
+### 🧭 Navegación: cada plataforma la suya
+
+| Quiero cambiar… | Archivo |
+|---|---|
+| A qué pantallas se llega **en Android** | `[app] AppNavGraph.kt` |
+| A qué pantallas se llega **en iOS** | `[shared/iosMain] PowAppIos.kt` |
+| Qué **modos** ofrece cada plataforma | `[shared] domain/platform/PowModos.kt` |
+
+⚠️ **Añadir un modo a `modosDe(IOS)` NO lo porta**: solo deja de esconder el botón. `PowModosTest`
+se pone rojo a propósito para obligar a confirmarlo en el simulador antes.
+
 ### 🌎 Mundo abierto (`features/map_exterior/`)
 
 El `WorldMapViewModel` ya estaba partido en parciales (`WorldMapCombat.kt`, `WorldMapTeleport.kt`,
@@ -259,19 +277,22 @@ bash tools/check_kmp_test_names.sh
 
 ## 8. Si vas a partir otro archivo grande
 
-Quedan estos por encima de 1.000 líneas (medido tras el refactor de la Fase 5):
+Quedan estos por encima de 1.000 líneas (**medido el 2026-07-30**; nueve archivos de 336):
 
-| Archivo | Líneas |
-|---|---:|
-| `features/streetfighter/viewmodel/StreetFighterViewModel.kt` | 2299 |
-| `features/streetfighter/ui/StreetFighterScreen.kt` | 1902 |
-| `features/map_exterior/viewmodel/WorldMapViewModel.kt` | 1596 |
-| `features/map_exterior/ui/WorldMapScreen.kt` | 1463 |
-| `features/map_exterior/ui/NativeOsmMap.kt` | 1458 |
-| `features/interiores/zombies/ui/ZombieGameScreen.kt` | 1343 |
-| `features/streetfighter/ui/SfSceneRenderer.kt` | 1225 |
-| `AppNavGraph.kt` | 1175 |
-| `features/interiores/zombies/viewmodel/ZombieInteriorViewModel.kt` | 1165 |
+| Módulo | Archivo | Líneas |
+|---|---|---:|
+| `:shared` | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` | 2320 |
+| `:shared` | `features/streetfighter/ui/StreetFighterScreen.kt` | 1771 |
+| `:app` | `features/map_exterior/viewmodel/WorldMapViewModel.kt` | 1596 |
+| `:app` | `features/map_exterior/ui/WorldMapScreen.kt` | 1463 |
+| `:app` | `features/map_exterior/ui/NativeOsmMap.kt` | 1458 |
+| `:app` | `features/interiores/zombies/ui/ZombieGameScreen.kt` | 1343 |
+| `:app` | `AppNavGraph.kt` | 1167 |
+| `:app` | `features/interiores/zombies/viewmodel/ZombieInteriorViewModel.kt` | 1165 |
+| `:shared` | `features/streetfighter/ui/SfSceneRenderer.kt` | 1089 |
+
+💡 **Los siete de `:app` son mundo abierto, zombis y navegación de Android.** Partirlos no ayuda a
+iOS: allí esos modos no existen. Los dos de `:shared` sí los paga todo el mundo.
 
 **La receta que funcionó** (y las trampas que ya se pagaron):
 

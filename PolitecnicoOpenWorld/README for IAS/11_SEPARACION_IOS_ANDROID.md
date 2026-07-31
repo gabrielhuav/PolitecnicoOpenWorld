@@ -26,8 +26,12 @@ shared/src/
 └── iosMain/      ← su equivalente en iOS
 ```
 
-**Medido hoy:** 101 archivos en `commonMain`, 16 en `androidMain`, 12 en `iosMain`.
+**Medido hoy:** 101 archivos en `commonMain` (20 576 líneas), 16 en `androidMain` (2 543),
+14 en `iosMain` (**695 líneas en total** — iOS es fino a propósito) y 205 en `:app` (42 632).
 **En `commonMain` hay 0 imports de `android.*`** — y así tiene que seguir.
+
+> 📐 **Que `iosMain` sean 695 líneas es el indicador de que esto va bien.** Si empieza a engordar,
+> es que alguien está copiando lógica en vez de compartirla. Ahí hay que parar y volver a §2.
 
 > 💡 **La regla práctica:** escribe en `commonMain`. Si no compila porque falta algo de la
 > plataforma, entonces —y solo entonces— abre una costura. Nunca al revés.
@@ -126,17 +130,42 @@ override val lowEndDevice: Boolean = context.isSfLowEnd()
 - **No obliga a tocar tres archivos** cada vez que añades un dato.
 - **La dependencia es explícita**: se ve en la firma quién necesita qué.
 
-### Los controladores que existen
+### Los controladores que existen — son cuatro
 
-`StreetFighterController` (pelea) · `SettingsController` (ajustes) ·
-`CollectiblesController` (coleccionables) · `MainMenuController` (menú).
+| Controller | Pantalla | Android | iOS |
+|---|---|---|---|
+| `StreetFighterController` | la pelea | `AndroidStreetFighterController` (Hilt) | `OfflineStreetFighterController` |
+| `SettingsController` | ajustes | `SettingsViewModel` | `SettingsViewModel` (el mismo) |
+| `CollectiblesController` | coleccionables | `AndroidCollectiblesViewModel` | `CollectiblesViewModel` |
+| `MainMenuController` | menú principal | `AndroidMainMenuController` | `IosMainMenuController` |
+
+💡 **Fíjate en que dos de ellos comparten implementación.** Un controller no obliga a escribir dos
+clases: obliga a que la pantalla no sepa cuál le tocó.
+
+---
+
+## 4bis. 🍏 Dónde vive la navegación de iOS
+
+Todo el juego en iOS es **un solo `ComposeUIViewController`**, y su interior es un `when`:
+
+```kotlin
+// shared/src/iosMain/…/PowAppIos.kt        ← 122 líneas, y ahí cabe la app entera
+private enum class Pantalla { MENU, AJUSTES, COLECCIONABLES, PELEA }
+```
+
+> **Para añadir una pantalla a iOS se toca ESE archivo, no el proyecto Xcode.**
+> Swift solo abre la ventana; ver [`iosApp/README.md`](../iosApp/README.md).
+
+En Android el equivalente es `AppNavGraph.kt` (1167 líneas), que además tiene el mundo abierto, el
+Modo Historia y el multijugador. **No son el mismo archivo y no tienen por qué parecerse**: cada
+plataforma navega con lo suyo, y lo que se comparte son las pantallas.
 
 ---
 
 ## 5. Lo que NO existe en iOS
 
-En iOS el juego arranca **solo con el modo pelea**. El menú muestra únicamente **Ajustes**,
-**Coleccionables** y **Huelum vs. Goya**.
+En iOS el juego arranca en el **menú principal real**, igual que en Android, pero ese menú solo
+ofrece **Ajustes**, **Coleccionables** y **Huelum vs. Goya**.
 
 La lista **no se decide en la UI**: vive en `PowModos.kt` (`:shared`), y la pantalla solo pregunta:
 
@@ -160,6 +189,18 @@ queda en `:app` está ahí por un motivo concreto, no por falta de tiempo:
 | `AndroidStreetFighterViewModel.kt` | 104 | Hilt (`@HiltViewModel`) es solo de Android |
 | `SfDeviceTier.kt` | 31 | `ActivityManager.isLowRamDevice` |
 | `StreetFighterScreenAndroid.kt` | 30 | Punto de entrada que arma lo anterior |
+
+### Diferencias de PRODUCTO, no de código
+
+Hay dos cosas que iOS hace distinto **porque la App Store lo exige**, no porque falte trabajo. Las
+decide `IosMainMenuController`, y en Android se quedan como están:
+
+| | Android | iOS | Por qué |
+|---|---|---|---|
+| Insignia PREALPHA / BETA | se muestra | **no** | La App Store rechaza apps que se anuncian como beta fuera de TestFlight. |
+| Número de versión en el menú | se muestra | **no** | Va con lo anterior. |
+
+⚠️ **No "arregles" esto añadiéndolo a iOS.** Está puesto a mano y a propósito.
 
 ---
 
@@ -208,6 +249,8 @@ siguiente y se olvide.
 
 ## 7. Cómo compruebo que no rompí nada
 
+### En Windows / Linux
+
 ```bash
 .\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest
 ```
@@ -226,8 +269,23 @@ bash tools/check_kmp_test_names.sh
 ```
 Los nombres de test con `(`, `)` o `,` compilan en la JVM y **rompen iOS**. Ha pasado tres veces.
 
-⚠️ **Y si tocaste cómo se pinta, se carga o suena algo: ábrelo en el emulador.** Los tests no ven
-un sprite mal anclado ni una imagen que no aparece.
+### En el Mac
+
+```bash
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 :shared:iosSimulatorArm64Test
+```
+
+⚠️ **`JAVA_HOME` no es opcional:** el Mac no trae JDK propio y `./gradlew` falla con
+*"Unable to locate a Java Runtime"*. El JDK que hay es el JBR de Android Studio.
+
+Después, en Xcode: ⌘R. **Repite el `link…` cada vez que cambies Kotlin.**
+
+### Y luego ábrelo
+
+⚠️ **Si tocaste cómo se pinta, se carga o suena algo: ábrelo en el emulador Y en el simulador.**
+Los tests no ven un sprite mal anclado, una imagen que no aparece ni un botón bajo la barra de
+estado. **Los cinco defectos de §8bis pasaron los 228 tests sin despeinarse.**
 
 ---
 
@@ -244,9 +302,35 @@ un sprite mal anclado ni una imagen que no aparece.
 
 ---
 
+## 8bis. 🍏 Las cinco que solo se ven abriendo el simulador
+
+Salieron todas el 2026-07-30, verificando la navegación de iOS. **Ninguna la caza un test**, y tres
+afectaban también a Android sin que nadie lo hubiera notado.
+
+1. **Compose Resources NO tiene API para forzar el idioma.** Se comprobó leyendo la klib: solo hay
+   símbolos internos. Su entorno por defecto lee `Locale.current`, que en iOS sale de `NSLocale`.
+   El equivalente del `activity.recreate()` de Android es escribir la clave estándar
+   **`AppleLanguages`** en `NSUserDefaults` (`IdiomaIos.kt`) y **rehacer el árbol de Compose** con
+   `key(generacion)`.
+   ⚠️ Se guardan **dos** claves y no es redundante: `APP_LANGUAGE` es la del juego (la que pinta el
+   desplegable y comparte con Android), `AppleLanguages` es la que mira el sistema.
+2. **Compose Resources NO des-escapa `\'`.** En Android eso lo hacía `aapt`, y estos recursos no
+   pasan por él: en pantalla se leía `fighter\'s`. En `composeResources` **el apóstrofe va suelto**.
+3. **Si una imagen sale gris, mira primero si está en el bundle.** No todo `assets/` viaja a iOS
+   —lo elige el `rsync` del proyecto Xcode— y `PowAssets` no distingue "no existe" de "no se copió".
+4. **Un atlas de combate NUNCA se pinta con `Image(atlas)`.** Es una rejilla de hasta 2560×7680;
+   encogida a una miniatura da un cuadro de puntos. Hay que recortar la celda (`FighterPortrait`).
+5. **`systemBarsPadding()` va en el WIDGET, no en la pantalla.** La pelea se dibuja a sangre a
+   propósito; meter el inset arriba la encogería. Sin él, la ✕ de salir y el contador de FPS se
+   colaban bajo la barra de estado en iOS.
+
+---
+
 ## 9. Deuda conocida (no la descubras otra vez)
 
 - **La UI compartida de SF tiene ~12 literales en español** sin pasar por `composeResources`: con la
   app en inglés, el diálogo "Continuar pelea" sale en español.
 - **`SfOnlineOverlays.kt` (736 líneas) no tiene equivalente en iOS** y no lo tendrá: allí el modo
   pelea es sin multijugador.
+- **El bundle de iOS va por 196 MB** solo con SF, contra el límite de **200 MB por datos móviles**
+  de Apple. Cualquier asset nuevo que se sume al `rsync` hay que pesarlo antes.

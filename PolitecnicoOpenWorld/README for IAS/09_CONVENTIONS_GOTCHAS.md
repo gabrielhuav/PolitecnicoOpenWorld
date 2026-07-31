@@ -1396,3 +1396,14 @@ por ningún lado. La vía buena es `xcodebuild -downloadPlatform iOS` (o Xcode �
 Components); un runtime bien instalado tiene su `Image Path` bajo `/System/Library/AssetsV2/…`, no
 bajo `/private/tmp`. Para quitar uno viejo, `xcrun simctl runtime delete <id>` — nunca a mano, que
 deja registros huérfanos en CoreSimulator.
+
+### ⚠️ Esta lista es solo de COMPILACIÓN. La otra mitad no compila mal: se ve mal.
+
+Hay una segunda familia de fallos de iOS que **pasa los 228 tests y compila sin un warning**, y solo
+aparece al abrir el simulador: el idioma que no cambia, la imagen que sale gris porque el asset no
+viajó al bundle, el botón bajo la barra de estado. Están en
+**[`11_SEPARACION_IOS_ANDROID.md`](11_SEPARACION_IOS_ANDROID.md) §8bis**, con la causa medida de
+cada una.
+
+**La regla, corta:** si tocaste cómo se pinta, se carga o suena algo, **ábrelo en el emulador Y en
+el simulador**. Compilar no es verificar.

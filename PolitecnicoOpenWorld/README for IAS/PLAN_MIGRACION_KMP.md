@@ -1,7 +1,22 @@
-# PLAN DE MIGRACIÓN A KOTLIN MULTIPLATFORM (objetivo: iOS) — FASE 0
+# PLAN DE MIGRACIÓN A KOTLIN MULTIPLATFORM (objetivo: iOS)
 
-**Fecha:** 2026-07-27 · **Autor:** Opus 5 · **Rama:** `fase0-auditoria-kmp`
-**Estado:** **Fase 0 TERMINADA + decisiones tomadas + Fase 1 EJECUTADA y en verde** (ver §12).
+**Fecha:** 2026-07-27 · **Autor:** Opus 5 · **Última revisión:** 2026-07-30
+
+> ## 📍 ESTADO REAL — 2026-07-30
+>
+> **El modo pelea corre ENTERO en iOS**, con menú principal, Ajustes, Coleccionables, cambio de
+> idioma, modo desarrollador y guardado. Verificado en el simulador (iPhone 17 Pro, iOS 18.2).
+>
+> | Lo que este plan proponía | Cómo acabó |
+> |---|---|
+> | Alcance: el juego entero (decisión §nº2) | **Se hizo el alcance "solo SF primero"**, que era la recomendación. El mundo abierto queda como trabajo futuro. |
+> | Kotlin 2.2.10 sin subir (decisión §nº4) | Está en **2.3.21**. Ahí se queda: **KSP no existe para 2.4**. |
+> | Mapa: Leaflet en `WKWebView` (§4) | Verificado y **desconectado**: vive en `iosApp/POW/MapaWeb.swift` esperando al mundo abierto. |
+> | Assets: 358 MB y On-Demand Resources (§8) | Al bundle solo entra lo de SF: **196 MB medidos**, contra el límite de 200 MB de Apple. ODR sigue pendiente si entra el mundo abierto. |
+>
+> **Dónde está lo vigente:** estado vivo en `_SESION_ACTUAL.md` · dónde tocar cada cosa en
+> `11_SEPARACION_IOS_ANDROID.md` · el proyecto Xcode en `iosApp/README.md`.
+> **Este documento se conserva por su §1–§8: las MEDIDAS y las decisiones**, no como lista de tareas.
 
 > Todo lo que aquí se afirma con un número **viene de un comando que se ejecutó** (los comandos están
 > en §1). Lo que es estimación, va marcado como **ESTIMADO**. Lo que no se verificó, se dice.

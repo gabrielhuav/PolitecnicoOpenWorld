@@ -7,7 +7,7 @@
 
 > ➡️ **AHORA:** **iOS está COMPLETO para lo que se prometió** — menú real, Ajustes,
 > Coleccionables y Huelum vs. Goya, con idioma, modo desarrollador y guardado. Los ocho pasos de
-> `PROMPT_MAC_navegacion_iOS.md` pasaron en simulador y el andamio de diagnóstico ya no existe.
+> `_ARCHIVO/PROMPT_MAC_navegacion_iOS.md` pasaron en simulador y el andamio de diagnóstico ya no existe.
 > **Siguiente paso:** verificar en Windows que Android sigue igual (§6) y decidir firma/App Store.
 > Mundo abierto y multijugador siguen fuera de iOS a propósito. 228 tests.
 
@@ -25,8 +25,9 @@ PC nueva: `SETUP_PC_NUEVA.md`; `gradle-wrapper.jar` y `secrets.properties` no vi
 
 ## 1. Reglas vivas
 
-- Leer `00_INDEX.md`, `09_CONVENTIONS_GOTCHAS.md` y
-  `10_ARQUITECTURA_SEPARACION.md` antes de mover código entre plataformas.
+- Leer `00_INDEX.md`, `09_CONVENTIONS_GOTCHAS.md` y `10_ARQUITECTURA_SEPARACION.md`.
+  **Si el cambio toca las DOS plataformas, `11_SEPARACION_IOS_ANDROID.md` es obligatorio** —
+  ahí están el árbol de decisión, las 10 costuras y las trampas que solo se ven en el simulador.
 - `PowJson` imita Gson a propósito. `encodeToString(Map)` compila y falla en runtime: usar
   `jsonOf`/`jsonArrayOf`. No cambiar saves ni la ruta Android de la BD.
 - `SfArcadeRepository` conserva la migración `putStringSet` → JSON `_V2`, el `"null"` literal
@@ -37,7 +38,7 @@ PC nueva: `SETUP_PC_NUEVA.md`; `gradle-wrapper.jar` y `secrets.properties` no vi
 - Los nombres de tests de `commonTest` no pueden contener `(`, `)` o `,`; ejecutar
   `bash tools/check_kmp_test_names.sh`.
 - En parciales, los campos viven en la clase y nunca se repite allí una función del parcial:
-  ganaría la clase en silencio. Ver `10_ARQUITECTURA_SEPARACION.md` §8.
+  ganaría la clase en silencio. Ver `10_ARQUITECTURA_SEPARACION.md` **§4**.
 
 ## 2. iOS — estado medido
 
@@ -56,7 +57,7 @@ PC nueva: `SETUP_PC_NUEVA.md`; `gradle-wrapper.jar` y `secrets.properties` no vi
 
 ## 2bis. 🍏 07-30 — navegación iOS completa y verificada (Mac)
 
-Los **ocho pasos** de `PROMPT_MAC_navegacion_iOS.md` pasaron en el simulador (iPhone 17 Pro,
+Los **ocho pasos** de `_ARCHIVO/PROMPT_MAC_navegacion_iOS.md` pasaron en el simulador (iPhone 17 Pro,
 iOS 18.2). Lo que se arregló para llegar ahí, con la trampa de cada uno:
 
 - 🔴 **Idioma no cambiaba.** El desplegable decía "English", `APP_LANGUAGE` se guardaba y los textos
@@ -83,6 +84,19 @@ iOS 18.2). Lo que se arregló para llegar ahí, con la trampa de cada uno:
   `ContentView.swift` es ahora un único `PowAppTab` a pantalla completa. El puente del mapa
   (`WKWebView` + esquema `pow-asset`) se movió a **`MapaWeb.swift`**, que **nadie usa hoy**: se
   conserva porque ya está verificado y el mundo abierto lo necesitará.
+
+### 📚 Documentación puesta al día en la misma sesión
+
+- **`iosApp/README.md` REESCRITO**: describía una app de una pantalla con solo el mapa. Ahora: qué
+  entra en el bundle, qué ajustes de Xcode no se tocan y **que para añadir una pantalla a iOS se
+  toca `PowAppIos.kt`, no el proyecto Xcode**.
+- **`11`**: números remedidos, los 4 controllers, navegación por plataforma, insignias, y **§8bis:
+  las 5 trampas que solo se ven abriendo el simulador**. **`01`** ya no dice "juego Android".
+  **`07`**: menú, Ajustes y Coleccionables marcados como multiplataforma, con sus trampas.
+- **`00_INDEX.md`**: tabla "qué corre en cada plataforma" + **las rutas de los 13 docs de trabajo**,
+  que estaban listados sin carpeta y **ninguno estaba en la raíz** (viven en `SF/`, `MUNDO/`).
+- **Archivados con cabecera ✅**: `ARRANQUE_MAC_iOS.md`, `PLAN_SF_EN_iOS.md`,
+  `PROMPT_MAC_navegacion_iOS.md`. Raíz de `README for IAS`: 6215 → 6082 líneas.
 
 ## 3. 07-29 — Ajustes y Coleccionables a `commonMain` (Windows)
 

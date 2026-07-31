@@ -1,5 +1,14 @@
 # 🍏 PROMPT Mac — navegación real de iOS
 
+> # ✅ EJECUTADO Y COMPLETADO — 2026-07-30
+>
+> **Los ocho pasos pasaron** en el simulador (iPhone 17 Pro, iOS 18.2) y el andamio de diagnóstico
+> (`SfEscaparate.kt`, pestañas MAPA y DIAGNÓSTICO) ya no existe. Se archiva como referencia:
+> **NO es una lista de tareas.**
+>
+> Cinco defectos aparecieron al ejecutarlo y están explicados, con su causa medida, en
+> `11_SEPARACION_IOS_ANDROID.md` §8bis. Tres afectaban también a Android.
+
 Sigo con POW. Repo (carpeta doble):
 `/Users/gabrielhuav/Documents/GitHub/PolitecnicoOpenWorld/PolitecnicoOpenWorld`
 

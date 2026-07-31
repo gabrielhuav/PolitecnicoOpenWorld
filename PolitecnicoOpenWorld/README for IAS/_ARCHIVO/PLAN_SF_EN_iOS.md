@@ -1,5 +1,17 @@
 # 🥊🍏 "Huelum vs. Goya" en iOS — estado y guion
 
+> # ✅ EJECUTADO Y COMPLETADO — 2026-07-30
+>
+> **El modo pelea corre entero en iOS**, con menú principal, Ajustes, Coleccionables, idioma, modo
+> desarrollador y guardado. Verificado en el simulador (iPhone 17 Pro, iOS 18.2).
+>
+> Se archiva como **referencia histórica: NO es una lista de tareas.** El estado vigente está en
+> `_SESION_ACTUAL.md`; el "dónde toco cada cosa" en `11_SEPARACION_IOS_ANDROID.md`; el proyecto
+> Xcode en `iosApp/README.md`.
+>
+> ⚠️ Lo que este documento decía y **ya no es cierto**: que el menú de iOS sería una pantalla
+> aparte. No lo es — se comparte `MainMenuScreen` y lo que cambia es el `MainMenuController`.
+
 **Actualizado:** 2026-07-28 · **Rama:** `fase0-auditoria-kmp` · **Contexto:** `PLAN_MIGRACION_KMP.md`
 
 > **Objetivo:** que el modo pelea (y solo ese) funcione en iOS, con el menú principal mostrando
