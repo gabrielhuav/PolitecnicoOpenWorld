@@ -2,8 +2,9 @@
 
 **Creado:** 2026-07-30 · Todo número de aquí **sale de un comando que se ejecutó**.
 
-> **Para quién es:** para quien continúe la migración. Dice qué está hecho, qué falta, **en qué
-> orden** y —lo más importante— **cuál es el bloqueador que no se resuelve con código**.
+> **Para quién es:** para quien continúe la migración. Dice qué está hecho, qué falta y **en qué
+> orden**. El peso de los assets y los límites de cada tienda están en su propio documento:
+> **[`13_ASSETS_Y_TAMANO.md`](13_ASSETS_Y_TAMANO.md)**.
 >
 > El equivalente para el modo pelea (ya terminado) es `_ARCHIVO/PLAN_SF_EN_iOS.md`.
 
@@ -11,22 +12,29 @@
 
 ## 0. El resumen, si solo lees una sección
 
-**El mundo abierto NO cabe en iOS tal como está hoy, y no es un problema de código.**
+**El mundo abierto son 30 302 líneas — 2,4 veces el modo pelea. Eso es el trabajo real.**
 
 | | Medido |
 |---|---:|
 | Bundle iOS actual (solo SF) | **196 MB** |
 | Assets que sumaría el mundo | **+203 MB** |
 | Bundle iOS con el mundo | **399 MB** |
-| Límite de Apple por **datos móviles** | **200 MB** |
+| Límite duro del App Store | **4 GB** ✅ cabe de sobra |
+| Aviso de Apple por datos móviles | 200 MB (⚠️ solo un aviso) |
+| **Límite de Google Play (módulo base)** | **500 MB** ← el que aprieta |
 
-Con 399 MB la app **solo se puede descargar por Wi-Fi**. Eso no impide publicar, pero es una
-decisión de producto que hay que tomar **antes** de escribir más código, porque cambia la
-arquitectura: la salida es **On-Demand Resources** (bajar los assets del mundo la primera vez que
-se entra), y eso obliga a que todo acceso a assets del mundo pase por una capa asíncrona que hoy
-no existe.
-
-**Recomendación:** decidir ODR sí/no antes de la Fase 4. Las fases 1–3 valen igual en los dos casos.
+> ### ⚠️ CORRECCIÓN (07-30, más tarde): el tamaño NO bloquea iOS
+>
+> La primera versión de este documento decía que el mundo "no cabe" en iOS por los 200 MB. **Era
+> falso.** El límite duro del App Store son **4 GB**; los 200 MB son un aviso de descarga por datos
+> móviles que, **desde iOS 13, el usuario puede desactivar**. Con 399 MB estaríamos al 10 % del
+> límite.
+>
+> **Quien aprieta de verdad es Google Play, con 500 MB de módulo base**, y ahí el AAB ya va por
+> **416 MB**. Números, límites y fuentes en **[`13_ASSETS_Y_TAMANO.md`](13_ASSETS_Y_TAMANO.md)**.
+>
+> On-Demand Resources sigue siendo *deseable* en iOS (mejora la conversión de instalación), pero
+> **no es un requisito para publicar** ni bloquea ninguna fase. **La ruta crítica es el código.**
 
 ---
 
@@ -39,7 +47,7 @@ no existe.
 | **Total a portar** | **124** | **30 302** |
 
 Para comparar: **el modo pelea entero fueron ~12 400 líneas**. El mundo abierto es **2,4 veces
-más grande**, y encima trae los tres bloqueadores que SF no tenía (osmdroid, `R.string`, ODR).
+más grande**, y encima trae dos bloqueadores que SF no tenía: **osmdroid** y **`R.string`**.
 
 ### Bloqueadores contados
 
@@ -140,9 +148,14 @@ nada, así que hoy el mapa es de solo lectura: no recibe jugador, ni NPCs, ni la
 
 Depende de las fases 3–6. `CollisionGrid` y los catálogos de sala son casi puros.
 
-### 🔜 Fase 8 — Assets: la decisión de §0
+### 🔜 Fase 8 — Assets (opcional, NO bloquea)
 
-On-Demand Resources, o publicar una app de 399 MB que solo se baja por Wi-Fi.
+On-Demand Resources en iOS, para no pedir 399 MB de golpe. **No es requisito para publicar**
+(§0): el límite del App Store son 4 GB. Es una mejora de conversión de instalación.
+
+Lo que **sí** es urgente es el peso del **AAB de Android**, que va por 416 MB contra el tope de
+500 MB de Play. Plan de adelgazamiento medido en **[`13_ASSETS_Y_TAMANO.md`](13_ASSETS_Y_TAMANO.md)**:
+142 PNG → WebP (~60 MB) y la música de fondo → Ogg (~23 MB).
 
 ---
 
@@ -160,6 +173,10 @@ On-Demand Resources, o publicar una app de 399 MB que solo se baja por Wi-Fi.
 
 El workflow ahora **avisa a los 450 MB** y publica este desglose en el resumen del run, para que
 cuando crezca se sepa qué carpeta lo hizo crecer sin tener que reproducirlo en local.
+
+📘 **El plan de adelgazamiento, con los límites de cada tienda verificados en la fuente, está en
+[`13_ASSETS_Y_TAMANO.md`](13_ASSETS_Y_TAMANO.md).** Los 500 MB del CI no son un número inventado:
+es exactamente el tope de módulo base de Google Play.
 
 ⚠️ **Mover código de `:app` a `:shared` NO engorda el AAB** (el `dex` entero son 6,8 MB). Lo que sí
 lo engordaría es **duplicar assets**: si algún día `:shared` empaqueta sus propios recursos del

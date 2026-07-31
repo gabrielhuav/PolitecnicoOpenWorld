@@ -7,8 +7,8 @@
 
 > ➡️ **AHORA:** **SF corre entero en iOS** (menú, Ajustes, Coleccionables, pelea, idioma, modo
 > desarrollador, guardado) y el **mundo abierto va por la fase 2 de 8** (§2ter, plan en el doc 12).
-> **Siguiente:** verificar Android en Windows (§5) y **decidir On-Demand Resources** — con el mundo
-> el bundle iOS pasaría de 196 a 399 MB contra el límite de 200 MB de Apple. **234 tests.**
+> **Siguiente:** verificar Android en Windows (§5) y **adelgazar el AAB** — va por 416 MB contra
+> los 500 de Play (doc 13; ODR en iOS resultó NO ser bloqueador). **234 tests.**
 
 ## 🖥️ Rutas por PC
 
@@ -116,13 +116,22 @@ Plan completo, medido, en **`12_PLAN_MUNDO_ABIERTO_iOS.md`**. Resumen:
 - 🛑 **Fase 3 (gestores de IA, ~3 200 líneas) NO se hizo, y a propósito.** Cambia concurrencia de
   código de juego vivo (tráfico, policía, peatones), **tiene 0 tests** y en el Mac **no hay AVD**
   para jugarlo. Hacerla donde haya emulador, escribiendo tests ANTES.
-- 🔴 **El bloqueador real no es código: los assets.** Bundle iOS hoy 196 MB; con el mundo, **399 MB**
-  contra el límite de **200 MB por datos móviles** de Apple. Decidir On-Demand Resources antes de
-  seguir portando.
+### 🗜️ Tamaño — límites VERIFICADOS en la fuente, y una corrección
 
-**AAB de Android MEDIDO: 416 MB** (tope CI 500 → quedan 84). El workflow ahora **avisa a 450 MB** y
-publica el desglose por carpeta en el resumen del run. Mover código a `:shared` no engorda el AAB
-(el dex entero son 6,8 MB); lo que engordaría es **duplicar assets** — se quedan en `app/`.
+⚠️ **Me equivoqué antes:** dije que el mundo no cabía en iOS por los 200 MB. **Falso.** El tope
+duro del App Store son **4 GB**; los 200 MB son un aviso de datos móviles que el usuario desactiva
+desde iOS 13. **Quien aprieta es Google Play: 500 MB de módulo base**, y el AAB va por **416 MB**.
+ODR en iOS es deseable, **no bloqueador**. Todo en **`13_ASSETS_Y_TAMANO.md`** con fuentes.
+
+- ✅ **BGM 24→16 bits: 37,8 → 25,2 MB (−12,6).** Eran másters de estudio crudos. No cambia lo que se
+  oye: la salida de Android es de 16 bits, así que ya se recortaban en runtime.
+- 🔜 **142 PNG → WebP (~60 MB)** y **3 BGM → Ogg (~23 MB)**: dejarían el AAB en ~330 MB. En el Mac
+  **no hay `ffmpeg` ni `cwebp`** (medido). Script listo: `tools/optimizar_assets_produccion.sh`.
+- 🎧 **Regla del audio:** el formato lo decide QUIÉN lo usa. **Ogg** para lo solo-Android (pesa
+  menos y **empalma sin hueco en los bucles**, que AAC no); **`.m4a`** para lo compartido, porque
+  **iOS no lee Ogg**. Los 85 `.m4a` de la pelea son 7,6 MB entre todos: duplicarlos no sale a cuenta.
+- El CI **avisa a 450 MB** y publica el desglose por carpeta en cada run. Mover código a `:shared`
+  no engorda el AAB (el dex son 6,8 MB); **duplicar assets sí** — se quedan en `app/`.
 
 ## 4. PENDIENTE — prioridad
 

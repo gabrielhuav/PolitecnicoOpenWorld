@@ -28,14 +28,14 @@
    política de comentarios y los campos "⚠️ LO POSEE XManager").
 6. Si el asistente necesita un archivo concreto, búscalo en la tabla "Key files" (archivo 04/05)
    y pásale solo ese.
-7. **Tras cualquier cambio, actualiza estos docs (00–11)** y, si es user-facing, el README **público** de la raíz del repo (ver 09). Los **228 tests** (114 en `:app` + 114 en `:shared`) deben seguir en verde.
+7. **Tras cualquier cambio, actualiza estos docs (00–13)** y, si es user-facing, el README **público** de la raíz del repo (ver 09). Los **234 tests** (114 en `:app` + 120 en `:shared`) deben seguir en verde.
 
 **EN:**
 1. Upload/paste this whole folder (or just the relevant files) to the assistant.
 2. Give it the task and tell it to **follow MVVM and the conventions in file 09**.
 3. If it needs a specific source file, find it in the "Key files" table (file 04/05) and pass
    only that one.
-4. **After any change, update these docs (00–11)** and, if user-facing, the **public** root README (see 09).
+4. **After any change, update these docs (00–13)** and, if user-facing, the **public** root README (see 09).
 
 ---
 
@@ -62,7 +62,7 @@
 > | Capa | Archivo | Regla |
 > |---|---|---|
 > | **Memoria de trabajo** | `_SESION_ACTUAL.md` | **Ventana de 2 días · máx. 200 líneas.** Lo único que se lee SIEMPRE. Lo que pase de ahí se purga. |
-> | **Conocimiento estable** | `00`–`11`, `MUNDO/`, `SF/`, `../iosApp/README.md` | Se ACTUALIZA cuando cambia el código. No lleva historia de sesiones. |
+> | **Conocimiento estable** | `00`–`13`, `MUNDO/`, `SF/`, `../iosApp/README.md` | Se ACTUALIZA cuando cambia el código. No lleva historia de sesiones. |
 > | **Histórico** | `_ARCHIVO/` | Solo lectura, para arqueología. **NO son tareas.** |
 >
 > **La regla que hace que esto funcione:** `_SESION_ACTUAL.md` se lee en cada arranque, así que
@@ -85,7 +85,8 @@
 | — | `PLAYSTORE_formulario_seguridad_datos.md` | 🛡️ **Play Store: formulario de Seguridad de los datos + políticas.** Valores EXACTOS aprobados, errores que nos rechazaron y checklist antes de cada envío. **Léelo antes de tocar la ficha o subir versión.** |
 | — | `PLAN_MIGRACION_KMP.md` | 🍏 **Migración a Kotlin Multiplatform / iOS — el plan global.** Acoplamiento MEDIDO, estado de las libs KMP, decisión del mapa y qué NO se puede portar. **Estado (07-30): el modo pelea CORRE ENTERO en iOS, con menú, Ajustes y Coleccionables.** Queda pulir y decidir firma/App Store; el mundo abierto es trabajo futuro. |
 | — | `SETUP_PC_NUEVA.md` | 🖥️ **Poner el repo a compilar en una PC Windows nueva.** Los 4 archivos que NO viajan por git (⚠️ `gradle-wrapper.jar` bloquea hasta `gradlew`), la prueba de humo y cómo se verifica iOS desde Windows. |
-| 12 | `12_PLAN_MUNDO_ABIERTO_iOS.md` | 🌎🍏 **Portar el MUNDO ABIERTO a iOS — plan medido.** Cuánto es (30 302 líneas), los 3 bloqueadores contados, las 8 fases en orden y **el problema que no se arregla con código: el bundle iOS pasaría de 196 a 399 MB, contra el límite de 200 MB por datos móviles de Apple.** Incluye el peso del AAB de Android y por qué. **Léelo antes de tocar `map_exterior` o `interiores`.** |
+| 12 | `12_PLAN_MUNDO_ABIERTO_iOS.md` | 🌎🍏 **Portar el MUNDO ABIERTO a iOS — plan medido.** Cuánto es (30 302 líneas), los 3 bloqueadores contados, los 2 bloqueadores contados (osmdroid, `R.string`) y las 8 fases en orden, con **por qué la fase 3 se paró a propósito**. El tamaño y los límites de tienda están en el doc 13. **Léelo antes de tocar `map_exterior` o `interiores`.** |
+| 13 | `13_ASSETS_Y_TAMANO.md` | 🗜️ **Qué se sube a cada tienda y cuánto puede pesar.** Los límites REALES verificados en la fuente (**Play: 500 MB de módulo base ← el que aprieta · App Store: 4 GB, los 200 MB son solo un aviso**), dónde está el peso del AAB medido, **qué formato de audio va en cada sitio y por qué** (Ogg solo-Android por el bucle; `.m4a` para lo compartido porque iOS no lee Ogg) y el plan de adelgazamiento con `tools/optimizar_assets_produccion.sh`. **Léelo antes de añadir cualquier asset.** |
 | — | `../iosApp/README.md` | 🍏 **El proyecto Xcode.** Cómo compilarlo (⚠️ el framework de Kotlin NO se construye solo), qué assets entran en el bundle y qué ajustes de Xcode no se tocan. **Para añadir una pantalla a iOS se toca `PowAppIos.kt`, no este proyecto.** |
 
 ### 🌎 `MUNDO/` — mundo libre POW
@@ -139,7 +140,7 @@ de subir a la App Store** (Apple rechaza funciones anunciadas que no funcionan).
 `disponible()` (¿se juega?), `enObras()` (¿se pinta sin jugarse?) y `sePinta()` (¿aparece?).
 Añadir un modo a `modosDe(IOS)` **no lo porta**. Detalle en `11_SEPARACION_IOS_ANDROID.md` §5.
 
-### Docs de trabajo / Working docs (no son 00–11)
+### Docs de trabajo / Working docs (no son 00–13)
 
 > ⚠️ **La RUTA de esta tabla importa.** Casi ninguno de estos archivos está en la raíz de la
 > carpeta: viven en `SF/`, `MUNDO/` o `_ARCHIVO/`. Buscarlos por el nombre suelto no los encuentra.
@@ -203,13 +204,13 @@ Añadir un modo a `modosDe(IOS)` **no lo porta**. Detalle en `11_SEPARACION_IOS_
 > **ES:** "Lee la carpeta `README for IAS` (ese es todo el contexto del proyecto POW).
 > Implementa <tarea> siguiendo el patrón MVVM y las convenciones del archivo 09. No me pidas
 > más código a menos que un archivo citado en las tablas 'Key files' (04/05) falte. Al
-> terminar, dime qué líneas de estos docs (00–11) hay que actualizar (y del README público de la
+> terminar, dime qué líneas de estos docs (00–13) hay que actualizar (y del README público de la
 > raíz si el cambio es user-facing)."
 >
 > **EN:** "Read the `README for IAS` folder (that is the full context of the POW project).
 > Implement <task> following the MVVM pattern and the conventions in file 09. Don't ask me for
 > more code unless a file referenced in the 'Key files' tables (04/05) is missing. When done,
-> tell me which lines of these docs (00–11) to update (and the public root README if user-facing)."
+> tell me which lines of these docs (00–13) to update (and the public root README if user-facing)."
 
 ---
 
