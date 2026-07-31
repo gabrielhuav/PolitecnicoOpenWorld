@@ -11,7 +11,7 @@
 > NPCs, coleccionables y colisiones — los alimenta el `WorldMapViewModel`, que sigue en `:app`.
 > 🎮 **El HUD del mundo ya está en iOS** (joystick + diamante A/B/X/Y, los MISMOS de Android).
 > **Siguiente:** portar `WorldMapViewModel` (fase 5) y **adelgazar el AAB** — 402 MB / 500 de Play.
-> **413 tests.**
+> **429 tests.**
 
 ## 🖥️ Rutas por PC
 
@@ -114,6 +114,12 @@ Plan completo, medido, en **`12_PLAN_MUNDO_ABIERTO_iOS.md`**. Resumen:
   Transforma el dibujo, no el área táctil. Los controles ahora aceptan `tamano` real (iOS: 100 dp)
   y por dentro son proporcionales, así que el tacto no cambia. Android sigue en `ControllerBaseSize`.
   A/B/X/Y avisan "pendiente del ViewModel" en vez de quedarse mudos.
+- 🧱 **Colisiones del exterior, compartidas.** `cargarColisionesExteriores()` + `chocaAlMoverse()`
+  en `commonMain` (8 tests). Lee `CONFIG/exterior_collisions.json` por `PowAssets` → sirve a las dos
+  plataformas **sin tocar el ViewModel**. `CONFIG/` (80 KB) añadido al `rsync` del bundle iOS.
+  ⚠️ Comprueba el **TRAYECTO**, no solo el destino: si no, un paso largo salta la barda.
+  ⚠️ Sin el JSON devuelve config **vacía** (se atraviesa todo) en vez de lanzar — degradar es mejor
+  que crashear al entrar al mapa.
 ### 🗜️ Tamaño — límites VERIFICADOS en la fuente, y una corrección
 
 ⚠️ **Me equivoqué antes:** dije que el mundo no cabía en iOS por los 200 MB. **Falso.** El tope

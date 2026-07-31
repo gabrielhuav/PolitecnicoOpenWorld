@@ -29,6 +29,8 @@ import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.map.cargarColisionesExteriores
+import ovh.gabrielhuav.pow.domain.models.map.chocaAlMoverse
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -81,6 +83,11 @@ fun MapaMundoIos(alVolver: () -> Unit) {
     var puente by remember { mutableStateOf<PuenteMapaIos?>(null) }
     // Texto del aviso de "esta función todavía no está". `null` = no hay nada que decir.
     var aviso by remember { mutableStateOf<String?>(null) }
+
+    // 🧱 Los muros del campus. Se leen UNA vez del bundle (`assets/CONFIG/`) y no cambian.
+    // ⚠️ Si el archivo faltara, `cargarColisionesExteriores` devuelve vacío y se puede atravesar
+    // todo: es su modo degradado a propósito — mejor un mundo sin bardas que un crash al entrar.
+    val colisiones = remember { cargarColisionesExteriores() }
 
     // El aviso se va solo: un cartel fijo estorba más que informa. 4 s es lo que tarda en leerse
     // una frase corta sin prisa — el mismo orden que un Snackbar largo de Material.
@@ -147,7 +154,7 @@ fun MapaMundoIos(alVolver: () -> Unit) {
                     .padding(horizontal = 12.dp, vertical = 6.dp),
             )
             Text(
-                "Puedes caminar · Faltan NPCs, coleccionables y colisiones",
+                "Caminas y las bardas frenan · Faltan NPCs y coleccionables",
                 color = Color.White.copy(alpha = 0.85f),
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
@@ -163,13 +170,22 @@ fun MapaMundoIos(alVolver: () -> Unit) {
             alMover = { angulo ->
                 // El joystick da un ángulo en radianes; el mundo se mueve en metros. 0 rad = este,
                 // y en pantalla la Y crece hacia ABAJO, de ahí el signo del seno.
-                jugador = jugador.desplazado(
+                val destino = jugador.desplazado(
                     metrosNorte = -sin(angulo) * PASO_METROS,
                     metrosEste = cos(angulo) * PASO_METROS,
                 )
-                puente?.moverJugador(jugador)
-                puente?.moverNiebla(jugador)
-                puente?.centrarEn(jugador, ZOOM_JUEGO)
+                // 🧱 Si el paso cruza un muro, NO se mueve. Misma regla que `WorldMapMovement.kt`
+                // en Android: se comprueba el TRAYECTO, no solo el destino, para que un paso largo
+                // no atraviese una barda de un salto.
+                val choca = colisiones.chocaAlMoverse(
+                    jugador.latitude, jugador.longitude, destino.latitude, destino.longitude,
+                )
+                if (!choca) {
+                    jugador = destino
+                    puente?.moverJugador(jugador)
+                    puente?.moverNiebla(jugador)
+                    puente?.centrarEn(jugador, ZOOM_JUEGO)
+                }
             },
             alSoltar = { /* Sin inercia todavía: el jugador se para al soltar. */ },
             alPulsarSinFuncion = { accion -> aviso = "Botón $accion: pendiente del ViewModel" },

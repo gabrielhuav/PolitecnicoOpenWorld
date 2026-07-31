@@ -211,7 +211,14 @@ El VM necesita Hilt y `Context` → **patrón Controller**, igual que `StreetFig
 > - **NPCs, policía, coleccionables, landmarks.** Hay función JS para todos (`updateNpcs`,
 >   `updatePolice`, `updateCollectibles`, `updateLandmarks`); quien las alimenta es el
 >   `WorldMapViewModel`, que sigue en `:app` — **fase 5**.
-> - **Colisiones**: hoy el jugador atraviesa edificios.
+> - ~~**Colisiones**~~ ✅ **HECHO (07-31)**: `cargarColisionesExteriores()` +
+>   `chocaAlMoverse()` en `commonMain`, con **8 tests**. Lee `assets/CONFIG/exterior_collisions.json`
+>   por `PowAssets`, así que sirve a las dos plataformas sin arrastrar el ViewModel.
+>   ⚠️ Comprueba el **TRAYECTO**, no solo el destino: si no, un paso largo atraviesa la barda de un
+>   salto. Hay un test que lo fija.
+>   ⚠️ Si el JSON falta devuelve configuración **vacía** (se puede atravesar todo) en vez de lanzar:
+>   un mundo sin bardas es mejor que un crash al entrar. Por eso `CONFIG/` se añadió al `rsync`
+>   del bundle iOS (80 KB).
 > - **La VUELTA del puente (JS → Kotlin)**: en Android es `@JavascriptInterface`; en iOS haría falta
 >   `WKScriptMessageHandler`. Sin ella el mapa no avisa de toques ni de arrastres.
 >
