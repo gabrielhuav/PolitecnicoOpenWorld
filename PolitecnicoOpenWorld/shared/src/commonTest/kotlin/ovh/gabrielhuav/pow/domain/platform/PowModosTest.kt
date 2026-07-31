@@ -55,6 +55,66 @@ class PowModosTest {
         assertTrue(modosDe(PowPlataforma.IOS).all { it in modosDe(PowPlataforma.ANDROID) })
     }
 
+    // ── 🚧 Modos EN OBRAS: se pintan pero no se juegan ─────────────────────────────────────────
+
+    @Test
+    fun `un modo en obras NO cuenta como disponible`() {
+        // Esta es LA regla que protege todo lo demás. `disponible()` responde "¿se puede jugar?",
+        // y eso es lo que consultan Ajustes y la navegación. Si un modo en obras contase como
+        // disponible, iOS enseñaria las opciones de mapa y controles, que allí no hacen nada.
+        val enObras = modosEnObrasDe(PowPlataforma.IOS)
+        val jugables = modosDe(PowPlataforma.IOS)
+        for (m in enObras) {
+            assertFalse(m in jugables, "$m esta en obras y NO puede estar en modosDe(IOS)")
+        }
+    }
+
+    @Test
+    fun `en Android no hay nada en obras - lo que se pinta se juega`() {
+        assertEquals(emptySet(), modosEnObrasDe(PowPlataforma.ANDROID))
+    }
+
+    @Test
+    fun `el interruptor de la App Store apaga TODAS las obras`() {
+        // Si esto se pone rojo, alguien rompió el interruptor: es lo único que hay que tocar antes
+        // de firmar para iOS, y tiene que dejar el menú exactamente como estaba.
+        if (MODOS_EN_OBRAS_VISIBLES) {
+            assertTrue(
+                modosEnObrasDe(PowPlataforma.IOS).isNotEmpty(),
+                "con el interruptor encendido iOS deberia enseñar los modos en obras",
+            )
+        } else {
+            assertEquals(
+                emptySet(),
+                modosEnObrasDe(PowPlataforma.IOS),
+                "apagado, iOS no puede pintar NINGUN modo en obras",
+            )
+        }
+    }
+
+    @Test
+    fun `con las obras encendidas los dos menus pintan lo mismo`() {
+        // El objetivo de la fase 1: menús idénticos. Lo que se PINTA en iOS = lo que se pinta en
+        // Android; lo que cambia es que en iOS tres de ellos avisan en vez de navegar.
+        if (!MODOS_EN_OBRAS_VISIBLES) return
+        val pintadosIos = modosDe(PowPlataforma.IOS) + modosEnObrasDe(PowPlataforma.IOS)
+        assertEquals(modosDe(PowPlataforma.ANDROID), pintadosIos)
+    }
+
+    @Test
+    fun `sePinta concuerda con disponible mas enObras`() {
+        for (m in PowModo.entries) {
+            assertEquals(m.disponible() || m.enObras(), m.sePinta(), "desacuerdo en $m")
+        }
+    }
+
+    @Test
+    fun `ningun modo esta a la vez jugable y en obras`() {
+        for (m in PowModo.entries) {
+            assertFalse(m.disponible() && m.enObras(), "$m no puede ser las dos cosas")
+        }
+    }
+
     @Test
     fun `la plataforma actual se resuelve y es coherente`() {
         // No se afirma CUÁL es (depende de dónde corra el test), sino que resuelve y que el

@@ -13,6 +13,10 @@
 <resources>
     <string name="badge_alpha">PRE-ALPHA</string>
     <string name="badge_beta">BETA</string>
+    <string name="badge_wip">EN OBRAS</string>
+    <string name="wip_title">Todavía en obras</string>
+    <string name="wip_message">Este modo aún no está disponible en iPhone. El mundo abierto se está portando; por ahora puedes jugar Huelum vs. Goya.</string>
+    <string name="wip_ok">Entendido</string>
     <string name="menu_cancel">Cancelar</string>
     <string name="menu_cancel_caps">CANCELAR</string>
     <string name="menu_close">Cerrar</string>

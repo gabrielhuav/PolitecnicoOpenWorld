@@ -66,6 +66,7 @@ import ovh.gabrielhuav.pow.domain.platform.PowModo
 import ovh.gabrielhuav.pow.shared.recursos.Res
 import ovh.gabrielhuav.pow.shared.recursos.*
 import ovh.gabrielhuav.pow.domain.platform.disponible
+import ovh.gabrielhuav.pow.domain.platform.sePinta
 
 @Composable
 fun MainMenuScreen(
@@ -296,50 +297,59 @@ fun MenuButtonsList(
     onMultiplayerClick: () -> Unit = { controller.onMultiplayerPressed() },
     onNavigateToStreetFighter: () -> Unit = {}
 ) {
-    // 🍏 Los modos que NO existen en iOS ni siquiera se pintan. El catálogo vive en `:shared`
-    // (`PowModo.disponible()`), no aquí: así la regla es UNA y se testea sin necesidad de un Mac.
-    // En Android `disponible()` es true para todos → esta pantalla se ve EXACTAMENTE igual.
+    // 🍏 Qué botones se pintan lo decide el catálogo de `:shared` (`PowModo.sePinta()`), no esta
+    // pantalla: así la regla es UNA y se testea sin necesidad de un Mac. En Android `disponible()`
+    // es true para todos → esta pantalla se ve EXACTAMENTE igual que antes.
+    //
+    // 🚧 Un modo `enObras()` SÍ se pinta pero NO navega: abre el aviso de abajo. Hoy eso solo pasa
+    // en iOS, para poder comparar los dos menús mientras se porta el mundo abierto. Se apaga entero
+    // con `MODOS_EN_OBRAS_VISIBLES = false` (ver `PowModos.kt`) antes de subir a la App Store.
+    var modoEnObras by remember { mutableStateOf<PowModo?>(null) }
 
     // MUNDO LIBRE: el open world sin campaña (antes "Iniciar Juego"). Spawn por defecto.
-    if (PowModo.MUNDO_LIBRE.disponible()) {
-        WithCornerBadge(stringResource(Res.string.badge_alpha), Color(0xFF8A5A12), controller.mostrarInsignias) {
-            MenuButton(
-                text = stringResource(Res.string.menu_start_game),
-                onClick = {
-                    controller.onStartGame()
-                    onNavigateToMap(false, null)
-                },
-                enabled = !state.isLoading && !state.isWarmingUp
-            )
+    if (PowModo.MUNDO_LIBRE.sePinta()) {
+        BotonDeModo(
+            modo = PowModo.MUNDO_LIBRE,
+            texto = stringResource(Res.string.menu_start_game),
+            mostrarInsignias = controller.mostrarInsignias,
+            habilitado = !state.isLoading && !state.isWarmingUp,
+            alPulsarEnObras = { modoEnObras = it },
+        ) {
+            controller.onStartGame()
+            onNavigateToMap(false, null)
         }
         Spacer(Modifier.height(16.dp))
     }
 
     // MODO HISTORIA: abre la pantalla de campaña (prólogo + elegir escuela + cargar partida).
-    if (PowModo.MODO_HISTORIA.disponible()) {
-        WithCornerBadge(stringResource(Res.string.badge_alpha), Color(0xFF8A5A12), controller.mostrarInsignias) {
-            MenuButton(
-                text = stringResource(Res.string.menu_load_game),
-                onClick = onNavigateToStory,
-                enabled = !state.isWarmingUp
-            )
-        }
+    if (PowModo.MODO_HISTORIA.sePinta()) {
+        BotonDeModo(
+            modo = PowModo.MODO_HISTORIA,
+            texto = stringResource(Res.string.menu_load_game),
+            mostrarInsignias = controller.mostrarInsignias,
+            habilitado = !state.isWarmingUp,
+            alPulsarEnObras = { modoEnObras = it },
+            alPulsar = onNavigateToStory,
+        )
         Spacer(Modifier.height(16.dp))
     }
 
     // El botón MULTIJUGADOR dispara el warmup ANTES de mostrar el diálogo
     // de nombre. Mientras dura el warmup queda deshabilitado para evitar
     // que el usuario lance dos pings en paralelo.
-    if (PowModo.MULTIJUGADOR.disponible()) {
-        WithCornerBadge(stringResource(Res.string.badge_alpha), Color(0xFF8A5A12), controller.mostrarInsignias) {
-            MenuButton(
-                text = stringResource(Res.string.menu_multiplayer),
-                onClick = onMultiplayerClick,
-                enabled = !state.isWarmingUp
-            )
-        }
+    if (PowModo.MULTIJUGADOR.sePinta()) {
+        BotonDeModo(
+            modo = PowModo.MULTIJUGADOR,
+            texto = stringResource(Res.string.menu_multiplayer),
+            mostrarInsignias = controller.mostrarInsignias,
+            habilitado = !state.isWarmingUp,
+            alPulsarEnObras = { modoEnObras = it },
+            alPulsar = onMultiplayerClick,
+        )
         Spacer(Modifier.height(16.dp))
     }
+
+    modoEnObras?.let { AvisoEnObras { modoEnObras = null } }
 
     MenuButton(
         text = stringResource(Res.string.menu_settings),
@@ -500,7 +510,7 @@ private fun StageBadge(text: String, color: Color, modifier: Modifier = Modifier
  * estable y no dependa de cómo se midió el botón de dentro.
  */
 @Composable
-private fun WithCornerBadge(
+internal fun WithCornerBadge(
     text: String,
     color: Color,
     /**

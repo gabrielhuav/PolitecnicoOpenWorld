@@ -85,6 +85,7 @@
 | — | `PLAYSTORE_formulario_seguridad_datos.md` | 🛡️ **Play Store: formulario de Seguridad de los datos + políticas.** Valores EXACTOS aprobados, errores que nos rechazaron y checklist antes de cada envío. **Léelo antes de tocar la ficha o subir versión.** |
 | — | `PLAN_MIGRACION_KMP.md` | 🍏 **Migración a Kotlin Multiplatform / iOS — el plan global.** Acoplamiento MEDIDO, estado de las libs KMP, decisión del mapa y qué NO se puede portar. **Estado (07-30): el modo pelea CORRE ENTERO en iOS, con menú, Ajustes y Coleccionables.** Queda pulir y decidir firma/App Store; el mundo abierto es trabajo futuro. |
 | — | `SETUP_PC_NUEVA.md` | 🖥️ **Poner el repo a compilar en una PC Windows nueva.** Los 4 archivos que NO viajan por git (⚠️ `gradle-wrapper.jar` bloquea hasta `gradlew`), la prueba de humo y cómo se verifica iOS desde Windows. |
+| 12 | `12_PLAN_MUNDO_ABIERTO_iOS.md` | 🌎🍏 **Portar el MUNDO ABIERTO a iOS — plan medido.** Cuánto es (30 302 líneas), los 3 bloqueadores contados, las 8 fases en orden y **el problema que no se arregla con código: el bundle iOS pasaría de 196 a 399 MB, contra el límite de 200 MB por datos móviles de Apple.** Incluye el peso del AAB de Android y por qué. **Léelo antes de tocar `map_exterior` o `interiores`.** |
 | — | `../iosApp/README.md` | 🍏 **El proyecto Xcode.** Cómo compilarlo (⚠️ el framework de Kotlin NO se construye solo), qué assets entran en el bundle y qué ajustes de Xcode no se tocan. **Para añadir una pantalla a iOS se toca `PowAppIos.kt`, no este proyecto.** |
 
 ### 🌎 `MUNDO/` — mundo libre POW
@@ -126,12 +127,17 @@ reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `stree
 |---|:---:|:---:|---|
 | Menú principal, Ajustes, Coleccionables | ✅ | ✅ | Misma pantalla de `commonMain`, distinto Controller |
 | 🥊 Huelum vs. Goya — arcade, práctica, IA vs IA | ✅ | ✅ | Verificado en simulador: pelea, audio, guardado, modo desarrollador |
-| 🥊 Multijugador (Render / BT / LAN / P2P) | ✅ | ❌ | RFCOMM no existe en iOS; WebRTC y UDP multicast no se portaron |
-| 🌎 Mundo libre, interiores, zombis | ✅ | ❌ | **Trabajo futuro.** El puente del mapa está hecho y desconectado |
-| 📖 Modo Historia | ✅ | ❌ | Va con el mundo abierto |
+| 🥊 Multijugador (Render / BT / LAN / P2P) | ✅ | 🚧 | RFCOMM no existe en iOS; WebRTC y UDP multicast no se portaron |
+| 🌎 Mundo libre, interiores, zombis | ✅ | 🚧 | **En curso.** Ver `12_PLAN_MUNDO_ABIERTO_iOS.md` |
+| 📖 Modo Historia | ✅ | 🚧 | Va con el mundo abierto |
 
-⚠️ **Quien decide esta tabla es `PowModos.kt`**, no la UI. Añadir un modo a `modosDe(IOS)` **no lo
-porta**: solo deja de esconder el botón. Detalle en `11_SEPARACION_IOS_ANDROID.md` §5.
+**🚧 = el botón SE PINTA en iOS pero avisa en vez de navegar.** Es a propósito, para poder comparar
+los dos menús mientras se porta el mundo. ⚠️ **Se apaga con `MODOS_EN_OBRAS_VISIBLES = false` antes
+de subir a la App Store** (Apple rechaza funciones anunciadas que no funcionan).
+
+⚠️ **Quien decide esta tabla es `PowModos.kt`**, no la UI, y hay TRES preguntas distintas:
+`disponible()` (¿se juega?), `enObras()` (¿se pinta sin jugarse?) y `sePinta()` (¿aparece?).
+Añadir un modo a `modosDe(IOS)` **no lo porta**. Detalle en `11_SEPARACION_IOS_ANDROID.md` §5.
 
 ### Docs de trabajo / Working docs (no son 00–11)
 

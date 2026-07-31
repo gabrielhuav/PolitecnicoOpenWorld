@@ -1,7 +1,8 @@
 package ovh.gabrielhuav.pow.domain.models.map
 
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
-import java.util.UUID
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * Catálogo de modelos de vehículo. Cada entrada = UN set de assets de sprites top-down.
@@ -63,7 +64,12 @@ enum class NpcTrait { PASSIVE, COWARD, AGGRESSIVE }
 enum class ZombieRole { NORMAL, RUNNER, TANK, SCOUT }
 
 data class Npc(
-    val id: String = UUID.randomUUID().toString(),
+    /**
+     * ⚠️ Era `java.util.UUID.randomUUID()`, que no existe en Kotlin/Native. `Uuid.random()` da el
+     * MISMO formato de texto (8-4-4-4-12 en minúsculas), así que nada que compare o serialice este
+     * id nota el cambio. Es un id de sesión: los NPC se generan al vuelo y no se guardan.
+     */
+    val id: String = nuevoIdDeNpc(),
     val type: NpcType,
     var location: GeoPoint,
     var rotationAngle: Float = 0f,
@@ -165,3 +171,6 @@ data class Npc(
     // como patrulla. Cosmético/local (no se serializa en MultiplayerNpc).
     val isPoliceSkin: Boolean = false
 )
+/** Id de sesión para un NPC. Multiplataforma: `java.util.UUID` no existe en Kotlin/Native. */
+@OptIn(ExperimentalUuidApi::class)
+internal fun nuevoIdDeNpc(): String = Uuid.random().toString()

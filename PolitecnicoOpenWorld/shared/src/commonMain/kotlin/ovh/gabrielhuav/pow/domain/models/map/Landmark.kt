@@ -2,6 +2,10 @@ package ovh.gabrielhuav.pow.domain.models.map
 
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
+// ⚠️ `java.lang.Math` NO existe en Kotlin/Native. `kotlin.math` da los MISMOS valores con la misma
+// precisión (Double IEEE-754), así que la geometría del mundo no cambia ni un metro.
+// `Math.toRadians(x)` se sustituyó por `x * PI / 180.0`, que es literalmente su implementación.
+import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -21,13 +25,13 @@ data class Landmark(
         val dxMeters = (localX - 0.5f) * baseWidthMeters * scaleX
         val dyMeters = (0.5f - localY) * baseHeightMeters * scaleY
 
-        val angleRad = Math.toRadians(rotationAngle.toDouble())
+        val angleRad = (rotationAngle.toDouble() * PI / 180.0)
         val rotatedDx = dxMeters * cos(angleRad) - dyMeters * sin(angleRad)
         val rotatedDy = dxMeters * sin(angleRad) + dyMeters * cos(angleRad)
 
         val earthRadius = 6378137.0
-        val dLat = (rotatedDy / earthRadius) * (180.0 / Math.PI)
-        val dLon = (rotatedDx / (earthRadius * cos(Math.PI * location.latitude / 180.0))) * (180.0 / Math.PI)
+        val dLat = (rotatedDy / earthRadius) * (180.0 / PI)
+        val dLon = (rotatedDx / (earthRadius * cos(PI * location.latitude / 180.0))) * (180.0 / PI)
 
         return GeoPoint(location.latitude + dLat, location.longitude + dLon)
     }
@@ -37,12 +41,12 @@ data class Landmark(
         val dLon = point.longitude - location.longitude
 
         val earthRadius = 6378137.0
-        val dyGlobalMeters = dLat * (Math.PI / 180.0) * earthRadius
-        val dxGlobalMeters = dLon * (Math.PI / 180.0) * (earthRadius * Math.cos(Math.PI * location.latitude / 180.0))
+        val dyGlobalMeters = dLat * (PI / 180.0) * earthRadius
+        val dxGlobalMeters = dLon * (PI / 180.0) * (earthRadius * cos(PI * location.latitude / 180.0))
 
-        val angleRad = Math.toRadians(-rotationAngle.toDouble())
-        val dxLocalMeters = dxGlobalMeters * Math.cos(angleRad) - dyGlobalMeters * Math.sin(angleRad)
-        val dyLocalMeters = dxGlobalMeters * Math.sin(angleRad) + dyGlobalMeters * Math.cos(angleRad)
+        val angleRad = (-rotationAngle.toDouble() * PI / 180.0)
+        val dxLocalMeters = dxGlobalMeters * cos(angleRad) - dyGlobalMeters * sin(angleRad)
+        val dyLocalMeters = dxGlobalMeters * sin(angleRad) + dyGlobalMeters * cos(angleRad)
 
         val actualWidth = baseWidthMeters * scaleX
         val actualHeight = baseHeightMeters * scaleY
@@ -59,10 +63,10 @@ data class Landmark(
         val dLat = globalPoint.latitude - location.latitude
         val dLon = globalPoint.longitude - location.longitude
 
-        val rotatedDy = dLat * (Math.PI / 180.0) * earthRadius
-        val rotatedDx = dLon * (Math.PI / 180.0) * (earthRadius * cos(Math.PI * location.latitude / 180.0))
+        val rotatedDy = dLat * (PI / 180.0) * earthRadius
+        val rotatedDx = dLon * (PI / 180.0) * (earthRadius * cos(PI * location.latitude / 180.0))
 
-        val angleRad = Math.toRadians(-rotationAngle.toDouble())
+        val angleRad = (-rotationAngle.toDouble() * PI / 180.0)
         val dxMeters = rotatedDx * cos(angleRad) - rotatedDy * sin(angleRad)
         val dyMeters = rotatedDx * sin(angleRad) + rotatedDy * cos(angleRad)
 

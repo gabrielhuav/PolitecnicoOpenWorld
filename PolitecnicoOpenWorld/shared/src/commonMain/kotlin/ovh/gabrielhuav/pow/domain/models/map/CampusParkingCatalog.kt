@@ -4,6 +4,7 @@ import kotlinx.serialization.encodeToString
 import ovh.gabrielhuav.pow.data.json.PowJson
 
 import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
+import ovh.gabrielhuav.pow.platform.assets.PowAssets
 
 /**
  * Un campus "enterable" cuyo estacionamiento se comparte entre el mapa EXTERIOR y su
@@ -90,15 +91,19 @@ object CampusParkingCatalog {
     /**
      * Lee la calibración de GRUPO del lobby desde assets ([CampusParking.parkingCalibrationAsset]).
      * BLOQUEANTE (I/O de assets): invócalo fuera del hilo principal. Si el archivo no existe o no
-     * parsea, devuelve IDENTIDAD (el lote se dibuja con las coords crudas, sin acomodar) y lo loguea.
+     * parsea, devuelve IDENTIDAD (el lote se dibuja con las coords crudas, sin acomodar).
+     *
+     * ⚠️ **Antes recibía un `android.content.Context`.** Ahora lee por [PowAssets], que es la
+     * costura multiplataforma: en Android sigue siendo el mismo `AssetManager` y el mismo archivo,
+     * y en iOS sale del bundle. El comportamiento ante un archivo que falta NO cambia: identidad.
      */
-    fun loadCalibration(context: android.content.Context, campus: CampusParking): ParkingCalibration {
+    fun loadCalibration(campus: CampusParking): ParkingCalibration {
         return try {
-            context.assets.open(campus.parkingCalibrationAsset).use { ins ->
-                PowJson.decodeFromString<ParkingCalibration>(ins.reader().readText())
-            } ?: ParkingCalibration()
+            PowJson.decodeFromString<ParkingCalibration>(
+                PowAssets.texto(campus.parkingCalibrationAsset),
+            )
         } catch (e: Exception) {
-            android.util.Log.w("CampusParkingCatalog", "Sin calibración de estacionamiento para ${campus.assetMatch} (${campus.parkingCalibrationAsset}); se usa identidad.", e)
+            // Sin calibración se dibuja el lote con las coords crudas. No es un error del jugador.
             ParkingCalibration()
         }
     }

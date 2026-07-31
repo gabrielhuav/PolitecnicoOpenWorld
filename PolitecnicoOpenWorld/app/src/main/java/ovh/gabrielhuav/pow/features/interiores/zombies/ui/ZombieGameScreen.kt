@@ -312,7 +312,9 @@ fun ZombieGameScreen(
         val campus = ovh.gabrielhuav.pow.domain.models.map.CampusParkingCatalog.forAsset(room.backgroundAsset)
             ?: return@LaunchedEffect
         val calib = withContext(Dispatchers.IO) {
-            ovh.gabrielhuav.pow.domain.models.map.CampusParkingCatalog.loadCalibration(context, campus)
+            // Ya no recibe `Context`: lee por `PowAssets`, la costura multiplataforma. Sigue
+            // siendo el mismo archivo de `assets/` y el mismo AssetManager por debajo.
+            ovh.gabrielhuav.pow.domain.models.map.CampusParkingCatalog.loadCalibration(campus)
         }
         parkAngle = calib.headingDeg
         parkOffX = calib.offsetXFrac

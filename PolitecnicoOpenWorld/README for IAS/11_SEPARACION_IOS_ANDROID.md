@@ -26,8 +26,8 @@ shared/src/
 └── iosMain/      ← su equivalente en iOS
 ```
 
-**Medido hoy:** 101 archivos en `commonMain` (20 576 líneas), 16 en `androidMain` (2 543),
-14 en `iosMain` (**695 líneas en total** — iOS es fino a propósito) y 205 en `:app` (42 632).
+**Medido hoy:** 121 archivos en `commonMain` (21 721 líneas), 16 en `androidMain` (2 543),
+14 en `iosMain` (**695 líneas en total** — iOS es fino a propósito) y 186 en `:app` (41 713).
 **En `commonMain` hay 0 imports de `android.*`** — y así tiene que seguir.
 
 > 📐 **Que `iosMain` sean 695 líneas es el indicador de que esto va bien.** Si empieza a engordar,
@@ -164,18 +164,41 @@ plataforma navega con lo suyo, y lo que se comparte son las pantallas.
 
 ## 5. Lo que NO existe en iOS
 
-En iOS el juego arranca en el **menú principal real**, igual que en Android, pero ese menú solo
-ofrece **Ajustes**, **Coleccionables** y **Huelum vs. Goya**.
+En iOS el juego arranca en el **menú principal real**, igual que en Android. Desde el 07-30 ese
+menú **pinta los mismos seis botones** que Android, pero solo tres se pueden jugar: **Ajustes**,
+**Coleccionables** y **Huelum vs. Goya**.
 
-La lista **no se decide en la UI**: vive en `PowModos.kt` (`:shared`), y la pantalla solo pregunta:
+La lista **no se decide en la UI**: vive en `PowModos.kt` (`:shared`), y hay **tres preguntas**
+que no significan lo mismo:
 
 ```kotlin
-if (PowModo.MUNDO_LIBRE.disponible()) { … }
+PowModo.MUNDO_LIBRE.disponible()   // ¿se puede JUGAR aquí?      → en iOS: false
+PowModo.MUNDO_LIBRE.enObras()      // ¿se pinta pero no se juega? → en iOS: true
+PowModo.MUNDO_LIBRE.sePinta()      // ¿aparece el botón?          → en iOS: true
 ```
+
+| Pregunta | Úsala para | ⚠️ NO la uses para |
+|---|---|---|
+| `disponible()` | navegar, guardar, gatear secciones de Ajustes | decidir si pintas un botón |
+| `sePinta()` | **solo** pintar el botón en el menú | dar por hecho que el modo funciona |
+
+> ### 🚧 El interruptor de la App Store
+>
+> ```kotlin
+> const val MODOS_EN_OBRAS_VISIBLES = true   // PowModos.kt
+> ```
+>
+> **Ponlo en `false` antes de firmar para iOS.** Apple rechaza funciones anunciadas que no
+> funcionan (Guideline 2.1), y un botón que abre un cartel de "en obras" es exactamente eso.
+> Es lo ÚNICO que hay que tocar: los tres botones desaparecen y el menú queda como estaba.
+> En Android no cambia nada — allí los tres modos están de verdad.
 
 ⚠️ **Añadir un modo a `modosDe(IOS)` NO lo porta.** Solo deja de esconder el botón. `PowModosTest`
 se pone rojo a propósito cuando alguien cambia esa lista: es para obligar a confirmar que el modo
 **funciona en el simulador** antes de mostrarlo.
+
+📘 El plan completo del mundo abierto —fases, bloqueadores medidos y el problema de los assets—
+está en **[`12_PLAN_MUNDO_ABIERTO_iOS.md`](12_PLAN_MUNDO_ABIERTO_iOS.md)**.
 
 ### Qué se queda en `:app` y por qué — SF completo
 
