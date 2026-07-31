@@ -35,6 +35,15 @@ class IosMainMenuController(
     /** Por lo mismo que [versionName]: nada de esquinas PRE-ALPHA/BETA en iOS. */
     override val mostrarInsignias: Boolean = false
 
+    /**
+     * El mundo aún no se juega en iOS, pero **el mapa ya se puede ver**. El botón MUNDO LIBRE abre
+     * esa vista previa en vez del aviso de "en obras"; la insignia EN OBRAS se queda puesta.
+     *
+     * ⚠️ Cuando el mundo sea jugable de verdad, esto deja de tener sentido: se mueve
+     * `MUNDO_LIBRE` a `modosDe(IOS)` en `PowModos.kt` y `enObras()` pasa a ser `false` solo.
+     */
+    override val mundoTieneVistaPrevia: Boolean = true
+
     override fun onStartGame() = Unit
     override fun onMultiplayerPressed() = Unit
     override fun updateShowMultiplayerDialog(mostrar: Boolean) = Unit

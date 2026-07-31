@@ -47,7 +47,16 @@ internal fun BotonDeModo(
     habilitado: Boolean,
     /** Se llama con el modo cuando está en obras, para que el menú abra [AvisoEnObras]. */
     alPulsarEnObras: (PowModo) -> Unit,
-    /** Lo que hace el botón cuando el modo SÍ se puede jugar. */
+    /**
+     * `true` si el modo, **aun estando en obras, tiene algo que enseñar**: entonces [alPulsar] se
+     * ejecuta igualmente en vez de abrir el aviso.
+     *
+     * Hoy solo lo usa MUNDO LIBRE, que abre la vista previa del mapa. La insignia EN OBRAS **se
+     * queda puesta**: lo que hay detrás sigue sin ser jugable, y el jugador tiene que saberlo antes
+     * de entrar, no después.
+     */
+    tieneVistaPrevia: Boolean = false,
+    /** Lo que hace el botón cuando el modo SÍ se puede jugar (o tiene vista previa). */
     alPulsar: () -> Unit = {},
 ) {
     val enObras = modo.enObras()
@@ -61,7 +70,7 @@ internal fun BotonDeModo(
     WithCornerBadge(insignia, colorInsignia, mostrar = enObras || mostrarInsignias) {
         MenuButton(
             text = texto,
-            onClick = { if (enObras) alPulsarEnObras(modo) else alPulsar() },
+            onClick = { if (enObras && !tieneVistaPrevia) alPulsarEnObras(modo) else alPulsar() },
             // ⚠️ En obras el botón se deja PULSABLE a propósito: deshabilitado no explicaría nada
             // y el jugador creería que la app está rota.
             enabled = habilitado,

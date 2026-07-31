@@ -54,3 +54,20 @@ punta a punta en el emulador.**
 - ⚠️ **Gotcha nuevo:** en Kotlin los comentarios de bloque **se anidan**, así que una ruta con
   comodín dentro de un KDoc abre un comentario que nunca cierra (`Unclosed comment`).
 
+
+---
+
+
+### 📚 Documentación puesta al día en la misma sesión
+
+- **`iosApp/README.md` REESCRITO**: describía una app de una pantalla con solo el mapa. Ahora: qué
+  entra en el bundle, qué ajustes de Xcode no se tocan y **que para añadir una pantalla a iOS se
+  toca `PowAppIos.kt`, no el proyecto Xcode**.
+- **`11`**: números remedidos, los 4 controllers, navegación por plataforma, insignias, y **§8bis:
+  las 5 trampas que solo se ven abriendo el simulador**. **`01`** ya no dice "juego Android".
+  **`07`**: menú, Ajustes y Coleccionables marcados como multiplataforma, con sus trampas.
+- **`00_INDEX.md`**: tabla "qué corre en cada plataforma" + **las rutas de los 13 docs de trabajo**,
+  que estaban listados sin carpeta y **ninguno estaba en la raíz** (viven en `SF/`, `MUNDO/`).
+- **Archivados con cabecera ✅**: `ARRANQUE_MAC_iOS.md`, `PLAN_SF_EN_iOS.md`,
+  `PROMPT_MAC_navegacion_iOS.md`. Raíz de `README for IAS`: 6215 → 6082 líneas.
+

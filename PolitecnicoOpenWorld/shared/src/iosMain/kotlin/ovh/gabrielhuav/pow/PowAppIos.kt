@@ -15,6 +15,7 @@ import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.IosMainMenuController
 import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
+import ovh.gabrielhuav.pow.features.map_exterior.ui.MapaMundoIos
 import ovh.gabrielhuav.pow.features.settings.aplicarIdiomaIos
 import ovh.gabrielhuav.pow.features.settings.ui.SettingsScreen
 import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
@@ -47,7 +48,7 @@ import platform.UIKit.UIViewController
 fun crearAppIos(): UIViewController = ComposeUIViewController { PowAppIos() }
 
 /** Las pantallas que iOS puede mostrar hoy. */
-private enum class Pantalla { MENU, AJUSTES, COLECCIONABLES, PELEA }
+private enum class Pantalla { MENU, AJUSTES, COLECCIONABLES, PELEA, MAPA }
 
 @Composable
 private fun PowAppIos() {
@@ -76,9 +77,10 @@ private fun ContenidoApp(alCambiarIdioma: () -> Unit) {
 
     when (pantalla) {
         Pantalla.MENU -> MainMenuScreen(
-            // Mundo Libre y Modo Historia no existen en iOS: `PowModo.disponible()` ya impide que
-            // sus botones se pinten, así que estas lambdas no tienen quién las invoque.
-            onNavigateToMap = { _, _ -> },
+            // 🌎 MUNDO LIBRE está EN OBRAS, pero su mapa ya se puede ver: el botón abre la vista
+            // previa (ver `IosMainMenuController.mundoTieneVistaPrevia`). Modo Historia y
+            // Multijugador siguen abriendo solo el aviso.
+            onNavigateToMap = { _, _ -> pantalla = Pantalla.MAPA },
             onNavigateToStory = {},
             onNavigateToSettings = { pantalla = Pantalla.AJUSTES },
             onNavigateToCollectibles = { pantalla = Pantalla.COLECCIONABLES },
@@ -101,6 +103,10 @@ private fun ContenidoApp(alCambiarIdioma: () -> Unit) {
             // `accountContent = null` esconde la sección de Cuenta: en iOS no hay Google Sign-In.
             accountContent = null,
         )
+
+        // 🌎 Vista previa del mapa. NO es el mundo jugable: sin jugador, NPCs ni landmarks,
+        // porque el puente JS ↔ nativo todavía no existe en iOS.
+        Pantalla.MAPA -> MapaMundoIos(alVolver = { pantalla = Pantalla.MENU })
 
         Pantalla.COLECCIONABLES -> CollectiblesScreen(
             controller = coleccionables,

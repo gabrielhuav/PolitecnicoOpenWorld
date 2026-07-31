@@ -314,10 +314,16 @@ fun MenuButtonsList(
             mostrarInsignias = controller.mostrarInsignias,
             habilitado = !state.isLoading && !state.isWarmingUp,
             alPulsarEnObras = { modoEnObras = it },
-        ) {
-            controller.onStartGame()
-            onNavigateToMap(false, null)
-        }
+            // 🌎🍏 En iOS el mundo aún no se juega, pero el MAPA ya se puede ver. Quien decide si
+            // hay algo que enseñar es la plataforma, a través del controller: así esta pantalla no
+            // necesita saber en cuál corre. En Android es `false` y da igual — allí `enObras()`
+            // es false y el botón navega de verdad.
+            tieneVistaPrevia = controller.mundoTieneVistaPrevia,
+            alPulsar = {
+                controller.onStartGame()
+                onNavigateToMap(false, null)
+            },
+        )
         Spacer(Modifier.height(16.dp))
     }
 

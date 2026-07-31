@@ -7,8 +7,10 @@
 
 > ➡️ **AHORA:** **SF corre entero en iOS** (menú, Ajustes, Coleccionables, pelea, idioma, modo
 > desarrollador, guardado) y el **mundo abierto va por la fase 2 de 8** (§2ter, plan en el doc 12).
-> **Siguiente:** verificar Android en Windows (§5) y **adelgazar el AAB** — 402 MB contra los 500
-> de Play (doc 13; ODR en iOS resultó NO ser bloqueador). **259 tests.**
+> 🌎 **El MAPA del mundo YA SE VE en iOS** y es interactivo (arrastre + pinch). Es vista previa:
+> sin jugador ni NPCs, porque falta el puente JS ↔ nativo.
+> **Siguiente:** ese puente (§2ter) y **adelgazar el AAB** — 402 MB contra los 500 de Play (doc 13).
+> **399 tests.**
 
 ## 🖥️ Rutas por PC
 
@@ -85,20 +87,7 @@ iOS 18.2). Lo que se arregló para llegar ahí, con la trampa de cada uno:
   (`WKWebView` + esquema `pow-asset`) se movió a **`MapaWeb.swift`**, que **nadie usa hoy**: se
   conserva porque ya está verificado y el mundo abierto lo necesitará.
 
-### 📚 Documentación puesta al día en la misma sesión
-
-- **`iosApp/README.md` REESCRITO**: describía una app de una pantalla con solo el mapa. Ahora: qué
-  entra en el bundle, qué ajustes de Xcode no se tocan y **que para añadir una pantalla a iOS se
-  toca `PowAppIos.kt`, no el proyecto Xcode**.
-- **`11`**: números remedidos, los 4 controllers, navegación por plataforma, insignias, y **§8bis:
-  las 5 trampas que solo se ven abriendo el simulador**. **`01`** ya no dice "juego Android".
-  **`07`**: menú, Ajustes y Coleccionables marcados como multiplataforma, con sus trampas.
-- **`00_INDEX.md`**: tabla "qué corre en cada plataforma" + **las rutas de los 13 docs de trabajo**,
-  que estaban listados sin carpeta y **ninguno estaba en la raíz** (viven en `SF/`, `MUNDO/`).
-- **Archivados con cabecera ✅**: `ARRANQUE_MAC_iOS.md`, `PLAN_SF_EN_iOS.md`,
-  `PROMPT_MAC_navegacion_iOS.md`. Raíz de `README for IAS`: 6215 → 6082 líneas.
-
-## 2ter. 🌎 07-30 — Mundo abierto a iOS: fases 1 y 2 (Mac)
+## 2ter. 🌎 07-30 — Mundo abierto a iOS: fases 1, 2, 3 (parcial) y el MAPA
 
 Plan completo, medido, en **`12_PLAN_MUNDO_ABIERTO_iOS.md`**. Resumen:
 
@@ -124,6 +113,15 @@ Plan completo, medido, en **`12_PLAN_MUNDO_ABIERTO_iOS.md`**. Resumen:
   ⚠️ **Falta `NpcAiManager` (988) y sus 2 parciales**: usan además `CopyOnWriteArrayList` y
   `AtomicReference`. Escribe tests ANTES y **juega el mundo en Android** al terminar — en el Mac no
   hay AVD (medido) y el tráfico no lo caza ningún test.
+- 🌎 **Fase 6 arrancada: EL MAPA SE VE EN iOS.** `MapaMundoIos.kt` mete el `WKWebView` en Compose con
+  **`UIKitView`** y le carga `buildHtml(...)`, la MISMA función que Android. Verificado en simulador:
+  teselas reales sobre ESCOM, arrastre, pinch-zoom y hasta la niebla del juego.
+  MUNDO LIBRE sigue **EN OBRAS** pero su botón abre la vista previa: lo decide
+  `MainMenuController.mundoTieneVistaPrevia` (solo `true` en iOS), así que la pantalla del menú no
+  sabe en qué plataforma corre. `MODOS_EN_OBRAS_VISIBLES = false` lo sigue apagando todo.
+  ⚠️ **Falta el puente JS ↔ nativo** (`MapJsBridge` en Android). Sin él el mapa es de solo lectura:
+  ni jugador, ni NPCs, ni landmarks. **Esa es la pieza que lo convierte en jugable.**
+  ⚠️ Trampas de `UIKitView`: exige `@OptIn(ExperimentalForeignApi)` **y** `import kotlinx.cinterop.readValue`.
 ### 🗜️ Tamaño — límites VERIFICADOS en la fuente, y una corrección
 
 ⚠️ **Me equivoqué antes:** dije que el mundo no cabía en iOS por los 200 MB. **Falso.** El tope

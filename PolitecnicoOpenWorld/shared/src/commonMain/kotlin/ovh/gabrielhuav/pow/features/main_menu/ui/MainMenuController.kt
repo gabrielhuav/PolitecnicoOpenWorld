@@ -37,6 +37,18 @@ interface MainMenuController {
      */
     val mostrarInsignias: Boolean
 
+    /**
+     * Si MUNDO LIBRE, **aun estando en obras, tiene algo que enseñar**.
+     *
+     * `true` en iOS: el mundo todavía no se juega, pero el **mapa ya se puede ver** (Leaflet en
+     * `WKWebView`, el mismo HTML que Android). El botón abre esa vista previa en vez del aviso de
+     * "en obras", y la insignia EN OBRAS **se queda puesta** porque sigue sin ser jugable.
+     *
+     * En Android da igual lo que valga: allí `PowModo.MUNDO_LIBRE.enObras()` es `false` y el botón
+     * entra al mundo de verdad.
+     */
+    val mundoTieneVistaPrevia: Boolean get() = false
+
     fun onStartGame()
     fun onMultiplayerPressed()
     fun updatePlayerName(nombre: String)

@@ -152,17 +152,34 @@ o se mueve la clase o no compila ninguno. Ver la regla del patrón parcial en `1
 
 El VM necesita Hilt y `Context` → **patrón Controller**, igual que `StreetFighterController`.
 
-### 🔜 Fase 6 — La UI (~8 000 líneas) y el mapa
+### 🟡 Fase 6 — La UI (~8 000 líneas) y el mapa · **EL MAPA YA SE VE (07-30)**
+
+> ## ✅ El mapa corre en iOS y es interactivo
+>
+> `MapaMundoIos.kt` (iosMain) mete el `WKWebView` dentro de Compose con **`UIKitView`**, y le carga
+> el HTML de **`buildHtml(...)`** — la MISMA función de `commonMain` que usa Android. Verificado en
+> el simulador: teselas de OSM reales sobre ESCOM/Zacatenco, **arrastre y pinch-zoom**, y hasta el
+> efecto de niebla del juego.
+>
+> **Cómo se llega:** MUNDO LIBRE sigue marcado **EN OBRAS**, pero su botón abre la vista previa en
+> vez del aviso. Lo decide `MainMenuController.mundoTieneVistaPrevia` (`true` solo en iOS), así que
+> **la pantalla del menú no sabe en qué plataforma corre**. El interruptor
+> `MODOS_EN_OBRAS_VISIBLES = false` lo sigue apagando todo de una vez.
+>
+> ⚠️ **Lo que NO hay, y es el trabajo que queda:** el **puente JS ↔ nativo**. En Android es
+> `MapJsBridge`; en iOS no existe, así que el mapa es de **solo lectura**: no recibe jugador, ni
+> NPCs, ni landmarks, ni coleccionables. Esa es la siguiente pieza, y es la que convierte
+> "vista previa" en "mundo jugable".
+>
+> ⚠️ Los assets del mundo tampoco están en el bundle de iOS (solo SF y coleccionables). Hoy da
+> igual —sin inyección de datos el HTML no pide ni una imagen—, pero en cuanto haya puente habrá
+> que registrar un manejador del esquema `pow-asset://`. Ya está escrito y verificado en
+> `iosApp/POW/MapaWeb.swift`.
+
+Lo que sigue faltando de la fase:
 
 `WorldMapScreen` (1463) · `NativeOsmMap` (1458, **osmdroid: se queda en `:app` como extra
-solo-Android**) · overlays.
-
-El camino del mapa en iOS **ya está resuelto y verificado**: Leaflet en `WKWebView`, con el HTML
-generado por el MISMO Kotlin que usa Android (`WorldMapLeafletHtml.kt`). Vive desconectado en
-`iosApp/POW/MapaWeb.swift`.
-
-⚠️ **Lo que falta ahí es el puente JS ↔ nativo.** En Android lo hace `MapJsBridge`; en iOS no hay
-nada, así que hoy el mapa es de solo lectura: no recibe jugador, ni NPCs, ni landmarks.
+solo-Android**) · overlays · **y el puente JS ↔ nativo**, que es lo que de verdad falta.
 
 ### 🔜 Fase 7 — Interiores y zombis (11 536 líneas)
 

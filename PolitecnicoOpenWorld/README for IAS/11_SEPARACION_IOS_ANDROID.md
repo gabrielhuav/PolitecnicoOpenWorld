@@ -159,6 +159,29 @@ clases: obliga a que la pantalla no sepa cuál le tocó.
 
 ---
 
+## 4ter. 🍏 Meter una vista NATIVA de iOS dentro de Compose
+
+A veces no hay Composable que valga: un `WKWebView`, un reproductor, un mapa nativo. Para eso está
+**`UIKitView`** de `androidx.compose.ui.viewinterop` — no hace falta bajarse a SwiftUI ni tocar el
+proyecto Xcode.
+
+```kotlin
+UIKitView(
+    factory = { WKWebView(frame = CGRectZero.readValue(), configuration = config) },
+    modifier = Modifier.fillMaxSize(),
+)
+```
+
+Lo usa `MapaMundoIos.kt` para el mapa Leaflet del mundo abierto.
+
+⚠️ **Dos trampas, las dos ya pagadas:**
+1. **`@OptIn(ExperimentalForeignApi::class)`** en la función, y **`import kotlinx.cinterop.readValue`**.
+   Sin eso, `CGRectZero.readValue()` no compila — y el error no dice que falte el import.
+2. Lo que dibuje la vista nativa **queda por debajo de los Composables** que pongas después en el
+   mismo `Box`. Es lo que permite el cartel y el botón VOLVER encima del mapa.
+
+---
+
 ## 4bis. 🍏 Dónde vive la navegación de iOS
 
 Todo el juego en iOS es **un solo `ComposeUIViewController`**, y su interior es un `when`:
