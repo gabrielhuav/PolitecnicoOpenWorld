@@ -28,7 +28,7 @@
    política de comentarios y los campos "⚠️ LO POSEE XManager").
 6. Si el asistente necesita un archivo concreto, búscalo en la tabla "Key files" (archivo 04/05)
    y pásale solo ese.
-7. **Tras cualquier cambio, actualiza estos docs (00–13)** y, si es user-facing, el README **público** de la raíz del repo (ver 09). Los **234 tests** (114 en `:app` + 120 en `:shared`) deben seguir en verde.
+7. **Tras cualquier cambio, actualiza estos docs (00–13)** y, si es user-facing, el README **público** de la raíz del repo (ver 09). Los **429 tests** (119 `:app` + 155 `:shared` Android + 155 `:shared` iOS) deben seguir en verde.
 
 **EN:**
 1. Upload/paste this whole folder (or just the relevant files) to the assistant.
@@ -85,7 +85,7 @@
 | — | `PLAYSTORE_formulario_seguridad_datos.md` | 🛡️ **Play Store: formulario de Seguridad de los datos + políticas.** Valores EXACTOS aprobados, errores que nos rechazaron y checklist antes de cada envío. **Léelo antes de tocar la ficha o subir versión.** |
 | — | `PLAN_MIGRACION_KMP.md` | 🍏 **Migración a Kotlin Multiplatform / iOS — el plan global.** Acoplamiento MEDIDO, estado de las libs KMP, decisión del mapa y qué NO se puede portar. **Estado (07-30): el modo pelea CORRE ENTERO en iOS, con menú, Ajustes y Coleccionables.** Queda pulir y decidir firma/App Store; el mundo abierto es trabajo futuro. |
 | — | `SETUP_PC_NUEVA.md` | 🖥️ **Poner el repo a compilar en una PC Windows nueva.** Los 4 archivos que NO viajan por git (⚠️ `gradle-wrapper.jar` bloquea hasta `gradlew`), la prueba de humo y cómo se verifica iOS desde Windows. |
-| 12 | `12_PLAN_MUNDO_ABIERTO_iOS.md` | 🌎🍏 **Portar el MUNDO ABIERTO a iOS — plan medido.** Cuánto es (30 302 líneas), los 3 bloqueadores contados, los 2 bloqueadores contados (osmdroid, `R.string`) y las 8 fases en orden, con **por qué la fase 3 se paró a propósito**. El tamaño y los límites de tienda están en el doc 13. **Léelo antes de tocar `map_exterior` o `interiores`.** |
+| 12 | `12_PLAN_MUNDO_ABIERTO_iOS.md` | 🌎🍏 **Portar el MUNDO ABIERTO a iOS — plan medido.** Cuánto es (30 302 líneas), los 2 bloqueadores contados (osmdroid y `R.string`) y las 8 fases en orden, con **la cadena exacta que bloquea el `WorldMapViewModel`** y por qué se paró donde se paró. El tamaño y los límites de tienda están en el doc 13. **Léelo antes de tocar `map_exterior` o `interiores`.** |
 | 13 | `13_ASSETS_Y_TAMANO.md` | 🗜️ **Qué se sube a cada tienda y cuánto puede pesar.** Los límites REALES verificados en la fuente (**Play: 500 MB de módulo base ← el que aprieta · App Store: 4 GB, los 200 MB son solo un aviso**), dónde está el peso del AAB medido, **qué formato de audio va en cada sitio y por qué** (Ogg solo-Android por el bucle; `.m4a` para lo compartido porque iOS no lee Ogg) y el plan de adelgazamiento con `tools/optimizar_assets_produccion.sh`. **Léelo antes de añadir cualquier asset.** |
 | — | `../iosApp/README.md` | 🍏 **El proyecto Xcode.** Cómo compilarlo (⚠️ el framework de Kotlin NO se construye solo), qué assets entran en el bundle y qué ajustes de Xcode no se tocan. **Para añadir una pantalla a iOS se toca `PowAppIos.kt`, no este proyecto.** |
 
@@ -160,6 +160,7 @@ Añadir un modo a `modosDe(IOS)` **no lo porta**. Detalle en `11_SEPARACION_IOS_
 | `SF/GUIA_regeneracion_sprites_croma.md` | Regenerar sprites croma pelea+mundo (proceso VIGENTE de recorte). |
 | **`SF/PROMPT_SOL56_TANDAS_NUEVAS.md`** | **⭐ Prompt de las 10 hojas NUEVAS (20–29, moveset 3rd Strike) por personaje + rutas de assets + estándar de calidad.** |
 | `MUNDO/NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |
+| **`PROMPT_WINDOWS_verificar_android_y_release.md`** | **⭐ TRASPASO VIVO (07-31): verificar que Android sigue igual tras los 80 commits de KMP, y publicar.** Lo de más riesgo (datos guardados, los 3 gestores de IA), el checklist de release y el plan de adelgazar el AAB. *(raíz)* |
 | `CHECKPOINT_SENIOR_refactor.md` | Receta del patrón manager/Hilt/detekt (referencia). *(raíz)* |
 | `MUNDO/CAMPAIGN/` | Guion Modo Historia (misiones 1–3 + side). |
 | `_ARCHIVO/` | **Histórico. NO son tareas.** Incluye los guiones de iOS ya ejecutados (`ARRANQUE_MAC_iOS.md`, `PLAN_SF_EN_iOS.md`, `PROMPT_MAC_navegacion_iOS.md`), `PENDIENTES_2026-07-20.md` y los prompts de traspaso a Gemini/GPT/Fable. |

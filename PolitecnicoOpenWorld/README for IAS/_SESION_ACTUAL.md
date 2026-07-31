@@ -5,12 +5,14 @@
 
 **Última actualización:** 2026-07-30 · Opus 5 (Mac) · rama `perf-gama-baja-coleccionables`
 
-> ➡️ **AHORA:** **SF corre entero en iOS** (menú, Ajustes, Coleccionables, pelea, idioma, modo
-> desarrollador, guardado) y el **mundo abierto va por la fase 2 de 8** (§2ter, plan en el doc 12).
-> 🌎 **En iOS ya se CAMINA por el mapa**, con el HUD de Android (joystick + diamante) y **las bardas
-> frenan**. Faltan NPCs y coleccionables: los alimenta el `WorldMapViewModel`, que sigue en `:app`.
-> **Siguiente:** ⚠️ **la fase 4 (42 strings de misión) BLOQUEA la 5** — ver §2ter y doc 12. Y
-> **adelgazar el AAB**: 402 MB de los 500 de Play. **429 tests.**
+> ➡️ **AHORA LE TOCA A WINDOWS: verificar Android y publicar** →
+> **`PROMPT_WINDOWS_verificar_android_y_release.md`** (§3bis).
+> Esta rama lleva **80 commits** sobre `main` —la migración KMP entera— y **nadie ha jugado Android
+> desde que empezó**: en el Mac no hay AVD.
+>
+> En iOS: **SF corre entero** y en el mundo abierto **ya se camina por el mapa**, con el HUD de
+> Android y las bardas frenando. Faltan NPCs y coleccionables (los alimenta el `WorldMapViewModel`).
+> Después de Android, la **fase 4** (42 strings), que **bloquea la 5**. **429 tests.**
 
 ## 🖥️ Rutas por PC
 
@@ -63,85 +65,53 @@ Las cinco del 07-30 (idioma, assets fuera del bundle, atlas mal pintado, `\'` si
 `systemBarsPadding`) están explicadas con su causa medida en **`11_SEPARACION_IOS_ANDROID.md` §8bis**.
 El detalle de aquella sesión se purgó a `_ARCHIVO/HISTORIAL_sesiones_2026-07-30.md`.
 
-## 2ter. 🌎 Mundo abierto a iOS: fases 1, 2, 3 (parcial) y el MAPA
+## 2ter. 🌎 Mundo abierto a iOS — fases 1, 2, 3 (parcial), 5 (parcial) y 6
 
-Plan completo, medido, en **`12_PLAN_MUNDO_ABIERTO_iOS.md`**. Resumen:
+**Plan, medidas y orden de ataque: `12_PLAN_MUNDO_ABIERTO_iOS.md`.** Aquí solo lo que hay que
+saber sin abrirlo:
 
-- ✅ **Fase 1 — menús idénticos.** iOS pinta ya los 6 botones; MUNDO LIBRE / MODO HISTORIA /
-  MULTIJUGADOR salen **EN OBRAS** y avisan en vez de navegar. Verificado en simulador.
-  ⚠️ **`MODOS_EN_OBRAS_VISIBLES = false` en `PowModos.kt` antes de firmar para la App Store**
-  (Apple rechaza funciones anunciadas que no funcionan). Es lo único que hay que tocar; 7 tests
-  nuevos lo fijan, uno comprueba el propio interruptor.
-  ⚠️ **`disponible()` NO cambió**: sigue siendo "¿se puede jugar?" y es lo que gatea Ajustes.
-  Lo nuevo son `enObras()` y `sePinta()`, y `sePinta()` es **solo para pintar**.
-- ✅ **Fase 2 — dominio puro a `commonMain`**: 22 archivos, ~1 500 líneas. El paquete es idéntico
-  en los dos módulos, así que **ningún import cambió**. Dos arreglos que son el patrón a repetir:
-  `java.lang.Math` → `kotlin.math` (mismos valores) y `loadCalibration(Context)` → `PowAssets`
-  (⚠️ tenía una llamada en `ZombieGameScreen.kt`). `java.util.UUID` → `kotlin.uuid.Uuid`.
-- 🟡 **Fase 3 — gestores de IA: 3 de 6 hechos.** `PoliceManager` (404, **con 10 tests nuevos**),
-  `CampaignEscortPolice` (402) y `PrankedyManager` (624) ya corren en iOS.
-  🔐 La clave fue **`PowMapaConcurrente`** (mapa + `PowCerrojo`), que sustituye a `ConcurrentHashMap`
-  **conservando la semántica**: migrar es cambiar el tipo y 4 nombres, no rehacer ~50 accesos a mano.
-  9 tests de semántica (las dos plataformas) + 5 de carreras con hilos en `:app`.
-  🐞 Al tipar la API, el compilador sacó un **crash latente**: se buscaba con `policeCarId`
-  (`String?`) y **`ConcurrentHashMap.get(null)` lanza NPE**. Corregido.
-  ⚠️ **Falta `NpcAiManager` (988) y sus 2 parciales**: usan además `CopyOnWriteArrayList` y
-  `AtomicReference`. Escribe tests ANTES y **juega el mundo en Android** al terminar — en el Mac no
-  hay AVD (medido) y el tráfico no lo caza ningún test.
-- 🌎 **Fase 6 arrancada: EL MAPA SE VE EN iOS.** `MapaMundoIos.kt` mete el `WKWebView` en Compose con
-  **`UIKitView`** y le carga `buildHtml(...)`, la MISMA función que Android. Teselas reales sobre
-  ESCOM, arrastre y pinch-zoom. MUNDO LIBRE sigue EN OBRAS pero su botón abre la vista previa, y lo
-  decide `MainMenuController.mundoTieneVistaPrevia` (solo `true` en iOS): la pantalla del menú no
-  sabe en qué plataforma corre.
+- ✅ **1 · Menús idénticos.** iOS pinta los 6 botones; los 3 del mundo salen **EN OBRAS**.
+  ⚠️ **`MODOS_EN_OBRAS_VISIBLES = false` antes de firmar para la App Store.** 7 tests lo fijan.
+  ⚠️ `disponible()` NO cambió (= "¿se juega?"). Lo nuevo es `sePinta()`, **solo para pintar**.
+- ✅ **2 · Dominio puro a `commonMain`**: 22 archivos. El paquete es idéntico → ningún import cambió.
+  Patrón a repetir: `java.lang.Math` → `kotlin.math`, `Context` → `PowAssets`, `UUID` → `kotlin.uuid`.
+- 🟡 **3 · Gestores de IA: 3 de 6.** La clave fue **`PowMapaConcurrente`** (mapa + `PowCerrojo`),
+  que sustituye a `ConcurrentHashMap` **conservando la semántica**: migrar es cambiar el tipo y 4
+  nombres, no rehacer ~50 accesos donde el compilador no avisa si te dejas uno. 14 tests.
+  🐞 Al tipar la API salió un **crash latente**: `ConcurrentHashMap.get(null)` lanza NPE y se
+  buscaba con `policeCarId` (`String?`). Corregido.
+  ⚠️ Falta `NpcAiManager` (988) + 2 parciales: **van juntos** y usan `CopyOnWriteArrayList`.
+- 🟡 **5 · Solo el HUD.** `JoystickController` + `ActionButtonsController` de `commonMain`: **los
+  MISMOS controles que Android**. A/B/X/Y avisan "pendiente del ViewModel".
+  🔴 ⚠️ **`Modifier.scale()` NO encoge un control: los botones dejan de responder.** Transforma el
+  dibujo, no el área táctil. Los controles aceptan `tamano` real (iOS: 100 dp) y son proporcionales.
+  🔗 **El VM está BLOQUEADO por la fase 4**: `WorldMapState` → `CampaignObjective` →
+  `@StringRes Int` → 42 strings sin migrar. Cadena y orden de ataque en el doc 12.
+- 🟡 **6 · El mapa se ve, se camina y las bardas frenan.** `UIKitView` mete el `WKWebView` en
+  Compose; `PuenteMapaIos` (Kotlin → JS) llama a las mismas funciones que Android.
   ⚠️ `UIKitView` exige `@OptIn(ExperimentalForeignApi)` **y** `import kotlinx.cinterop.readValue`.
-- 🚶 **Y YA SE CAMINA.** `PuenteMapaIos.kt` (Kotlin → JS) llama a las mismas funciones que Android:
-  `updatePlayerMarker`, `updateMapView`, `setPlayerFog`. Con un pad de dirección el jugador se mueve,
-  la cámara lo sigue y la niebla se abre. Movimiento = `GeoPoint.desplazado()`, puro y con 7 tests.
-  ⚠️ Lleva `cos(latitud)` en el eje este **a propósito**: sin él se correría más rápido en horizontal.
   ⚠️ Cada llamada JS va con `if (typeof f === 'function')`: si el HTML aún no cargó, `WKWebView`
   **se traga el ReferenceError sin log** y el mapa se queda quieto sin que nadie sepa por qué.
-  ⚠️ **Falta la VUELTA del puente** (JS → Kotlin): en Android es `@JavascriptInterface`, en iOS
-  haría falta `WKScriptMessageHandler`. Y faltan NPCs y coleccionables: los alimenta el
-  `WorldMapViewModel` (fase 5).
-- 🎮 **Fase 5 arrancada: el HUD.** `HudMundoIos.kt` usa `JoystickController` +
-  `ActionButtonsController`, los dos de `commonMain`: **son los MISMOS controles que Android**.
-  Se movieron `Direction`/`GameAction` (a `ControlesMundo.kt`) y el diamante; de paso se quitó
-  `onClaimCollectiblePressed`, declarado y **sin usar**, que 5 llamadas pasaban en balde.
-  🔴 ⚠️ **`Modifier.scale()` NO sirve para encoger un control: los botones dejan de responder.**
-  Transforma el dibujo, no el área táctil. Los controles ahora aceptan `tamano` real (iOS: 100 dp)
-  y por dentro son proporcionales, así que el tacto no cambia. Android sigue en `ControllerBaseSize`.
-  A/B/X/Y avisan "pendiente del ViewModel" en vez de quedarse mudos.
-- 🧱 **Colisiones del exterior, compartidas.** `cargarColisionesExteriores()` + `chocaAlMoverse()`
-  en `commonMain` (8 tests). Lee `CONFIG/exterior_collisions.json` por `PowAssets` → sirve a las dos
-  plataformas **sin tocar el ViewModel**. `CONFIG/` (80 KB) añadido al `rsync` del bundle iOS.
-  ⚠️ Comprueba el **TRAYECTO**, no solo el destino: si no, un paso largo salta la barda.
-  ⚠️ Sin el JSON devuelve config **vacía** (se atraviesa todo) en vez de lanzar — degradar es mejor
-  que crashear al entrar al mapa.
-- 🔗 **El ViewModel se INTENTÓ y está bloqueado por UN símbolo.** `WorldMapState` (335 líneas) ya
-  tiene TODAS sus dependencias en `commonMain` menos `CampaignObjective`, que lleva
-  `@StringRes titleRes: Int`. Detrás hay **42 strings de misión** sin migrar y **17 consumidores**.
-  Esa es la fase 4, y va ANTES que la 5. Cadena completa y orden de ataque en el **doc 12**.
-  💡 **El VM acopla MENOS de lo que parecía**: solo 4 imports de plataforma, y `toArgb` es Compose MP
-  y `viewModelScope` ya tiene `PowViewModel`. Queda `Context` (16 usos, **3 cosas**) + Hilt + TileCache
-  → patrón **Environment**, como `StreetFighterEnvironment`.
-  ⚠️ **Se descartó el atajo** de quitar `@StringRes` y dejar el `Int` en `commonMain`: compilaría,
-  pero mete un id de recurso de Android en el módulo compartido. Progreso aparente, no real.
-### 🗜️ Tamaño — límites VERIFICADOS en la fuente, y una corrección
+  ⚠️ Falta la **VUELTA** del puente (JS → Kotlin): haría falta `WKScriptMessageHandler`.
 
-⚠️ **Me equivoqué antes:** dije que el mundo no cabía en iOS por los 200 MB. **Falso.** El tope
-duro del App Store son **4 GB**; los 200 MB son un aviso de datos móviles que el usuario desactiva
-desde iOS 13. **Quien aprieta es Google Play: 500 MB de módulo base**, y el AAB va por **416 MB**.
-ODR en iOS es deseable, **no bloqueador**. Todo en **`13_ASSETS_Y_TAMANO.md`** con fuentes.
+## 3bis. 📦 Traspaso a Windows (07-31)
 
-- ✅ **BGM 24→16 bits: 37,8 → 25,2 MB (−12,6).** Eran másters de estudio crudos. No cambia lo que se
-  oye: la salida de Android es de 16 bits, así que ya se recortaban en runtime.
-- 🔜 **142 PNG → WebP (~60 MB)** y **3 BGM → Ogg (~23 MB)**: dejarían el AAB en ~330 MB. En el Mac
-  **no hay `ffmpeg` ni `cwebp`** (medido). Script listo: `tools/optimizar_assets_produccion.sh`.
-- 🎧 **Regla del audio:** el formato lo decide QUIÉN lo usa. **Ogg** para lo solo-Android (pesa
-  menos y **empalma sin hueco en los bucles**, que AAC no); **`.m4a`** para lo compartido, porque
-  **iOS no lee Ogg**. Los 85 `.m4a` de la pelea son 7,6 MB entre todos: duplicarlos no sale a cuenta.
-- El CI **avisa a 450 MB** y publica el desglose por carpeta en cada run. Mover código a `:shared`
-  no engorda el AAB (el dex son 6,8 MB); **duplicar assets sí** — se quedan en `app/`.
+**`PROMPT_WINDOWS_verificar_android_y_release.md`** — verificar Android y sacar el release.
+Lo que más riesgo tiene, por orden:
+
+1. 🔴 **Datos guardados.** Gson→kotlinx, SharedPreferences→multiplatform-settings, Room KMP,
+   OkHttp→Ktor. ⚠️ **Hay que probar ACTUALIZANDO sobre una instalación con partida**, no limpia:
+   instalar de cero no prueba nada de esto.
+2. 🔴 **Los 3 gestores de IA con `PowMapaConcurrente`.** 14 tests, pero la concurrencia real solo
+   se ve **jugando media hora** con nivel de búsqueda alto: tirones, policías clavados, patrullas
+   que desaparecen.
+3. 🟠 SF completo con el **audio nuevo** (82 `.ogg`→`.m4a`, BGM 24→16 bits) e interiores
+   (se quitó `onClaimCollectiblePressed` de 5 llamadas).
+4. 🟢 El menú de Android debe salir **igual que siempre**: si aparece un botón EN OBRAS, es bug.
+
+Release: subir `versionName` (hoy `1.0.0.14`), notas ES+EN, y el AAB va por **402 MB de los 500**.
+El adelgazamiento (PNG→WebP ~60 MB, BGM→Ogg ~23 MB) **necesita Windows**: en el Mac no hay
+`ffmpeg` ni `cwebp`. Script listo: `tools/optimizar_assets_produccion.sh --dry-run`.
 
 ## 4. PENDIENTE — prioridad
 
