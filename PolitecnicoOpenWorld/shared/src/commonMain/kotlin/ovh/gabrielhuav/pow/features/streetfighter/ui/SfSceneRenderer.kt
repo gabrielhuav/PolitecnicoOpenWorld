@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -557,6 +558,9 @@ fun SfFpsOverlay(modifier: Modifier = Modifier) {
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
         modifier = modifier
+            // Mismo motivo que la ✕ de salir: la pelea va a sangre, asi que el inset se aplica al
+            // widget y no a la escena. Sin esto, en iOS el contador se pinta sobre la hora.
+            .systemBarsPadding()
             .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(4.dp))
             .padding(horizontal = 6.dp, vertical = 2.dp),
     )

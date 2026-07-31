@@ -3,13 +3,13 @@
 > Único traspaso entre IAs. Ventana de 2 días; máximo 200 líneas. Aquí va estado medido,
 > trabajo abierto y trampas caras. Diseño e historia viven en los documentos de cada área.
 
-**Última actualización:** 2026-07-30 · Opus 5 (laptop) · ramas `fase0-auditoria-kmp` + `perf-gama-baja-coleccionables`
+**Última actualización:** 2026-07-30 · Opus 5 (Mac) · rama `perf-gama-baja-coleccionables`
 
-> ➡️ **AHORA:** la pelea de SF corre, suena, se juega y guarda en iOS. Menú, Ajustes y
-> Coleccionables ya están en `commonMain`. **Siguiente paso:** Mac enlaza la navegación real
-> menú → Ajustes/Coleccionables/SF y elimina `SfEscaparate` solo después de verla completa.
-> Guion: `PROMPT_MAC_navegacion_iOS.md`. **En paralelo hay un PR de gama baja abierto** (§3undecies):
-> arregla el arte roto de coleccionables en partidas viejas. 228 tests.
+> ➡️ **AHORA:** **iOS está COMPLETO para lo que se prometió** — menú real, Ajustes,
+> Coleccionables y Huelum vs. Goya, con idioma, modo desarrollador y guardado. Los ocho pasos de
+> `PROMPT_MAC_navegacion_iOS.md` pasaron en simulador y el andamio de diagnóstico ya no existe.
+> **Siguiente paso:** verificar en Windows que Android sigue igual (§6) y decidir firma/App Store.
+> Mundo abierto y multijugador siguen fuera de iOS a propósito. 228 tests.
 
 ## 🖥️ Rutas por PC
 
@@ -41,7 +41,8 @@ PC nueva: `SETUP_PC_NUEVA.md`; `gradle-wrapper.jar` y `secrets.properties` no vi
 
 ## 2. iOS — estado medido
 
-- Assets SF: `<bundle>/assets/STREETFIGHTER/`; sprites, escenarios y audio M4A funcionan.
+- Assets en el bundle: `assets/STREETFIGHTER/` y `assets/SPRITES/COLLECTIBLES/`. **Del resto de
+  `SPRITES/` (104 MB) no entra nada**: es del mundo abierto, que en iOS no existe.
 - No quitar el `dependsOn("assemble*MainResources")` de `shared/build.gradle.kts`: sin él faltan
   `composeResources` de Main y la app se cierra desde una corrutina.
 - No tocar `Info.plist`, fase `rsync`, `ENABLE_USER_SCRIPT_SANDBOXING = NO` ni la ruta del bundle.
@@ -50,6 +51,38 @@ PC nueva: `SETUP_PC_NUEVA.md`; `gradle-wrapper.jar` y `secrets.properties` no vi
   cerrar/reabrir y reanudar snapshot de `NSUserDefaults`.
 - Offline común; BT/LAN/WebRTC siguen Android-only. iOS solo ofrece Ajustes, Coleccionables y SF;
   `PowModos.kt` es la fuente de verdad.
+- **Sin insignias PREALPHA/BETA**: `IosMainMenuController` devuelve `mostrarInsignias = false` y
+  `versionName = null` porque la App Store las rechaza. En Android se quedan.
+
+## 2bis. 🍏 07-30 — navegación iOS completa y verificada (Mac)
+
+Los **ocho pasos** de `PROMPT_MAC_navegacion_iOS.md` pasaron en el simulador (iPhone 17 Pro,
+iOS 18.2). Lo que se arregló para llegar ahí, con la trampa de cada uno:
+
+- 🔴 **Idioma no cambiaba.** El desplegable decía "English", `APP_LANGUAGE` se guardaba y los textos
+  seguían en español. Compose Resources 1.11.1 **no expone ninguna API para forzar el locale**
+  (comprobado en la klib: `filterByLocale` y compañía son internos). Su `DefaultComposeEnvironment`
+  lee `androidx.compose.ui.text.intl.Locale.current`, que en iOS sale de `NSLocale`. Solución:
+  `aplicarIdiomaIos()` escribe la clave estándar **`AppleLanguages`** de `NSUserDefaults`, y
+  `PowAppIos` envuelve el árbol en `key(generacion)` para rehacerlo. Cambia **en caliente** y
+  persiste tras cerrar. Es el equivalente del `activity.recreate()` de Android.
+  ⚠️ Se guardan DOS claves y **no es redundante**: `APP_LANGUAGE` es la del juego (la que pinta el
+  desplegable y comparte con Android); `AppleLanguages` es la que mira el sistema.
+- 🔴 **Coleccionables sin arte.** La estampa salía como círculo gris aunque el objeto estuviera
+  conseguido: la fase `rsync` **solo copiaba `STREETFIGHTER`**. Se añadió un bloque aditivo para
+  `SPRITES/COLLECTIBLES` (736 KB). El mismo síntoma que el bug de rutas muertas de §3undecies,
+  pero causa distinta — mirar siempre primero si el fichero está en el bundle.
+- 🔴 **Miniatura de peleador ilegible.** `CollectibleCard` pintaba el ATLAS ENTERO (2560×7680)
+  encogido a 64 dp: un cuadro de puntos. Ahora reutiliza `FighterPortrait`, que recorta la celda 0.
+  ⚠️ **Un peleador nunca se pinta con `Image(atlas)` a secas.** Afectaba también a Android.
+- 🔴 **`\'` literal en inglés.** Se veía `each fighter\'s`: Compose Resources **no des-escapa `\'`**
+  (eso lo hacía el aapt, y estos recursos no pasan por él). Quitadas las 5 barras de `values-en`.
+- 🔴 **✕ de salir bajo la barra de estado** al pasar a pantalla completa. `systemBarsPadding()` va
+  **solo en ese botón**, no en la pantalla: el combate se dibuja a sangre a propósito.
+- 🧹 **Andamio borrado:** `SfEscaparate.kt` y las pestañas de diagnóstico ya no existen.
+  `ContentView.swift` es ahora un único `PowAppTab` a pantalla completa. El puente del mapa
+  (`WKWebView` + esquema `pow-asset`) se movió a **`MapaWeb.swift`**, que **nadie usa hoy**: se
+  conserva porque ya está verificado y el mundo abierto lo necesitará.
 
 ## 3. 07-29 — Ajustes y Coleccionables a `commonMain` (Windows)
 
@@ -104,9 +137,9 @@ punta a punta en el emulador.**
 
 ### 🔴 P0
 
-1. **Mac:** ejecutar `PROMPT_MAC_navegacion_iOS.md`. Enlazar el menú real a Ajustes,
-   Coleccionables y SF; verificar los ocho pasos en simulador; luego borrar `SfEscaparate`,
-   `MapaTab` y el tab de escaparate.
+1. **Windows:** confirmar en emulador que Android sigue igual tras los arreglos de §2bis. Tocan
+   `commonMain`, así que Android hereda los tres: retrato del peleador en la tarjeta, `\'` en
+   inglés y `systemBarsPadding` en la ✕. **Ninguno se ha visto en Android todavía.**
 2. Probar multijugador en dos dispositivos: ambos deben oír lo mismo (`SF-NET`).
 3. Redeploy `MultiplayerSF/` en Render; con redes distintas buscar `SF-RTC: DataChannel → OPEN`.
 
@@ -138,7 +171,9 @@ faltan `attack`/`hurt` en 6 peleadores. Los SFX globales no se normalizan como v
 
 Windows: `.\gradlew.bat`. Mac: fijar el JBR de Android Studio y añadir
 `:shared:iosSimulatorArm64Test :shared:linkDebugFrameworkIosSimulatorArm64`.
-Esperado: **218 = 114 app + 104 shared**, 0 fallos. Si se toca `commonTest`, ejecutar el guard.
+Esperado: **228 = 114 app + 114 shared**, 0 fallos (MEDIDO en Mac el 07-30 con
+`:app:testDebugUnitTest` + `:shared:iosSimulatorArm64Test`). Si se toca `commonTest`, ejecutar
+el guard de nombres.
 
 Detekt CI desde la raíz exterior:
 

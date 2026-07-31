@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -1173,10 +1174,15 @@ fun StreetFighterScreenCommon(
             }
         }
 
-        // Botón de salida
+        // Botón de salida.
+        //
+        // ⚠️ `systemBarsPadding()` va SOLO en este botón, no en la pantalla: el combate se dibuja a
+        // sangre hasta los bordes a propósito, y meter el padding arriba lo encogería. Sin esto, en
+        // iOS la ✕ se cuela DEBAJO de la barra de estado (medido en el simulador: quedaba encima
+        // del icono de batería y era casi imposible de pulsar).
         TextButton(
             onClick = controller::requestExit,
-            modifier = Modifier.align(Alignment.TopEnd).padding(2.dp),
+            modifier = Modifier.align(Alignment.TopEnd).systemBarsPadding().padding(2.dp),
         ) {
             Text("✕", color = Color.White, fontSize = 18.sp)
         }

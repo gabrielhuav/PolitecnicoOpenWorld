@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -211,11 +212,19 @@ private fun FighterStoryDialog(collectible: ActiveCollectible, onDismiss: () -> 
     }
 }
 
+/**
+ * Retrato de un peleador: la celda 0 (idle-1) recortada de su atlas de combate.
+ *
+ * ⚠️ **Un peleador NUNCA se pinta con `Image(atlas)` a secas.** El atlas es una rejilla de
+ * fotogramas de hasta 2560x7680; dibujarlo entero encogido a una miniatura da un cuadrado de
+ * puntos irreconocible — que es justo lo que se veia en la tarjeta antes de reutilizar esto.
+ *
+ * `reduccion = 4` deja el atlas en ~5 MB en vez de ~78 MB, y la celda sigue teniendo pixeles de
+ * sobra hasta para los 140 dp de la ficha. Va por la cache: abrir dos veces al mismo peleador NO
+ * vuelve a decodificar.
+ */
 @Composable
-private fun FighterPortrait(assetPath: String) {
-    // El atlas de pelea llega a 2560x7680: decodificarlo entero seria ~78 MB. Con `reduccion = 4`
-    // baja a ~5 MB y la celda 0 (idle-1) sigue teniendo de sobra para 140 dp.
-    // Va por la cache, asi que abrir dos veces la ficha del mismo peleador NO vuelve a decodificar.
+private fun FighterPortrait(assetPath: String, lado: Dp = 140.dp) {
     val atlas = rememberImagenDeAsset(assetPath, reduccion = 4)
     val portrait = remember(atlas) {
         atlas?.let {
@@ -223,18 +232,25 @@ private fun FighterPortrait(assetPath: String) {
                 it,
                 x = 0,
                 y = 0,
-                ancho = minOf(64, it.width),
-                alto = minOf(64, it.height),
+                ancho = minOf(LADO_CELDA_ATLAS, it.width),
+                alto = minOf(LADO_CELDA_ATLAS, it.height),
             )
         }
     }
     if (portrait != null) {
-        Image(portrait, contentDescription = null, modifier = Modifier.size(140.dp))
+        Image(portrait, contentDescription = null, modifier = Modifier.size(lado))
     }
 }
 
+/** Lado en pixeles de una celda del atlas de combate, ya con `reduccion = 4` aplicada. */
+private const val LADO_CELDA_ATLAS = 64
+
 @Composable
 fun CollectibleCard(item: CollectibleEntity, onClick: () -> Unit) {
+    // Los peleadores no son una estampa suelta sino un ATLAS de fotogramas, asi que se pintan con
+    // el mismo recorte que la ficha. Ver `FighterPortrait`.
+    val esPeleador = item.id.startsWith(FIGHTER_PREFIX)
+
     // MEDIDO: los `SPRITES/COLLECTIBLES/*.webp` son de ~600x420 y aqui se pintan a **64 dp**. A
     // tamano completo son ~1 MB cada uno en ARGB_8888 (6,7 MB los siete); con `reduccion = 2` son
     // ~0,25 MB y siguen sobrando pixeles incluso a densidad 3x (296x211 contra 192 px).
@@ -242,8 +258,11 @@ fun CollectibleCard(item: CollectibleEntity, onClick: () -> Unit) {
     // Antes esto decodificaba DENTRO de `remember`, o sea en el hilo de composicion, y se repetia
     // cada vez que la card volvia a entrar en pantalla (LazyGrid destruye lo que sale). Ahora
     // decodifica en segundo plano y queda cacheado.
-    val bitmap: ImageBitmap? =
-        if (item.isCollected) rememberImagenDeAsset(item.assetPath, reduccion = 2) else null
+    val bitmap: ImageBitmap? = if (item.isCollected && !esPeleador) {
+        rememberImagenDeAsset(item.assetPath, reduccion = 2)
+    } else {
+        null
+    }
     val shape = remember { CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp) }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -255,15 +274,18 @@ fun CollectibleCard(item: CollectibleEntity, onClick: () -> Unit) {
             .clip(shape).clickable(enabled = item.isCollected, onClick = onClick)
             .padding(16.dp).height(140.dp),
     ) {
-        if (bitmap != null) {
-            Image(
+        when {
+            bitmap != null -> Image(
                 bitmap,
                 contentDescription = item.name,
                 modifier = Modifier.size(64.dp),
                 colorFilter = if (item.isCollected) null else ColorFilter.tint(Color.Black),
             )
-        } else {
-            Box(Modifier.size(64.dp).background(Color.Gray, CircleShape))
+
+            item.isCollected && esPeleador -> FighterPortrait(item.assetPath, lado = 64.dp)
+
+            // Sin conseguir: silueta gris. Deliberado — la gracia es no ver que hay dentro.
+            else -> Box(Modifier.size(64.dp).background(Color.Gray, CircleShape))
         }
         Spacer(Modifier.height(12.dp))
         Text(
