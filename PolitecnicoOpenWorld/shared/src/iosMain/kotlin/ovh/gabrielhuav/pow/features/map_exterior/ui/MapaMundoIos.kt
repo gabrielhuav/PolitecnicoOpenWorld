@@ -59,12 +59,13 @@ import platform.WebKit.WKWebViewConfiguration
  * guerra se abre a su paso. Todo eso va por `PuenteMapaIos`, que llama a las MISMAS funciones JS
  * que usa Android (`updatePlayerMarker`, `updateMapView`, `setPlayerFog`).
  *
+ * **Y las bardas frenan:** `cargarColisionesExteriores()` + `chocaAlMoverse()`, los dos de
+ * `commonMain`, con la MISMA regla que aplica Android.
+ *
  * ⚠️ **Aun así NO es el mundo abierto jugable.** Faltan:
  * - **NPCs, policía, coleccionables y landmarks** — hay funciones JS para todos (`updateNpcs`,
  *   `updatePolice`, `updateCollectibles`, `updateLandmarks`), pero quien las alimenta es el
  *   `WorldMapViewModel`, que sigue en `:app` (fase 5).
- * - **Colisiones**: el jugador atraviesa edificios. Eso vive en `ExteriorCollisionsConfig`, que ya
- *   está en `commonMain`, pero lo aplica el ViewModel.
  * - **La vuelta del puente (JS → Kotlin)**: en Android es `@JavascriptInterface`; en iOS haría falta
  *   `WKScriptMessageHandler`. Sin ella el mapa no puede avisar de toques ni de arrastres.
  *

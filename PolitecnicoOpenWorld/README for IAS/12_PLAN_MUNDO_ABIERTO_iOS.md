@@ -178,6 +178,61 @@ Mecánico y sin riesgo, pero largo. La receta ya está probada: es lo que se hiz
 
 #### Lo que queda de la fase: el ViewModel (~5 000 líneas)
 
+> ## 🔗 LA CADENA DE BLOQUEO — medida el 2026-07-31
+>
+> Se intentó mover `WorldMapState.kt` (335 líneas, el estado del VM) y **falló por UN símbolo**.
+> Esto es lo que hay de verdad, y explica por qué la fase 4 va ANTES que la 5:
+>
+> ```
+> WorldMapState  ──necesita──►  CampaignObjective
+>                                     │
+>                                     └── @StringRes val titleRes: Int   ← R.string: no existe en commonMain
+>                                              │
+>                                              └── lo definen Mission1/2/3, SideMissions, MissionCatalog
+>                                                       │
+>                                                       └── 42 strings, y NINGUNO está en composeResources
+> ```
+>
+> **La buena noticia:** todo lo DEMÁS que necesita `WorldMapState` ya está en `commonMain` (GeoPoint,
+> Npc, Landmark, CarModel, InteriorBuilding, PlayerAction, PlayerSkin, ControlType,
+> PrankedyAnimState, ActiveCollectible). Falta ese único eslabón.
+>
+> ### El acoplamiento del VM es MENOR de lo que parecía
+>
+> `WorldMapViewModel.kt` (1596 líneas) tiene solo **4 imports de plataforma**, y uno ni cuenta:
+>
+> | Import | Cuánto duele |
+> |---|---|
+> | `androidx.compose.ui.graphics.toArgb` | 🟢 **Nada**: es Compose Multiplatform |
+> | `androidx.lifecycle.viewModelScope` | 🟢 **Ya resuelto**: existe `PowViewModel` (expect/actual) |
+> | `android.util.Log` | 🟡 Trivial de sustituir |
+> | `android.content.Context` | 🟠 16 usos, pero solo **3 cosas**: `SoundManager`, `getLocalizedString` y cargar colisiones — y **lo de colisiones YA está portado** (`cargarColisionesExteriores()`) |
+>
+> Más `@HiltViewModel` con 5 dependencias y `TileCache` (solo-Android: intercepta las teselas del
+> WebView). Todo eso es exactamente para lo que existe el patrón **Environment** (doc 10 §2bis,
+> mecanismo 3), como `StreetFighterEnvironment`.
+>
+> ### ⚠️ Por qué NO se hizo el 07-31
+>
+> El eslabón que falta son **42 strings de misión** a `composeResources` y **17 archivos** que
+> consumen `CampaignObjective`. Es mecánico, **pero el fallo típico es silencioso**: una misión
+> muestra el texto equivocado. Eso no lo caza ningún test ni el compilador — **se ve jugando**, y en
+> este Mac **no hay AVD** (medido).
+>
+> **Se descartó el atajo** de quitar `@StringRes` y dejar `titleRes: Int` en `commonMain`. Habría
+> compilado y Android no cambiaría, pero mete un id de recurso de Android en el módulo compartido:
+> justo lo que prohíbe `10 §2bis`. Habría parecido progreso sin serlo.
+>
+> ### Orden correcto para quien siga, CON EMULATOR DELANTE
+>
+> 1. Los 42 strings de campaña (ES + EN) a `composeResources`.
+> 2. `CampaignObjective.titleRes: Int` → `StringResource`, y detrás los 17 consumidores (el
+>    compilador los va listando).
+> 3. `WorldMapState.kt` → `commonMain`: ya no tendrá nada que lo ate.
+> 4. `WorldMapEnvironment` para `SoundManager` + `getLocalizedString` + `TileCache`.
+> 5. La clase y sus **22 parciales, todos de una vez** — no se pueden separar (`10 §4`).
+> 6. **Jugar el mundo abierto en Android media hora.**
+
 ⚠️ **Los 22 parciales NO se pueden mover sueltos**: son funciones de extensión de la clase, así que
 o se mueve la clase o no compila ninguno. Ver la regla del patrón parcial en `10 §4`.
 
