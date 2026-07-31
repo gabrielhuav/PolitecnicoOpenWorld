@@ -1,5 +1,7 @@
 package ovh.gabrielhuav.pow.domain.usecases
 
+// ⚠️ `java.lang.Math` no existe en Kotlin/Native. `kotlin.math` da los MISMOS valores.
+import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -62,12 +64,12 @@ class CalculateLocalCoordinatesUseCase {
         val dLon = pointLon - centerLon
 
         // 2. Proyección grados→metros (compensación por coseno en la longitud)
-        val latRad = centerLat * (Math.PI / 180.0)
-        val rotatedDy = dLat * (Math.PI / 180.0) * earthRadius
-        val rotatedDx = dLon * (Math.PI / 180.0) * (earthRadius * cos(latRad))
+        val latRad = centerLat * (PI / 180.0)
+        val rotatedDy = dLat * (PI / 180.0) * earthRadius
+        val rotatedDx = dLon * (PI / 180.0) * (earthRadius * cos(latRad))
 
         // 3. Rotación inversa (alinear el eje con la textura base)
-        val angleRad = Math.toRadians(-rotationAngle.toDouble())
+        val angleRad = (-rotationAngle.toDouble() * PI / 180.0)
         val dxMeters = rotatedDx * cos(angleRad) - rotatedDy * sin(angleRad)
         val dyMeters = rotatedDx * sin(angleRad) + rotatedDy * cos(angleRad)
 

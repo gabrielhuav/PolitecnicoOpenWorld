@@ -4,7 +4,12 @@ import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
-import java.util.concurrent.ConcurrentHashMap
+import ovh.gabrielhuav.pow.platform.concurrencia.PowMapaConcurrente
+import kotlin.concurrent.Volatile
+import kotlin.time.TimeSource
+// ⚠️ `java.lang.Math` no existe en Kotlin/Native. `kotlin.math` da los MISMOS valores:
+// `Math.toDegrees(x)` es literalmente `x * 180 / PI`.
+import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -26,6 +31,9 @@ import kotlin.random.Random
 //    corren a tu coche para bajarte (si te quedas quieto). Si te alejas, vuelven a su
 //    patrulla y siguen la persecución en auto.
 //  - AL MORIR (wantedLevel = 0): se retiran alejándose hasta desaparecer.
+/** Reloj monótono para los ids de patrulla. Mismo patrón que `StreetFighterViewModel`. */
+private val relojPatrullas = TimeSource.Monotonic.markNow()
+
 class PoliceManager {
 
     companion object {
@@ -72,39 +80,39 @@ class PoliceManager {
         val shots: List<Pair<GeoPoint, GeoPoint>> = emptyList() // disparos (origen→jugador) para dibujar la bala
     )
 
-    private val units = ConcurrentHashMap<String, Npc>()
-    private val punchCooldowns = ConcurrentHashMap<String, Long>()
-    private val shootCooldowns = ConcurrentHashMap<String, Long>()
+    private val units = PowMapaConcurrente<String, Npc>()
+    private val punchCooldowns = PowMapaConcurrente<String, Long>()
+    private val shootCooldowns = PowMapaConcurrente<String, Long>()
     @Volatile private var lastCarSpawn = 0L
 
     // Estado de ruta por patrulla (pathfinding sobre la red de calles).
-    private val carRoute = ConcurrentHashMap<String, List<GeoPoint>>()
-    private val carRouteIdx = ConcurrentHashMap<String, Int>()
-    private val carRouteTime = ConcurrentHashMap<String, Long>()
-    private val carStuckPos = ConcurrentHashMap<String, GeoPoint>()
-    private val carStuckSince = ConcurrentHashMap<String, Long>()
+    private val carRoute = PowMapaConcurrente<String, List<GeoPoint>>()
+    private val carRouteIdx = PowMapaConcurrente<String, Int>()
+    private val carRouteTime = PowMapaConcurrente<String, Long>()
+    private val carStuckPos = PowMapaConcurrente<String, GeoPoint>()
+    private val carStuckSince = PowMapaConcurrente<String, Long>()
     // Detección de "dar vueltas sin progresar" + desvío forzado por otra ruta.
-    private val progressDist = ConcurrentHashMap<String, Double>()
-    private val progressTime = ConcurrentHashMap<String, Long>()
-    private val detour = ConcurrentHashMap<String, GeoPoint>()
+    private val progressDist = PowMapaConcurrente<String, Double>()
+    private val progressTime = PowMapaConcurrente<String, Long>()
+    private val detour = PowMapaConcurrente<String, GeoPoint>()
 
     private fun forgetCar(id: String) {
-        carRoute.remove(id); carRouteIdx.remove(id); carRouteTime.remove(id)
-        carStuckPos.remove(id); carStuckSince.remove(id)
-        progressDist.remove(id); progressTime.remove(id); detour.remove(id)
+        carRoute.quitar(id); carRouteIdx.quitar(id); carRouteTime.quitar(id)
+        carStuckPos.quitar(id); carStuckSince.quitar(id)
+        progressDist.quitar(id); progressTime.quitar(id); detour.quitar(id)
     }
 
-    fun activeUnits(): List<Npc> = units.values.toList()
+    fun activeUnits(): List<Npc> = units.valores.toList()
 
     // El jugador golpea: daña a los policías a pie dentro del radio. Devuelve los ids de
     // los que cayeron (para difundir POLICE_DESTROY). Las patrullas no se dañan a golpes.
     fun playerHitPolice(lat: Double, lon: Double, radius: Double, damage: Float): List<String> {
         val destroyed = ArrayList<String>()
-        for (u in units.values.toList()) {
+        for (u in units.valores.toList()) {
             if (u.type != NpcType.POLICE_COP) continue
             if (dist(u.location.latitude, u.location.longitude, lat, lon) > radius) continue
             val nh = (u.health - damage).coerceAtLeast(0f)
-            if (nh <= 0f) { units.remove(u.id); destroyed.add(u.id) }
+            if (nh <= 0f) { units.quitar(u.id); destroyed.add(u.id) }
             else units[u.id] = u.copy(health = nh)
         }
         return destroyed
@@ -116,17 +124,17 @@ class PoliceManager {
     fun boardPatrol(id: String): Npc? {
         val u = units[id] ?: return null
         if (u.type != NpcType.POLICE_CAR) return null
-        units.remove(id)
-        punchCooldowns.remove(id); shootCooldowns.remove(id)
+        units.quitar(id)
+        punchCooldowns.quitar(id); shootCooldowns.quitar(id)
         forgetCar(id)
         return u
     }
 
     fun clearAll(): List<String> {
-        val ids = units.keys.toList()
-        units.clear(); punchCooldowns.clear(); shootCooldowns.clear()
-        carRoute.clear(); carRouteIdx.clear(); carRouteTime.clear()
-        carStuckPos.clear(); carStuckSince.clear()
+        val ids = units.claves.toList()
+        units.limpiar(); punchCooldowns.limpiar(); shootCooldowns.limpiar()
+        carRoute.limpiar(); carRouteIdx.limpiar(); carRouteTime.limpiar()
+        carStuckPos.limpiar(); carStuckSince.limpiar()
         return ids
     }
 
@@ -190,8 +198,8 @@ class PoliceManager {
         val mLat = placed.latitude - from.latitude
         val mLon = placed.longitude - from.longitude
         val rot = if (mLat * mLat + mLon * mLon > 1e-14)
-            (-Math.toDegrees(atan2(mLat, mLon)).toFloat() + 360f) % 360f
-        else (-Math.toDegrees(a).toFloat() + 360f) % 360f
+            (-((atan2(mLat, mLon)) * 180.0 / PI).toFloat() + 360f) % 360f
+        else (-((a) * 180.0 / PI).toFloat() + 360f) % 360f
         val facing = if (mLat * mLat + mLon * mLon > 1e-14) mLon >= 0 else cos(a) >= 0
         return Triple(placed, rot, facing)
     }
@@ -211,13 +219,13 @@ class PoliceManager {
     ): PoliceTick {
         // ─── RETIRADA ───────────────────────────────────────────────────────────
         if (wantedLevel <= 0) {
-            if (units.isEmpty()) return PoliceTick(emptyList(), 0f, 0f, false, emptyList(), false)
+            if (units.estaVacio()) return PoliceTick(emptyList(), 0f, 0f, false, emptyList(), false)
             val destroyed = ArrayList<String>()
-            for (unit in units.values.toList()) {
+            for (unit in units.valores.toList()) {
                 val dLat = unit.location.latitude - playerLat
                 val dLon = unit.location.longitude - playerLon
                 if (sqrt(dLat * dLat + dLon * dLon) > RETREAT_DESPAWN) {
-                    units.remove(unit.id); forgetCar(unit.id); destroyed.add(unit.id); continue
+                    units.quitar(unit.id); forgetCar(unit.id); destroyed.add(unit.id); continue
                 }
                 // Objetivo: un punto lejos del jugador (en su misma dirección de huida).
                 val spd = if (unit.type == NpcType.POLICE_CAR) CAR_SPEED else COP_SPEED
@@ -226,7 +234,7 @@ class PoliceManager {
                 val (loc, rot, facing) = stepOnRoad(unit.location, awayLat, awayLon, spd, snap)
                 units[unit.id] = unit.copy(location = loc, rotationAngle = rot, facingRight = facing, isMoving = true)
             }
-            return PoliceTick(units.values.toList(), 0f, 0f, false, destroyed, false)
+            return PoliceTick(units.valores.toList(), 0f, 0f, false, destroyed, false)
         }
 
         val destroyed = ArrayList<String>()
@@ -239,7 +247,7 @@ class PoliceManager {
         // ─── ESTADO DE LOS POLICÍAS SEGÚN TU VEHÍCULO ────────────────────────────
         // En coche: si te alejas mucho de un policía a pie, vuelve a su patrulla; si está
         // cerca, se queda fuera para bajarte. A pie: nunca están "volviendo".
-        for (u in units.values.toList()) {
+        for (u in units.valores.toList()) {
             if (u.type != NpcType.POLICE_COP) continue
             val d = dist(u.location.latitude, u.location.longitude, playerLat, playerLon)
             val shouldReturn = playerInVehicle && d > RECALL_DIST
@@ -248,7 +256,7 @@ class PoliceManager {
 
         // ─── SPAWN de patrullas ──────────────────────────────────────────────────
         val desiredCars = desiredCarsFor(wantedLevel)
-        val carCount = units.values.count { it.type == NpcType.POLICE_CAR }
+        val carCount = units.valores.count { it.type == NpcType.POLICE_CAR }
         if (carCount < desiredCars && now - lastCarSpawn >= CAR_SPAWN_COOLDOWN_MS) {
             lastCarSpawn = now
             repeat((desiredCars - carCount).coerceAtMost(2)) {
@@ -257,7 +265,7 @@ class PoliceManager {
         }
 
         // ─── MOVIMIENTO / ACCIÓN ─────────────────────────────────────────────────
-        for (unit in units.values.toList()) {
+        for (unit in units.valores.toList()) {
             when (unit.type) {
                 NpcType.POLICE_CAR -> {
                     val dist = dist(unit.location.latitude, unit.location.longitude, playerLat, playerLon)
@@ -267,7 +275,7 @@ class PoliceManager {
                         if (!playerInVehicle) continue // a pie: queda estacionada
                         // En coche: espera mientras sus policías sigan fuera; cuando todos
                         // se subieron, vuelve a arrancar para perseguirte en auto.
-                        val pendingCops = units.values.any { it.type == NpcType.POLICE_COP && it.policeCarId == unit.id }
+                        val pendingCops = units.valores.any { it.type == NpcType.POLICE_COP && it.policeCarId == unit.id }
                         if (pendingCops) continue
                         units[unit.id] = unit.copy(policeDisembarked = false, isMoving = true)
                     }
@@ -291,12 +299,17 @@ class PoliceManager {
 
                     // VOLVIENDO A LA PATRULLA (te alejaste en coche).
                     if (unit.policeReturning) {
-                        val car = units[unit.policeCarId]
-                        if (car == null) { units.remove(unit.id); destroyed.add(unit.id) }
+                        // ⚠️ `policeCarId` es String? y antes se pasaba tal cual a un
+                        // `ConcurrentHashMap`, que **lanza NPE si la clave es null**. Nunca saltó
+                        // porque en la práctica siempre venía con valor, pero era un crash a la
+                        // espera. Sin patrulla a la que volver, el policía se retira: es
+                        // exactamente lo que ya hacía la rama `car == null` de abajo.
+                        val car = unit.policeCarId?.let { units[it] }
+                        if (car == null) { units.quitar(unit.id); destroyed.add(unit.id) }
                         else {
                             val cDist = dist(unit.location.latitude, unit.location.longitude,
                                 car.location.latitude, car.location.longitude)
-                            if (cDist <= BOARD_DIST) { units.remove(unit.id); destroyed.add(unit.id) }
+                            if (cDist <= BOARD_DIST) { units.quitar(unit.id); destroyed.add(unit.id) }
                             else {
                                 // Vuelven a la patrulla por la calle (ruta + anti-atasco).
                                 val (loc, rot, facing) = advanceAlong(unit,
@@ -312,7 +325,7 @@ class PoliceManager {
                     if (isShootingFrame) {
                         // Mientras dura el frame de disparo, se queda quieto mirando al jugador.
                         val a = atan2(playerLat - unit.location.latitude, playerLon - unit.location.longitude)
-                        val rot = (-Math.toDegrees(a).toFloat() + 360f) % 360f
+                        val rot = (-((a) * 180.0 / PI).toFloat() + 360f) % 360f
                         units[unit.id] = unit.copy(rotationAngle = rot, facingRight = cos(a) >= 0, isMoving = false)
                     } else if (dist > COP_STOP_DIST) {
                         // Persiguen por la calle (ruta + anti-atasco): no atraviesan edificios
@@ -349,7 +362,7 @@ class PoliceManager {
                                 
                                 // Forzar que se quede quieto y mire al jugador al disparar
                                 val a = atan2(playerLat - unit.location.latitude, playerLon - unit.location.longitude)
-                                val rot = (-Math.toDegrees(a).toFloat() + 360f) % 360f
+                                val rot = (-((a) * 180.0 / PI).toFloat() + 360f) % 360f
                                 units[unit.id] = units[unit.id]!!.copy(rotationAngle = rot, facingRight = cos(a) >= 0, isMoving = false)
                             }
                         }
@@ -359,7 +372,7 @@ class PoliceManager {
             }
         }
 
-        return PoliceTick(units.values.toList(), damage, prankedyDamage, impact, destroyed, adjacent, shots)
+        return PoliceTick(units.valores.toList(), damage, prankedyDamage, impact, destroyed, adjacent, shots)
     }
 
     private fun dist(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
@@ -370,7 +383,7 @@ class PoliceManager {
     private fun spawnPatrol(
         playerLat: Double, playerLon: Double, roadNetwork: List<MapWay>, canShoot: Boolean
     ): Npc? {
-        val ang = Random.nextDouble(0.0, 2.0 * Math.PI)
+        val ang = Random.nextDouble(0.0, 2.0 * PI)
         val candLat = playerLat + sin(ang) * SPAWN_RING
         val candLon = playerLon + cos(ang) * SPAWN_RING
 
@@ -383,7 +396,11 @@ class PoliceManager {
             }
         }
 
-        val id = "POLICE_CAR_${System.currentTimeMillis()}_${Random.nextInt(10000)}"
+        // ⚠️ Era `System.currentTimeMillis()`, que no existe en Kotlin/Native. `TimeSource.Monotonic`
+        // es el mismo reloj que ya usa el modo pelea (`StreetFighterViewModel`). El id solo tiene
+        // que ser único dentro de la partida: no se guarda ni viaja por red con este formato.
+        val marca = relojPatrullas.elapsedNow().inWholeMilliseconds
+        val id = "POLICE_CAR_${marca}_${Random.nextInt(10000)}"
         return Npc(
             id = id, type = NpcType.POLICE_CAR, location = GeoPoint(bestLat, bestLon),
             speed = CAR_SPEED, isRemote = false, policeCanShoot = canShoot
@@ -392,7 +409,7 @@ class PoliceManager {
 
     private fun makeCop(car: Npc, index: Int, canShoot: Boolean): Npc {
         val off = 0.00004
-        val a = index * (2.0 * Math.PI / 3.0)
+        val a = index * (2.0 * PI / 3.0)
         val id = "POLICE_COP_${car.id}_${index}_${Random.nextInt(10000)}"
         return Npc(
             id = id, type = NpcType.POLICE_COP,

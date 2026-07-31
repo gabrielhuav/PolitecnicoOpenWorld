@@ -77,7 +77,8 @@ Ajustes y la navegación. Un modo en obras es `sePinta() == true` y `disponible(
 
 ### ✅ Fase 2 — El dominio puro a `commonMain` (HECHA, 07-30)
 
-**19 archivos, ~1 100 líneas** movidos. El paquete es idéntico en los dos módulos, así que
+**22 archivos, ~1 500 líneas** movidos (19 de modelos + `RoadRouter`,
+`CalculateLocalCoordinatesUseCase` y `KeyDrop`). El paquete es idéntico en los dos módulos, así que
 **ningún import cambió en ninguna parte**.
 
 Movido: `map/` (MapWay, MapNode, NpcType, Metro/Metrobus/TransitStation, ShineCTOLocation,
@@ -93,32 +94,51 @@ Dos cosas hubo que tocar, y las dos son el patrón a repetir:
    En Android es el mismo `AssetManager` y el mismo archivo.
    ⚠️ También hubo que actualizar su única llamada, en `ZombieGameScreen.kt`.
 
-### 🔜 Fase 3 — Los gestores de IA (SIGUIENTE, ~3 200 líneas)
+### 🟡 Fase 3 — Los gestores de IA (EN CURSO: 3 de 6 hechos, 07-30)
 
-`NpcAiManager` (988) · `PrankedyManager` (624) · `NpcAiManagerTraffic` (565) · `PoliceManager` (404)
-· `CampaignEscortPolice` (402) · `NpcAiManagerMovement` (224).
+| Gestor | Líneas | Estado |
+|---|---:|---|
+| `PoliceManager` | 404 | ✅ en `commonMain`, **con 10 tests nuevos** |
+| `CampaignEscortPolice` | 402 | ✅ en `commonMain` |
+| `PrankedyManager` | 624 | ✅ en `commonMain` |
+| `NpcAiManager` | 988 | 🔜 `CopyOnWriteArrayList` + `AtomicReference` |
+| `NpcAiManagerTraffic` | 565 | 🔜 ⚠️ **parcial de `NpcAiManager`: van juntos** |
+| `NpcAiManagerMovement` | 224 | 🔜 igual, parcial |
 
-Lo que hay que sustituir, todo con equivalente multiplataforma:
+#### 🔐 La herramienta que hizo esto seguro: `PowMapaConcurrente`
 
-| Solo-JVM | Multiplataforma |
-|---|---|
-| `ConcurrentHashMap`, `CopyOnWriteArrayList` | mapa/lista normal + `PowCerrojo` |
-| `AtomicReference`, `@Synchronized` | `PowCerrojo` |
-| `System.currentTimeMillis()` | `kotlin.time.Clock` (o pasar `now` por parámetro, que ya se hace en varios sitios) |
-| `java.util.UUID` | `kotlin.uuid.Uuid` (ver `Npc.nuevoIdDeNpc`) |
+`ConcurrentHashMap` no existe en Kotlin/Native, y **no era decorativo**: MEDIDO, a `PoliceManager`
+se le llama desde `Dispatchers.Default` (bucle), `IO` (red) y `Main` (toques). Las carreras son
+reales.
 
-> ## 🛑 POR QUÉ ESTA FASE NO SE HIZO EL 07-30, aunque el resto sí
->
-> **No tiene ni un solo test** (medido: 0 archivos de test la mencionan) y **cambia concurrencia
-> de código de juego vivo**: tráfico, policía, peatones. Un `ConcurrentHashMap` mal sustituido no
-> falla al compilar ni en los 234 tests — falla como un tirón raro o un crash a los diez minutos
-> de partida.
->
-> **Y en el Mac no hay ningún AVD** (medido: `emulator -list-avds` vacío), así que no se puede
-> jugar Android para comprobarlo.
->
-> **Hazla en una máquina con emulador**, y en este orden: (1) escribe tests de los managers
-> ANTES de tocarlos, (2) sustituye, (3) juega el mundo abierto en Android media hora.
+En vez de envolver a mano ~50 accesos por archivo —donde el compilador **no avisa si te dejas uno**—
+se creó `PowMapaConcurrente` (mapa + `PowCerrojo`) con la misma semántica. Así la migración es
+**un cambio de tipo**, no una redecisión por cada uso:
+
+```
+ConcurrentHashMap<K,V>()  →  PowMapaConcurrente<K,V>()
+.values → .valores   .keys → .claves   .remove() → .quitar()
+.clear() → .limpiar()   .isEmpty() → .estaVacio()   mapa[k] igual
+```
+
+Tiene **9 tests de semántica** en `commonTest` (las dos plataformas) y **5 de carreras con hilos de
+verdad** en `:app`. ⚠️ Se diferencia en dos cosas de `ConcurrentHashMap`, y están documentadas en su
+cabecera: **un solo cerrojo** (bien: son decenas de entradas, no millones) y **`valores`/`claves`
+devuelven una COPIA** (más seguro: recorrerlas nunca lanza `ConcurrentModificationException`).
+
+#### 🐞 Un crash latente que salió solo
+
+Al pasar de `ConcurrentHashMap` (tipos de plataforma, acepta `null`) a una API tipada, el compilador
+señaló que `PoliceManager` buscaba con `unit.policeCarId`, que es `String?`. **`ConcurrentHashMap.get(null)`
+lanza NPE.** Nunca saltó porque en la práctica siempre venía con valor, pero era un crash esperando.
+Corregido: sin patrulla a la que volver, el policía se retira — que es lo que ya hacía esa rama.
+
+#### Lo que falta para cerrar la fase
+
+`NpcAiManager` y sus dos parciales usan además `CopyOnWriteArrayList` y `AtomicReference`.
+**Escribe tests de sus reglas ANTES de tocarlo** (como se hizo con `PoliceManager`) y, si puedes,
+**juega media hora el mundo abierto en Android** al terminar: el tráfico y los peatones no los caza
+ningún test.
 
 ### 🔜 Fase 4 — `R.string` → `composeResources` (50 archivos)
 

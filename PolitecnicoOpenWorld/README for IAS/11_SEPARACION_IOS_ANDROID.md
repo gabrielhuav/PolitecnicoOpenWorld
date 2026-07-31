@@ -26,8 +26,8 @@ shared/src/
 └── iosMain/      ← su equivalente en iOS
 ```
 
-**Medido hoy:** 121 archivos en `commonMain` (21 721 líneas), 16 en `androidMain` (2 543),
-14 en `iosMain` (**695 líneas en total** — iOS es fino a propósito) y 186 en `:app` (41 713).
+**Medido hoy:** 128 archivos en `commonMain` (23 622 líneas), 16 en `androidMain` (2 543),
+14 en `iosMain` (**695 líneas en total** — iOS es fino a propósito) y 180 en `:app` (39 905).
 **En `commonMain` hay 0 imports de `android.*`** — y así tiene que seguir.
 
 > 📐 **Que `iosMain` sean 695 líneas es el indicador de que esto va bien.** Si empieza a engordar,
@@ -98,6 +98,21 @@ Si necesitas algo de plataforma, **mira primero si ya está aquí**. Casi siempr
 
 ⚠️ **Antes de añadir la número 11, pregúntate si no es más bien una costura B.** Cada `expect`
 nuevo es un archivo más que mantener en dos sitios, para siempre.
+
+### Y una herramienta que NO es una costura: `PowMapaConcurrente`
+
+`java.util.concurrent.ConcurrentHashMap` no existe en Kotlin/Native. **No lo envuelvas en un
+`expect`**: hay una clase normal en `commonMain` que hace el trabajo, `PowMapaConcurrente` (mapa
+corriente + `PowCerrojo`), y migrar es cambiar el tipo y cuatro nombres de método:
+
+```
+.values → .valores   ·   .keys → .claves   ·   .remove() → .quitar()
+.clear() → .limpiar()   ·   .isEmpty() → .estaVacio()   ·   mapa[k] igual
+```
+
+⚠️ **Dos diferencias que hay que conocer:** usa **un solo cerrojo** (perfecto para decenas de
+entradas, no para millones) y **`valores`/`claves` devuelven una COPIA** — lo cual es *más* seguro,
+porque recorrerlas nunca lanza `ConcurrentModificationException`.
 
 ---
 

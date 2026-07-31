@@ -7,7 +7,13 @@ import ovh.gabrielhuav.pow.domain.models.ai.CampaignEscortPolice.Companion.ROUTE
 import ovh.gabrielhuav.pow.domain.models.ai.CampaignEscortPolice.Companion.TELEPORT_DIST
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
-import java.util.concurrent.ConcurrentHashMap
+// ⚠️ `java.lang.Math` y `System.currentTimeMillis()` no existen en Kotlin/Native.
+// `kotlin.math` da los MISMOS valores y `TimeSource.Monotonic` es el reloj que ya usa SF.
+import ovh.gabrielhuav.pow.platform.concurrencia.PowMapaConcurrente
+import kotlin.math.PI
+import kotlin.random.Random
+import kotlin.concurrent.Volatile
+import kotlin.time.TimeSource
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -26,6 +32,9 @@ import kotlin.math.sqrt
  * La distancia que mantienen ([FOLLOW_DISTANCE]) es mayor que el radio de la niebla, así el
  * jugador SIEMPRE los ve como un **waypoint** (como cuando tienes estrellas), no como sprite.
  */
+/** Reloj monótono de la escolta. Mismo patrón que `PoliceManager` y `StreetFighterViewModel`. */
+private val relojEscolta = TimeSource.Monotonic.markNow()
+
 class CampaignEscortPolice {
 
     // ESCORT = Misión 1 (2 policías que te SIGUEN a distancia, despacio).
@@ -77,25 +86,25 @@ class CampaignEscortPolice {
         private set
     @Volatile private var spawnTimeMs = 0L
 
-    private val units = ConcurrentHashMap<String, Npc>()
+    private val units = PowMapaConcurrente<String, Npc>()
     // Estado de ruta por policía (A* sobre la red de calles).
-    private val route = ConcurrentHashMap<String, List<GeoPoint>>()
-    private val routeIdx = ConcurrentHashMap<String, Int>()
-    private val routeTime = ConcurrentHashMap<String, Long>()
-    private val stuckPos = ConcurrentHashMap<String, GeoPoint>()
-    private val stuckSince = ConcurrentHashMap<String, Long>()
-    private val attackCooldown = ConcurrentHashMap<String, Long>()
+    private val route = PowMapaConcurrente<String, List<GeoPoint>>()
+    private val routeIdx = PowMapaConcurrente<String, Int>()
+    private val routeTime = PowMapaConcurrente<String, Long>()
+    private val stuckPos = PowMapaConcurrente<String, GeoPoint>()
+    private val stuckSince = PowMapaConcurrente<String, Long>()
+    private val attackCooldown = PowMapaConcurrente<String, Long>()
 
     // ─── REMATE (RESOLUTION) ──────────────────────────────────────────────
     @Volatile private var resolutionStartMs = 0L               // inicio de la PLÁTICA (tras reunirse)
     @Volatile private var resolutionBeginMs = 0L               // inicio del remate (para el tope de reunión)
     @Volatile private var resolutionGathered = false           // ¿ya se juntaron todos en la puerta?
-    private val copRole = ConcurrentHashMap<String, Int>()    // 1 = ENTRA a la ESCOM · 2 = SE REGRESA
+    private val copRole = PowMapaConcurrente<String, Int>()    // 1 = ENTRA a la ESCOM · 2 = SE REGRESA
     @Volatile private var doorPoint: GeoPoint? = null          // dónde se metió Prankedy (se juntan aquí)
     @Volatile private var retreatPoint: GeoPoint? = null       // destino de los que SE REGRESAN
 
-    fun activeUnits(): List<Npc> = units.values.toList()
-    fun isActive(): Boolean = units.isNotEmpty()
+    fun activeUnits(): List<Npc> = units.valores.toList()
+    fun isActive(): Boolean = !units.estaVacio()
     fun isResolving(): Boolean = mode == Mode.RESOLUTION
 
     /**
@@ -105,11 +114,11 @@ class CampaignEscortPolice {
      */
     fun playerHitCops(lat: Double, lon: Double, radius: Double, damage: Float): List<String> {
         val destroyed = ArrayList<String>()
-        for (u in units.values.toList()) {
+        for (u in units.valores.toList()) {
             if (u.type != NpcType.POLICE_COP) continue
             if (dist(u.location.latitude, u.location.longitude, lat, lon) > radius) continue
             val nh = (u.health - damage).coerceAtLeast(0f)
-            if (nh <= 0f) { units.remove(u.id); forgetRoute(u.id); destroyed.add(u.id) }
+            if (nh <= 0f) { units.quitar(u.id); forgetRoute(u.id); destroyed.add(u.id) }
             else units[u.id] = u.copy(health = nh)
         }
         return destroyed
@@ -117,13 +126,13 @@ class CampaignEscortPolice {
 
     /** ¿Hay un policía de campaña a PIE tocando al jugador (dentro del radio)? Para daño por contacto. */
     fun copTouching(lat: Double, lon: Double, radius: Double): Boolean =
-        units.values.any { it.type == NpcType.POLICE_COP &&
+        units.valores.any { it.type == NpcType.POLICE_COP &&
             dist(it.location.latitude, it.location.longitude, lat, lon) <= radius }
 
     fun clear() {
-        units.clear(); route.clear(); routeIdx.clear(); routeTime.clear()
-        stuckPos.clear(); stuckSince.clear(); attackCooldown.clear()
-        copRole.clear(); doorPoint = null; retreatPoint = null; resolutionStartMs = 0L
+        units.limpiar(); route.limpiar(); routeIdx.limpiar(); routeTime.limpiar()
+        stuckPos.limpiar(); stuckSince.limpiar(); attackCooldown.limpiar()
+        copRole.limpiar(); doorPoint = null; retreatPoint = null; resolutionStartMs = 0L
         resolutionBeginMs = 0L; resolutionGathered = false
     }
 
@@ -143,16 +152,16 @@ class CampaignEscortPolice {
         doorPoint = GeoPoint(doorLat, doorLon)
         retreatPoint = GeoPoint(retreatLat, retreatLon)
         // Reparte roles ALTERNANDO (de 6 → 3 entran a la ESCOM, 3 se regresan).
-        units.keys.toList().forEachIndexed { i, id -> copRole[id] = if (i % 2 == 0) 1 else 2; forgetRoute(id) }
+        units.claves.toList().forEachIndexed { i, id -> copRole[id] = if (i % 2 == 0) 1 else 2; forgetRoute(id) }
     }
 
     /** MISIÓN 1: crea los 2 policías DETRÁS del jugador (en abanico) que lo SIGUEN a distancia. */
     fun spawn(playerLat: Double, playerLon: Double, snap: ((GeoPoint) -> GeoPoint)? = null) {
         clear()
         mode = Mode.ESCORT
-        spawnTimeMs = System.currentTimeMillis()
+        spawnTimeMs = relojEscolta.elapsedNow().inWholeMilliseconds
         for (i in 0 until COP_COUNT) {
-            val ang = Math.PI + (if (i == 0) -0.30 else 0.30)   // detrás, abierto en abanico
+            val ang = PI + (if (i == 0) -0.30 else 0.30)   // detrás, abierto en abanico
             val raw = GeoPoint(
                 playerLat + sin(ang) * SPAWN_BEHIND,
                 playerLon + cos(ang) * SPAWN_BEHIND
@@ -176,17 +185,17 @@ class CampaignEscortPolice {
     ) {
         clear()
         mode = Mode.CHASE
-        spawnTimeMs = System.currentTimeMillis()
+        spawnTimeMs = relojEscolta.elapsedNow().inWholeMilliseconds
         // Dirección puerta→jugador (hacia el lado opuesto a la entrada). null = anillo completo.
         val baseAng = if (awayFromLat != null && awayFromLon != null)
             atan2(playerLat - awayFromLat, playerLon - awayFromLon) else null
-        val spread = Math.toRadians(110.0)   // abanico de ~110° en el lado contrario
+        val spread = ((110.0) * PI / 180.0)   // abanico de ~110° en el lado contrario
         for (i in 0 until count) {
             val ang = if (baseAng != null) {
                 val frac = if (count > 1) i.toDouble() / (count - 1) else 0.5
                 baseAng - spread / 2.0 + spread * frac
             } else {
-                2.0 * Math.PI * i / count   // repartidos alrededor del jugador
+                2.0 * PI * i / count   // repartidos alrededor del jugador
             }
             val raw = GeoPoint(
                 playerLat + sin(ang) * CHASE_SPAWN_RING,
@@ -237,7 +246,7 @@ class CampaignEscortPolice {
         val speed = if (mode == Mode.CHASE) CHASE_SPEED else COP_SPEED
         var prankedyDamage = 0f
 
-        for (u in units.values.toList()) {
+        for (u in units.valores.toList()) {
             // TELEPORT: si te alejaste a > 2× tu fog, reubica al policía cerca de ti (detrás).
             if (dist(u.location.latitude, u.location.longitude, playerLat, playerLon) > TELEPORT_DIST) {
                 relocateNear(u, playerLat, playerLon, snap)
@@ -280,7 +289,7 @@ class CampaignEscortPolice {
         // FASE 1 — REUNIRSE en la puerta (buscan a Prankedy donde se metió).
         if (!resolutionGathered) {
             var allClose = true
-            for (u in units.values.toList()) {
+            for (u in units.valores.toList()) {
                 val d = dist(u.location.latitude, u.location.longitude, door.latitude, door.longitude)
                 if (d > RESOLUTION_GATHER_RADIUS) {
                     allClose = false
@@ -294,7 +303,7 @@ class CampaignEscortPolice {
                 resolutionGathered = true
                 resolutionStartMs = now
                 // Activa la burbuja ❓/💬 en todos mientras "platican".
-                units.values.toList().forEach { u ->
+                units.valores.toList().forEach { u ->
                     units[u.id] = u.copy(talkingUntil = now + RESOLUTION_TALK_MS, isMoving = false)
                 }
             }
@@ -305,10 +314,10 @@ class CampaignEscortPolice {
         if (now - resolutionStartMs < RESOLUTION_TALK_MS) return 0f
 
         // FASE 3 — REPARTIRSE: cada quien a su destino; desaparece al llegar.
-        for (u in units.values.toList()) {
+        for (u in units.valores.toList()) {
             val tgt = if ((copRole[u.id] ?: 2) == 1) door else retreat
             val d = dist(u.location.latitude, u.location.longitude, tgt.latitude, tgt.longitude)
-            if (d <= RESOLUTION_REACH) { units.remove(u.id); forgetRoute(u.id); continue }  // llegó → desaparece
+            if (d <= RESOLUTION_REACH) { units.quitar(u.id); forgetRoute(u.id); continue }  // llegó → desaparece
             val (loc, rot, facing) = advanceAlong(u, tgt.latitude, tgt.longitude, CHASE_SPEED, now, snap, pathfind)
             units[u.id] = u.copy(location = loc, rotationAngle = rot, facingRight = facing, isMoving = true)
         }
@@ -318,7 +327,7 @@ class CampaignEscortPolice {
     // Reubica al policía cerca del jugador (detrás), sobre la calle si hay snap. Conserva el
     // cronómetro de cierre (sigue acercándose) y olvida su ruta vieja.
     private fun relocateNear(unit: Npc, playerLat: Double, playerLon: Double, snap: ((GeoPoint) -> GeoPoint)?) {
-        val ang = Math.PI + (Math.random() - 0.5)   // detrás, con algo de variación
+        val ang = PI + (Random.nextDouble() - 0.5)   // detrás, con algo de variación
         val raw = GeoPoint(playerLat + sin(ang) * SPAWN_BEHIND, playerLon + cos(ang) * SPAWN_BEHIND)
         val placed = snap?.invoke(raw) ?: raw
         forgetRoute(unit.id)
@@ -326,8 +335,8 @@ class CampaignEscortPolice {
     }
 
     private fun forgetRoute(id: String) {
-        route.remove(id); routeIdx.remove(id); routeTime.remove(id)
-        stuckPos.remove(id); stuckSince.remove(id)
+        route.quitar(id); routeIdx.quitar(id); routeTime.quitar(id)
+        stuckPos.quitar(id); stuckSince.quitar(id)
     }
 
     // Avanza una unidad hacia (tLat,tLon) siguiendo una RUTA por la red de calles (A*),
@@ -375,7 +384,7 @@ class CampaignEscortPolice {
     private fun stepDirect(from: GeoPoint, toLat: Double, toLon: Double, speed: Double): Triple<GeoPoint, Float, Boolean> {
         val a = atan2(toLat - from.latitude, toLon - from.longitude)
         val placed = GeoPoint(from.latitude + sin(a) * speed, from.longitude + cos(a) * speed)
-        val rot = (-Math.toDegrees(a).toFloat() + 360f) % 360f
+        val rot = (-((a) * 180.0 / PI).toFloat() + 360f) % 360f
         return Triple(placed, rot, cos(a) >= 0)
     }
 
@@ -389,8 +398,8 @@ class CampaignEscortPolice {
         val mLat = placed.latitude - from.latitude
         val mLon = placed.longitude - from.longitude
         val moved = mLat * mLat + mLon * mLon > 1e-14
-        val rot = if (moved) (-Math.toDegrees(atan2(mLat, mLon)).toFloat() + 360f) % 360f
-                  else (-Math.toDegrees(a).toFloat() + 360f) % 360f
+        val rot = if (moved) (-((atan2(mLat, mLon)) * 180.0 / PI).toFloat() + 360f) % 360f
+                  else (-((a) * 180.0 / PI).toFloat() + 360f) % 360f
         val facing = if (moved) mLon >= 0 else cos(a) >= 0
         return Triple(placed, rot, facing)
     }

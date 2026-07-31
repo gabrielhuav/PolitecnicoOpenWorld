@@ -7,8 +7,8 @@
 
 > ➡️ **AHORA:** **SF corre entero en iOS** (menú, Ajustes, Coleccionables, pelea, idioma, modo
 > desarrollador, guardado) y el **mundo abierto va por la fase 2 de 8** (§2ter, plan en el doc 12).
-> **Siguiente:** verificar Android en Windows (§5) y **adelgazar el AAB** — va por 416 MB contra
-> los 500 de Play (doc 13; ODR en iOS resultó NO ser bloqueador). **234 tests.**
+> **Siguiente:** verificar Android en Windows (§5) y **adelgazar el AAB** — 402 MB contra los 500
+> de Play (doc 13; ODR en iOS resultó NO ser bloqueador). **259 tests.**
 
 ## 🖥️ Rutas por PC
 
@@ -109,13 +109,21 @@ Plan completo, medido, en **`12_PLAN_MUNDO_ABIERTO_iOS.md`**. Resumen:
   nuevos lo fijan, uno comprueba el propio interruptor.
   ⚠️ **`disponible()` NO cambió**: sigue siendo "¿se puede jugar?" y es lo que gatea Ajustes.
   Lo nuevo son `enObras()` y `sePinta()`, y `sePinta()` es **solo para pintar**.
-- ✅ **Fase 2 — dominio puro a `commonMain`**: 19 archivos, ~1 100 líneas. El paquete es idéntico
+- ✅ **Fase 2 — dominio puro a `commonMain`**: 22 archivos, ~1 500 líneas. El paquete es idéntico
   en los dos módulos, así que **ningún import cambió**. Dos arreglos que son el patrón a repetir:
   `java.lang.Math` → `kotlin.math` (mismos valores) y `loadCalibration(Context)` → `PowAssets`
   (⚠️ tenía una llamada en `ZombieGameScreen.kt`). `java.util.UUID` → `kotlin.uuid.Uuid`.
-- 🛑 **Fase 3 (gestores de IA, ~3 200 líneas) NO se hizo, y a propósito.** Cambia concurrencia de
-  código de juego vivo (tráfico, policía, peatones), **tiene 0 tests** y en el Mac **no hay AVD**
-  para jugarlo. Hacerla donde haya emulador, escribiendo tests ANTES.
+- 🟡 **Fase 3 — gestores de IA: 3 de 6 hechos.** `PoliceManager` (404, **con 10 tests nuevos**),
+  `CampaignEscortPolice` (402) y `PrankedyManager` (624) ya corren en iOS.
+  🔐 La clave fue **`PowMapaConcurrente`** (mapa + `PowCerrojo`), que sustituye a
+  `ConcurrentHashMap` **conservando la semántica**: migrar es cambiar el tipo y 4 nombres de método,
+  no rehacer ~50 accesos a mano donde el compilador no avisa si te dejas uno. 9 tests de semántica
+  en las dos plataformas + 5 de carreras con hilos de verdad en `:app`.
+  🐞 Al tipar la API, el compilador sacó un **crash latente**: se buscaba con `policeCarId`
+  (`String?`) y **`ConcurrentHashMap.get(null)` lanza NPE**. Corregido.
+  ⚠️ **Falta `NpcAiManager` (988) y sus 2 parciales**: usan además `CopyOnWriteArrayList` y
+  `AtomicReference`. Escribe tests ANTES y **juega el mundo en Android** al terminar — en el Mac no
+  hay AVD (medido) y el tráfico no lo caza ningún test.
 ### 🗜️ Tamaño — límites VERIFICADOS en la fuente, y una corrección
 
 ⚠️ **Me equivoqué antes:** dije que el mundo no cabía en iOS por los 200 MB. **Falso.** El tope

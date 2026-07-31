@@ -8,6 +8,10 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
+// ⚠️ `Math.PI` y `System.currentTimeMillis()` no existen en Kotlin/Native. `kotlin.math.PI` es el
+// mismo valor y `TimeSource.Monotonic` es el reloj que ya usan SF y `PoliceManager`.
+import kotlin.math.PI
+import kotlin.time.TimeSource
 
 /**
  * Manager de IA del NPC especial Prankedy.
@@ -21,6 +25,11 @@ import kotlin.random.Random
  *    "pone de tu lado" y ataca a ese NPC en su lugar.
  *  - Puede recibir daño y morir; tras un tiempo reaparece.
  */
+private val relojPrankedy = TimeSource.Monotonic.markNow()
+
+/** Milisegundos desde que arrancó el proceso. Sustituye a `System.currentTimeMillis()`. */
+private fun ahoraPrankedy(): Long = relojPrankedy.elapsedNow().inWholeMilliseconds
+
 class PrankedyManager {
 
     /**
@@ -155,7 +164,7 @@ class PrankedyManager {
     val projectileProgress: Float
         get() {
             if (!projectileActive) return 0f
-            val elapsed = System.currentTimeMillis() - projectileStartMs
+            val elapsed = ahoraPrankedy() - projectileStartMs
             return (elapsed.toFloat() / PROJECTILE_FLIGHT_MS).coerceIn(0f, 1f)
         }
 
@@ -455,7 +464,7 @@ class PrankedyManager {
      * Coloca a Prankedy en el mundo, cerca del jugador, sobre la red viaria.
      * Se llama al iniciar la partida o tras un respawn.
      */
-    fun spawn(nearPlayer: GeoPoint, roadNetwork: List<MapWay>, now: Long = System.currentTimeMillis()) {
+    fun spawn(nearPlayer: GeoPoint, roadNetwork: List<MapWay>, now: Long = ahoraPrankedy()) {
         val spawnPoint = findSpawnPoint(nearPlayer, roadNetwork)
         location = spawnPoint
         health = MAX_HEALTH
@@ -477,7 +486,7 @@ class PrankedyManager {
      * calle, y empieza a seguirte sin atacarte. Lo usa SOLO la campaña ENCB
      * (ver WorldMapPrankedy.maybeSpawnPrankedyCompanion).
      */
-    fun spawnCompanion(nearPlayer: GeoPoint, roadNetwork: List<MapWay>, now: Long = System.currentTimeMillis()) {
+    fun spawnCompanion(nearPlayer: GeoPoint, roadNetwork: List<MapWay>, now: Long = ahoraPrankedy()) {
         spawn(nearPlayer, roadNetwork, now)
         phase = PrankedyPhase.HIRED
         animState = PrankedyAnimState.IDLE
@@ -502,7 +511,7 @@ class PrankedyManager {
     }
 
     /** Aplica daño a Prankedy. Devuelve true si acaba de morir. */
-    fun takeDamage(amount: Float, now: Long = System.currentTimeMillis()): Boolean {
+    fun takeDamage(amount: Float, now: Long = ahoraPrankedy()): Boolean {
         if (phase == PrankedyPhase.DEAD) return false
         health = (health - amount).coerceAtLeast(0f)
         // Frase de pánico al entrar en salud crítica (< 25%)
@@ -521,7 +530,7 @@ class PrankedyManager {
     }
 
     /** Hook: interacción vehicular cerca de Prankedy (choque, carjack). */
-    fun onVehicleInteraction(now: Long = System.currentTimeMillis()) {
+    fun onVehicleInteraction(now: Long = ahoraPrankedy()) {
         if (phase != PrankedyPhase.DEAD && currentDialogue == null) {
             triggerDialogue(VEHICLE_PHRASES.random(), now, 3000L)
         }
@@ -530,7 +539,7 @@ class PrankedyManager {
     /** Hook: el jugador recibió daño (lo notifica el VM). Suelta una frase de defensa. */
     fun onPlayerDamaged() {
         if (phase != PrankedyPhase.DEAD) {
-            triggerDialogue(HIRED_PHRASES.random(), System.currentTimeMillis(), 2000L)
+            triggerDialogue(HIRED_PHRASES.random(), ahoraPrankedy(), 2000L)
         }
     }
 
@@ -590,7 +599,7 @@ class PrankedyManager {
      */
     private fun findSpawnPoint(nearPlayer: GeoPoint, roadNetwork: List<MapWay>): GeoPoint {
         if (roadNetwork.isEmpty()) {
-            val angle = Random.nextDouble() * 2 * Math.PI
+            val angle = Random.nextDouble() * 2 * PI
             return GeoPoint(
                 nearPlayer.latitude  + sin(angle) * PRANKEDY_SPAWN_RADIUS,
                 nearPlayer.longitude + cos(angle) * PRANKEDY_SPAWN_RADIUS
@@ -615,7 +624,7 @@ class PrankedyManager {
             return GeoPoint(nearestNode.lat, nearestNode.lon)
         }
 
-        val angle = Random.nextDouble() * 2 * Math.PI
+        val angle = Random.nextDouble() * 2 * PI
         return GeoPoint(
             nearPlayer.latitude  + sin(angle) * PRANKEDY_SPAWN_RADIUS,
             nearPlayer.longitude + cos(angle) * PRANKEDY_SPAWN_RADIUS
