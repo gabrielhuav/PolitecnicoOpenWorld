@@ -71,3 +71,36 @@ punta a punta en el emulador.**
 - **Archivados con cabecera ✅**: `ARRANQUE_MAC_iOS.md`, `PLAN_SF_EN_iOS.md`,
   `PROMPT_MAC_navegacion_iOS.md`. Raíz de `README for IAS`: 6215 → 6082 líneas.
 
+
+---
+
+## 2bis. 🍏 07-30 — navegación iOS completa y verificada (Mac)
+
+Los **ocho pasos** de `_ARCHIVO/PROMPT_MAC_navegacion_iOS.md` pasaron en el simulador (iPhone 17 Pro,
+iOS 18.2). Lo que se arregló para llegar ahí, con la trampa de cada uno:
+
+- 🔴 **Idioma no cambiaba.** El desplegable decía "English", `APP_LANGUAGE` se guardaba y los textos
+  seguían en español. Compose Resources 1.11.1 **no expone ninguna API para forzar el locale**
+  (comprobado en la klib: `filterByLocale` y compañía son internos). Su `DefaultComposeEnvironment`
+  lee `androidx.compose.ui.text.intl.Locale.current`, que en iOS sale de `NSLocale`. Solución:
+  `aplicarIdiomaIos()` escribe la clave estándar **`AppleLanguages`** de `NSUserDefaults`, y
+  `PowAppIos` envuelve el árbol en `key(generacion)` para rehacerlo. Cambia **en caliente** y
+  persiste tras cerrar. Es el equivalente del `activity.recreate()` de Android.
+  ⚠️ Se guardan DOS claves y **no es redundante**: `APP_LANGUAGE` es la del juego (la que pinta el
+  desplegable y comparte con Android); `AppleLanguages` es la que mira el sistema.
+- 🔴 **Coleccionables sin arte.** La estampa salía como círculo gris aunque el objeto estuviera
+  conseguido: la fase `rsync` **solo copiaba `STREETFIGHTER`**. Se añadió un bloque aditivo para
+  `SPRITES/COLLECTIBLES` (736 KB). El mismo síntoma que el bug de rutas muertas del 07-30 (ya en `_ARCHIVO/`),
+  pero causa distinta — mirar siempre primero si el fichero está en el bundle.
+- 🔴 **Miniatura de peleador ilegible.** `CollectibleCard` pintaba el ATLAS ENTERO (2560×7680)
+  encogido a 64 dp: un cuadro de puntos. Ahora reutiliza `FighterPortrait`, que recorta la celda 0.
+  ⚠️ **Un peleador nunca se pinta con `Image(atlas)` a secas.** Afectaba también a Android.
+- 🔴 **`\'` literal en inglés.** Se veía `each fighter\'s`: Compose Resources **no des-escapa `\'`**
+  (eso lo hacía el aapt, y estos recursos no pasan por él). Quitadas las 5 barras de `values-en`.
+- 🔴 **✕ de salir bajo la barra de estado** al pasar a pantalla completa. `systemBarsPadding()` va
+  **solo en ese botón**, no en la pantalla: el combate se dibuja a sangre a propósito.
+- 🧹 **Andamio borrado:** `SfEscaparate.kt` y las pestañas de diagnóstico ya no existen.
+  `ContentView.swift` es ahora un único `PowAppTab` a pantalla completa. El puente del mapa
+  (`WKWebView` + esquema `pow-asset`) se movió a **`MapaWeb.swift`**, que **nadie usa hoy**: se
+  conserva porque ya está verificado y el mundo abierto lo necesitará.
+

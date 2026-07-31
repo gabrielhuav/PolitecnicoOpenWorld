@@ -65,6 +65,28 @@ data class GeoPoint(
         )
     }
 
+    /**
+     * Este punto desplazado [metrosNorte] hacia el norte y [metrosEste] hacia el este.
+     *
+     * Sirve para mover al jugador por el mundo: se piensa en metros, no en grados, que a estas
+     * latitudes no valen lo mismo en los dos ejes.
+     *
+     * ⚠️ **El este depende del coseno de la latitud, el norte no.** Un grado de longitud mide unos
+     * 111 km en el ecuador y ~105 km en la CDMX (19,5°). Si se omite el coseno, el jugador avanza
+     * más rápido en horizontal que en vertical y no se nota hasta que alguien camina en diagonal.
+     *
+     * Aproximación plana: exacta de sobra para las decenas de metros que se mueve un jugador entre
+     * dos fotogramas. Para distancias grandes está [distanceToAsDouble], que sí es haversine.
+     */
+    fun desplazado(metrosNorte: Double, metrosEste: Double): GeoPoint {
+        val dLat = (metrosNorte / RADIUS_EARTH_METERS) / DEG2RAD
+        val cosLat = cos(latitude * DEG2RAD)
+        // En los polos el coseno tiende a 0 y la división explota. POW transcurre en la CDMX, pero
+        // un guardia cuesta nada y evita un NaN que sería imposible de rastrear.
+        val dLon = if (cosLat < 1e-9) 0.0 else (metrosEste / (RADIUS_EARTH_METERS * cosLat)) / DEG2RAD
+        return GeoPoint(latitude + dLat, longitude + dLon)
+    }
+
     companion object {
         /** Radio ECUATORIAL WGS84, el mismo que `GeoConstants.RADIUS_EARTH_METERS` de osmdroid. */
         const val RADIUS_EARTH_METERS: Double = 6378137.0

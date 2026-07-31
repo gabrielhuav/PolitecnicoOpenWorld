@@ -7,10 +7,10 @@
 
 > ➡️ **AHORA:** **SF corre entero en iOS** (menú, Ajustes, Coleccionables, pelea, idioma, modo
 > desarrollador, guardado) y el **mundo abierto va por la fase 2 de 8** (§2ter, plan en el doc 12).
-> 🌎 **El MAPA del mundo YA SE VE en iOS** y es interactivo (arrastre + pinch). Es vista previa:
-> sin jugador ni NPCs, porque falta el puente JS ↔ nativo.
-> **Siguiente:** ese puente (§2ter) y **adelgazar el AAB** — 402 MB contra los 500 de Play (doc 13).
-> **399 tests.**
+> 🌎 **En iOS ya se CAMINA por el mapa**: jugador, cámara que lo sigue y niebla de guerra. Faltan
+> NPCs, coleccionables y colisiones — los alimenta el `WorldMapViewModel`, que sigue en `:app`.
+> **Siguiente:** fase 5 (ese ViewModel) y **adelgazar el AAB** — 402 MB contra 500 de Play (doc 13).
+> **413 tests.**
 
 ## 🖥️ Rutas por PC
 
@@ -57,37 +57,13 @@ PC nueva: `SETUP_PC_NUEVA.md`; `gradle-wrapper.jar` y `secrets.properties` no vi
 - **Sin insignias PREALPHA/BETA**: `IosMainMenuController` devuelve `mostrarInsignias = false` y
   `versionName = null` porque la App Store las rechaza. En Android se quedan.
 
-## 2bis. 🍏 07-30 — navegación iOS completa y verificada (Mac)
+## 2bis. 🍏 Trampas de iOS que solo se ven en el simulador
 
-Los **ocho pasos** de `_ARCHIVO/PROMPT_MAC_navegacion_iOS.md` pasaron en el simulador (iPhone 17 Pro,
-iOS 18.2). Lo que se arregló para llegar ahí, con la trampa de cada uno:
+Las cinco del 07-30 (idioma, assets fuera del bundle, atlas mal pintado, `\'` sin des-escapar,
+`systemBarsPadding`) están explicadas con su causa medida en **`11_SEPARACION_IOS_ANDROID.md` §8bis**.
+El detalle de aquella sesión se purgó a `_ARCHIVO/HISTORIAL_sesiones_2026-07-30.md`.
 
-- 🔴 **Idioma no cambiaba.** El desplegable decía "English", `APP_LANGUAGE` se guardaba y los textos
-  seguían en español. Compose Resources 1.11.1 **no expone ninguna API para forzar el locale**
-  (comprobado en la klib: `filterByLocale` y compañía son internos). Su `DefaultComposeEnvironment`
-  lee `androidx.compose.ui.text.intl.Locale.current`, que en iOS sale de `NSLocale`. Solución:
-  `aplicarIdiomaIos()` escribe la clave estándar **`AppleLanguages`** de `NSUserDefaults`, y
-  `PowAppIos` envuelve el árbol en `key(generacion)` para rehacerlo. Cambia **en caliente** y
-  persiste tras cerrar. Es el equivalente del `activity.recreate()` de Android.
-  ⚠️ Se guardan DOS claves y **no es redundante**: `APP_LANGUAGE` es la del juego (la que pinta el
-  desplegable y comparte con Android); `AppleLanguages` es la que mira el sistema.
-- 🔴 **Coleccionables sin arte.** La estampa salía como círculo gris aunque el objeto estuviera
-  conseguido: la fase `rsync` **solo copiaba `STREETFIGHTER`**. Se añadió un bloque aditivo para
-  `SPRITES/COLLECTIBLES` (736 KB). El mismo síntoma que el bug de rutas muertas del 07-30 (ya en `_ARCHIVO/`),
-  pero causa distinta — mirar siempre primero si el fichero está en el bundle.
-- 🔴 **Miniatura de peleador ilegible.** `CollectibleCard` pintaba el ATLAS ENTERO (2560×7680)
-  encogido a 64 dp: un cuadro de puntos. Ahora reutiliza `FighterPortrait`, que recorta la celda 0.
-  ⚠️ **Un peleador nunca se pinta con `Image(atlas)` a secas.** Afectaba también a Android.
-- 🔴 **`\'` literal en inglés.** Se veía `each fighter\'s`: Compose Resources **no des-escapa `\'`**
-  (eso lo hacía el aapt, y estos recursos no pasan por él). Quitadas las 5 barras de `values-en`.
-- 🔴 **✕ de salir bajo la barra de estado** al pasar a pantalla completa. `systemBarsPadding()` va
-  **solo en ese botón**, no en la pantalla: el combate se dibuja a sangre a propósito.
-- 🧹 **Andamio borrado:** `SfEscaparate.kt` y las pestañas de diagnóstico ya no existen.
-  `ContentView.swift` es ahora un único `PowAppTab` a pantalla completa. El puente del mapa
-  (`WKWebView` + esquema `pow-asset`) se movió a **`MapaWeb.swift`**, que **nadie usa hoy**: se
-  conserva porque ya está verificado y el mundo abierto lo necesitará.
-
-## 2ter. 🌎 07-30 — Mundo abierto a iOS: fases 1, 2, 3 (parcial) y el MAPA
+## 2ter. 🌎 Mundo abierto a iOS: fases 1, 2, 3 (parcial) y el MAPA
 
 Plan completo, medido, en **`12_PLAN_MUNDO_ABIERTO_iOS.md`**. Resumen:
 
@@ -119,9 +95,16 @@ Plan completo, medido, en **`12_PLAN_MUNDO_ABIERTO_iOS.md`**. Resumen:
   MUNDO LIBRE sigue **EN OBRAS** pero su botón abre la vista previa: lo decide
   `MainMenuController.mundoTieneVistaPrevia` (solo `true` en iOS), así que la pantalla del menú no
   sabe en qué plataforma corre. `MODOS_EN_OBRAS_VISIBLES = false` lo sigue apagando todo.
-  ⚠️ **Falta el puente JS ↔ nativo** (`MapJsBridge` en Android). Sin él el mapa es de solo lectura:
-  ni jugador, ni NPCs, ni landmarks. **Esa es la pieza que lo convierte en jugable.**
   ⚠️ Trampas de `UIKitView`: exige `@OptIn(ExperimentalForeignApi)` **y** `import kotlinx.cinterop.readValue`.
+- 🚶 **Y YA SE CAMINA.** `PuenteMapaIos.kt` (Kotlin → JS) llama a las mismas funciones que Android:
+  `updatePlayerMarker`, `updateMapView`, `setPlayerFog`. Con un pad de dirección el jugador se mueve,
+  la cámara lo sigue y la niebla se abre. Movimiento = `GeoPoint.desplazado()`, puro y con 7 tests.
+  ⚠️ Lleva `cos(latitud)` en el eje este **a propósito**: sin él se correría más rápido en horizontal.
+  ⚠️ Cada llamada JS va con `if (typeof f === 'function')`: si el HTML aún no cargó, `WKWebView`
+  **se traga el ReferenceError sin log** y el mapa se queda quieto sin que nadie sepa por qué.
+  ⚠️ **Falta la VUELTA del puente** (JS → Kotlin): en Android es `@JavascriptInterface`, en iOS
+  haría falta `WKScriptMessageHandler`. Y faltan NPCs/coleccionables/colisiones: los alimenta el
+  `WorldMapViewModel` (fase 5).
 ### 🗜️ Tamaño — límites VERIFICADOS en la fuente, y una corrección
 
 ⚠️ **Me equivoqué antes:** dije que el mundo no cabía en iOS por los 200 MB. **Falso.** El tope

@@ -166,10 +166,23 @@ El VM necesita Hilt y `Context` → **patrón Controller**, igual que `StreetFig
 > **la pantalla del menú no sabe en qué plataforma corre**. El interruptor
 > `MODOS_EN_OBRAS_VISIBLES = false` lo sigue apagando todo de una vez.
 >
-> ⚠️ **Lo que NO hay, y es el trabajo que queda:** el **puente JS ↔ nativo**. En Android es
-> `MapJsBridge`; en iOS no existe, así que el mapa es de **solo lectura**: no recibe jugador, ni
-> NPCs, ni landmarks, ni coleccionables. Esa es la siguiente pieza, y es la que convierte
-> "vista previa" en "mundo jugable".
+> ### ✅ Y YA SE CAMINA (07-31)
+>
+> `PuenteMapaIos.kt` es el puente **Kotlin → JS**: llama a las MISMAS funciones que Android
+> (`updatePlayerMarker`, `updateMapView`, `setPlayerFog`). Con un pad de dirección, el jugador se
+> mueve, **la cámara lo sigue y la niebla de guerra se abre a su paso**. Verificado en simulador.
+>
+> El movimiento es `GeoPoint.desplazado(metrosNorte, metrosEste)` — matemática pura en `commonMain`,
+> con **7 tests**. ⚠️ Lleva el `cos(latitud)` en el eje este a propósito: sin él, el jugador correría
+> más rápido en horizontal que en vertical y no se notaría hasta caminar en diagonal.
+>
+> ⚠️ **Lo que falta para que sea jugable:**
+> - **NPCs, policía, coleccionables, landmarks.** Hay función JS para todos (`updateNpcs`,
+>   `updatePolice`, `updateCollectibles`, `updateLandmarks`); quien las alimenta es el
+>   `WorldMapViewModel`, que sigue en `:app` — **fase 5**.
+> - **Colisiones**: hoy el jugador atraviesa edificios.
+> - **La VUELTA del puente (JS → Kotlin)**: en Android es `@JavascriptInterface`; en iOS haría falta
+>   `WKScriptMessageHandler`. Sin ella el mapa no avisa de toques ni de arrastres.
 >
 > ⚠️ Los assets del mundo tampoco están en el bundle de iOS (solo SF y coleccionables). Hoy da
 > igual —sin inyección de datos el HTML no pide ni una imagen—, pero en cuanto haya puente habrá

@@ -59,3 +59,75 @@ class GeoPointTest {
         assertEquals(GeoPoint(19.5, -99.1).hashCode(), GeoPoint(19.5, -99.1).hashCode())
     }
 }
+
+/**
+ * 🚶 `GeoPoint.desplazado` — mover al jugador pensando en METROS, no en grados.
+ *
+ * Lo usa la vista previa del mundo en iOS (`MapaMundoIos`). Es matemática pura, así que se puede
+ * fijar con números exactos: si alguien "simplifica" la fórmula, esto se pone rojo.
+ */
+class GeoPointDesplazadoTest {
+
+    /** ESCOM del IPN: donde arranca el juego. */
+    private val escom = GeoPoint(19.504603, -99.145985)
+    private val tolerancia = 0.5   // metros
+
+    @Test
+    fun `no moverse deja el punto igual`() {
+        val p = escom.desplazado(0.0, 0.0)
+        assertEquals(escom.latitude, p.latitude, 1e-12)
+        assertEquals(escom.longitude, p.longitude, 1e-12)
+    }
+
+    @Test
+    fun `cien metros al norte estan a cien metros`() {
+        val p = escom.desplazado(metrosNorte = 100.0, metrosEste = 0.0)
+        assertEquals(100.0, escom.distanceToAsDouble(p), tolerancia)
+        assertTrue(p.latitude > escom.latitude, "el norte sube la latitud")
+    }
+
+    @Test
+    fun `cien metros al este estan a cien metros`() {
+        val p = escom.desplazado(metrosNorte = 0.0, metrosEste = 100.0)
+        assertEquals(100.0, escom.distanceToAsDouble(p), tolerancia)
+        assertTrue(p.longitude > escom.longitude, "el este sube la longitud")
+    }
+
+    @Test
+    fun `al SUR y al OESTE se va en negativo`() {
+        val p = escom.desplazado(-100.0, -100.0)
+        assertTrue(p.latitude < escom.latitude)
+        assertTrue(p.longitude < escom.longitude)
+    }
+
+    @Test
+    fun `EL COSENO IMPORTA - un grado de longitud mide MENOS que uno de latitud`() {
+        // Es el bug que se evita: sin `cos(lat)` el jugador correria mas rapido en horizontal.
+        // A 19,5° de latitud un grado de longitud mide ~94% de uno de latitud.
+        val norte = escom.desplazado(1000.0, 0.0)
+        val este = escom.desplazado(0.0, 1000.0)
+        val gradosLat = norte.latitude - escom.latitude
+        val gradosLon = este.longitude - escom.longitude
+        assertTrue(
+            gradosLon > gradosLat,
+            "a 19.5 grados hacen falta MAS grados de longitud que de latitud para el mismo metraje",
+        )
+        // Y las DOS distancias tienen que ser los mismos 1000 m.
+        assertEquals(1000.0, escom.distanceToAsDouble(norte), 1.0)
+        assertEquals(1000.0, escom.distanceToAsDouble(este), 1.0)
+    }
+
+    @Test
+    fun `en diagonal recorre la hipotenusa`() {
+        val p = escom.desplazado(100.0, 100.0)
+        assertEquals(141.42, escom.distanceToAsDouble(p), 1.0)
+    }
+
+    @Test
+    fun `en el polo no devuelve NaN`() {
+        // El coseno tiende a 0 y la division explotaria. POW pasa en la CDMX, pero un NaN
+        // suelto seria imposible de rastrear.
+        val polo = GeoPoint(90.0, 0.0).desplazado(10.0, 10.0)
+        assertTrue(!polo.latitude.isNaN() && !polo.longitude.isNaN(), "no puede salir NaN")
+    }
+}
