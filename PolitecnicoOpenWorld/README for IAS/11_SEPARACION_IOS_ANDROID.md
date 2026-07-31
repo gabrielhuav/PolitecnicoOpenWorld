@@ -346,7 +346,7 @@ Después, en Xcode: ⌘R. **Repite el `link…` cada vez que cambies Kotlin.**
 
 ⚠️ **Si tocaste cómo se pinta, se carga o suena algo: ábrelo en el emulador Y en el simulador.**
 Los tests no ven un sprite mal anclado, una imagen que no aparece ni un botón bajo la barra de
-estado. **Los cinco defectos de §8bis pasaron los 228 tests sin despeinarse.**
+estado. **Los SEIS defectos de §8bis pasaron todos los tests sin despeinarse.**
 
 ---
 
@@ -363,10 +363,10 @@ estado. **Los cinco defectos de §8bis pasaron los 228 tests sin despeinarse.**
 
 ---
 
-## 8bis. 🍏 Las cinco que solo se ven abriendo el simulador
+## 8bis. 🍏 Las seis que solo se ven abriendo el simulador
 
-Salieron todas el 2026-07-30, verificando la navegación de iOS. **Ninguna la caza un test**, y tres
-afectaban también a Android sin que nadie lo hubiera notado.
+Salieron verificando iOS el 2026-07-30 y 07-31. **Ninguna la caza un test**, y varias afectaban
+también a Android sin que nadie lo hubiera notado.
 
 1. **Compose Resources NO tiene API para forzar el idioma.** Se comprobó leyendo la klib: solo hay
    símbolos internos. Su entorno por defecto lee `Locale.current`, que en iOS sale de `NSLocale`.
@@ -381,7 +381,11 @@ afectaban también a Android sin que nadie lo hubiera notado.
    —lo elige el `rsync` del proyecto Xcode— y `PowAssets` no distingue "no existe" de "no se copió".
 4. **Un atlas de combate NUNCA se pinta con `Image(atlas)`.** Es una rejilla de hasta 2560×7680;
    encogida a una miniatura da un cuadro de puntos. Hay que recortar la celda (`FighterPortrait`).
-5. **`systemBarsPadding()` va en el WIDGET, no en la pantalla.** La pelea se dibuja a sangre a
+5. **`Modifier.scale()` NO encoge un control táctil: encoge el DIBUJO.** El área táctil se queda
+   donde estaba, así que el botón deja de responder donde se ve. Pasó al meter el HUD del mundo en
+   vertical en iOS. **Un control que deba cambiar de tamaño acepta un parámetro `tamano: Dp`** y
+   calcula sus partes en proporción — así se puede encoger sin cambiar el tacto.
+6. **`systemBarsPadding()` va en el WIDGET, no en la pantalla.** La pelea se dibuja a sangre a
    propósito; meter el inset arriba la encogería. Sin él, la ✕ de salir y el contador de FPS se
    colaban bajo la barra de estado en iOS.
 

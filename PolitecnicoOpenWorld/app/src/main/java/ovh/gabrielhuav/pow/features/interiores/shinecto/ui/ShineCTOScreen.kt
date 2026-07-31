@@ -451,7 +451,6 @@ private fun ShineCTOHud(
                             else -> {}
                         }
                     },
-                    onClaimCollectiblePressed = { onInteract() }
                 )
               }
             }

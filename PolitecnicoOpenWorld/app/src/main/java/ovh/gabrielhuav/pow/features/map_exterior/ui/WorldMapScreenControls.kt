@@ -203,7 +203,6 @@ fun BoxScope.WorldMapControls(
                             }
                             viewModel.updateActionState(action, isPressed)
                         },
-                        onClaimCollectiblePressed = { viewModel.onClaimCollectiblePressed() }
                     )
                   }
                 }

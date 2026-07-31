@@ -367,7 +367,6 @@ fun MetroStationInteriorScreen(
                                     else -> {} // B y Y no tienen uso en Metro
                                 }
                             },
-                            onClaimCollectiblePressed = { viewModel.interactWithHotspot() }
                         )
                     }
                 }

@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -48,11 +49,30 @@ import kotlin.math.sqrt
 // constante compartida
 val ControllerBaseSize = 180.dp
 
+/** Diámetro por defecto de un botón de acción (A/B/X/Y). El de Android de toda la vida. */
+val TamanoBotonAccion = 48.dp
+
+/**
+ * Radio del stick interior como fracción del diámetro del joystick: 24 dp sobre 180 dp.
+ * Al ser relativo, el joystick se puede encoger **sin cambiar el tacto**: la zona muerta y el
+ * recorrido máximo siguen siendo proporcionalmente los mismos que en Android.
+ */
+private const val RADIO_STICK_RELATIVO = 24f / 180f
+
 // JoystickController
 @Composable
 fun JoystickController(
     modifier: Modifier = Modifier,
     backgroundAlpha: Float = 0.4f,
+    /**
+     * Diámetro REAL del joystick. Por defecto [ControllerBaseSize], que es lo que usa Android.
+     *
+     * ⚠️ **Es un tamaño de verdad, no un `Modifier.scale`.** `scale()` es una transformación de
+     * DIBUJO: encoge lo que se ve pero **no mueve el área táctil**, así que el control responde
+     * donde ya no está. Se probó en iOS el 2026-07-31 y los botones no reaccionaban. Si necesitas
+     * un joystick más pequeño (iOS en vertical), pásalo por aquí.
+     */
+    tamano: Dp = ControllerBaseSize,
     // 🆕 (2026-07-22) Aviso de SOLTAR: sin esto, quien lee el joystick solo detecta la liberación
     // por un timer de inactividad (~100 ms), lo que hacía sentir "pegado" (p.ej. quedarse
     // agachado un instante tras soltar ↓). Opcional: los modos que no lo pasan no cambian.
@@ -97,7 +117,7 @@ fun JoystickController(
         // 🆕 Joystick virtual con RESPUESTA INMEDIATA: la deflexión = posición del toque respecto al
         // CENTRO, y se dispara YA (sin touch-slop ni esperar el bucle) → un tap/pica ya responde.
         Modifier.pointerInput(Unit) {
-            val innerRadiusPx = 24.dp.toPx()
+            val innerRadiusPx = (tamano * RADIO_STICK_RELATIVO).toPx()
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 val center = Offset(size.width / 2f, size.height / 2f)
@@ -140,7 +160,7 @@ fun JoystickController(
                 onDrag = { change, dragAmount ->
                     change.consume()
                     val newOffset = offset + dragAmount
-                    val maxRadius = (size.width / 2f) - 24.dp.toPx() // 24 es el radio del botón interior
+                    val maxRadius = (size.width / 2f) - (tamano * RADIO_STICK_RELATIVO).toPx()
                     maxRadiusPx = maxRadius // 🆕 para la zona muerta del bucle
                     val distance = sqrt(newOffset.x * newOffset.x + newOffset.y * newOffset.y)
 
@@ -156,7 +176,7 @@ fun JoystickController(
 
     Box(
         modifier = modifier
-            .size(ControllerBaseSize) // uso de constante
+            .size(tamano)
             .clip(CircleShape)
             .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f)))
             .then(pointerModifier),
@@ -166,7 +186,7 @@ fun JoystickController(
         Box(
             modifier = Modifier
                 .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
-                .size(48.dp)
+                .size(tamano * RADIO_STICK_RELATIVO * 2)
                 .clip(CircleShape)
                 .background(
                     if (isDragging) Color.LightGray.copy(alpha = 0.95f)
@@ -183,14 +203,16 @@ fun JoystickController(
 fun ActionButton(
     text: String,
     color: Color,
+    /** Diámetro REAL del botón. Ver la nota de [JoystickController.tamano]: nada de `scale()`. */
+    tamano: Dp = TamanoBotonAccion,
     onHoldEvent: (Boolean) -> Unit
 ) {
     val feedback = rememberInputFeedback()
     var pressed by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
-            .padding(4.dp)
-            .size(48.dp)
+            .padding(tamano * 0.083f)
+            .size(tamano)
             .scale(if (pressed) 0.88f else 1f)
             .clip(CircleShape)
             .background(if (pressed) color.copy(alpha = 0.7f) else color)

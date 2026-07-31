@@ -9,7 +9,8 @@
 > desarrollador, guardado) y el **mundo abierto va por la fase 2 de 8** (§2ter, plan en el doc 12).
 > 🌎 **En iOS ya se CAMINA por el mapa**: jugador, cámara que lo sigue y niebla de guerra. Faltan
 > NPCs, coleccionables y colisiones — los alimenta el `WorldMapViewModel`, que sigue en `:app`.
-> **Siguiente:** fase 5 (ese ViewModel) y **adelgazar el AAB** — 402 MB contra 500 de Play (doc 13).
+> 🎮 **El HUD del mundo ya está en iOS** (joystick + diamante A/B/X/Y, los MISMOS de Android).
+> **Siguiente:** portar `WorldMapViewModel` (fase 5) y **adelgazar el AAB** — 402 MB / 500 de Play.
 > **413 tests.**
 
 ## 🖥️ Rutas por PC
@@ -105,6 +106,14 @@ Plan completo, medido, en **`12_PLAN_MUNDO_ABIERTO_iOS.md`**. Resumen:
   ⚠️ **Falta la VUELTA del puente** (JS → Kotlin): en Android es `@JavascriptInterface`, en iOS
   haría falta `WKScriptMessageHandler`. Y faltan NPCs/coleccionables/colisiones: los alimenta el
   `WorldMapViewModel` (fase 5).
+- 🎮 **Fase 5 arrancada: el HUD.** `HudMundoIos.kt` usa `JoystickController` +
+  `ActionButtonsController`, los dos de `commonMain`: **son los MISMOS controles que Android**.
+  Se movieron `Direction`/`GameAction` (a `ControlesMundo.kt`) y el diamante; de paso se quitó
+  `onClaimCollectiblePressed`, declarado y **sin usar**, que 5 llamadas pasaban en balde.
+  🔴 ⚠️ **`Modifier.scale()` NO sirve para encoger un control: los botones dejan de responder.**
+  Transforma el dibujo, no el área táctil. Los controles ahora aceptan `tamano` real (iOS: 100 dp)
+  y por dentro son proporcionales, así que el tacto no cambia. Android sigue en `ControllerBaseSize`.
+  A/B/X/Y avisan "pendiente del ViewModel" en vez de quedarse mudos.
 ### 🗜️ Tamaño — límites VERIFICADOS en la fuente, y una corrección
 
 ⚠️ **Me equivoqué antes:** dije que el mundo no cabía en iOS por los 200 MB. **Falso.** El tope

@@ -329,7 +329,6 @@ fun MetrobusStationInteriorScreen(
                                     else -> {}
                                 }
                             },
-                            onClaimCollectiblePressed = { viewModel.interactWithHotspot() }
                         )
                     }
                 }

@@ -145,7 +145,38 @@ ningún test.
 Mecánico y sin riesgo, pero largo. La receta ya está probada: es lo que se hizo con Ajustes
 (`SettingsSections`). Se puede repartir por features.
 
-### 🔜 Fase 5 — `WorldMapViewModel` + sus 22 parciales (~5 000 líneas)
+### 🟡 Fase 5 — `WorldMapViewModel` + sus 22 parciales · **UI DE CONTROLES HECHA (07-31)**
+
+> ## ✅ El HUD del mundo ya está en iOS, y es el MISMO que Android
+>
+> `HudMundoIos.kt` monta **`JoystickController` + `ActionButtonsController`**, los dos de
+> `commonMain`: mismos colores, mismas letras, disposición Xbox (Y arriba · X izq · B der · A abajo)
+> y el mismo tacto. **No hay una copia para iOS.**
+>
+> Para conseguirlo se movieron a `commonMain`:
+> - `Direction` y `GameAction` → `ControlesMundo.kt` *(el resto de `WorldMapMultiplayerModels.kt`
+>   se queda en `:app`: es de red y el multijugador no se porta)*.
+> - `ActionButtonsController` (el diamante). De paso se quitó `onClaimCollectiblePressed`, que
+>   estaba declarado y **no lo usaba nadie** — había 5 llamadas pasándolo en balde.
+>
+> ### ⚠️ `Modifier.scale()` NO sirve para encoger un control
+>
+> Android fuerza horizontal en el mundo abierto; **iOS no**, así que en vertical los controles a
+> 180 dp cada uno no caben (360 dp de 390). El primer intento fue `Modifier.scale(0.55f)` y
+> **los botones dejaron de responder**: `scale` transforma el DIBUJO, no el área táctil, así que el
+> control quedaba donde ya no se veía.
+>
+> La solución es que los controles acepten un **tamaño real**: `JoystickController(tamano = …)`,
+> `ActionButtonsController(tamano = …)`, `ActionButton(tamano = …)`. Por dentro, el stick y los
+> botones son **proporcionales al diámetro**, así que encogerlos no cambia el tacto. En iOS van a
+> **100 dp**. Android no cambia: el valor por defecto sigue siendo `ControllerBaseSize`.
+>
+> ### Los botones que aún no hacen nada, lo dicen
+>
+> A/B/X/Y muestran *"Botón X: pendiente del ViewModel"* durante 4 s. Un botón mudo parece una app
+> rota; uno que explica por qué, no.
+
+#### Lo que queda de la fase: el ViewModel (~5 000 líneas)
 
 ⚠️ **Los 22 parciales NO se pueden mover sueltos**: son funciones de extensión de la clase, así que
 o se mueve la clase o no compila ninguno. Ver la regla del patrón parcial en `10 §4`.

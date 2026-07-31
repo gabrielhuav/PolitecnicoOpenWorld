@@ -24,6 +24,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
+import kotlin.math.cos
+import kotlin.math.sin
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,6 +79,14 @@ fun MapaMundoIos(alVolver: () -> Unit) {
     // recompone, y lo que se le manda va por el puente.
     var jugador by remember { mutableStateOf(GeoPoint(ESCOM_LAT, ESCOM_LON)) }
     var puente by remember { mutableStateOf<PuenteMapaIos?>(null) }
+    // Texto del aviso de "esta función todavía no está". `null` = no hay nada que decir.
+    var aviso by remember { mutableStateOf<String?>(null) }
+
+    // El aviso se va solo: un cartel fijo estorba más que informa. 4 s es lo que tarda en leerse
+    // una frase corta sin prisa — el mismo orden que un Snackbar largo de Material.
+    LaunchedEffect(aviso) {
+        if (aviso != null) { delay(4000); aviso = null }
+    }
 
     Box(Modifier.fillMaxSize().background(Color(0xFF0D0D11))) {
 
@@ -119,7 +131,10 @@ fun MapaMundoIos(alVolver: () -> Unit) {
         // El cartel de honestidad. Va ARRIBA y con `systemBarsPadding` porque el mapa se dibuja a
         // sangre: sin el inset, se metería bajo la barra de estado.
         Column(
-            Modifier.align(Alignment.TopCenter).systemBarsPadding().fillMaxWidth().padding(12.dp),
+            // ⚠️ `top = 60.dp` para que el cartel NO quede debajo del botón VOLVER, que está en la
+            // misma esquina superior. Sin esto se solapan y no se lee ninguno de los dos.
+            Modifier.align(Alignment.TopCenter).systemBarsPadding().fillMaxWidth()
+                .padding(start = 12.dp, end = 12.dp, top = 60.dp, bottom = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
@@ -142,59 +157,53 @@ fun MapaMundoIos(alVolver: () -> Unit) {
             )
         }
 
-        // ── Controles: caminar de verdad ─────────────────────────────────────────────────────
-        Column(
-            Modifier.align(Alignment.BottomStart).systemBarsPadding().padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            val andar = { norte: Double, este: Double ->
-                jugador = jugador.desplazado(norte * PASO_METROS, este * PASO_METROS)
+        // ── HUD: los MISMOS controles que Android ───────────────────────────────────────────
+        HudMundoIos(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            alMover = { angulo ->
+                // El joystick da un ángulo en radianes; el mundo se mueve en metros. 0 rad = este,
+                // y en pantalla la Y crece hacia ABAJO, de ahí el signo del seno.
+                jugador = jugador.desplazado(
+                    metrosNorte = -sin(angulo) * PASO_METROS,
+                    metrosEste = cos(angulo) * PASO_METROS,
+                )
                 puente?.moverJugador(jugador)
                 puente?.moverNiebla(jugador)
                 puente?.centrarEn(jugador, ZOOM_JUEGO)
-            }
-            BotonDireccion("▲") { andar(1.0, 0.0) }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                BotonDireccion("◀") { andar(0.0, -1.0) }
-                Spacer(Modifier.width(52.dp))
-                BotonDireccion("▶") { andar(0.0, 1.0) }
-            }
-            BotonDireccion("▼") { andar(-1.0, 0.0) }
+            },
+            alSoltar = { /* Sin inercia todavía: el jugador se para al soltar. */ },
+            alPulsarSinFuncion = { accion -> aviso = "Botón $accion: pendiente del ViewModel" },
+        )
+
+        // El aviso de "todavía no", encima del HUD y sin taparlo.
+        aviso?.let {
+            AvisoSinFuncion(
+                it,
+                Modifier.align(Alignment.BottomCenter).systemBarsPadding().padding(bottom = 150.dp),
+            )
         }
 
+        // ⚠️ VOLVER va ARRIBA a la derecha, no abajo: abajo está el HUD y en vertical no caben
+        // los dos sin que el pulgar acabe pulsando el que no quería.
         Button(
             onClick = alVolver,
             shape = CutCornerShape(topStart = 12.dp, bottomEnd = 12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
-            modifier = Modifier.align(Alignment.BottomCenter).systemBarsPadding().padding(24.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A).copy(alpha = 0.9f)),
+            modifier = Modifier.align(Alignment.TopEnd).systemBarsPadding().padding(12.dp),
         ) {
             Text("VOLVER", fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
         }
     }
 }
 
-/** Un botón redondo del pad de dirección. */
-@Composable
-private fun BotonDireccion(glifo: String, alPulsar: () -> Unit) {
-    Button(
-        onClick = alPulsar,
-        shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A).copy(alpha = 0.85f)),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
-        modifier = Modifier.size(52.dp),
-    ) {
-        Text(glifo, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-    }
-}
-
 /**
- * Cuánto avanza el jugador por toque. **20 m** es un paso claramente visible a zoom 16 sin que se
- * salga de la pantalla: sirve para comprobar que el puente mueve al jugador de verdad.
+ * Cuánto avanza el jugador por cada tic del joystick (~30 por segundo mientras se mantiene).
  *
- * ⚠️ NO es la velocidad del juego. El movimiento continuo lo trae `WorldMapMovement.kt` cuando el
- * `WorldMapViewModel` se porte (fase 5).
+ * ⚠️ **NO es la velocidad del juego.** La de verdad depende de si vas a pie o en coche y la calcula
+ * `WorldMapMovement.kt`, que sigue en `:app` con el `WorldMapViewModel` (fase 5). **1,2 m por tic**
+ * da un caminar creíble a zoom 16 mientras tanto.
  */
-private const val PASO_METROS = 20.0
+private const val PASO_METROS = 1.2
 
 /**
  * ESCOM del IPN — la escuela que el juego trae disponible en `SchoolCatalog.kt`.
