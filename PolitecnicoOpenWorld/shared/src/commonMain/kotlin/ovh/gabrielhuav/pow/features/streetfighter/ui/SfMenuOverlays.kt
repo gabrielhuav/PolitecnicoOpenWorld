@@ -473,6 +473,7 @@ fun CharacterSelectOverlay(
                             animate = !lowEnd && id == focusedId,
                             highlightColor = hl,
                             silhouette = !isActuallyUnlocked(id),
+                            lowEnd = lowEnd,
                             onSelect = {
                                 if (lowEnd || id == focusedId) onSelect(id)
                                 else focusedId = id
@@ -484,7 +485,14 @@ fun CharacterSelectOverlay(
                 lockedFighters.forEach { id ->
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         SelectArrowHeader(showAlly = false, showPick = false)
-                        CharacterCard(id = id, onSelect = {}, locked = true, animate = false, selected = false)
+                        CharacterCard(
+                            id = id,
+                            onSelect = {},
+                            locked = true,
+                            animate = false,
+                            selected = false,
+                            lowEnd = lowEnd,
+                        )
                     }
                 }
             }

@@ -61,8 +61,14 @@ internal fun CharacterCard(
     highlightColor: Color? = null,
     silhouette: Boolean = false,
     reveal: Boolean = false,
+    /** Gama baja: la vista previa se decodifica reducida. Ver [previewSampleSize]. */
+    lowEnd: Boolean = false,
 ) {
-    val preview = rememberFighterPreview(id, animate = animate && (reveal || (!locked && !silhouette)))
+    val preview = rememberFighterPreview(
+        id,
+        animate = animate && (reveal || (!locked && !silhouette)),
+        gamaBaja = lowEnd,
+    )
     val obscure = (locked || silhouette) && !reveal
     val shown = if (obscure && preview != null) remember(preview) { pixelateBitmap(preview, 12) } else preview
     val shape = RoundedCornerShape(10.dp)
@@ -144,16 +150,36 @@ internal fun CharacterCard(
  * así al volver a subir en la lista la card no parpadea.
  */
 @Composable
-private fun rememberFighterPreview(id: SfFighterId, animate: Boolean): ImageBitmap? {
+private fun rememberFighterPreview(
+    id: SfFighterId,
+    animate: Boolean,
+    gamaBaja: Boolean,
+): ImageBitmap? {
     var animation by remember(id, animate) {
-        mutableStateOf(SfPreviewCache.enMemoria(id, animate))
+        mutableStateOf(SfPreviewCache.enMemoria(id, animate, gamaBaja))
     }
     LaunchedEffect(id, animate) {
         if (animation == null) {
             // `Dispatchers.Default` (no `IO`: no existe en Kotlin/Native). Mismo dispatcher que
             // usa StreetFighterScreen para cargar los atlas de la pelea.
-            animation = withContext(Dispatchers.Default) { SfPreviewCache.cargar(id, animate) }
+            animation = withContext(Dispatchers.Default) {
+                SfPreviewCache.cargar(id, animate, gamaBaja)
+            }
         }
+    }
+    // ⚠️ RELLENO MIENTRAS CARGA — sin esto sale un "?" AL SELECCIONAR, que es lo que se veía.
+    //
+    // La caché lleva `animate` en la clave, así que enfocar una card (estático → animado) es un
+    // fallo de caché y `animation` se va a `null` hasta que el hilo de fondo termina. Cuando la
+    // vista previa se construía DURANTE la composición ese hueco no existía; desde que se hace
+    // fuera del hilo de UI (que está bien: quitó un tirón real), el hueco se pinta.
+    //
+    // La OTRA variante del mismo peleador casi siempre está ya en memoria —es la que se estaba
+    // viendo— y su primer cuadro es el mismo idle, así que sirve de relleno exacto. Si tampoco
+    // está (primerísima pintada, aún nada en caché), se cae al "?" de siempre.
+    val relleno = remember(id, animate, animation, gamaBaja) {
+        if (animation != null) null
+        else SfPreviewCache.enMemoria(id, !animate, gamaBaja)?.frames?.firstOrNull()
     }
     var frameIndex by remember(id, animation, animate) { mutableIntStateOf(0) }
     LaunchedEffect(id, animation, animate) {
@@ -165,5 +191,5 @@ private fun rememberFighterPreview(id: SfFighterId, animate: Boolean): ImageBitm
             frameIndex = (frameIndex + 1) % anim.frames.size
         }
     }
-    return animation?.frames?.getOrNull(frameIndex)
+    return animation?.frames?.getOrNull(frameIndex) ?: relleno
 }

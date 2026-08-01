@@ -9,7 +9,31 @@ import ovh.gabrielhuav.pow.features.streetfighter.data.SfSharedSheets
 import ovh.gabrielhuav.pow.platform.concurrencia.PowCerrojo
 import ovh.gabrielhuav.pow.platform.imagen.PowImagen
 
-internal const val PREVIEW_SAMPLE_SIZE = 4
+/**
+ * Muestreo del atlas DEDICADO al construir una vista previa.
+ *
+ * ⚠️ **Esto decide cómo de nítido se ve el selector, y ya se equivocó una vez.** En la app
+ * publicada el recorte salía de `BitmapRegionDecoder.decodeRegion()`, o sea **a resolución
+ * completa y sin materializar el atlas**. Al portar a KMP no hay region decoder, así que se pasó a
+ * "decodifica el atlas entero reducido ×4 y recorta": la vista previa quedó a **1/16 de los
+ * píxeles** y estirada a una card de 86 dp se veía a cuadros. Se notaba en los 15 peleadores de
+ * atlas dedicado (los 3 de set compartido se arman desde sprites chicos y nunca cambiaron).
+ *
+ * El ×4 no era capricho: los atlas croma son 2560×7168 y a resolución completa son ~73 MB en
+ * ARGB_8888. Por eso el muestreo **depende de la gama**, con la MISMA regla que la pelea ya usa
+ * hoy en producción (`sheetSample = if (lowEnd) 2 else 1`, en `StreetFighterScreen`):
+ *
+ * - **Gama normal → 1.** Idéntico a lo publicado. El pico de 73 MB no es nuevo: la pelea ya lo
+ *   paga en estos mismos teléfonos, y `SfSharedSheets.sheetFor` decodifica bajo cerrojo, así que
+ *   nunca hay dos atlas a la vez por mucho que la rejilla pinte 18 cards.
+ * - **Gama baja → 4.** Se queda como está: ahí el riesgo de OOM manda sobre la nitidez.
+ */
+private const val PREVIEW_SAMPLE_SIZE_GAMA_NORMAL = 1
+private const val PREVIEW_SAMPLE_SIZE_GAMA_BAJA = 4
+
+internal fun previewSampleSize(gamaBaja: Boolean): Int =
+    if (gamaBaja) PREVIEW_SAMPLE_SIZE_GAMA_BAJA else PREVIEW_SAMPLE_SIZE_GAMA_NORMAL
+
 private const val PREVIEW_SLOWDOWN = 1.8f
 private const val PREVIEW_MIN_MS = 95L
 private const val PREVIEW_SHARED_MS = 170L
@@ -58,15 +82,19 @@ internal object SfPreviewCache {
      */
     private const val MAX_ENTRADAS = 8
 
-    private data class Clave(val id: SfFighterId, val animate: Boolean)
+    private data class Clave(val id: SfFighterId, val animate: Boolean, val gamaBaja: Boolean)
 
     private val cache = mutableMapOf<Clave, FighterPreviewAnimation>()
     private val usoReciente = mutableListOf<Clave>()
     private val cerrojo = PowCerrojo()
 
     /** Solo lee lo ya construido. Seguro desde composición: evita el frame en blanco al volver. */
-    fun enMemoria(id: SfFighterId, animate: Boolean): FighterPreviewAnimation? = cerrojo.ejecutar {
-        val clave = Clave(id, animate)
+    fun enMemoria(
+        id: SfFighterId,
+        animate: Boolean,
+        gamaBaja: Boolean,
+    ): FighterPreviewAnimation? = cerrojo.ejecutar {
+        val clave = Clave(id, animate, gamaBaja)
         cache[clave]?.also { tocar(clave) }
     }
 
@@ -75,12 +103,12 @@ internal object SfPreviewCache {
      *
      * ⚠️ **LLAMAR FUERA DEL HILO DE UI.**
      */
-    fun cargar(id: SfFighterId, animate: Boolean): FighterPreviewAnimation? {
-        enMemoria(id, animate)?.let { return it }
+    fun cargar(id: SfFighterId, animate: Boolean, gamaBaja: Boolean): FighterPreviewAnimation? {
+        enMemoria(id, animate, gamaBaja)?.let { return it }
         // Fuera del cerrojo: es la parte lenta y bloquear aquí congelaría a las demás cards.
-        val construida = construir(id, animate) ?: return null
+        val construida = construir(id, animate, gamaBaja) ?: return null
         return cerrojo.ejecutar {
-            val clave = Clave(id, animate)
+            val clave = Clave(id, animate, gamaBaja)
             cache[clave]?.let { yaEstaba ->
                 tocar(clave)
                 return@ejecutar yaEstaba
@@ -114,8 +142,13 @@ internal object SfPreviewCache {
      * ⚠️ Esto es el MISMO código que vivía dentro del `remember` de `rememberFighterPreview`, movido
      * tal cual. No se cambió ni un número: los cuadros y los tiempos tienen que salir idénticos.
      */
-    private fun construir(id: SfFighterId, animate: Boolean): FighterPreviewAnimation? =
+    private fun construir(
+        id: SfFighterId,
+        animate: Boolean,
+        gamaBaja: Boolean,
+    ): FighterPreviewAnimation? =
         runCatching {
+            val muestreo = previewSampleSize(gamaBaja)
             val shared = id.sharedSet
             if (shared != null) {
                 val raw = SfSharedSheets.previewFramesFor(shared)
@@ -127,7 +160,7 @@ internal object SfPreviewCache {
                 FighterPreviewAnimation(frames, List(frames.size) { PREVIEW_SHARED_MS })
             } else {
                 val data = SfFrameCatalog.load(id)
-                val sheet = SfSharedSheets.sheetFor(id, sampleSize = PREVIEW_SAMPLE_SIZE)
+                val sheet = SfSharedSheets.sheetFor(id, sampleSize = muestreo)
 
                 fun decodeState(
                     stateKey: String,
@@ -138,10 +171,10 @@ internal object SfPreviewCache {
                         .take(maxFrames)
                     val frames = steps.mapNotNull { step ->
                         val src = data.frames[step.frameKey]?.src ?: return@mapNotNull null
-                        val x = src[0] / PREVIEW_SAMPLE_SIZE
-                        val y = src[1] / PREVIEW_SAMPLE_SIZE
-                        val width = (src[2] / PREVIEW_SAMPLE_SIZE).coerceAtLeast(1)
-                        val height = (src[3] / PREVIEW_SAMPLE_SIZE).coerceAtLeast(1)
+                        val x = src[0] / muestreo
+                        val y = src[1] / muestreo
+                        val width = (src[2] / muestreo).coerceAtLeast(1)
+                        val height = (src[3] / muestreo).coerceAtLeast(1)
                         PowImagen.recortarAOpaco(PowImagen.recortar(sheet, x, y, width, height))
                     }
                     val delays = steps.take(frames.size).map {
