@@ -36,6 +36,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.moveSelectedLandmark
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapZoomChanged
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectLandmark
+import ovh.gabrielhuav.pow.platform.imagen.decodeAssetSampled
 import kotlin.math.pow
 import kotlin.math.round
 import kotlin.math.roundToInt
@@ -204,10 +205,19 @@ internal fun GoogleMapLayer(
                     // OSM nativo / web). Marcador estático de tamaño fijo (~24 dp).
                     val metroIconG = remember {
                         try {
-                            val raw = context.assets.open("TRANSIT/METRO/icon.webp").use { android.graphics.BitmapFactory.decodeStream(it) }
                             val px = (24 * context.resources.displayMetrics.density).toInt().coerceAtLeast(16)
-                            val scaled = android.graphics.Bitmap.createScaledBitmap(raw, px, px, true)
-                            BitmapDescriptorFactory.fromBitmap(scaled)
+                            val sampled = context.assets.decodeAssetSampled(
+                                "TRANSIT/METRO/icon.webp",
+                                px,
+                                px,
+                            )
+                            if (sampled != null) {
+                                val scaled = android.graphics.Bitmap.createScaledBitmap(sampled, px, px, true)
+                                if (scaled !== sampled) sampled.recycle()
+                                BitmapDescriptorFactory.fromBitmap(scaled)
+                            } else {
+                                BitmapDescriptorFactory.defaultMarker()
+                            }
                         } catch (e: Exception) { BitmapDescriptorFactory.defaultMarker() }
                     }
                     uiState.metroStations.forEach { station ->
@@ -509,9 +519,11 @@ internal fun GoogleMapLayer(
 
                                 val iconDescriptor = googleMapsIconCache.getOrPut(cacheKey) {
                                     try {
-                                        val bitmap = context.assets.open(collectible.assetPath).use {
-                                            android.graphics.BitmapFactory.decodeStream(it)
-                                        }
+                                        val bitmap = context.assets.decodeAssetSampled(
+                                            collectible.assetPath,
+                                            exactPixels,
+                                            exactPixels,
+                                        )
                                         if (bitmap != null) {
                                             val glowDrawable = android.graphics.drawable.GradientDrawable().apply {
                                                 shape = android.graphics.drawable.GradientDrawable.OVAL

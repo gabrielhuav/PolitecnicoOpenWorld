@@ -73,6 +73,7 @@ import ovh.gabrielhuav.pow.ui.components.WithShoulderTriggers
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
+import ovh.gabrielhuav.pow.platform.imagen.decodeAssetSampled
 import kotlin.math.max
 
 // Zoom that creates the "large venue" feeling (lower = more zoomed-out)
@@ -242,19 +243,28 @@ private fun InteractableDots(
     val context = LocalContext.current
     val density = LocalDensity.current
 
-    val shineBitmap = remember {
-        try {
-            context.assets.open("SPRITES/COLLECTIBLES/colec_shine.webp")
-                .use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
-        } catch (e: Exception) { null }
-    }
-
-    // Cargar asset de bebida una sola vez
-    val drinkBitmap = remember {
-        try {
-            context.assets.open("PLACES/shine_cto/s_bebidas.webp")
-                .use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
-        } catch (e: Exception) { null }
+    var shineBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    var drinkBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(Unit) {
+        val decoded = withContext(Dispatchers.IO) {
+            val shine = runCatching {
+                context.assets.decodeAssetSampled(
+                    "SPRITES/COLLECTIBLES/colec_shine.webp",
+                    requestedWidth = 128,
+                    requestedHeight = 128,
+                )?.asImageBitmap()
+            }.getOrNull()
+            val drink = runCatching {
+                context.assets.decodeAssetSampled(
+                    "PLACES/shine_cto/s_bebidas.webp",
+                    requestedWidth = 128,
+                    requestedHeight = 128,
+                )?.asImageBitmap()
+            }.getOrNull()
+            shine to drink
+        }
+        shineBitmap = decoded.first
+        drinkBitmap = decoded.second
     }
 
     // Puntos fijos (EXIT y STAIRS) — sin bebidas, esas son dinámicas
@@ -296,8 +306,9 @@ private fun InteractableDots(
                 modifier = Modifier.fillMaxSize().scale(1.55f)
                     .background(Color(0xFF8BC34A).copy(alpha = drinkGlowAlpha), CircleShape)
             )
-            if (drinkBitmap != null) {
-                Image(bitmap = drinkBitmap, contentDescription = stringResource(R.string.sc_cd_drink), modifier = Modifier.fillMaxSize())
+            val drinkImage = drinkBitmap
+            if (drinkImage != null) {
+                Image(bitmap = drinkImage, contentDescription = stringResource(R.string.sc_cd_drink), modifier = Modifier.fillMaxSize())
             } else {
                 Box(modifier = Modifier.fillMaxSize().background(Color(0xFF8BC34A).copy(alpha = 0.8f), CircleShape))
             }

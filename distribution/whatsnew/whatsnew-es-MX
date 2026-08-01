@@ -1,7 +1,6 @@
 POW 1.0.0.16
 
-• Mejoramos la IA de Huelum vs. Goya: pelea con más iniciativa y usa su SUPER ART al llenar la barra.
-• La SUPER ART ahora conecta, causa daño y muestra mejor su animación.
-• Selector más nítido, sin "?" y con música estable.
-• Optimizamos imágenes y rendimiento en gama baja.
-• Esta versión prepara la base compartida para iOS; App Store y crossplay siguen en desarrollo.
+• Mejoramos la visualización de borde a borde en más versiones y modos de navegación de Android.
+• Reducimos el uso de memoria al cargar iconos, coleccionables y objetos pequeños del mundo.
+• Los bitmaps ahora se decodifican al tamaño necesario y se preparan antes de llegar a la GPU.
+• Incluye mejoras generales de estabilidad y rendimiento para dispositivos de gama baja.

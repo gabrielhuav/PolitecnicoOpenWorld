@@ -18,5 +18,5 @@ actual fun decodificarReducido(bytes: ByteArray, reduccion: Int): ImageBitmap {
     }
     val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opciones)
         ?: error("No se pudo decodificar la imagen (${bytes.size} bytes)")
-    return bitmap.asImageBitmap()
+    return bitmap.asImageBitmap().also { it.prepareToDraw() }
 }

@@ -344,7 +344,7 @@
     <!-- ─── Save/load dialogs (MainActivity) ─── -->
     <string name="save_dialog_load">Load game</string>
     <string name="save_dialog_new_slot">New game · choose slot</string>
-    <string name="save_toast_saved">Game saved (slot %1$s)</string>
+    <string name="save_toast_saved">Game saved (slot %1$d)</string>
     <!-- ─── Metrobus transit (player-facing) ─── -->
     <string name="cd_metrobus_map">Metrobus map</string>
     <string name="int_metrobus_select_dest">METROBUS SYSTEM · SELECT YOUR DESTINATION</string>

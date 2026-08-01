@@ -39,6 +39,7 @@ fun AndroidAccountSettings(
     onAccountDeleted: () -> Unit,
 ) {
     val context = LocalContext.current
+    val reloginNeededMessage = stringResource(R.string.settings_account_relogin_needed)
     var signedIn by remember { mutableStateOf(authManager.isSignedIn()) }
     var accountLabel by remember {
         mutableStateOf(authManager.currentEmail() ?: authManager.currentDisplayName())
@@ -164,9 +165,7 @@ fun AndroidAccountSettings(
                             } else {
                                 Toast.makeText(
                                     context,
-                                    err ?: context.getString(
-                                        R.string.settings_account_relogin_needed,
-                                    ),
+                                    err ?: reloginNeededMessage,
                                     Toast.LENGTH_LONG,
                                 ).show()
                             }

@@ -9,6 +9,7 @@ package ovh.gabrielhuav.pow
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -127,6 +128,11 @@ class MainActivity : ComponentActivity() {
         // Android (no solo 15+) y resuelve el aviso "la pantalla de borde a borde puede no mostrarse
         // para todos los usuarios". Las pantallas Compose ya respetan las barras con systemBarsPadding().
         enableEdgeToEdge()
+        // En navegacion de tres botones, evita el bloque opaco que Android agrega por contraste.
+        // Los controles interactivos ya aplican systemBarsPadding; el fondo puede ocupar el borde.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
         configureOsmdroid()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         checkPermissionsAndFetchLocation()
