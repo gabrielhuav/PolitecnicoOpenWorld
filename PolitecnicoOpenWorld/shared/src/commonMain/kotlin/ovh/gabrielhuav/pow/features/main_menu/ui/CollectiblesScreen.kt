@@ -136,7 +136,10 @@ fun CollectiblesScreen(controller: CollectiblesController, onBack: () -> Unit) {
             Button(
                 onClick = onBack,
                 shape = shape,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF6B1C3A),
+                    contentColor = Color.White,
+                ),
                 modifier = Modifier.fillMaxWidth(if (landscape) 0.5f else 0.85f)
                     .height(56.dp).shadow(8.dp, shape),
             ) {
