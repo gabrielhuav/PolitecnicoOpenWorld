@@ -168,7 +168,14 @@ class StreetFighterCpuAiPolicyTest {
     @Test
     fun `la garantia de super se vuelve mas rapida al subir dificultad`() {
         val waits = SfCpuDifficulty.entries.map { cpuSuperCommitDelayMs(it, aiVs = true) }
-        assertEquals(listOf(900L, 650L, 420L, 250L), waits)
+        assertEquals(listOf(700L, 450L, 250L, 120L), waits)
+        assertTrue(waits.zipWithNext().all { (slower, faster) -> slower > faster })
+    }
+
+    @Test
+    fun `fuera de IA contra IA la super se compromete en menos de segundo y medio`() {
+        val waits = SfCpuDifficulty.entries.map { cpuSuperCommitDelayMs(it, aiVs = false) }
+        assertEquals(listOf(1400L, 900L, 500L, 250L), waits)
         assertTrue(waits.zipWithNext().all { (slower, faster) -> slower > faster })
     }
 

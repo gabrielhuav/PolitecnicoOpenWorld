@@ -60,6 +60,11 @@ object SfStateMachine {
         SfFighterState.HURT_CROUCH, SfFighterState.PARRY_LOW,
     )
 
+    /** Ambos dashes deben recuperar a neutro al terminar su animación. */
+    val DASH_RECOVERY_FROM: Set<SfFighterState> = setOf(
+        SfFighterState.DASH_FORWARD, SfFighterState.DASH_BACKWARD,
+    )
+
     /** Ataques AÉREOS: solo mientras se está en el aire. */
     val AIR_ATTACK_VALID_FROM: Set<SfFighterState> = setOf(
         SfFighterState.JUMP_UP, SfFighterState.JUMP_FORWARD, SfFighterState.JUMP_BACKWARD,
@@ -77,7 +82,7 @@ object SfStateMachine {
             SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY,
             SfFighterState.STUN,
             SfFighterState.BLOCK_HIGH, // 🆕 (2026-07-26) soltar la guardia alta vuelve a IDLE al instante
-        ) + SF_BONUS_POWER_STATES.toSet() + CROUCH_RECOVERY_FROM,
+        ) + SF_BONUS_POWER_STATES.toSet() + CROUCH_RECOVERY_FROM + DASH_RECOVERY_FROM,
         SfFighterState.WALK_FORWARD to setOf(
             SfFighterState.IDLE, SfFighterState.JUMP_FORWARD, SfFighterState.WALK_BACKWARD, SfFighterState.JUMP_LAND,
         ),

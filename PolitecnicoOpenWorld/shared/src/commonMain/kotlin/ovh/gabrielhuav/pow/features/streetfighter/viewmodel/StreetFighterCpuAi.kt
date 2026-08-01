@@ -77,6 +77,19 @@ internal fun StreetFighterViewModel.buildCpuInput(now: Long, sim: StreetFighterV
         cpuNextDecisionMs[i] = now
         return defense
     }
+
+    // Fuera del show IA vs IA también hay garantía: al vencer el plazo, la CPU abandona su
+    // intención anterior, cierra distancia y reintenta la SUPER ART cada tick válido.
+    if (!aiVs) {
+        maybeCpuSuperArtInput(me, foe, abs(me.x - foe.x), now, i, difficulty, aiVs)?.let { committed ->
+            cpuFatalityUntilMs[i] = 0L
+            cpuComboQueue[i].clear()
+            cpuComboAwaiting[i] = null
+            cpuHold[i] = committed.withCpuOneShotsReleased()
+            cpuNextDecisionMs[i] = now
+            return committed
+        }
+    }
     if (now < cpuNextDecisionMs[i]) return cpuHold[i]
 
     // 🆕 (2026-07-18n) En IA vs IA cada índice puede tener su PROPIA dificultad (desnivel
@@ -94,10 +107,8 @@ internal fun StreetFighterViewModel.buildCpuInput(now: Long, sim: StreetFighterV
 
     val dist = abs(me.x - foe.x)
     var decision = when (difficulty) {
-        SfCpuDifficulty.BASICA -> maybeCpuSuperArtInput(me, foe, dist, now, i, difficulty, aiVs)
-            ?: basicCpuDecision(sim, i)
-        SfCpuDifficulty.NORMAL -> maybeCpuSuperArtInput(me, foe, dist, now, i, difficulty, aiVs)
-            ?: normalCpuDecision(sim, i, now)
+        SfCpuDifficulty.BASICA -> basicCpuDecision(sim, i)
+        SfCpuDifficulty.NORMAL -> normalCpuDecision(sim, i, now)
         SfCpuDifficulty.AVANZADA -> smartCpuDecision(sim, i, now, nightmare = false)
         SfCpuDifficulty.PESADILLA -> smartCpuDecision(sim, i, now, nightmare = true)
     }
@@ -292,10 +303,10 @@ internal fun SfInput.withCpuOneShotsReleased(): SfInput = copy(
 /** Plazo máximo antes de que una CPU deje el azar y garantice su SUPER ART. */
 internal fun cpuSuperCommitDelayMs(difficulty: SfCpuDifficulty, aiVs: Boolean): Long =
     when (difficulty) {
-        SfCpuDifficulty.BASICA -> if (aiVs) 900L else 2200L
-        SfCpuDifficulty.NORMAL -> if (aiVs) 650L else 1400L
-        SfCpuDifficulty.AVANZADA -> if (aiVs) 420L else 850L
-        SfCpuDifficulty.PESADILLA -> if (aiVs) 250L else 500L
+        SfCpuDifficulty.BASICA -> if (aiVs) 700L else 1400L
+        SfCpuDifficulty.NORMAL -> if (aiVs) 450L else 900L
+        SfCpuDifficulty.AVANZADA -> if (aiVs) 250L else 500L
+        SfCpuDifficulty.PESADILLA -> if (aiVs) 120L else 250L
     }
 
 /**
@@ -322,12 +333,14 @@ internal fun StreetFighterViewModel.maybeCpuSuperArtInput(
     }
     val maxWaitMs = cpuSuperCommitDelayMs(difficulty, aiVs)
     if (now - cpuSuperReadySinceMs[i] < maxWaitMs) return null
-    if (me.isAirborne || me.downed || me.metamorphosing || me.state in SF_HURT_STATES) return null
-    if (me.state !in SfStateMachine.SPECIAL_VALID_FROM) return null
+    // Una vez comprometida, no empieza otra acción durante recovery/aire/daño: deja que ese
+    // estado termine y reintenta en el siguiente tick en vez de volver a distraerse.
+    if (me.isAirborne || me.downed || me.metamorphosing || me.state in SF_HURT_STATES) return SfInput()
+    if (me.state !in SfStateMachine.SPECIAL_VALID_FROM) return SfInput()
     // Un normal solo puede cancelar al conectar. Si todavía va al aire, se reintenta en la
     // siguiente decisión sin dar la barra por gastada.
-    if (me.state in attackMeta && !me.attackStruck) return null
-    if (dist >= StreetFighterViewModel.CPU_MELEE_DIST) return cpuApproach(me, foe)
+    if (me.state in attackMeta && !me.attackStruck) return SfInput()
+    if (dist > SfSuperArt.HIT_RANGE) return cpuApproach(me, foe)
     cpuFatalityUntilMs[i] = 0L
     // No se confirma aquí: el timer se limpia cuando el motor realmente consume el medidor.
     // Así un input rechazado por transición/animación vuelve a intentarse en vez de perderse.

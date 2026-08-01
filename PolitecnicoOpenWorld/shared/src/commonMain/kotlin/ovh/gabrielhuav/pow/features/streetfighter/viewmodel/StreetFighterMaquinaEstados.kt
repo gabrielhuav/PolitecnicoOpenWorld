@@ -294,7 +294,11 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
                     return
                 }
                 sim.setFighter(idx, f.copy(velocityX = 0f))
-                changeState(sim, idx, SfFighterState.IDLE, now)
+                if (changeState(sim, idx, SfFighterState.IDLE, now)) {
+                    // El input sostenido durante el último cuadro se atiende en este mismo tick:
+                    // caminar, saltar, agacharse o atacar ya no espera al watchdog.
+                    handleCommonNeutral(sim, idx, input, now)
+                }
             }
         }
         // 🆕 CARRERA: se mantiene mientras se sostenga adelante; se puede saltar o

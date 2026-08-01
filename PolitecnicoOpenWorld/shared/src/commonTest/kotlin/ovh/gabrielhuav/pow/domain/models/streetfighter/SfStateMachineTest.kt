@@ -112,6 +112,13 @@ class SfStateMachineTest {
     }
 
     @Test
+    fun `ambos dashes recuperan inmediatamente a idle`() {
+        SfStateMachine.DASH_RECOVERY_FROM.forEach { from ->
+            assertTrue(SfStateMachine.canEnter(from, SfFighterState.IDLE), "$from -> IDLE")
+        }
+    }
+
+    @Test
     fun `la SUPER ART es alcanzable desde todo origen que acepta poderes`() {
         SfStateMachine.SPECIAL_VALID_FROM.forEach { from ->
             assertTrue(
