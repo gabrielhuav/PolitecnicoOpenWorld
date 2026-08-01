@@ -721,13 +721,13 @@ internal fun StreetFighterViewModel.completePresidentaMetamorphosis(sim: StreetF
         return
     }
     // 🆕 (2026-07-22, decisión del dueño) Al completar la metamorfosis arranca con la
-    // VIDA LLENA otra vez (antes 50%): es su "segunda vida" del round 1.
+    // VIDA LLENA otra vez (antes 50%): es su "segunda vida" de la ronda 2.
     completeMetamorphosis(sim, idx, SfFighterId.YOALLI_EHECATL, SfConstants.HEALTH_MAX_HIT_POINTS, now)
 }
 
 /**
  * Fin de BONUS_POWER_10 de Yoalli: se convierte en LA PRESIDENTA con la VIDA LLENA (su
- * "segunda vida" del round 1), espejo de Presidenta → Yoalli. El cambio de id persiste entre rondas.
+ * "segunda vida" de la ronda 2), espejo de Presidenta → Yoalli. El cambio de id persiste entre rondas.
  */
 internal fun StreetFighterViewModel.completeYoalliMetamorphosis(sim: StreetFighterViewModel.Sim, idx: Int, now: Long) {
     val f = sim.fighter(idx)

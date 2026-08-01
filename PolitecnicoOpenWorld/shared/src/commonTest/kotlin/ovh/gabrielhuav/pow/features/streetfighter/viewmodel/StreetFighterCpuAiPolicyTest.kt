@@ -6,6 +6,8 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCpuDifficulty
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfInput
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfSuperArt
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfCombo
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfComboAction
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -127,6 +129,40 @@ class StreetFighterCpuAiPolicyTest {
             null,
             cpuSuperDefensePlan(SfCpuDifficulty.BASICA, distance = 40f, beforeImpact = true),
         )
+    }
+
+    @Test
+    fun `la dificultad desbloquea combos avanzados incluso sin intensidad de campana`() {
+        val levels = SfCpuDifficulty.entries.map { cpuComboMaxLevel(it, intensity = 0f) }
+        assertEquals(listOf(1, 2, 3, 4), levels)
+        assertEquals(4, cpuComboMaxLevel(SfCpuDifficulty.AVANZADA, intensity = 0.8f))
+    }
+
+    @Test
+    fun `pesadilla conserva alta probabilidad de combo incluso para un zoner`() {
+        val chances = SfCpuDifficulty.entries.map {
+            cpuComboStartChance(it, intensity = 0f, styleBias = 1f)
+        }
+        assertTrue(chances.zipWithNext().all { (easier, harder) -> easier < harder })
+        assertTrue(cpuComboStartChance(SfCpuDifficulty.PESADILLA, 0f, 0.6f) >= 0.72f)
+    }
+
+    @Test
+    fun `solo rutas de dos o mas acciones cuentan como combo`() {
+        val single = SfCombo("single", "", "", "", "", 1, listOf(SfComboAction.LIGHT_PUNCH))
+        val chain = single.copy(
+            id = "chain",
+            steps = listOf(SfComboAction.LIGHT_PUNCH, SfComboAction.MEDIUM_PUNCH),
+        )
+        assertFalse(isCpuComboRoute(single, maxLevel = 4))
+        assertTrue(isCpuComboRoute(chain, maxLevel = 4))
+        assertFalse(isCpuComboRoute(chain.copy(level = 4), maxLevel = 3))
+    }
+
+    @Test
+    fun `las rutas complejas reciben mas tiempo al subir dificultad`() {
+        val timeouts = SfCpuDifficulty.entries.map(::cpuComboRouteTimeoutMs)
+        assertTrue(timeouts.zipWithNext().all { (shorter, longer) -> shorter < longer })
     }
 
     @Test

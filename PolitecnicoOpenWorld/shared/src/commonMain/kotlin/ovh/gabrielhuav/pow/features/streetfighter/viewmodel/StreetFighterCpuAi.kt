@@ -5,7 +5,6 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BONUS_POWER_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BLOCK_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_NEW_MOVE_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_PARRY_STATES
-import ovh.gabrielhuav.pow.features.streetfighter.data.SfComboAction
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfConstants
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCpuDifficulty
@@ -17,6 +16,8 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireballState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfInput
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStateMachine
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfSuperArt
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfCombo
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfComboAction
 import kotlin.math.abs
 import kotlin.random.Random
 
@@ -196,6 +197,47 @@ internal fun StreetFighterViewModel.buildCpuInput(now: Long, sim: StreetFighterV
 /** Regla absoluta del modo IA vs IA; fuera de él no modifica la política de la CPU. */
 internal fun forcedAiVsAiSuperInput(aiVsAi: Boolean, superReady: Boolean): SfInput? =
     if (aiVsAi && superReady) SfInput(superArt = true) else null
+
+/** Nivel máximo real del catálogo: la dificultad manda aunque la intensidad de campaña sea 0. */
+internal fun cpuComboMaxLevel(difficulty: SfCpuDifficulty, intensity: Float): Int = when (difficulty) {
+    SfCpuDifficulty.BASICA -> 1
+    SfCpuDifficulty.NORMAL -> 2
+    SfCpuDifficulty.AVANZADA -> if (intensity > 0.55f) 4 else 3
+    SfCpuDifficulty.PESADILLA -> 4
+}
+
+/** Probabilidad de abrir una ruta cuando existe rango; acotada para respetar estilos. */
+internal fun cpuComboStartChance(
+    difficulty: SfCpuDifficulty,
+    intensity: Float,
+    styleBias: Float,
+): Float {
+    val base = when (difficulty) {
+        SfCpuDifficulty.BASICA -> 0f
+        SfCpuDifficulty.NORMAL -> 0.30f + 0.12f * intensity
+        SfCpuDifficulty.AVANZADA -> 0.58f + 0.22f * intensity
+        SfCpuDifficulty.PESADILLA -> 0.88f
+    }
+    val minimum = when (difficulty) {
+        SfCpuDifficulty.BASICA -> 0f
+        SfCpuDifficulty.NORMAL -> 0.20f
+        SfCpuDifficulty.AVANZADA -> 0.48f
+        SfCpuDifficulty.PESADILLA -> 0.72f
+    }
+    return (base * styleBias).coerceIn(minimum, 0.95f)
+}
+
+/** Las rutas de mayor nivel incluyen salto/carrera y necesitan más tiempo de animación. */
+internal fun cpuComboRouteTimeoutMs(difficulty: SfCpuDifficulty): Long = when (difficulty) {
+    SfCpuDifficulty.BASICA -> StreetFighterViewModel.COMBO_ROUTE_TIMEOUT_MS
+    SfCpuDifficulty.NORMAL -> 2800L
+    SfCpuDifficulty.AVANZADA -> 3600L
+    SfCpuDifficulty.PESADILLA -> 4200L
+}
+
+/** Una ruta ofensiva debe encadenar al menos dos acciones; un solo golpe no cuenta como combo. */
+internal fun isCpuComboRoute(combo: SfCombo, maxLevel: Int): Boolean =
+    combo.level <= maxLevel && combo.steps.size >= 2
 
 internal enum class CpuSuperDefense { INTERRUPT, BACKDASH, JUMP_BACK }
 
@@ -468,6 +510,8 @@ internal fun StreetFighterViewModel.normalCpuDecision(sim: StreetFighterViewMode
     if (hasIncomingFireball(sim, me, selfIndex, 240f) && !me.isAirborne) {
         return if (roll < 0.7f) cpuJumpIn(me, foe) else cpuRetreatFlags(me, foe)
     }
+    // Una ruta ya confirmada conserva prioridad para que los cancels no pierdan su ventana.
+    nextComboInput(selfIndex, me, now)?.let { return it }
     if (foe.state in cpuThreatStates && dist < 140f) {
         return when {
             roll < 0.42f -> cpuRetreatFlags(me, foe)
@@ -479,7 +523,21 @@ internal fun StreetFighterViewModel.normalCpuDecision(sim: StreetFighterViewMode
         return cpuAttack(SfAttackStrength.HEAVY, punch = true)
     }
     if (foe.state in cpuPunishStates && dist < StreetFighterViewModel.CPU_MELEE_DIST) {
+        if (queueCombo(selfIndex, me, now, SfCpuDifficulty.NORMAL)) {
+            nextComboInput(selfIndex, me, now)?.let { return it }
+        }
         return cpuAttack(SfAttackStrength.MEDIUM, punch = Random.nextBoolean())
+    }
+
+    val comboChance = cpuComboStartChance(
+        difficulty = SfCpuDifficulty.NORMAL,
+        intensity = cpuIntensity,
+        styleBias = cpuStyleForLevel(me.id).comboBias,
+    )
+    if (dist < StreetFighterViewModel.CPU_MELEE_DIST && !me.isAirborne && roll < comboChance &&
+        queueCombo(selfIndex, me, now, SfCpuDifficulty.NORMAL)
+    ) {
+        nextComboInput(selfIndex, me, now)?.let { return it }
     }
 
     return when {
@@ -632,18 +690,6 @@ internal fun StreetFighterViewModel.smartCpuDecision(sim: StreetFighterViewModel
 
     // 🆕 (2026-07-21) RUTA DE COMBO en curso: sigue encadenando los pasos pendientes.
     nextComboInput(selfIndex, me, now)?.let { return it }
-    // Si el rival está a tiro y en desventaja, ARRANCA una ruta del catálogo. La
-    // probabilidad sube con el escalón y con el gusto por combos del personaje.
-    val comboChance = (if (nightmare) 0.58f else 0.30f + 0.25f * cpuIntensity) *
-        cpuStyleForLevel(me.id).comboBias
-    if (dist < StreetFighterViewModel.CPU_MELEE_DIST && !me.isAirborne && roll < comboChance &&
-        queueCombo(selfIndex, me, now)
-    ) {
-        nextComboInput(selfIndex, me, now)?.let { return it }
-    }
-
-    // 🆕 (2026-07-21) La CPU usa el MOVESET nuevo cuando el peleador lo tiene.
-    cpuNewMove(me, foe, dist, roll, nightmare)?.let { return it }
 
     // Anti-aéreo
     if (foe.isAirborne && dist < (if (nightmare) 170f else 145f)) {
@@ -656,20 +702,45 @@ internal fun StreetFighterViewModel.smartCpuDecision(sim: StreetFighterViewModel
 
     // Bloqueo ante amenaza (mid); de cerca tradea
     if (foe.state in cpuThreatStates) {
-        when {
-            dist in 95f..190f && roll < blockChance -> return cpuRetreatFlags(me, foe) // block walk-back
-            dist < 95f && roll < 0.28f -> return cpuRetreatFlags(me, foe)
-            dist < 95f && roll < 0.68f -> return cpuAttack(SfAttackStrength.LIGHT, punch = true)
+        if (dist in 95f..190f) {
+            return if (roll < blockChance) cpuRetreatFlags(me, foe) else cpuJumpBack(me, foe)
+        }
+        if (dist < 95f) {
+            val parryChance = if (nightmare) 0.38f else 0.20f + 0.10f * cpuIntensity
+            return when {
+                hasAnim(me, SfFighterState.PARRY_HIGH) && roll < parryChance -> SfInput(parry = true)
+                roll < (if (nightmare) 0.76f else 0.64f) -> cpuRetreatFlags(me, foe)
+                else -> cpuAttack(SfAttackStrength.LIGHT, punch = true)
+            }
         }
     }
 
     // Castigo recovery
     if (foe.state in cpuPunishStates && dist < (if (nightmare) 145f else 125f)) {
+        val difficulty = if (nightmare) SfCpuDifficulty.PESADILLA else SfCpuDifficulty.AVANZADA
+        if (dist < StreetFighterViewModel.CPU_MELEE_DIST &&
+            queueCombo(selfIndex, me, now, difficulty)
+        ) {
+            nextComboInput(selfIndex, me, now)?.let { return it }
+        }
         return cpuAttack(
             if (nightmare || roll < 0.55f) SfAttackStrength.HEAVY else SfAttackStrength.MEDIUM,
             punch = Random.nextBoolean(),
         )
     }
+
+    // Abrir una ruta solo después de resolver amenazas, antiaéreos y castigos. Así la IA no
+    // sacrifica defensa por azar, pero en neutro cercano encadena con mucha más constancia.
+    val difficulty = if (nightmare) SfCpuDifficulty.PESADILLA else SfCpuDifficulty.AVANZADA
+    val comboChance = cpuComboStartChance(difficulty, cpuIntensity, style.comboBias)
+    if (dist < StreetFighterViewModel.CPU_MELEE_DIST && !me.isAirborne && roll < comboChance &&
+        queueCombo(selfIndex, me, now, difficulty)
+    ) {
+        nextComboInput(selfIndex, me, now)?.let { return it }
+    }
+
+    // La CPU usa el moveset nuevo cuando no está ejecutando una ruta del catálogo.
+    cpuNewMove(me, foe, dist, roll, nightmare)?.let { return it }
 
     // Footsies / presión por rango (🆕 2026-07-18j: golpes con memoria anti-repetición y
     // fuerza del special al azar — la pelea se ve VARIADA, no el mismo ataque en bucle)
@@ -708,7 +779,8 @@ internal fun StreetFighterViewModel.smartCpuDecision(sim: StreetFighterViewModel
  *
  * Prioridades (de más específica a más oportunista): súper cargada de cerca →
  * castigo con barrida → agarre a quien se cubre mucho → overhead contra guardia
- * baja → patada larga a media distancia → parry defensivo → dash para cerrar hueco.
+ * baja → patada larga a media distancia → dash para cerrar hueco. El parry reactivo se
+ * resuelve antes, junto con el bloqueo de amenazas, para no competir con decisiones ofensivas.
  */
 // 🆕 (2026-07-22) Firma acotada a lo que usa: `sim`, `selfIndex` y `now` no se usaban aquí
 // (detekt UnusedParameter). La decisión de la IA nueva depende solo de los peleadores,
@@ -760,10 +832,6 @@ internal fun StreetFighterViewModel.cpuNewMove(
         roll < (if (aggressive) 0.42f else 0.24f)
     ) {
         return SfInput(forward = true, heavyKick = true)
-    }
-    // PARRY: leer el golpe entrante (solo dificultades altas: es la jugada experta)
-    if (aggressive && foe.state in cpuThreatStates && dist < 120f && roll < 0.22f) {
-        return SfInput(parry = true)
     }
     // DASH para cerrar distancia rápido
     if (dist > StreetFighterViewModel.CPU_MID_DIST && hasAnim(me, SfFighterState.DASH_FORWARD) &&
@@ -876,22 +944,33 @@ internal fun StreetFighterViewModel.canPerform(f: SfFighter, action: SfComboActi
  * 🆕 Elige una RUTA de combo ejecutable y la encola. La IA prefiere el combo de FIRMA
  * del peleador y, si no puede, uno universal de su nivel de dificultad hacia abajo.
  */
-internal fun StreetFighterViewModel.queueCombo(selfIndex: Int, me: SfFighter, now: Long): Boolean {
+internal fun StreetFighterViewModel.queueCombo(
+    selfIndex: Int,
+    me: SfFighter,
+    now: Long,
+    difficulty: SfCpuDifficulty,
+): Boolean {
     val i = selfIndex.coerceIn(0, 1)
     if (cpuComboQueue[i].isNotEmpty()) return false
-    val maxLevel = when {
-        cpuIntensity > 0.66f -> 4
-        cpuIntensity > 0.33f -> 3
-        else -> 2
+    val maxLevel = cpuComboMaxLevel(difficulty, cpuIntensity)
+    val canRun: (SfCombo) -> Boolean = { combo ->
+        isCpuComboRoute(combo, maxLevel) && combo.steps.all { canPerform(me, it) }
     }
-    val options = buildList {
-        signatureCombo(me.id)?.let { add(it) }
-        addAll(comboCatalog.filter { it.level <= maxLevel })
-    }.filter { combo -> combo.steps.all { canPerform(me, it) } }
-    val chosen = options.randomOrNull() ?: return false
+    val signature = signatureCombo(me.id)?.takeIf(canRun)
+    val universal = comboCatalog.filter(canRun)
+    val signatureChance = when (difficulty) {
+        SfCpuDifficulty.BASICA, SfCpuDifficulty.NORMAL -> 0f
+        SfCpuDifficulty.AVANZADA -> 0.35f + 0.25f * cpuIntensity
+        SfCpuDifficulty.PESADILLA -> 0.68f
+    }
+    val chosen = when {
+        signature != null && (universal.isEmpty() || Random.nextFloat() < signatureChance) -> signature
+        universal.isNotEmpty() -> universal.random()
+        else -> signature
+    } ?: return false
     cpuComboQueue[i].addAll(chosen.steps)
     cpuComboAwaiting[i] = null
-    cpuComboUntilMs[i] = now + StreetFighterViewModel.COMBO_ROUTE_TIMEOUT_MS
+    cpuComboUntilMs[i] = now + cpuComboRouteTimeoutMs(difficulty)
     return true
 }
 

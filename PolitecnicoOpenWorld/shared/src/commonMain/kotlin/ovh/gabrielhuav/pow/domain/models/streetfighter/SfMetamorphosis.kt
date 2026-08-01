@@ -9,11 +9,11 @@ object SfMetamorphosis {
     )
 
     /**
-     * Ambos jefes se transforman una sola vez al llegar a 25% de vida y únicamente en ronda 1.
+     * Ambos jefes se transforman una sola vez al llegar a 25% de vida y únicamente en ronda 2.
      * [SfFighter.metamorphosed] impide Presidenta→Yoalli→Presidenta en la misma pelea.
      */
     fun planFor(fighter: SfFighter, roundNumber: Int): Plan? {
-        if (roundNumber != 1 || fighter.metamorphosed || fighter.metamorphosing) return null
+        if (roundNumber != 2 || fighter.metamorphosed || fighter.metamorphosing) return null
         if (fighter.hitPoints > SfConstants.HEALTH_MAX_HIT_POINTS / 4) return null
         return when (fighter.id) {
             SfFighterId.LA_PRESIDENTA -> Plan(

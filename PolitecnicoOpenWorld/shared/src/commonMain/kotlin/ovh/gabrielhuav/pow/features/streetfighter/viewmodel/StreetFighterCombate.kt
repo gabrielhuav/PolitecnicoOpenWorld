@@ -404,7 +404,7 @@ internal fun StreetFighterViewModel.applyAttackHit(
         return
     }
 
-    // Presidenta ↔ Yoalli: a ≤1/4 de vida obtienen su segunda forma una sola vez en ronda 1.
+    // Presidenta ↔ Yoalli: a ≤1/4 de vida obtienen su segunda forma una sola vez en ronda 2.
     if (tryBossMetamorphosis(sim, defenderIdx, attackerIdx, now)) {
         hurtFreezeUntilMs = now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong()
         return
