@@ -4,6 +4,10 @@
 
 # 🆕 Carpeta temporal de revisión de audio (tools/sf_audio_review.sh --mp3); NO empaquetar
 tools/_audio_review/
+
+# Binarios descargados para herramientas locales (por ejemplo, cwebp/libwebp en Windows).
+# Los assets .webp resultantes sí se versionan; el codec y sus DLL no.
+/tools/.local/
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
@@ -70,6 +74,15 @@ secrets.properties
 # Gradle cache local
 .gradle/
 gradle/wrapper/gradle-wrapper.jar
+# Directorio de trabajo del plugin de Kotlin (aparece al compilar Kotlin/Native en el Mac).
+.kotlin/
+
+# Xcode (Fase 1.5). Se versiona el proyecto, NUNCA los ajustes personales ni la salida de build:
+# `xcuserdata` cambia con cada persona que abre el proyecto y genera conflictos constantes.
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/DerivedData/
 
 # MacOS adicional
 ._*

@@ -165,7 +165,7 @@ class SfArcadeCampaignAuditTest {
                 "special_pol_h_intro.ogg", "special_pol_h_attack.ogg", "special_granadero_win.ogg"
             )
             SfFighterId.PARAMEDICO -> emptyList()
-        }
+        }.map { it.removeSuffix(".ogg") + ".m4a" }
     }
 
     private fun assertAsset(relativePath: String, label: String) {

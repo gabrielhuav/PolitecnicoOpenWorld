@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.map.CarModel
 import ovh.gabrielhuav.pow.domain.models.map.Landmark
 import ovh.gabrielhuav.pow.domain.models.map.MapWay

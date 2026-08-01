@@ -2,7 +2,7 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 
 import kotlinx.coroutines.flow.update
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos

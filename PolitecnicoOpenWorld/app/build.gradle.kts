@@ -1,7 +1,11 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
+    // 🍏 Fase 5: `kotlin-android` YA NO se aplica — AGP 9 trae Kotlin integrado
+    // (`android.builtInKotlin=true`). Aplicarlo aqui rompe con el DSL nuevo de AGP.
     alias(libs.plugins.kotlin.compose)
+    // 🍏 Fase 3: hace falta AQUÍ además de en `:shared` porque hay clases `@Serializable` en
+    // ambos módulos (el plugin genera el serializador al compilar cada uno).
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt.android)
     id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
@@ -19,7 +23,7 @@ android {
         minSdk = 24
         targetSdk = 36
         versionCode = System.getenv("APP_VERSION_CODE")?.toIntOrNull() ?: 12
-        versionName = "1.0.0.14"
+        versionName = "1.0.0.15"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -69,8 +73,12 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
+    // 🍏 Fase 5: `kotlinOptions` quedo deprecado en Kotlin 2.3 -> DSL de `compilerOptions`.
+    // Sigue siendo JVM 11, el MISMO que `:shared`: si divergen, el consumo entre modulos falla.
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        }
     }
     buildFeatures {
         compose = true
@@ -79,6 +87,10 @@ android {
 }
 
 dependencies {
+    // 🍏 Módulo KMP compartido (Fase 1 de "README for IAS/PLAN_MIGRACION_KMP.md"). Contiene el
+    // dominio PURO de "Huelum vs. Goya" (SfStateMachine/SfDamage/SfPhysics/SfAnimation/SfModels…).
+    // Mantiene el MISMO paquete que tenía en `:app` a propósito → cero imports que cambiar aquí.
+    implementation(project(":shared"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -103,10 +115,10 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.6.0")
 
     // Room
-    implementation(libs.androidx.room.runtime)
+    // Room: el runtime lo aporta `:shared` (api). room-ktx aporta las extensiones de corrutinas.
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.compose.foundation)
-    ksp(libs.androidx.room.compiler)
+    // 🍏 Fase 4: el compilador de Room ya NO corre aqui — la BD vive en `:shared`.
 
     // Hilt (DI) — el compilador va por KSP (NO kapt) para no duplicar procesadores.
     implementation(libs.hilt.android)
@@ -115,19 +127,14 @@ dependencies {
 
     implementation(libs.androidx.preference.ktx)
 
-    // Dependencias para Multijugador
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.google.code.gson:gson:2.10.1")
-    // 🆕 (2026-07-26) WebRTC para la pelea P2P (SfWebRtcClient): el gameplay va DIRECTO entre
-    // los 2 teléfonos y Render queda solo de cupido. Se usa `io.github.webrtc-sdk` porque el
-    // `org.webrtc:google-webrtc` oficial está SIN mantenimiento desde 2019.
-    // PESO MEDIDO (2026-07-26): .so de 11.5 MB en arm64-v8a y 6.5 MB en armeabi-v7a. El AAB
-    // pasa de 368.8 MiB a ~414 MiB con las 4 ABIs — sigue MUY por debajo del límite de Play,
-    // y cada teléfono descarga solo SU arquitectura.
-    // ⚠️ NO poner abiFilters para adelgazarlo: se cargaría x86_64, que es lo que usa el
-    // emulador (AVD "Nexus") con el que se prueba el juego.
-    implementation("io.github.webrtc-sdk:android:144.7559.09")
-
+    // 🍏 Fase 4: OkHttp ya NO se usa directamente — el WebSocket va por Ktor (`:shared`), que en
+    // Android usa OkHttp como MOTOR (lo arrastra `ktor-client-okhttp`) y en iOS usa Darwin.
+    // ⚠️ No vuelvas a declararlo aquí: el codigo que lo importaba ya no existe.
+    // 🍏 Gson ya NO va en producción (Fase 3): usa reflexión de la JVM y no existe en iOS. Se
+    // queda SOLO en tests, que es donde `GameSaveCompatGsonTest` y `JsonObjectCompatGsonTest`
+    // comparan el JSON nuevo contra el que producía Gson (partidas guardadas y formato de cable).
+    // ⚠️ NO lo devuelvas a `implementation`: si vuelve, vuelve el bloqueo de iOS.
+    testImplementation("com.google.code.gson:gson:2.10.1")
     // Firebase Authentication (Google Sign-In) — la BOM fija versiones compatibles.
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth.ktx)

@@ -1,12 +1,14 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
+import ovh.gabrielhuav.pow.data.json.jsonOf
+
 
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.map.CarModel
 import ovh.gabrielhuav.pow.domain.models.map.InteriorBuilding
 import ovh.gabrielhuav.pow.domain.models.map.Npc
@@ -94,7 +96,7 @@ internal fun WorldMapViewModel.onInteractButtonPressed() {
                     // Avisar a los demás clientes que esa patrulla dejó de existir.
                     webSocketManager?.let { ws ->
                         viewModelScope.launch(Dispatchers.IO) {
-                            try { ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_DESTROY", "npcId" to boarded.id))) } catch (_: Exception) {}
+                            try { ws.sendMessage(jsonOf(mapOf("type" to "POLICE_DESTROY", "npcId" to boarded.id))) } catch (_: Exception) {}
                         }
                     }
                     // Subirse a la patrulla pone TODAS las estrellas (5★) + marca el delito (reinicia
@@ -317,7 +319,7 @@ internal fun WorldMapViewModel.setZombieInstance(apocalypse: Boolean) {
         remoteEntities.clear()
         updateNpcsState()
         try {
-            webSocketManager?.sendMessage(gson.toJson(mapOf(
+            webSocketManager?.sendMessage(jsonOf(mapOf(
                 "type" to "JOIN_INSTANCE",
                 "instance" to if (apocalypse) "apocalipsis" else "normal"
             )))

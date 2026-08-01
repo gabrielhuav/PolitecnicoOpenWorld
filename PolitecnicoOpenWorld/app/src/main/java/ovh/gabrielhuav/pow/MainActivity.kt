@@ -25,10 +25,10 @@ import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import org.osmdroid.config.Configuration
 import ovh.gabrielhuav.pow.data.repository.CampaignRepository
-import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
+import ovh.gabrielhuav.pow.features.main_menu.viewmodel.AndroidCollectiblesViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.saveGame
-import ovh.gabrielhuav.pow.features.settings.viewmodel.SettingsViewModel
+import ovh.gabrielhuav.pow.features.settings.viewmodel.AndroidSettingsViewModel
 import ovh.gabrielhuav.pow.ui.theme.PolitecnicoOpenWorldTheme
 import java.io.File
 
@@ -44,6 +44,9 @@ class MainActivity : ComponentActivity() {
     // que se inflen los recursos. "" = idioma del sistema. Ver i18n/LocaleHelper.kt.
     override fun attachBaseContext(newBase: Context) {
         val lang = ovh.gabrielhuav.pow.data.repository.SettingsRepository(newBase).getLanguage()
+        // Android 13+: el locale por aplicacion tambien alimenta Compose Multiplatform Resources.
+        // API 24-32 conserva el Context envuelto de la linea siguiente.
+        ovh.gabrielhuav.pow.i18n.LocaleHelper.applyApplicationLocale(newBase, lang)
         super.attachBaseContext(ovh.gabrielhuav.pow.i18n.LocaleHelper.wrap(newBase, lang))
     }
 
@@ -52,9 +55,9 @@ class MainActivity : ComponentActivity() {
     // gate isMapReady NO se reinician — ver 09 §12). El VM se pasa hacia abajo al AppNavGraph.
     private val worldMapViewModel: WorldMapViewModel by viewModels()
 
-    private val settingsViewModel: SettingsViewModel by viewModels()
+    private val settingsViewModel: AndroidSettingsViewModel by viewModels()
 
-    private val collectiblesViewModel: CollectiblesViewModel by viewModels()
+    private val collectiblesViewModel: AndroidCollectiblesViewModel by viewModels()
 
     // Autenticación Google + Firebase. Gestiona login, token (para el handshake WS) y borrado de cuenta.
     private val authManager by lazy { ovh.gabrielhuav.pow.data.auth.AuthManager(this) }
@@ -90,6 +93,10 @@ class MainActivity : ComponentActivity() {
             ovh.gabrielhuav.pow.features.map_exterior.ui.components.PoliceNpcSpriteManager.clearCaches()
             ovh.gabrielhuav.pow.features.map_exterior.ui.components.MapZombieSpriteManager.clearCaches()
             ovh.gabrielhuav.pow.features.interiores.zombies.ui.ZombieSpriteManager.clearCaches()
+            // 🧹 Arte reconstruible cacheado en `:shared` (imágenes de menú, vistas previas del
+            // selector). UNA sola llamada a propósito: si mañana aparece otra caché, se añade
+            // dentro de `PowCaches` y aquí no hay que tocar nada. Ver su KDoc.
+            ovh.gabrielhuav.pow.platform.PowCaches.liberarTodo()
         }
     }
 

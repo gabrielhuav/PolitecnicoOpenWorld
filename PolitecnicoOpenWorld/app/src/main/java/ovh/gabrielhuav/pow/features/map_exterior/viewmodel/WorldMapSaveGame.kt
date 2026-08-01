@@ -2,7 +2,7 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import android.content.Context
 import kotlinx.coroutines.flow.update
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.data.repository.CampaignRepository
 import ovh.gabrielhuav.pow.data.repository.GameSaveData
 import ovh.gabrielhuav.pow.data.repository.SaveGameRepository

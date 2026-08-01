@@ -9,9 +9,30 @@ low-end performance) or doc drift.
 
 ## 0. Archivos GRANDES (>1000 líneas) — plan de separación
 
-> ### ✅ ESTADO ACTUAL (2026-06-21) — esto MANDA sobre el historial de abajo
+> ## ✅ ESTADO REAL (2026-07-27, tras el refactor de la Fase 5) — esto MANDA
 >
-> **5 archivos pasan de 1000 líneas; NINGUNO pasa de 1500 (2026-06-22):**
+> Los dos monstruos del modo pelea se partieron por DOMINIO. `StreetFighterViewModel` pasó de
+> **6220 a 2299** líneas y `StreetFighterScreen` de **4029 a 1902**.
+>
+> | Archivo | Líneas |
+> |---|---:|
+> | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` | 2299 |
+> | `features/streetfighter/ui/StreetFighterScreen.kt` | 1902 |
+> | `features/map_exterior/viewmodel/WorldMapViewModel.kt` | 1596 |
+> | `features/map_exterior/ui/WorldMapScreen.kt` | 1463 |
+> | `features/map_exterior/ui/NativeOsmMap.kt` | 1458 |
+> | `features/interiores/zombies/ui/ZombieGameScreen.kt` | 1343 |
+> | `features/streetfighter/ui/SfSceneRenderer.kt` | 1225 |
+> | `AppNavGraph.kt` | 1175 |
+> | `features/interiores/zombies/viewmodel/ZombieInteriorViewModel.kt` | 1165 |
+>
+> **➡️ El mapa de qué hay en cada archivo está en `10_ARQUITECTURA_SEPARACION.md`**, con la receta
+> de extracción y las 3 trampas que costaron tiempo (finales de línea LF/CRLF, KDoc partido por
+> la mitad, y el `inline fun` que pierde el receptor).
+>
+> *(Lo de abajo es el historial de 2026-06: los tamaños de ARRIBA son los vigentes.)*
+>
+> **5 archivos pasan de 1000 líneas; NINGUNO pasa de 1500 (2026-06-22 — ver corrección arriba):**
 >
 > | Archivo | Líneas | ¿Separar? |
 > |---|---:|---|
@@ -395,6 +416,23 @@ exporta `collision_matrices.json` en el formato exacto que lee el servidor (`loa
 matrices por defecto son **border-only** hasta reemplazarse.
 
 ## 12. Otros / Misc
+
+- **🆕🍏 GOTCHA KMP — el SMART CAST muere al cruzar de módulo (2026-07-27, Fase 1):** al mover el
+  dominio puro de SF a `:shared`, `:app` dejó de compilar con 7 errores del tipo *"Smart cast to
+  'SfAttackStrength' is impossible, because 'special' is a public API property declared in different
+  module"*. **Kotlin no hace smart cast de propiedades públicas de OTRO módulo** (el otro módulo
+  podría recompilarse por separado). El idiom `if (x.campo != null && usa(x.campo))` compila mientras
+  todo vive en `:app` y **se rompe al mover el tipo a `:shared`**. Arreglo aplicado en
+  `StreetFighterViewModel.kt`: `x.campo?.let { usa(it) } == true` (semántica idéntica: si es `null`,
+  `?.let` da `null` y `== true` es `false`). **Contar con que reaparezca en cada fase** que mueva
+  modelos con campos nullable públicos. No "arreglarlo" con `!!`: eso cambia un no-op en un crash.
+- **🆕🍏 Los tests de `:shared` NO son JUnit4:** en `commonTest` se usa `kotlin.test` (en iOS no hay
+  JVM). ⚠️ **El mensaje va al FINAL, no al principio:** JUnit4 es `assertTrue(msg, cond)` y
+  kotlin.test es `assertTrue(cond, msg)`. Al mover un test hay que **invertir ese orden** o el
+  compilador se queja (o peor: en `assertEquals` de 2 args de String colaría silenciosamente).
+  Reparto actual de los **131** tests: **87 en `:app` + 44 en `:shared`** — CI corre AMBOS
+  (`pr-quality-gate.yml`); si mueves más dominio, lo que importa es que la SUMA no baje.
+
 
 - **🆕 GOTCHA SF — `SfFighterState` viaja por red como `enum.name` (2026-07-22):** los
   estados nuevos se añaden **AL FINAL del enum** y el parse remoto es defensivo
@@ -1313,3 +1351,59 @@ puedes actualizar los docs, **la tarea no está terminada — dilo explícitamen
   `VehicleDpadButton`, joystick). `repeatingClickable` ganó `onPress:(Boolean)` para el resalte/feedback 1×/toque.
 - **No** añade un toggle de Ajustes propio: el sonido se controla con el slider **Efectos** (Audio) y la
   vibración con los ajustes hápticos del sistema. (Si se quisiera un toggle dedicado, iría en Ajustes→Interfaz.)
+
+## 🍏 KMP / iOS — lo que compila en Android y NO compila en Kotlin/Native
+
+**Medido en la 1ª compilación real de `:shared` para iOS (Mac, 2026-07-27).** Las Fases 1-4 se
+escribieron en Windows, donde los targets iOS ni se configuran: nada de esto se podía ver. Si tocas
+`shared/`, estas 4 reglas te ahorran la tarde.
+
+1. **Los DAO de Room en `commonMain` tienen que ser `suspend`.** Room solo admite DAOs bloqueantes
+   si el source set es de Android; fuera de ahí KSP corta con *"Only suspend functions are allowed
+   in DAOs declared in source sets targeting non-Android platforms"*. Si el llamador es un callback
+   síncrono de framework que no puedes volver `suspend`, el `runBlocking` va **en la clase puente
+   del lado `:app`**, no en el DAO (ver `TileCache` ↔ `MapTileDao`).
+2. **`@Volatile` necesita `import kotlin.concurrent.Volatile` explícito.** En JVM entraba solo por
+   el import por defecto `kotlin.jvm.*`, que en Native no existe. En JVM el multiplataforma es un
+   typealias del de siempre, así que Android no cambia.
+3. **Toda interoperabilidad con Objective-C exige `@OptIn(ExperimentalForeignApi::class)`**, aunque
+   la firma que uses sea correcta. El error *"This declaration needs opt-in"* NO significa que la
+   API esté mal escrita.
+4. **Los nombres de test con backticks NO admiten `(`, `)` ni `,`** en Kotlin/Native (*"Name
+   contains illegal characters"*), y en JVM sí. Al escribir tests en `commonTest`, usa ` - ` en vez
+   de paréntesis y quita las comas.
+
+⚠️ **Y la trampa que no es de código: la ABI de las klibs.** Las librerías multiplataforma publican
+klibs de Kotlin/Native con una `abi_version` fija, y **no son compatibles hacia adelante**: un
+compilador 2.2.10 no puede leer una klib de ABI 2.3.0. Cuando pasa, el mensaje MIENTE — dice
+`KLIB resolver: Could not find "...klib"`, como si faltara el fichero, y el fichero está ahí. Para
+diagnosticarlo, lee el manifiesto de la klib:
+
+```bash
+unzip -p <ruta>.klib default/manifest | grep -E "abi_version|compiler_version"
+```
+
+Esto NO se ve en Android (los artefactos JVM son bytecode y no tienen esa puerta), así que una
+dependencia puede llevar semanas "funcionando" y romper iOS el día que se compile. Fue el caso de
+Ktor 3.5.1 → hubo que bajar a **3.3.3**; el tope de cada librería está anotado en
+`gradle/libs.versions.toml`.
+
+⚠️ **El runtime del simulador lo instala XCODE, nunca un DMG a mano.** Si se registra con
+`xcrun simctl runtime add` desde un `.dmg` descargado con el navegador, queda en `/private/tmp` con
+`com.apple.quarantine` y macOS **no ejecuta código desde ahí**: los tests mueren con
+`dyld_sim mmap() of segment failed` + `Abort trap` (exit 134), que no parece un problema de permisos
+por ningún lado. La vía buena es `xcodebuild -downloadPlatform iOS` (o Xcode → Settings →
+Components); un runtime bien instalado tiene su `Image Path` bajo `/System/Library/AssetsV2/…`, no
+bajo `/private/tmp`. Para quitar uno viejo, `xcrun simctl runtime delete <id>` — nunca a mano, que
+deja registros huérfanos en CoreSimulator.
+
+### ⚠️ Esta lista es solo de COMPILACIÓN. La otra mitad no compila mal: se ve mal.
+
+Hay una segunda familia de fallos de iOS que **pasa los 228 tests y compila sin un warning**, y solo
+aparece al abrir el simulador: el idioma que no cambia, la imagen que sale gris porque el asset no
+viajó al bundle, el botón bajo la barra de estado. Están en
+**[`11_SEPARACION_IOS_ANDROID.md`](11_SEPARACION_IOS_ANDROID.md) §8bis**, con la causa medida de
+cada una.
+
+**La regla, corta:** si tocaste cómo se pinta, se carga o suena algo, **ábrelo en el emulador Y en
+el simulador**. Compilar no es verificar.

@@ -1,35 +1,79 @@
 [versions]
 agp = "9.3.0"
-kotlin = "2.2.10"
+# 🍏 Fase 5 (2026-07-27): 2.2.10 -> 2.3.21.
+# ⚠️ **NO se sube a 2.4.x y no es conservadurismo: KSP NO EXISTE para Kotlin 2.4** (medido:
+# 0 versiones de com.google.devtools.ksp en la linea 2.4), y este proyecto NECESITA KSP para
+# Hilt y para Room. 2.3.21 es el techo real hoy, y ademas es justo lo que desbloquea Ktor.
+kotlin = "2.3.21"
 coreKtx = "1.17.0"
 junit = "4.13.2"
 junitVersion = "1.3.0"
 espressoCore = "3.7.0"
 lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.12.4"
-composeBom = "2024.09.00"
-# Room 2.7.0 es la primera versión compatible con KSP2 y Kotlin 2.x
-roomVersion = "2.7.0"
+# 🍏 Fase 5: salto grande (2024.09 -> 2026.06). El compilador de Compose lo aporta ahora el
+# plugin `kotlin.plugin.compose`, que va CLAVADO a la version de Kotlin.
+composeBom = "2026.06.01"
+# 🍏🥊 Compose MULTIPLATAFORMA (Fase 5). Es OTRA cosa que el `composeBom` de arriba: aquel trae
+# los artefactos `androidx.compose.*` (solo Android); este trae los `org.jetbrains.compose.*`, que
+# SÍ tienen klibs de iOS (verificado: runtime-iosarm64 1.11.1 -> HTTP 200).
+# En Android, CMP redirige a los artefactos de androidx, así que la app de Android NO cambia de
+# runtime: sigue usando el Compose de siempre. Por eso el BOM se queda donde está.
+composeMultiplatform = "1.11.1"
+# 🍏 Room 2.8.x = soporte KMP real (artefactos iosArm64 verificados). 2.7.0 fue la primera
+# compatible con KSP2/Kotlin 2.x; se sube para poder mover la BD a `:shared` (Fase 4).
+roomVersion = "2.8.4"
+# Driver SQLite empaquetado: es el que usa Room en iOS (en Android se sigue usando el del sistema).
+sqliteVersion = "2.6.0"
 preferenceKtx = "1.2.1"
 # Firebase Authentication (Google Sign-In) + plugin google-services
 firebaseBom = "33.5.1"
 playServicesAuth = "21.2.0"
 googleServices = "4.4.2"
-# Hilt (DI). ⚠️ CONFIRMAR/ajustar en el primer sync: la versión debe ser compatible con
-# Kotlin 2.2 + KSP2 (ksp 2.3.2) + AGP 9. Si el sync se queja, sube a la última 2.5x/2.6x de la
-# matriz Hilt del momento (Hilt usa KSP aquí, NO kapt). hilt-navigation-compose da hiltViewModel().
-hilt = "2.57.1"
+# Hilt (DI, por KSP — NO kapt). 2.60.1 se construye contra Kotlin 2.3.21: coincide EXACTO con el
+# nuestro, que es la combinacion mas segura. hilt-navigation-compose da hiltViewModel().
+hilt = "2.60.1"
 hiltNavigationCompose = "1.2.0"
+# 🍏 kotlinx.serialization (Fase 3). 1.9.0 es la última que NO exige subir Kotlin por encima
+# del 2.2.10 que usa el proyecto (la Fase 1 decidió no mover Kotlin todavía).
+kotlinxSerialization = "1.11.0"
+# 🍏 Fase 4. multiplatform-settings ENVUELVE el SharedPreferences que ya existe en Android
+# (SharedPreferencesSettings) -> los ajustes del jugador se conservan SIN migrar nada. En iOS usa
+# NSUserDefaults. Se eligio sobre DataStore (que recomendaba el plan) por eso y porque DataStore
+# es asincrono: obligaria a volver suspend ~60 lecturas que hoy son sincronas.
+multiplatformSettings = "1.3.0"
+# Ktor sustituye a OkHttp (WebSocket del multijugador). Motor OkHttp en Android, Darwin en iOS.
+#
+# ⚠️ **NO SUBAS DE 3.3.3 MIENTRAS KOTLIN SIGA EN 2.2.10.** Medido en el Mac (2026-07-27) leyendo
+# el `default/manifest` de las klibs publicadas en Maven Central:
+#   Ktor 3.4.0 y superiores -> abi_version=2.3.0 (compiladas con Kotlin 2.3.x)
+#   Ktor 3.3.3 y anteriores -> abi_version=2.2.0 (Kotlin 2.2.x)  <- la que soporta nuestro 2.2.10
+# La ABI de las klibs de Kotlin/Native NO es compatible hacia adelante: un compilador 2.2.10 no
+# puede leer una klib de ABI 2.3.0. Con 3.5.1 el build de iOS moria con un mensaje ENGAÑOSO,
+# "KLIB resolver: Could not find ...ktor-client-websockets...klib", que parece un fichero que falta
+# y en realidad es la libreria descartada por ABI incompatible.
+#
+# Esto NO se veia en Android: los artefactos JVM son bytecode y no tienen esa puerta de ABI. Por
+# eso 3.5.1 llevaba semanas "funcionando" en Windows. Cuando se suba Kotlin (Fase 5), esta version
+# sube con el, en el MISMO commit que AGP/KSP/Hilt/Compose.
+# 🍏 DESBLOQUEADO al subir Kotlin a 2.3.21 (Fase 5). Estuvo clavado en 3.3.3 porque las klibs de
+# Ktor >=3.4.0 son ABI 2.3.0 y el compilador 2.2.10 no las leia — con un error que MIENTE
+# ("KLIB resolver: Could not find ...klib" con el fichero presente). Ver _SESION_ACTUAL §3ter.
+ktor = "3.5.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "roomVersion" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "roomVersion" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "roomVersion" }
+androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqliteVersion" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
+# 🍏🥊 Lo usa el `actual` de Android de `PowViewModel` en `:shared` (aporta `viewModelScope`).
+# ⚠️ Va CLAVADO a 2.10.0: la 2.11.0 exige `compileSdk 37`.
+androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
@@ -51,11 +95,33 @@ play-services-auth = { group = "com.google.android.gms", name = "play-services-a
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hilt" }
 hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
+# 🍏 JSON multiplataforma (Fase 3). Vive en `:shared` y `:app` lo hereda por `api(...)`.
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+multiplatform-settings = { module = "com.russhwolf:multiplatform-settings", version.ref = "multiplatformSettings" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-websockets = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
 
 [plugins]
+# 🍏🥊 Compose Multiplatform (Fase 5): aporta los `compose.runtime`/`foundation`/`material3` con
+# klibs de iOS y la tarea de recursos (`compose.components.resources`).
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+# 🍏 KMP (Fase 1 de PLAN_MIGRACION_KMP.md). Van con la MISMA versión de Kotlin/AGP que ya usa
+# el proyecto: la Fase 1 NO sube Kotlin a propósito (decisión del dueño, 2026-07-27) para no
+# mover AGP/KSP/Hilt/Compose justo después de publicar la 1.0.0.14.
+# 🍏 Fase 5: para un modulo KMP con target Android, AGP 9 EXIGE este plugin en vez de
+# `com.android.library` (que ya no es compatible con `kotlin.multiplatform`).
+android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+# 🍏 Fase 3: sustituye a Gson, que usa reflexión de la JVM y NO existe en iOS. El plugin va con la
+# MISMA versión de Kotlin (lo genera el compilador), por eso `version.ref = "kotlin"`.
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-ksp = { id = "com.google.devtools.ksp", version = "2.3.2" }
+ksp = { id = "com.google.devtools.ksp", version = "2.3.10" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+# 🍏 Plugin de Room (Fase 4): necesario para generar el codigo de la BD en un modulo KMP.
+room = { id = "androidx.room", version.ref = "roomVersion" }

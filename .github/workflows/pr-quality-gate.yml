@@ -50,12 +50,24 @@ jobs:
           echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > PolitecnicoOpenWorld/secrets.properties
       # NOTA: no se escribe google-services.json a proposito -> el plugin google-services NO se aplica
       # (ver app/build.gradle.kts) y el proyecto compila/testea sin Firebase. Es lo que queremos en el gate.
-      # assembleDebug + testDebugUnitTest: (1) ARMA la app (compila, valida el grafo Hilt COMPLETO
-      # y el merge de manifest/recursos — cosas que los unit tests no cubren; clave tras la Etapa 4
-      # de DI), y (2) corre los tests de lógica pura. Ambos deben pasar para mergear.
+      # 🍏 GUARDA DE iOS QUE CORRE EN LINUX. Un nombre de test entre backticks con ( ) o ,
+      # compila en la JVM y **rompe Kotlin/Native**. Como aqui NO se compila iOS, sin esta
+      # comprobacion el unico modo de enterarse es abrir un Mac. Ya paso dos veces, la segunda
+      # con el gotcha ya documentado: documentarlo no basto, nada lo impedia mecanicamente.
+      # Es un grep: cuesta segundos y ahorra un viaje de ida y vuelta.
+      - name: Nombres de test compatibles con Kotlin/Native
+        working-directory: ./PolitecnicoOpenWorld
+        run: bash tools/check_kmp_test_names.sh
+      # assembleDebug ARMA la app (compila, valida el grafo Hilt COMPLETO y el merge de
+      # manifest/recursos — cosas que los unit tests no cubren), y los dos `test*` corren la
+      # logica pura. Todo debe pasar para mergear.
+      # ⚠️ LA TAREA DE `:shared` SE LLAMA `testAndroidHostTest`, NO `testDebugUnitTest`: cambio
+      # al pasar a `com.android.kotlin.multiplatform.library` (AGP 9 ya no admite
+      # `com.android.library` junto a KMP). Con el nombre viejo, Gradle dice 'task not found'.
+      # Si mueves mas dominio a `:shared` el reparto cambia; lo que importa es que la SUMA no baje.
       - name: Build debug APK + run unit tests
         working-directory: ./PolitecnicoOpenWorld
-        run: gradle :app:assembleDebug :app:testDebugUnitTest --stacktrace
+        run: gradle :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest --stacktrace
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v7
@@ -72,7 +84,8 @@ jobs:
   #   ./detekt-cli-1.23.8/bin/detekt-cli --create-baseline \
   #     --baseline PolitecnicoOpenWorld/config/detekt/baseline.xml \
   #     --config PolitecnicoOpenWorld/config/detekt/detekt.yml \
-  #     --build-upon-default-config --input PolitecnicoOpenWorld/app/src/main/java
+  #     --build-upon-default-config \
+  #     --input PolitecnicoOpenWorld/app/src/main/java,PolitecnicoOpenWorld/shared/src/commonMain/kotlin
   # Se usa la CLI (no el plugin Gradle) para NO tocar el build de la app (imposible romper assemble/bundle).
   detekt:
     runs-on: ubuntu-latest
@@ -103,7 +116,7 @@ jobs:
           "./detekt-cli-${DETEKT_VERSION}/bin/detekt-cli" \
             --config PolitecnicoOpenWorld/config/detekt/detekt.yml \
             --build-upon-default-config \
-            --input PolitecnicoOpenWorld/app/src/main/java \
+            --input PolitecnicoOpenWorld/app/src/main/java,PolitecnicoOpenWorld/shared/src/commonMain/kotlin \
             $BASELINE_ARG \
             --report sarif:detekt-results.sarif
       - name: Upload detekt SARIF

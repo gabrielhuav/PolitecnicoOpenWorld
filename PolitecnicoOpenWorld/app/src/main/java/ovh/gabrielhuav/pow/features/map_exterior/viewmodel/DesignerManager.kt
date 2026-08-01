@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.map.CollisionPolygon
 import ovh.gabrielhuav.pow.domain.models.map.CollisionWall
 import ovh.gabrielhuav.pow.domain.models.map.GeoNode

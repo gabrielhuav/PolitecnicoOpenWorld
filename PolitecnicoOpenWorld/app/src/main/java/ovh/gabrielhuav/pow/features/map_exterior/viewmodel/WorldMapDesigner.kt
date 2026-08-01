@@ -1,5 +1,10 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
+import ovh.gabrielhuav.pow.data.local.room.getInstance
+
+import kotlinx.serialization.encodeToString
+import ovh.gabrielhuav.pow.data.json.PowJson
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PARCIAL del WorldMapViewModel: MODO DISEÑADOR / LANDMARKS (carga desde Room,
 // siembra de default_landmarks.json, edición, import/export). Extraído de
@@ -10,12 +15,10 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 import android.content.Context
 import android.util.Log
 import androidx.lifecycle.viewModelScope
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.data.local.room.PowDatabase
 import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
 import ovh.gabrielhuav.pow.domain.models.map.Landmark
@@ -36,8 +39,7 @@ fun WorldMapViewModel.loadLandmarks(context: Context) {
             if (entities.isEmpty()) {
                 try {
                     val jsonString = context.assets.open("CONFIG/default_landmarks.json").bufferedReader().use { it.readText() }
-                    val type = object : TypeToken<List<LandmarkEntity>>() {}.type
-                    val defaultEntities: List<LandmarkEntity> = Gson().fromJson(jsonString, type)
+                    val defaultEntities: List<LandmarkEntity> = PowJson.decodeFromString<List<LandmarkEntity>>(jsonString)
                     dao.insertLandmarks(defaultEntities)
                     entities = dao.getAllLandmarks()
                     Log.d("WorldMapViewModel", "Mapa sembrado con éxito desde default_landmarks.json con ${entities.size} edificios.")
@@ -134,9 +136,10 @@ fun WorldMapViewModel.loadLandmarks(context: Context) {
             if (escomNavGraph == null) {
                 try {
                     val inputStream = context.assets.open("CONFIG/navgraphs/escom_navgraph.json")
-                    val reader = java.io.InputStreamReader(inputStream)
-                    escomNavGraph = normalizeNavGraph(Gson().fromJson(reader, ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph::class.java))
-                    reader.close()
+                    val texto = inputStream.reader().use { it.readText() }
+                    escomNavGraph = normalizeNavGraph(
+                        PowJson.decodeFromString<ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph>(texto),
+                    )
                 } catch (e: Exception) {
                     Log.e("WorldMapViewModel", "No se pudo cargar el navGraph de ESCOM al inicio", e)
                 }
@@ -317,7 +320,7 @@ fun WorldMapViewModel.exportLandmarksToUri(context: Context, uri: android.net.Ur
                     scaleY = lm.scaleY
                 )
             }
-            val jsonString = com.google.gson.Gson().toJson(entities)
+            val jsonString = PowJson.encodeToString(entities)
             context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                 outputStream.write(jsonString.toByteArray())
             }
@@ -332,8 +335,8 @@ fun WorldMapViewModel.importLandmarksFromUri(context: Context, uri: android.net.
         try {
             val inputStream = context.contentResolver.openInputStream(uri)
             val jsonString = inputStream?.bufferedReader().use { it?.readText() } ?: return@launch
-            val type = object : TypeToken<List<LandmarkEntity>>() {}.type
-            val importedEntities: List<LandmarkEntity> = Gson().fromJson(jsonString, type)
+            val importedEntities: List<LandmarkEntity> =
+                PowJson.decodeFromString<List<LandmarkEntity>>(jsonString)
             val dao = PowDatabase.getInstance(context).landmarkDao()
             val currentLandmarks = dao.getAllLandmarks()
             currentLandmarks.forEach { dao.deleteLandmark(it) }

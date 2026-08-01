@@ -1,7 +1,7 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import kotlinx.coroutines.flow.update
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.map.CharacterVisualConfig
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verifica contenido, idioma y duración de los 21 OGG finales con Whisper local."""
+"""Verifica contenido, idioma y duración de los 21 M4A finales con Whisper local."""
 
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ def main() -> int:
                 "text_similarity": None,
             })
             continue
-        audio = SOUNDS / f"special_{fighter.lower()}.ogg"
+        audio = SOUNDS / f"special_{fighter.lower()}.m4a"
         segments_iter, info = model.transcribe(
             str(audio),
             beam_size=5,
@@ -106,7 +106,7 @@ def main() -> int:
             row["fighter"]: {
                 "status": row["technical_status"],
                 "content_status": row["content_status"],
-                "file": row["output"],
+                "file": f"special_{row['fighter'].lower()}.m4a",
                 "duration_sec": row["duration_sec"],
                 "sha256": row["output_sha256"],
             }

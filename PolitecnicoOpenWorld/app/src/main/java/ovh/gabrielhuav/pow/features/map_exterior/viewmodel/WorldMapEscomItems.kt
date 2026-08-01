@@ -1,8 +1,12 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
+import kotlinx.serialization.encodeToString
+import ovh.gabrielhuav.pow.data.json.PowJson
+
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
+
 
 import android.content.Context
-import com.google.gson.Gson
 import kotlinx.coroutines.flow.update
 import ovh.gabrielhuav.pow.domain.models.map.MapWay
 
@@ -31,7 +35,7 @@ internal fun WorldMapViewModel.collectEscomItem() {
         val loc = _uiState.value.currentLocation ?: return
         val interactionRadius = 0.00015
         val itemToCollect = _escomItems.value.find {
-            distance(loc, org.osmdroid.util.GeoPoint(it.latitude, it.longitude)) <= interactionRadius
+            distance(loc, GeoPoint(it.latitude, it.longitude)) <= interactionRadius
         }
 
         if (itemToCollect != null) {
@@ -44,9 +48,10 @@ internal fun WorldMapViewModel.spawnDynamicCarInEscom(context: Context) {
         if (escomNavGraph == null) {
             try {
                 val inputStream = context.assets.open("CONFIG/navgraphs/escom_navgraph.json")
-                val reader = java.io.InputStreamReader(inputStream)
-                escomNavGraph = normalizeNavGraph(Gson().fromJson(reader, ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph::class.java))
-                reader.close()
+                val texto = inputStream.reader().use { it.readText() }
+                escomNavGraph = normalizeNavGraph(
+                    PowJson.decodeFromString<ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph>(texto),
+                )
             } catch (e: Exception) {
                 android.widget.Toast.makeText(context, getLocalizedString(ovh.gabrielhuav.pow.R.string.toast_error_escom_navgraph), android.widget.Toast.LENGTH_SHORT).show()
                 return

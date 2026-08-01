@@ -87,7 +87,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
-import com.google.gson.Gson
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import org.osmdroid.views.MapView
@@ -227,7 +226,6 @@ fun WorldMapScreen(
             }
         }
     }
-    val gson = remember { Gson() }
     val coroutineScope = rememberCoroutineScope()
     // REFACTOR: `yButtonHoldJob` se movió a WorldMapControls.kt (la pulsación larga de Y
     // vive ahora junto a los controles).
@@ -608,7 +606,6 @@ fun WorldMapScreen(
                     allCollectibles = allCollectibles,
                     cachingClient = cachingClient,
                     webViewRef = webViewRef,
-                    gson = gson,
                     coroutineScope = coroutineScope,
                     base64Cache = base64Cache,
                     widthCache = widthCache,

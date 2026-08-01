@@ -84,7 +84,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
 private val MB_RED = Color(0xFFC21D24)
-private const val BACKGROUND_MB_ASSET = "TRANSIT/METROBUS/inside.png"
+private const val BACKGROUND_MB_ASSET = "TRANSIT/METROBUS/inside.webp"
 
 @Composable
 fun MetrobusStationInteriorScreen(
@@ -110,8 +110,8 @@ fun MetrobusStationInteriorScreen(
     LaunchedEffect(BACKGROUND_MB_ASSET) {
         withContext(Dispatchers.IO) {
             try { context.assets.open(BACKGROUND_MB_ASSET).use { background = BitmapFactory.decodeStream(it)?.asImageBitmap() } } catch (_: Exception) {}
-            try { context.assets.open("TRANSIT/METROBUS/bus1.png").use { bus1Bitmap = BitmapFactory.decodeStream(it)?.asImageBitmap() } } catch (_: Exception) {}
-            try { context.assets.open("TRANSIT/METROBUS/bus2.png").use { bus2Bitmap = BitmapFactory.decodeStream(it)?.asImageBitmap() } } catch (_: Exception) {}
+            try { context.assets.open("TRANSIT/METROBUS/bus1.webp").use { bus1Bitmap = BitmapFactory.decodeStream(it)?.asImageBitmap() } } catch (_: Exception) {}
+            try { context.assets.open("TRANSIT/METROBUS/bus2.webp").use { bus2Bitmap = BitmapFactory.decodeStream(it)?.asImageBitmap() } } catch (_: Exception) {}
         }
     }
 
@@ -329,7 +329,6 @@ fun MetrobusStationInteriorScreen(
                                     else -> {}
                                 }
                             },
-                            onClaimCollectiblePressed = { viewModel.interactWithHotspot() }
                         )
                     }
                 }

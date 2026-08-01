@@ -4,7 +4,21 @@
 
 ## Menú principal / Main menu (`features/main_menu/`)
 
-### `viewmodel/MainMenuViewModel.kt` + `MainMenuState.kt`
+> 🍏 **Desde 2026-07-30 esta pantalla es MULTIPLATAFORMA.** `MainMenuScreen` vive en
+> `shared/commonMain` y la alimenta un **`MainMenuController`**: `AndroidMainMenuController`
+> (envuelve el `MainMenuViewModel` de Hilt que se describe abajo) o `IosMainMenuController`.
+>
+> Consecuencias que hay que tener presentes al editar esta sección:
+> - Lo que sigue (warm-up de servidores, multijugador, `BuildConfig.VERSION_NAME`) es **el lado
+>   Android**. En iOS esos métodos del controller no hacen nada, a propósito.
+> - **Los botones que se pintan los decide `PowModo.disponible()`**, no la pantalla: en iOS solo
+>   salen AJUSTES, COLECCIONABLES y HUELUM VS. GOYA.
+> - **La insignia PREALPHA/BETA y el número de versión NO se pintan en iOS** (`mostrarInsignias =
+>   false`, `versionName = null`): la App Store rechaza apps anunciadas como beta. No lo "arregles".
+>
+> Detalle del patrón en `11_SEPARACION_IOS_ANDROID.md` §4.
+
+### `viewmodel/MainMenuViewModel.kt` + `MainMenuState.kt` *(solo Android)*
 - `MainMenuState` incluye `mapProvider (default CARTO_VOYAGER)`, `showCacheWidget`, `showFpsWidget`,
   `showMultiplayerDialog`, `playerName`, estado del warm-up.
 - API: `onStartGame()`, `setMapProvider(provider)`, `toggleCacheWidget/FpsWidget`,
@@ -789,7 +803,17 @@ elegida. A diferencia de `updateInitialLocation` (gateada por `isLoadingLocation
 
 ## Coleccionables / Collectibles (`features/main_menu/`)
 
-- **`viewmodel/CollectiblesViewModel.kt`** (Activity-scoped, `Factory(context)`): lee
+> 🍏 **Multiplataforma desde 2026-07-29.** `CollectiblesViewModel`, `CollectibleRepository`, la
+> pantalla y el diálogo viven en `shared/commonMain`; Android conserva un adaptador Hilt pequeño.
+>
+> ⚠️ **Dos trampas ya pagadas en esta pantalla:**
+> 1. **El sembrado NO puede ser `@Insert(REPLACE)`**: borraría el progreso del jugador. Solo
+>    actualiza la columna de la ruta, conservando `isCollected`. Hay 5 tests que lo fijan.
+> 2. **Las tarjetas de PELEADOR no se pintan con `Image(atlas)`.** Su `assetPath` es un atlas de
+>    combate de hasta 2560×7680; encogido a 64 dp da un cuadro de puntos. Se recorta la celda 0 con
+>    `FighterPortrait`.
+
+- **`viewmodel/CollectiblesViewModel.kt`**: lee
   `CollectibleRepository.allCollectiblesFlow` → inventario reactivo.
 - **`ui/CollectiblesScreen.kt`**: pantalla de inventario (ruta `collectibles`). El botón inferior dice
   **"VOLVER"** (`R.string.menu_back`, antes `menu_return` = "VOLVER AL MENÚ"); diseño `Button` rojo
@@ -803,6 +827,20 @@ elegida. A diferencia de `updateInitialLocation` (gateada por `isLoadingLocation
 ---
 
 ## Ajustes / Settings (`features/settings/`)
+
+> 🍏 **Multiplataforma desde 2026-07-29.** `SettingsViewModel`, estado, categorías y UI viven en
+> `shared/commonMain` tras `SettingsController`. `SettingsSections.kt` (742 líneas) ya no existe:
+> `settings/ui/` son **11 ficheros, 1338 líneas, el mayor de 331** (medido 07-30).
+>
+> - **En iOS solo aparecen Interfaz y Audio.** Mapa/Controles/Gameplay se gatean con
+>   `PowModo.MUNDO_LIBRE.disponible()`; la sección Cuenta entra por un *slot* (`accountContent`)
+>   que en iOS va a `null` porque allí no hay Google Sign-In.
+> - **La clave `DEVELOPER_MODE` es la MISMA en las dos plataformas** y la comparte con el selector
+>   de peleadores. No escribas lógica de desbloqueo nueva: ya está conectada.
+> - ⚠️ **Cambiar el idioma no es igual en las dos.** Android hace `activity.recreate()`; iOS **no
+>   tiene eso**, y Compose Resources no expone API de locale. Se escribe `AppleLanguages` en
+>   `NSUserDefaults` y se rehace el árbol de Compose. Ambas entran por el mismo callback
+>   `onLanguageApplied`. Detalle en `11_SEPARACION_IOS_ANDROID.md` §8bis.
 
 ### Modelos
 ```kotlin

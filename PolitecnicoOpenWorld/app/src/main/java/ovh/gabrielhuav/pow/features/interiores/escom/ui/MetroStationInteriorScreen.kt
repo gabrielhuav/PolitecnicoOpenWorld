@@ -83,7 +83,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerAction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
 
-private const val BACKGROUND_ASSET_PATH = "TRANSIT/METRO/inside.png"
+private const val BACKGROUND_ASSET_PATH = "TRANSIT/METRO/inside.webp"
 
 @Composable
 fun MetroStationInteriorScreen(
@@ -367,7 +367,6 @@ fun MetroStationInteriorScreen(
                                     else -> {} // B y Y no tienen uso en Metro
                                 }
                             },
-                            onClaimCollectiblePressed = { viewModel.interactWithHotspot() }
                         )
                     }
                 }

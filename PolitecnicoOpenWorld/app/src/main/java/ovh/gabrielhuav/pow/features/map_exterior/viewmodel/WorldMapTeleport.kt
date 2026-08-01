@@ -1,5 +1,9 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
+import ovh.gabrielhuav.pow.data.json.jsonOf
+
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
+
 // ───────────────────────────────────────────────────────────────────────────────────
 // PARCIAL del WorldMapViewModel: TELETRANSPORTE (gate de TP del mundo abierto + estaciones
 // de Metro/Metrobús). Extraído de WorldMapViewModel.kt en el refactor de tamaño. El ESTADO
@@ -60,7 +64,7 @@ fun WorldMapViewModel.teleportTo(lat: Double, lon: Double) {
         }
         return
     }
-    val newLocation = org.osmdroid.util.GeoPoint(lat, lon)
+    val newLocation = GeoPoint(lat, lon)
     // Limpia los NPCs locales de la zona vieja: se regeneran cuando la nueva zona
     // esté completamente lista (ver gate del game loop). Sin esto quedaban NPCs
     // "fantasma" de la zona anterior mientras cargaba la nueva.
@@ -92,7 +96,7 @@ fun WorldMapViewModel.teleportTo(lat: Double, lon: Double) {
     webSocketManager?.let { ws ->
         viewModelScope.launch(Dispatchers.IO) {
             clearedPolice.forEach { pid ->
-                try { ws.sendMessage(gson.toJson(mapOf("type" to "POLICE_DESTROY", "npcId" to pid))) } catch (_: Exception) {}
+                try { ws.sendMessage(jsonOf(mapOf("type" to "POLICE_DESTROY", "npcId" to pid))) } catch (_: Exception) {}
             }
         }
     }

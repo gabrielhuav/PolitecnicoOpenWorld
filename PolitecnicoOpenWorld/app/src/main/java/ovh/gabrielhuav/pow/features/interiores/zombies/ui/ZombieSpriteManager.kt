@@ -35,10 +35,10 @@ object ZombieSpriteManager {
                     val suffix = when (frameIndexZeroBased % STALKER_ATTACK_COUNT) {
                         0 -> "A"; 1 -> "B"; 2 -> "C"; else -> "D"
                     }
-                    "SPRITES/ZOMBIE/Z5$suffix.png"
+                    "SPRITES/ZOMBIE/Z5$suffix.webp"
                 } else {
                     val i = (frameIndexZeroBased % STALKER_WALK_COUNT) + 1
-                    "SPRITES/ZOMBIE/Z$i.png"
+                    "SPRITES/ZOMBIE/Z$i.webp"
                 }
             }
         }

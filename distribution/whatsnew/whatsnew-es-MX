@@ -1,7 +1,7 @@
-POW 1.0.0.14
+POW 1.0.0.15
 
-• Multijugador: ahora los dos jugadores ESCUCHAN lo mismo, no solo ven lo mismo.
-• Peleas en línea más rápidas: conexión directa entre teléfonos cuando la red lo permite.
-• Mejoras de estabilidad en Bluetooth y Wi-Fi local.
-• Gatillos ahora disponibles en los 5 interiores.
-• Mejoras de estabilidad.
+• Mejoramos la IA de Huelum vs. Goya: pelea con más iniciativa y usa su SUPER ART al llenar la barra.
+• La SUPER ART ahora conecta, causa daño y muestra mejor su animación.
+• Selector más nítido, sin "?" y con música estable.
+• Optimizamos imágenes y rendimiento en gama baja.
+• Esta versión prepara la base compartida para iOS; App Store y crossplay siguen en desarrollo.

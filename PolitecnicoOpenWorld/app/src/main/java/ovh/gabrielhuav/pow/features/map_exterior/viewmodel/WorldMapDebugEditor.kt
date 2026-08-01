@@ -1,12 +1,14 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
+import kotlinx.serialization.encodeToString
+import ovh.gabrielhuav.pow.data.json.PowJson
+
 import android.content.Context
 import android.util.Log
 import androidx.lifecycle.viewModelScope
-import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.map.CollisionPolygon
 import ovh.gabrielhuav.pow.domain.models.map.CollisionWall
 import ovh.gabrielhuav.pow.domain.models.map.GeoNode
@@ -60,7 +62,7 @@ fun WorldMapViewModel.exportDebugEditsToUri(context: Context, uri: android.net.U
             } + edits.debugEditNavCar.map { path ->
                 DebugNavPath(false, path.map { GeoNode(it.latitude, it.longitude) })
             }
-            val json = Gson().toJson(DebugCollisionsExport(polygons, walls, navPaths))
+            val json = PowJson.encodeToString(DebugCollisionsExport(polygons, walls, navPaths))
             context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
         } catch (e: Exception) {
             Log.e("WorldMapViewModel", "Error al exportar el JSON de colisiones editadas", e)
@@ -75,7 +77,7 @@ fun WorldMapViewModel.importDebugEditsFromUri(context: Context, uri: android.net
         try {
             val input = context.contentResolver.openInputStream(uri)
             val jsonString = input?.bufferedReader().use { it?.readText() } ?: return@launch
-            val data = Gson().fromJson(jsonString, DebugCollisionsExport::class.java) ?: return@launch
+            val data = PowJson.decodeFromString<DebugCollisionsExport>(jsonString) ?: return@launch
             val navPed = data.navPaths.filter { it.isForPeople }
                 .map { p -> p.points.map { GeoPoint(it.lat, it.lon) } }
             val navCar = data.navPaths.filter { !it.isForPeople }

@@ -4,7 +4,7 @@
   <CurrentIssues>
     <ID>ComplexCondition:CachingWebViewClient.kt$CachingWebViewClient$url.contains("tile") || url.contains("/vt/") || url.contains("MapServer") || url.contains("cartocdn") || url.contains("arcgisonline") || url.contains("opentopomap")</ID>
     <ID>UnusedParameter:GameControllers.kt$onClaimCollectiblePressed: () -&gt; Unit // &lt;--- Parámetro recibido</ID>
-    <ID>UnusedParameter:PrankedyManager.kt$PrankedyManager$now: Long = System.currentTimeMillis()</ID>
+    <ID>UnusedParameter:PrankedyManager.kt$PrankedyManager$now: Long = ahoraPrankedy()</ID>
     <ID>UnusedParameter:WorldMapCampaignPolice.kt$door: GeoPoint</ID>
     <ID>UnusedParameter:WorldMapCampaignPolice.kt$playerLoc: GeoPoint</ID>
     <ID>UnusedParameter:WorldMapMission2.kt$now: Long</ID>

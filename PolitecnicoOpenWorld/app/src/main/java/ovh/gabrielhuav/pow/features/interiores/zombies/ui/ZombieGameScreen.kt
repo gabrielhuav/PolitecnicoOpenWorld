@@ -312,7 +312,9 @@ fun ZombieGameScreen(
         val campus = ovh.gabrielhuav.pow.domain.models.map.CampusParkingCatalog.forAsset(room.backgroundAsset)
             ?: return@LaunchedEffect
         val calib = withContext(Dispatchers.IO) {
-            ovh.gabrielhuav.pow.domain.models.map.CampusParkingCatalog.loadCalibration(context, campus)
+            // Ya no recibe `Context`: lee por `PowAssets`, la costura multiplataforma. Sigue
+            // siendo el mismo archivo de `assets/` y el mismo AssetManager por debajo.
+            ovh.gabrielhuav.pow.domain.models.map.CampusParkingCatalog.loadCalibration(campus)
         }
         parkAngle = calib.headingDeg
         parkOffX = calib.offsetXFrac
@@ -568,7 +570,7 @@ fun ZombieGameScreen(
                     if (bpX != null && bpY != null && !state.mission2BackpackTaken && onScreen(bpX, bpY)) {
                         val bpSize = 64f * cam.scale
                         StoryGroundSprite(
-                            assetPath = "CAMPAIGN/MISSION2/mochila_prankedy.png",
+                            assetPath = "CAMPAIGN/MISSION2/mochila_prankedy.webp",
                             sizePx = bpSize,
                             fallbackEmoji = "🎒",
                             contentAlpha = if (state.mission2BackpackNearby) 1f else 0.88f,
@@ -588,7 +590,7 @@ fun ZombieGameScreen(
                     if (evX != null && evY != null && !state.mission3EvidenceTaken && onScreen(evX, evY)) {
                         val evSize = 48f * cam.scale
                         StoryGroundSprite(
-                            assetPath = "CAMPAIGN/MISSION3/evidencia_frasco.png",
+                            assetPath = "CAMPAIGN/MISSION3/evidencia_frasco.webp",
                             sizePx = evSize,
                             fallbackEmoji = "🧪",
                             contentAlpha = if (state.mission3EvidenceNearby) 1f else 0.88f,
@@ -744,7 +746,7 @@ fun ZombieGameScreen(
                     if (stX != null && stY != null && onScreen(stX, stY)) {
                         val canSize = 44f * cam.scale
                         StoryGroundSprite(
-                            assetPath = "CAMPAIGN/MISSION2/lata_apestosa.png",
+                            assetPath = "CAMPAIGN/MISSION2/lata_apestosa.webp",
                             sizePx = canSize,
                             fallbackEmoji = "🥫",
                             modifier = Modifier.absoluteOffset(
@@ -1342,323 +1344,3 @@ fun ZombieGameScreen(
  * Pinta paredes / borra, guarda (persiste en collision_matrices.json y aplica en
  * caliente), resetea, y exporta/importa el JSON por SAF para copiarlo al servidor.
  */
-@Composable
-private fun DesignerToolbar(
-    target: DesignerTarget,
-    brush: DesignerBrush,
-    dirty: Boolean,
-    roomName: String,
-    hasSelectedDoor: Boolean,
-    gridCols: Int,
-    gridRows: Int,
-    onResize: (Int, Int) -> Unit,
-    onSelectTarget: (DesignerTarget) -> Unit,
-    onBrush: (DesignerBrush) -> Unit,
-    onSave: () -> Unit,
-    onReset: () -> Unit,
-    onExport: () -> Unit,
-    onImport: () -> Unit,
-    onExit: () -> Unit,
-    portrait: Boolean,
-    onToggleOrientation: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val isWaypoints = target == DesignerTarget.WAYPOINTS
-    // El panel del diseñador es intrusivo: se puede MOVER (asa, arrástrala) y CAMBIAR DE TAMAÑO
-    // (botones −/+, escala 0.5–1) para que no tape la sala mientras editas.
-    var offX by remember { mutableFloatStateOf(0f) }
-    var offY by remember { mutableFloatStateOf(0f) }
-    var scale by remember { mutableFloatStateOf(1f) }
-    // En pantallas BAJAS (landscape) el panel no cabía y se recortaban "Guardar"/"Exportar":
-    // limitamos su alto y lo hacemos DESPLAZABLE (scroll) para que SIEMPRE se alcancen todos.
-    val toolbarScroll = rememberScrollState()
-    val maxToolbarH = (LocalConfiguration.current.screenHeightDp * 0.9f).dp
-    Column(
-        modifier = modifier
-            .offset { IntOffset(offX.roundToInt(), offY.roundToInt()) }
-            .systemBarsPadding()
-            .graphicsLayer {
-                scaleX = scale; scaleY = scale
-                transformOrigin = TransformOrigin(0.5f, 1f)   // encoge desde abajo-centro
-            }
-            .padding(12.dp)
-            .heightIn(max = maxToolbarH)
-            // Más ANGOSTO (antes 0.96 = casi toda la pantalla, tapaba el mapa de lado a lado).
-            // Ocupa ~55% del ancho → deja libre la mayor parte del mapa para pintar la matriz.
-            .fillMaxWidth(0.55f)
-            .background(Color(0xFF1E1E24).copy(alpha = 0.95f), RoundedCornerShape(12.dp))
-            .border(1.dp, Color(0xFFD4AF37), RoundedCornerShape(12.dp))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // ─── ASA: arrastra para MOVER · toca para recentrar · −/+ cambia el TAMAÑO ──
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_move_handle),
-                color = Color(0xFFFFD54F), fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center, maxLines = 1,
-                modifier = Modifier
-                    .weight(1f)
-                    .background(Color(0x33FFFFFF), RoundedCornerShape(8.dp))
-                    .pointerInput(Unit) {
-                        detectDragGestures { _, drag ->
-                            offX += drag.x * scale
-                            offY += drag.y * scale
-                        }
-                    }
-                    .clickable { offX = 0f; offY = 0f }
-                    .padding(vertical = 6.dp)
-            )
-            // 🔁 Girar VERTICAL/HORIZONTAL (solo en diseñador). "↕" = pasar a vertical; "↔" = volver a
-            // horizontal. El juego es horizontal por ruta; esta es una excepción local del diseñador.
-            ToolButton(if (portrait) "↔" else "↕", false, Color(0xFF5C6BC0), Modifier.width(48.dp)) { onToggleOrientation() }
-            ToolButton("−", false, Color(0xFF37474F), Modifier.width(48.dp)) { scale = (scale - 0.1f).coerceIn(0.5f, 1f) }
-            ToolButton("+", false, Color(0xFF37474F), Modifier.width(48.dp)) { scale = (scale + 0.1f).coerceIn(0.5f, 1f) }
-        }
-        // CONTENIDO DESPLAZABLE = TODA la herramienta (selector, pincel PARED/BORRAR, tamaño,
-        // Guardar/Exportar/Salir). Scrollea junta; solo el asa "⠿ Mover" de arriba queda fija.
-        // El panel está acotado a maxToolbarH y es angosto/movible, así que cabe o se scrollea.
-        Column(
-            modifier = Modifier.weight(1f, fill = false).verticalScroll(toolbarScroll),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-        Text(
-            androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_designer_room, roomName.uppercase()),
-            color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold, fontSize = 12.sp
-        )
-        // Selector de objetivo: MATRIZ de colisión o WAYPOINTS (puertas).
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_matrix), !isWaypoints, Color(0xFF3A86FF), Modifier.weight(1f)) { onSelectTarget(DesignerTarget.MATRIX) }
-            ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_waypoints), isWaypoints, Color(0xFFD4AF37), Modifier.weight(1f)) { onSelectTarget(DesignerTarget.WAYPOINTS) }
-        }
-        Text(
-            if (isWaypoints)
-                (if (hasSelectedDoor) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_drag_door)
-                 else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_touch_door))
-            else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_grid_paint),
-            color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp
-        )
-        // ─── PINCEL + TAMAÑO DE LA MATRIZ (TODO dentro del MISMO scroll) ──────────────
-        // PARED (inaccesible) / BORRAR (caminable) y el resize (COL/FIL). Toda la herramienta
-        // scrollea JUNTA; solo el asa "⠿ Mover" de arriba queda fija para poder arrastrar siempre.
-        if (!isWaypoints) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_wall), brush == DesignerBrush.WALL, Color(0xFFD32F2F), Modifier.weight(1f)) { onBrush(DesignerBrush.WALL) }
-                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_occluder), brush == DesignerBrush.OCCLUDER, Color(0xFF4FC3F7), Modifier.weight(1f)) { onBrush(DesignerBrush.OCCLUDER) }
-                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_erase), brush == DesignerBrush.ERASE, Color(0xFF4CAF50), Modifier.weight(1f)) { onBrush(DesignerBrush.ERASE) }
-            }
-            Text(
-                androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_size_grid, gridCols, gridRows),
-                color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, fontWeight = FontWeight.Bold
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_col_minus), false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(-1, 0) }
-                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_col_plus), false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(1, 0) }
-                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_row_minus), false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, -1) }
-                ToolButton(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_row_plus), false, Color(0xFF3A86FF), Modifier.weight(1f)) { onResize(0, 1) }
-            }
-        }
-        } // ← cierra el Column SCROLLABLE: SOLO el bloque medio (selector/pincel/tamaño) scrollea
-        // ─── ACCIONES ANCLADAS abajo, SIEMPRE visibles (FUERA del scroll): Guardar/Reset y
-        // Exportar/Importar/Salir. Antes iban DENTRO del scroll y en horizontal (pantalla baja) se
-        // ocultaban → el usuario no podía exportar. Ahora quedan fijas pase lo que pase.
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(
-                onClick = onSave,
-                modifier = Modifier.weight(1f).height(40.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-                shape = RoundedCornerShape(8.dp)
-            ) { Text(if (dirty) androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_save_unsaved) else androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.int_save), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-            Button(
-                onClick = onReset,
-                modifier = Modifier.weight(1f).height(40.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
-                shape = RoundedCornerShape(8.dp)
-            ) { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_reset), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(
-                onClick = onExport,
-                modifier = Modifier.weight(1f).height(40.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
-                shape = RoundedCornerShape(8.dp)
-            ) { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_export), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-            Button(
-                onClick = onImport,
-                modifier = Modifier.weight(1f).height(40.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9C27B0)),
-                shape = RoundedCornerShape(8.dp)
-            ) { Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_import), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-            TextButton(onClick = onExit, modifier = Modifier.height(40.dp)) {
-                Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.ig_exit), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
-/** Sube por la cadena de ContextWrapper hasta la Activity (para fijar la orientación del diseñador). */
-private fun android.content.Context.findActivity(): android.app.Activity? {
-    var c: android.content.Context? = this
-    while (c is android.content.ContextWrapper) {
-        if (c is android.app.Activity) return c
-        c = c.baseContext
-    }
-    return null
-}
-
-@Composable
-private fun ToolButton(label: String, selected: Boolean, color: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        modifier = modifier.height(40.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = if (selected) color else Color(0xFF2A1C21)),
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Text(label, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-    }
-}
-
-// MODO HISTORIA · sprite de suelo (lata apestosa / mochila de la M2, frasco de evidencia de la M3…).
-// Carga el PNG del asset (submuestreado para gama baja), lo dibuja centrado al tamaño dado
-// conservando su aspecto y, si aún no carga, cae al emoji de respaldo. Reemplaza los emojis
-// 🥫/🎒/🧪 por assets propios (2026-07-10).
-@Composable
-private fun StoryGroundSprite(
-    assetPath: String,
-    sizePx: Float,
-    fallbackEmoji: String,
-    modifier: Modifier = Modifier,
-    contentAlpha: Float = 1f,
-) {
-    val context = LocalContext.current
-    val density = LocalDensity.current
-    var bmp by remember(assetPath) { mutableStateOf<ImageBitmap?>(null) }
-    LaunchedEffect(assetPath) {
-        bmp = withContext(Dispatchers.IO) {
-            try {
-                context.assets.open(assetPath).use {
-                    val o = android.graphics.BitmapFactory.Options().apply { inSampleSize = 2 }
-                    android.graphics.BitmapFactory.decodeStream(it, null, o)?.asImageBitmap()
-                }
-            } catch (e: Exception) { null }
-        }
-    }
-    val img = bmp
-    if (img != null) {
-        Image(
-            img,
-            contentDescription = null,
-            modifier = modifier.size(with(density) { sizePx.toDp() }).alpha(contentAlpha)
-        )
-    } else {
-        Text(
-            text = fallbackEmoji,
-            fontSize = with(density) { sizePx.toSp() },
-            modifier = modifier.alpha(contentAlpha)
-        )
-    }
-}
-
-// Llave del puzzle (ENCB_lab1) dibujada en el suelo. Carga el PNG del asset (submuestreado para
-// no gastar memoria en gama baja) y, si el jugador está sobre ella, la resalta con un aro dorado.
-@Composable
-private fun KeyGroundItem(assetPath: String, highlighted: Boolean, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    var bmp by remember(assetPath) { mutableStateOf<ImageBitmap?>(null) }
-    LaunchedEffect(assetPath) {
-        bmp = withContext(Dispatchers.IO) {
-            try {
-                context.assets.open(assetPath).use {
-                    val o = android.graphics.BitmapFactory.Options().apply { inSampleSize = 4 }
-                    android.graphics.BitmapFactory.decodeStream(it, null, o)?.asImageBitmap()
-                }
-            } catch (e: Exception) { null }
-        }
-    }
-    Box(modifier = modifier.size(44.dp), contentAlignment = Alignment.Center) {
-        if (highlighted) {
-            Box(
-                Modifier.size(44.dp).clip(CircleShape)
-                    .background(Color(0x66FFD54F))
-                    .border(2.dp, Color(0xFFFFD54F), CircleShape)
-            )
-        }
-        val img = bmp
-        if (img != null) {
-            Image(img, contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.cd_key), modifier = Modifier.size(if (highlighted) 40.dp else 34.dp))
-        } else {
-            Text("🔑", fontSize = 26.sp)
-        }
-    }
-}
-
-/** Celda '^' lista para redibujar: col/fila + la Y-base (inferior, mundo) del OBJETO al que pertenece. */
-private class OccluderCell(val col: Int, val row: Int, val anchorBottomY: Float)
-
-/** Agrupa las celdas '^' contiguas (4-conexo) en objetos y devuelve cada celda con la Y-base de su
- *  objeto. Asi un mueble alto ocluye como un todo segun su base. Se llama 1 vez por matriz (remember). */
-private fun computeOccluders(rows: List<String>, worldW: Float, worldH: Float): List<OccluderCell> {
-    if (rows.isEmpty() || worldW <= 0f || worldH <= 0f) return emptyList()
-    val numRows = rows.size
-    val numCols = rows.maxOf { it.length }.coerceAtLeast(1)
-    fun isOcc(r: Int, c: Int) = c < rows[r].length && rows[r][c] == '^'
-    val comp = Array(numRows) { IntArray(numCols) { -1 } }
-    val compMaxRow = ArrayList<Int>()
-    var nextComp = 0
-    for (r in 0 until numRows) {
-        for (c in 0 until numCols) {
-            if (!isOcc(r, c) || comp[r][c] != -1) continue
-            val id = nextComp++
-            var maxRow = r
-            val stack = ArrayDeque<Int>()
-            comp[r][c] = id
-            stack.addLast(r * numCols + c)
-            while (stack.isNotEmpty()) {
-                val cell = stack.removeLast()
-                val cr = cell / numCols; val cc = cell % numCols
-                if (cr > maxRow) maxRow = cr
-                val neigh = intArrayOf(cr - 1, cc, cr + 1, cc, cr, cc - 1, cr, cc + 1)
-                var i = 0
-                while (i < neigh.size) {
-                    val nr = neigh[i]; val nc = neigh[i + 1]; i += 2
-                    if (nr in 0 until numRows && nc in 0 until numCols && isOcc(nr, nc) && comp[nr][nc] == -1) {
-                        comp[nr][nc] = id
-                        stack.addLast(nr * numCols + nc)
-                    }
-                }
-            }
-            compMaxRow.add(maxRow)
-        }
-    }
-    if (nextComp == 0) return emptyList()
-    val cellH = worldH / numRows
-    val out = ArrayList<OccluderCell>()
-    for (r in 0 until numRows) {
-        for (c in 0 until numCols) {
-            val id = comp[r][c]
-            if (id < 0) continue
-            out.add(OccluderCell(c, r, (compMaxRow[id] + 1) * cellH))
-        }
-    }
-    return out
-}
-
-private fun computeCamera(
-    playerX: Float, playerY: Float, worldW: Float, worldH: Float,
-    viewW: Float, viewH: Float, zoom: Float
-): CameraTransform {
-    if (viewW <= 0f || viewH <= 0f) return CameraTransform(0f, 0f, 1f)
-    val fitScale = max(viewW / worldW, viewH / worldH)
-    val scale = fitScale * zoom
-    val scaledW = worldW * scale
-    val scaledH = worldH * scale
-    var offsetX = viewW / 2f - playerX * scale
-    var offsetY = viewH / 2f - playerY * scale
-    offsetX = if (scaledW <= viewW) (viewW - scaledW) / 2f else offsetX.coerceIn(viewW - scaledW, 0f)
-    offsetY = if (scaledH <= viewH) (viewH - scaledH) / 2f else offsetY.coerceIn(viewH - scaledH, 0f)
-    return CameraTransform(offsetX, offsetY, scale)
-}

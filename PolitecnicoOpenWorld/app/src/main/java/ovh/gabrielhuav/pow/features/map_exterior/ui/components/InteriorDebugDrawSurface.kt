@@ -19,7 +19,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.map.CollisionPolygon
 import ovh.gabrielhuav.pow.domain.models.map.CollisionWall
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.DebugEditTool

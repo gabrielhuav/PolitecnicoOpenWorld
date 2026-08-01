@@ -1,186 +1,192 @@
-# 🧠 MEMORIA COMPARTIDA ENTRE IAs — estado vivo del trabajo
+# 🧠 MEMORIA COMPARTIDA ENTRE IAs — estado vivo
 
-> ## Qué es este archivo
->
-> El proyecto lo trabajan **varias IAs distintas** (Opus, Fable, Sol, Gemini…) que **no
-> comparten memoria entre sí ni entre sesiones**. Cada una empieza de cero. Este archivo es el
-> **único punto de traspaso**: lo que esté aquí es lo que sabrá la siguiente; lo que no, se
-> pierde y se reinventa (o se alucina).
->
-> Por eso vale más que un changelog: es **memoria operativa**. No cuenta la historia del
-> proyecto — cuenta **en qué estado quedó todo y qué sigue**.
->
-> ## Reglas de mantenimiento (obligatorias)
->
-> 1. **Ventana de 2 DÍAS como máximo.** Solo vive aquí el trabajo de la sesión actual y, como
->    mucho, el de la anterior si sigue siendo relevante. **Todo lo que pase de 2 días se PURGA**
->    a `_ARCHIVO/HISTORIAL_sesiones_<AAAA-MM-DD>.md`, con un enlace desde aquí si hace falta.
-> 2. **Techo de 200 líneas.** Es lo primero que se lee en CADA sesión: cada KB de más se paga en
->    tokens siempre. Si crece, se poda — no se justifica, se poda.
-> 3. **Qué NO va aquí:** detalle de diseño (→ `SF/DISENO_ARCADE_SF_POW.md` o el doc del área),
->    historia de cómo se llegó a algo, ni nada que el código o `git log` ya digan.
-> 4. **Qué SÍ va aquí:** estado real medido, lo que está a medias, lo que está BLOQUEADO y en
->    quién, las trampas que costaron caro, y los datos que contradicen a otros docs.
-> 5. **Marca lo MEDIDO vs lo SUPUESTO.** Varios docs de este repo afirmaban cosas falsas
->    ("0 smells", "47 tests", "AAB 434 MiB"). Si lo verificaste, dilo; si no, dilo también.
->
-> ## Cómo cerrar una sesión (haz esto ANTES de quedarte sin tokens)
->
-> 1. Purga a `_ARCHIVO/` lo que ya pasó de la ventana de 2 días.
-> 2. Reescribe la sección de sesión con lo tuyo: qué cambió, qué se verificó y **qué falta**.
-> 3. Actualiza **PENDIENTE por prioridad**: lo que quede a medias tiene que estar ahí o se pierde.
-> 4. Comprueba que sigues bajo las 200 líneas.
->
-> **Regla de oro:** si te quedas sin tokens a media tarea, actualiza ESTE archivo ANTES de parar.
+> Único traspaso entre IAs. Ventana de 2 días; máximo 200 líneas. Aquí va estado medido,
+> trabajo abierto y trampas caras. Diseño e historia viven en los documentos de cada área.
 
-**Última actualización:** 2026-07-26 · Opus 5 · rama `fix-multiplayer`
-**Ventana viva:** 2026-07-26 → 2026-07-27 · *purgar a `_ARCHIVO/` a partir del 2026-07-28*
+**Última actualización:** 2026-08-01 · Sol 5.6 (Windows, escritorio) · rama `perf-gama-baja-coleccionables`
 
-> ➡️ **AHORA:** preparando el **release a Play** con el multijugador arreglado. El siguiente
-> cambio grande será de **arquitectura** (tocará mucho código), así que conviene publicar antes.
+> ➡️ **Release Android 1.0.0.15 listo para PR/merge a `main`.** El merge dispara
+> `.github/workflows/android-release.yml` y sube a Play `alpha` (prueba cerrada).
+>
+> **Android YA está verificado en emulador y arreglado.** Se probó ACTUALIZANDO encima de un build
+> de `main` con partida hecha, que es la prueba que vale: **saves, ajustes, idioma, sesión de
+> arcade y la BD sobreviven intactos**. Había **3 regresiones jugables** (música que rebobina,
+> preview borrosa, el `"?"` al elegir peleador): corregidas y medidas en `016e7406`.
+>
+> ✅ Corregidos idioma Android 13+ para `:shared`, el `"?"` del selector y la IA de SF: en IA vs IA
+> la barra llena fuerza SUPER ART; ahora impacta, daña, vacía la barra y dura ~1.8 s.
+> ✅ 142 PNG → WebP: 87.3 MB → 40.8 MB (ahorro 46.5 MB / 53.2 %); AAB local 353.15 MB.
+>
+> Release preparado: `versionName` **1.0.0.15**, notas ES+EN reescritas, `gh-pages` viva.
+> iOS **no bloquea**: el release es de Android. **285 tests = 119 app + 166 shared**, 0 fallos.
 
 ## 🖥️ Rutas por PC
 
-| PC | Raíz del PROYECTO (aquí están `gradlew.bat` y `tools/`) |
+| PC | Raíz del proyecto (`gradlew` y `tools/`) |
 |---|---|
-| **Laptop** (referencia) | `C:\Users\gabri\AndroidStudioProjects\PolitecnicoOpenWorld\PolitecnicoOpenWorld` |
-| **Escritorio** | *distinta — COMPLETAR con la real* |
+| Laptop | `C:\Users\gabri\AndroidStudioProjects\PolitecnicoOpenWorld\PolitecnicoOpenWorld` |
+| Escritorio (MEDIDO 07-29) | `C:\Users\gabri\Documents\GitHub Desktop\PolitecnicoOpenWorld\PolitecnicoOpenWorld` |
+| Mac | `/Users/gabrielhuav/Documents/GitHub/PolitecnicoOpenWorld/PolitecnicoOpenWorld` |
 
-Solo cambia el prefijo absoluto: todas las rutas de los docs son **relativas a la raíz**.
-El GEN de sprites vive FUERA del repo en `..\newSFAssets\GEN_*`.
+La carpeta es doble. Los docs usan rutas relativas a esta raíz. El GEN de sprites vive fuera,
+en `..\newSFAssets\GEN_*`. En Windows la ruta del escritorio lleva espacio: entrecomillarla.
+PC nueva: `SETUP_PC_NUEVA.md`; `gradle-wrapper.jar` y `secrets.properties` no viajan por Git.
 
-## 1. Organización
+## 1. Reglas vivas
 
-```
-README for IAS/
-  _SESION_ACTUAL.md      <- ESTE archivo. Empieza aquí SIEMPRE.
-  00_INDEX.md            índice / mapa de archivos
-  01_ARCHITECTURE.md     arquitectura compartida
-  02_DATA_LAYER.md       Room, DAOs, repos, red
-  07_OTHER_FEATURES.md   menú, ajustes, coleccionables
-  09_CONVENTIONS_GOTCHAS.md   ⚠️ OBLIGATORIO antes de tocar código
-  PLAYSTORE_formulario_seguridad_datos.md  🛡️ ANTES de tocar la ficha o subir versión
-  MUNDO/                 🌎 mundo libre POW
-  SF/                    🥊 "Huelum vs. Goya" (empieza por SF/00_SF_INDEX.md)
-  _ARCHIVO/              histórico YA EJECUTADO. Referencia, NO tareas.
-```
+- Leer `00_INDEX.md`, `09_CONVENTIONS_GOTCHAS.md` y `10_ARQUITECTURA_SEPARACION.md`.
+  **Si el cambio toca las DOS plataformas, `11_SEPARACION_IOS_ANDROID.md` es obligatorio** —
+  ahí están el árbol de decisión, las 10 costuras y las trampas que solo se ven en el simulador.
+- `PowJson` imita Gson a propósito. `encodeToString(Map)` compila y falla en runtime: usar
+  `jsonOf`/`jsonArrayOf`. No cambiar saves ni la ruta Android de la BD.
+- `SfArcadeRepository` conserva la migración `putStringSet` → JSON `_V2`, el `"null"` literal
+  de `mapFile` y el borrado de clave al escribir null. Ya no usa `org.json`; tiene tests V1.
+- Kotlin queda en **2.3.21**: KSP no existe para 2.4. AGP 9 usa
+  `android.builtInKotlin=true`; tests shared = `testAndroidHostTest`.
+- `iosX64` queda fuera: Compose MP 1.11.1 no publica ese target.
+- Los nombres de tests de `commonTest` no pueden contener `(`, `)` o `,`; ejecutar
+  `bash tools/check_kmp_test_names.sh`.
+- En parciales, los campos viven en la clase y nunca se repite allí una función del parcial:
+  ganaría la clase en silencio. Ver `10_ARQUITECTURA_SEPARACION.md` **§4**.
 
-## 2. A quién delegar
+## 2. iOS — estado medido
 
-| Dificultad | IA | Cuándo |
-|---|---|---|
-| **Alta** | **Sol 5.6** · **Fable 5** | Refactors grandes, varios módulos, sistemas nuevos, algo que ya falló dos veces, slicer/packer. |
-| **Media** | **Opus 4.8 / 5** | Features acotadas, auditorías, `tools/`, bug localizado, un solo módulo. |
-| **Baja** | **Gemini 3.6** | Regenerar assets con pipeline existente, recortes de audio con instrucciones exactas, aplicar CSV, tareas repetitivas. |
+- Assets en el bundle: `assets/STREETFIGHTER/` y `assets/SPRITES/COLLECTIBLES/`. **Del resto de
+  `SPRITES/` (104 MB) no entra nada**: es del mundo abierto, que en iOS no existe.
+- No quitar el `dependsOn("assemble*MainResources")` de `shared/build.gradle.kts`: sin él faltan
+  `composeResources` de Main y la app se cierra desde una corrutina.
+- No tocar `Info.plist`, fase `rsync`, `ENABLE_USER_SCRIPT_SANDBOXING = NO` ni la ruta del bundle.
+- `CADisableMinimumFrameDurationOnPhone` debe seguir en `Info.plist`.
+- Pelea real verificada en simulador: selección, ronda completa, audio, pausa, minimizar,
+  cerrar/reabrir y reanudar snapshot de `NSUserDefaults`.
+- Offline común; BT/LAN/WebRTC siguen Android-only. iOS **JUEGA** Ajustes, Coleccionables y SF, y
+  desde el 07-30 **pinta** además los 3 modos del mundo marcados EN OBRAS. `PowModos.kt` manda:
+  `disponible()` = se juega · `sePinta()` = aparece el botón. No los confundas.
+- **Sin insignias PREALPHA/BETA**: `IosMainMenuController` devuelve `mostrarInsignias = false` y
+  `versionName = null` porque la App Store las rechaza. En Android se quedan.
 
-**Antes de delegar:** rutas absolutas, comando exacto, cómo se verifica, y qué NO tocar.
+## 2bis. 🍏 Trampas de iOS que solo se ven en el simulador
 
-## 3. Sesión 2026-07-26 (Opus 5) — audio en red + P2P + puerta de Play
+Las cinco del 07-30 (idioma, assets fuera del bundle, atlas mal pintado, `\'` sin des-escapar,
+`systemBarsPadding`) están explicadas con su causa medida en **`11_SEPARACION_IOS_ANDROID.md` §8bis**.
+El detalle de aquella sesión se purgó a `_ARCHIVO/HISTORIAL_sesiones_2026-07-30.md`.
 
-**Compilado, 131 tests verdes, detekt sin issues nuevos, `bundleRelease` OK.**
+## 2ter. 🌎 Mundo abierto a iOS — fases 1, 2, 3 (parcial), 5 (parcial) y 6
 
-### A · Audio del rival sincronizado (BT + LAN + online)
-**Causa:** `applyRemoteSnapshot` asigna `sim.p1.state` DIRECTO, saltándose `changeState()`, que
-es donde vive TODO el audio → el rival peleaba **mudo**. **Trampa:** los packs eligen con
-`.random()`, así que disparar el audio localmente habría sonado un clip DISTINTO en cada lado.
-- **VIAJAN** (campo `audio` nuevo y opcional en `SfNetMsg`): voces de ataque/dolor/poder/
-  victoria/derrota/intro/metamorfosis + chasquido del **parry**.
-- **SE DERIVAN** del `state` (`emitRemoteStateSfx`): whoosh, aterrizaje, mareo.
-- **NO se tocan** los impactos `*-hit`: ya sonaban en ambos lados.
-- ✅ **El relay NO necesita redeploy por esto:** hace `{...msg}` (server.js:314).
+**Plan, medidas y orden de ataque: `12_PLAN_MUNDO_ABIERTO_iOS.md`.** Aquí solo lo que hay que
+saber sin abrirlo:
 
-### B · P2P por WebRTC (Render = "GameRanger")
-`SfWebRtcClient` **decora** al relay: camino caliente (`PLAYER_STATE`/`PLAYER_DAMAGE`/
-`PLAYER_READY`) DIRECTO; plano de control (salas, selección, revancha, `ROUND_ENDED`/
-`MATCH_ENDED`) por el relay, porque el server los AGREGA o los DIFUNDE. **Sin TURN**: si el
-hole punching falla (~20-30%) cae solo al relay → **gratis de por vida**.
-- ⚠️ `MultiplayerSF/server.js` requiere REDEPLOY (4 casos `SIGNAL_*`), pero **la app es SEGURA
-  de subir ANTES**: con el server viejo los `SIGNAL_*` se ignoran y todo sigue por el relay.
-- **Peso medido:** AAB **368.83 → 390.07 MiB** (+21.2). Límite 500 → margen ~110 MiB.
-  ⚠️ NO poner `abiFilters`: quitaría x86_64, que es el del emulador (AVD "Nexus").
+- ✅ **1 · Menús idénticos.** iOS pinta los 6 botones; los 3 del mundo salen **EN OBRAS**.
+  ⚠️ **`MODOS_EN_OBRAS_VISIBLES = false` antes de firmar para la App Store.** 7 tests lo fijan.
+  ⚠️ `disponible()` NO cambió (= "¿se juega?"). Lo nuevo es `sePinta()`, **solo para pintar**.
+- ✅ **2 · Dominio puro a `commonMain`**: 22 archivos. El paquete es idéntico → ningún import cambió.
+  Patrón a repetir: `java.lang.Math` → `kotlin.math`, `Context` → `PowAssets`, `UUID` → `kotlin.uuid`.
+- 🟡 **3 · Gestores de IA: 3 de 6.** La clave fue **`PowMapaConcurrente`** (mapa + `PowCerrojo`),
+  que sustituye a `ConcurrentHashMap` **conservando la semántica**: migrar es cambiar el tipo y 4
+  nombres, no rehacer ~50 accesos donde el compilador no avisa si te dejas uno. 14 tests.
+  🐞 Al tipar la API salió un **crash latente**: `ConcurrentHashMap.get(null)` lanza NPE y se
+  buscaba con `policeCarId` (`String?`). Corregido.
+  ⚠️ Falta `NpcAiManager` (988) + 2 parciales: **van juntos** y usan `CopyOnWriteArrayList`.
+- 🟡 **5 · Solo el HUD.** `JoystickController` + `ActionButtonsController` de `commonMain`: **los
+  MISMOS controles que Android**. A/B/X/Y avisan "pendiente del ViewModel".
+  🔴 ⚠️ **`Modifier.scale()` NO encoge un control: los botones dejan de responder.** Transforma el
+  dibujo, no el área táctil. Los controles aceptan `tamano` real (iOS: 100 dp) y son proporcionales.
+  🔗 **El VM está BLOQUEADO por la fase 4**: `WorldMapState` → `CampaignObjective` →
+  `@StringRes Int` → 42 strings sin migrar. Cadena y orden de ataque en el doc 12.
+- 🟡 **6 · El mapa se ve, se camina y las bardas frenan.** `UIKitView` mete el `WKWebView` en
+  Compose; `PuenteMapaIos` (Kotlin → JS) llama a las mismas funciones que Android.
+  ⚠️ `UIKitView` exige `@OptIn(ExperimentalForeignApi)` **y** `import kotlinx.cinterop.readValue`.
+  ⚠️ Cada llamada JS va con `if (typeof f === 'function')`: si el HTML aún no cargó, `WKWebView`
+  **se traga el ReferenceError sin log** y el mapa se queda quieto sin que nadie sepa por qué.
+  ⚠️ Falta la **VUELTA** del puente (JS → Kotlin): haría falta `WKScriptMessageHandler`.
 
-### C · Auditoría pre-producción — 4 defectos REALES corregidos
-1. **Pérdida de daño:** el DataChannel estaba NO fiable; `PLAYER_DAMAGE` es evento ÚNICO →
-   canal **fiable y ordenado**.
-2. **⚡ Tirón en gama baja:** `PeerConnectionFactory.initialize()` (11 MB nativos) corría en
-   **Main** → movido a hilo de trabajo, con buffer de señalización.
-3. **Carrera en PARTIDA RÁPIDA:** el server manda `OPPONENT_JOINED` al host ANTES que
-   `ROOM_JOINED` al invitado → nuevo `SIGNAL_READY`.
-4. **`@Volatile`** en `channel`/`peer`/`factory` (se escriben en hilos de WebRTC).
+## 3bis. ✅ Android verificado en emulador (07-31) — MEDIDO, no estimado
 
-### D · CI: puerta de cumplimiento de Play (job `play-compliance`)
-Bloquea la subida si se repite un rechazo de 2026-07-22: comprueba que **existe `gh-pages`**,
-que las **2 URLs de políticas dan 200** (no 404), que traen el **correo correcto** y no el
-equivocado, y que están las **notas de versión** ES+EN. `playstore-closed-testing` depende de él.
+Detalle completo y rutas de la máquina: **`PROMPT_SOL_release_hoy_y_webp.md`**.
 
-### E · Gatillos L1/L2/R1/R2 opcionales (mundo + LOS 5 INTERIORES)
-Ajustes → Interfaz, **OFF por defecto** (en el mundo aún no tienen acción; `onPress` vacío a
-propósito). `ui/components/NeonButton.kt`: `NeonButton`, `NeonTriggerPair` y `WithShoulderTriggers`
-(envoltorio que evita repetir el mismo Column en 5 pantallas). Con la opción apagada la columna
-envuelve un único hijo → **el HUD queda idéntico**.
-- ⚠️ **TRAMPA que costó una iteración:** el `LaunchedEffect` de `AppNavGraph` que refresca el
-  mundo tenía como claves SOLO `controlType`/`controlsScale`/`swapControls`. El interruptor vive
-  en **Interfaz**, no en Controles → nunca se relanzaba y los gatillos no aparecían. Si añades
-  otro ajuste que el mundo deba leer en vivo, **agrégalo a esas claves**.
-- Los interiores lo leen al crear su VM (se crean al entrar), así que ahí basta con eso.
+**Cómo se probó:** build de `main` instalado primero → partida hecha (idioma, Modo Dev, arcade a
+medias) → `adb install -r -d` con el de la rama **encima**. Instalar limpio no prueba migración.
 
-## 4. PENDIENTE — por prioridad
+| Riesgo | Resultado |
+|---|---|
+| Prefs (`pow_game_settings`, `APP_LANGUAGE`, `DEVELOPER_MODE`) | ✅ mismo archivo, mismas claves |
+| Sesión de arcade `_V2` (`pow_sf_arcade.xml`) | ✅ byte a byte; sale “Continuar pelea” |
+| `files/databases/pow_roads.db` | ✅ intacta, no se rehizo |
+| Menú (6 botones, insignias, **ningún EN OBRAS**) · Ajustes (6 categorías, Modo Dev) | ✅ |
+| Minimizar/volver en pelea | ✅ vuelve en PAUSA, sin crash |
 
-### 🔴 P0 · Antes/durante el release
-1. **Probar el multijugador en dispositivo:** que los 2 jugadores **oigan** lo mismo (tag
-   `SF-NET`). BT y LAN son lo que hay que validar sí o sí.
-2. **Redeploy de `MultiplayerSF/` en Render** para activar el P2P (no bloquea el release).
-   Con 2 teléfonos en redes distintas, buscar en logcat `SF-RTC`: `DataChannel → OPEN`.
+**3 regresiones jugables, arregladas en `016e7406`** (el commit las explica con su medida):
+música que **rebobinaba** por el catch-up de `ON_RESUME` de `LifecycleRegistry` + `reproducir()`
+que rebobina por contrato · **preview a 1/16 de píxeles** por perder `BitmapRegionDecoder` al
+portar (ahora el muestreo depende de la gama: normal 1, baja 4) · el **`"?"`** de ~300 ms porque
+`animate` está en la clave de la caché (ahora se rellena con la otra variante).
 
-### 🟠 P1 · AUDIO (trabajo activo)
-Ver `SF/PROMPT_traspaso_audio_subtitulos.md`:
-- **29 clips demasiado largos** para su evento → **Gemini 3.6** con segundos exactos del dueño.
-- **5 clips fuera de −16 ±2 LUFS** → **Gemini 3.6**.
-- **Faltan `attack`/`hurt`** en 6 peleadores → el dueño graba.
+✅ **Idioma de `:shared` corregido en Android 13+:** `LocaleManager.applicationLocales` +
+`android:localeConfig` alimentan a la vez `R.string` y Compose Resources. API 24-32 conserva el
+`Context` envuelto anterior. La lógica de SF/ajustes/coleccionables sigue en `commonMain`; iOS
+mantiene su costura `AppleLanguages` y reconstrucción del árbol.
 
-⚠️ **No repitas** el resumen que dice "100 % normalizados y sin faltantes": está medido y es
-**falso**. De los 80 `.ogg` solo **69 son voz**; 2 no pueden normalizarse sin comprimir.
+**Aceptado por el dueño para release:** la validación jugable se hizo manualmente antes del último
+ajuste de SUPER ART; su impacto/daño/tiempo quedó cubierto por pruebas KMP puras y se confirmará
+visualmente en la pista cerrada. Siguen como deuda la media hora de mundo y audio/interiores.
 
-### 🟡 P2 · Separación SF ↔ mundo abierto (medido 2026-07-26)
-**Casi limpia.** SF solo importa de fuera: `R`, `BuildConfig`, la capa de datos compartida
-(`SfArcadeRepository`, `SettingsRepository`, `AuthManager`) y su propio `domain.models.
-streetfighter`. **La única fuga real:** 6 imports de 3 widgets de UI que viven en el mundo
-abierto — `PowButton` (×4), `JoystickController`, `ActionButton`, todos en
-`features/map_exterior/ui/components/`. En sentido contrario solo `CollectiblesScreen` mira a SF.
-→ **Arreglo: mover esos 3 composables a un paquete de UI neutral.** Hacerlo CON el refactor de
-arquitectura, no antes de un release (es mecánico y lo verifica el compilador).
+**Release preparado:** `versionName` **1.0.0.15**, notas ES+EN, `gh-pages` viva y workflow revisado.
+Los 142 PNG restantes se convirtieron y sus referencias se actualizaron: 87,279,165 → 40,806,326
+bytes. `bundleRelease` pasó; AAB local **353,150,996 bytes** (353.15 MB), bajo 450/500 MB.
+`tools/.local/` quedó ignorado: el codec `cwebp` no se versiona.
 
-### 🟢 P2 · Animaciones congeladas (el arte se repite, no es bug de código)
-`stun-1==stun-2==stun-3` en los 18; `bonus-7/8/9/10` estáticos en `lapresidenta`;
-`run-4==run-5` en 4; `forwards-3==forwards-4` en 3; `throw-2==throw-3` en 3;
-`super-4==super-5` en `charronegro` y `senortienda`.
+## 4. PENDIENTE — prioridad
 
-### 🔵 P2b · Motor compartido — Fase 1 hecha y auditada; Fase 2a+2b hechas; sigue 2c
-Siguiente: núcleo de `updateStageConstraints` (empuje de pushboxes) → `SfPhysics`; luego el
-esqueleto `SfEngine` y modos como estrategia. **Exige sesión CON compilador.** Plan completo:
-`SF/PLAN_refactor_motor_compartido.md`. Historial: `_ARCHIVO/HISTORIAL_sesiones_2026-07-22.md`.
+### 🔴 P0
 
-### ⚪ P3 · Bloqueado en el dueño / deuda conocida
-- **Mapas UAM Azcapotzalco y Cuajimalpa:** faltan vídeos nuevos → `tools/build_map_backgrounds.py`.
-- **Arte V2 de La Presidenta + metamorfosis nuevas:** croma en `tools\_para_corregir\` sin importar.
-- **detekt NO está a 0:** 5 smells preexistentes (`CachingWebViewClient`, `NpcAiManager`,
-  `RoadRouter`, `CatSpriteManager` ×2). Varios docs dicen "0 smells" y es **falso**.
-- `07_OTHER_FEATURES.md` (87 KB) mezcla menú/ajustes con SF; su parte de SF debería migrar a `SF/`.
-- **Paparazzi 5** tiene un audio que es de Paparazzi 1; **Señor de la tienda** tiene un tramo con
-  voz de Prankedy; **La Tzitzimime** mal recortada. Los 3 requieren al dueño.
+1. **Publicar 1.0.0.15:** crear PR `perf-gama-baja-coleccionables` → `main` y fusionarlo. Revisar
+   `play-compliance`, AAB ~353 MB y `playstore-closed-testing` en track `alpha`.
+   ✅ Lo de §2bis ya se vio en Android: los tres arreglos heredados de `commonMain` (retrato en la
+   tarjeta, `\'` en inglés y `systemBarsPadding` en la ✕) están bien en el emulador.
+2. **Decisión del dueño — On-Demand Resources sí o no.** Bloquea la fase 4 en adelante del mundo
+   abierto en iOS: con el mundo el bundle son **399 MB** contra los **200 MB por datos móviles** de
+   Apple. Sin ODR, la app solo se baja por Wi-Fi. Datos en el doc 12 §0.
+3. **Fase 3 del mundo (gestores de IA).** Hacerla **en una máquina con emulador**: cambia
+   concurrencia de juego vivo, tiene 0 tests y en el Mac no hay AVD. Receta en el doc 12 §2.
+4. Probar multijugador en dos dispositivos: ambos deben oír lo mismo (`SF-NET`).
+5. Redeploy `MultiplayerSF/` en Render; con redes distintas buscar `SF-RTC: DataChannel → OPEN`.
 
-## 5. Verificación antes de cerrar CUALQUIER sesión
+### 🟠 P1 · audio
+
+`SF/PROMPT_traspaso_audio_subtitulos.md`: 29 clips largos y 5 fuera de −16 ±2 LUFS;
+faltan `attack`/`hurt` en 6 peleadores. Los SFX globales no se normalizan como voces.
+
+### 🟢 P2 · motor y arte
+
+- Continuar fase 2c (`SfEngine` + modos como estrategia):
+  `SF/PLAN_refactor_motor_compartido.md`.
+- Arte diferido de La Presidenta (fatality V2 y metamorfosis): requiere importar fuentes de
+  `tools/_para_corregir/`, extender packer y reempacar solo a ella.
+- Animaciones congeladas: `stun-1==2==3` en 18; otras repeticiones están medidas y requieren arte.
+
+### ⚪ P3 · dueño/deuda
+
+- Mapas UAM Azcapotzalco/Cuajimalpa: faltan vídeos.
+- Paparazzi 5 tiene audio de Paparazzi 1; Señor tienda contiene un tramo de Prankedy;
+  Tzitzimime requiere recorte humano. Ver prompt Gemini.
+- detekt mantiene 5 smells preexistentes; cualquier doc que diga 0 está desactualizado.
+
+## 5. Verificación al cerrar
 
 ```bash
-.\gradlew.bat compileDebugKotlin testDebugUnitTest
+./gradlew :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest
 ```
+
+Windows: `.\gradlew.bat`. Mac: fijar el JBR de Android Studio y añadir
+`:shared:iosSimulatorArm64Test :shared:linkDebugFrameworkIosSimulatorArm64`.
+Esperado Android: **285 = 119 app + 166 shared**, 0 fallos (medido en Windows 2026-08-01).
+En Mac conservar además `:shared:iosSimulatorArm64Test`. Si se toca `commonTest`, ejecutar el guard.
+
+Detekt CI desde la raíz exterior:
 
 ```bash
-..\detekt-cli-1.23.8\bin\detekt-cli.bat --config "config\detekt\detekt.yml" --input "app\src\main\java"
+./detekt-cli-1.23.8/bin/detekt-cli --config PolitecnicoOpenWorld/config/detekt/detekt.yml --build-upon-default-config --input PolitecnicoOpenWorld/app/src/main/java,PolitecnicoOpenWorld/shared/src/commonMain/kotlin --baseline PolitecnicoOpenWorld/config/detekt/baseline.xml
 ```
 
-⚠️ **NO** uses `--build-upon-default-config` en detekt: sube el conteo a 16 con reglas que el
-repo no adoptó. El baseline correcto son **5 smells preexistentes**.
-⚠️ **`testDebugUnitTest` son 131 tests** (docs viejos decían 47: dato stale).
-
-`git status` debe mostrar **solo** lo que tocaste. Y **actualiza este archivo** antes de terminar.
+Debe dar exit 0. El input incluye `shared`. Antes de push: `git status`, actualizar este archivo
+y hacer `git pull` inmediatamente antes del push.

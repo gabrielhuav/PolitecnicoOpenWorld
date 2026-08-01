@@ -5,7 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 
 /**
  * Tests del CUARTO manager con sub-estado propio (Etapa 3, manager 4/6 —

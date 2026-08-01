@@ -1,8 +1,12 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
     alias(libs.plugins.android.application) apply false
-    alias(libs.plugins.kotlin.android) apply false
+    // 🍏 Fase 5: `kotlin-android` retirado — AGP 9 trae Kotlin integrado.
     alias(libs.plugins.kotlin.compose) apply false
+    // 🍏 KMP: el classpath se declara aquí; se aplican en shared/ (ver PLAN_MIGRACION_KMP.md).
+    alias(libs.plugins.android.kmp.library) apply false
+    alias(libs.plugins.kotlin.multiplatform) apply false
+    alias(libs.plugins.kotlin.serialization) apply false
     // KSP debe declararse aquí también con apply false
     alias(libs.plugins.ksp) apply false
     // Hilt (DI) — se aplica en app/; el classpath del plugin se declara aquí con apply false.

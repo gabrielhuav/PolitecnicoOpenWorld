@@ -34,9 +34,9 @@ data class TransitSystemConfig(
     // ── Assets (rutas dentro de assets/) ──────────────────────────────────────────────────────
     /** Prefijo común, p. ej. "TRANSIT/METRO/". Los JSON de matriz/waypoints cuelgan de aquí. */
     val assetsPrefix: String,
-    /** Fondo del interior (inside.png suele estar bajo assetsPrefix). */
+    /** Fondo del interior (inside.webp suele estar bajo assetsPrefix). */
     val insideBackground: String,
-    /** Imagen del mapa de la red (¡ojo! metro=map.png, metrobús=mapa.png). */
+    /** Imagen del mapa de la red (¡ojo! metro=map.webp, metrobús=mapa.webp). */
     val mapImage: String,
     /** Sprites del vehículo (frame 1 entrando, frame 2 de fondo). Extensión variable (.webp/.png). */
     val vehicle1Asset: String,
@@ -102,8 +102,8 @@ object TransitSystems {
         key = "metro",
         systemName = "METRO",
         assetsPrefix = "TRANSIT/METRO/",
-        insideBackground = "TRANSIT/METRO/inside.png",
-        mapImage = "TRANSIT/METRO/map.png",
+        insideBackground = "TRANSIT/METRO/inside.webp",
+        mapImage = "TRANSIT/METRO/map.webp",
         vehicle1Asset = "TRANSIT/METRO/metro1.webp",
         vehicle2Asset = "TRANSIT/METRO/metro2.webp",
         spriteBaseDir = "SPRITES/PLAYER/",
@@ -139,10 +139,10 @@ object TransitSystems {
         key = "metrobus",
         systemName = "METROBÚS",
         assetsPrefix = "TRANSIT/METROBUS/",
-        insideBackground = "TRANSIT/METROBUS/inside.png",
-        mapImage = "TRANSIT/METROBUS/mapa.png",
-        vehicle1Asset = "TRANSIT/METROBUS/bus1.png",
-        vehicle2Asset = "TRANSIT/METROBUS/bus2.png",
+        insideBackground = "TRANSIT/METROBUS/inside.webp",
+        mapImage = "TRANSIT/METROBUS/mapa.webp",
+        vehicle1Asset = "TRANSIT/METROBUS/bus1.webp",
+        vehicle2Asset = "TRANSIT/METROBUS/bus2.webp",
         spriteBaseDir = "SPRITES/PLAYER/",   // "PRINCIPAL/" estaba VACÍO → jugador invisible; usar los sprites reales
         overlayVideoAsset = null,
         prefsPrefix = "metrobus_",

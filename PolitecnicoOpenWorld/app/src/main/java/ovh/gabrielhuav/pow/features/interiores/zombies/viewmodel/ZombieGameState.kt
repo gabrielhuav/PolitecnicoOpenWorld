@@ -79,11 +79,11 @@ data class ZombieGameState(
 
     // ─── MISIÓN 2 · SALÓN DE LA MOCHILA (escom_salon_m2) ────────────────────
     // Lata apestosa: al lanzarla (X), los NPCs ambientales EVACÚAN el salón; cuando queda vacío
-    // aparece la MOCHILA de Prankedy (asset CAMPAIGN/MISSION2/mochila_prankedy.png). Recogerla (X)
+    // aparece la MOCHILA de Prankedy (asset CAMPAIGN/MISSION2/mochila_prankedy.webp). Recogerla (X)
     // marca mission2BackpackTaken → ZombieGameScreen dispara onMission2BackpackRecovered (completa
     // la Misión 2 en el VM del mundo). Estos campos solo aplican en esa sala.
     val mission2StinkThrown: Boolean = false,
-    // Dónde CAYÓ la lata (asset CAMPAIGN/MISSION2/lata_apestosa.png, con su vapor integrado).
+    // Dónde CAYÓ la lata (asset CAMPAIGN/MISSION2/lata_apestosa.webp, con su vapor integrado).
     val mission2StinkX: Float? = null,
     val mission2StinkY: Float? = null,
     val mission2BackpackX: Float? = null,

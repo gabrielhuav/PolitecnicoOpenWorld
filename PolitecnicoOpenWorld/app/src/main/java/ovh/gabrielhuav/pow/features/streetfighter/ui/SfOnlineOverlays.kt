@@ -1,0 +1,736 @@
+package ovh.gabrielhuav.pow.features.streetfighter.ui
+
+import android.Manifest
+import android.app.Activity
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import ovh.gabrielhuav.pow.R
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfOnlineStatus
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterState
+import ovh.gabrielhuav.pow.ui.components.PowButton
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtDevice
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanGame
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfRoomSummary
+
+// ────────────────────────────────────────────────────────────────────────────
+// 🌐 OVERLAYS de MULTIJUGADOR (online, sala pública, Bluetooth y LAN)
+//
+// Menús y diálogos de conexión: crear/unirse a sala, cola pública con su lista de partidas,
+// petición de unirse con aprobación del host, reintento de Bluetooth y selector de dispositivo.
+// ⚠️ Los permisos de BT dependen de la versión de Android (btHostPerms/btScanPerms): en 12+ hasta
+// CANCELAR el discovery exige BLUETOOTH_SCAN. Ver el gotcha de 09 §12.
+//
+// Extraído de StreetFighterScreen.kt (4029 líneas) en el refactor de tamaño de la Fase 5.
+// Son composables/helpers TOP-LEVEL del mismo paquete: `internal` en vez de `private` para
+// que la Screen los siga viendo. Sin cambios de comportamiento.
+// ────────────────────────────────────────────────────────────────────────────
+
+internal fun btHostPerms(): Array<String> = if (Build.VERSION.SDK_INT >= 31) {
+    arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_ADVERTISE)
+} else {
+    emptyArray()
+}
+
+/** Permisos runtime de BUSCAR RIVAL (Android 12+): escanear + conectar. */
+internal fun btScanPerms(): Array<String> = if (Build.VERSION.SDK_INT >= 31) {
+    arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
+} else {
+    emptyArray()
+}
+
+/** Rama Android de los estados online; este fichero queda fuera de iOS. */
+@Composable
+internal fun AndroidSfOnlineStatusContent(
+    state: StreetFighterState,
+    theme: SfTheme,
+    lowEnd: Boolean,
+    controller: StreetFighterController,
+) {
+    when (state.onlineStatus) {
+        SfOnlineStatus.CONNECTING -> OnlineInfoOverlay(
+            title = stringResource(R.string.sf_mp_connecting_title),
+            subtitle = stringResource(
+                when {
+                    (state.btMode || state.lanMode) && state.btHandshaking ->
+                        R.string.sf_bt_handshake_sub
+                    state.lanMode -> R.string.sf_lan_connecting_sub
+                    state.btMode -> R.string.sf_bt_connecting_sub
+                    state.onlineWaking -> R.string.sf_mp_connecting_sub
+                    else -> R.string.sf_mp_connecting_fast
+                },
+            ),
+            onCancel = controller::cancelOnline,
+        )
+        SfOnlineStatus.WAITING_OPPONENT -> if (state.lanMode) {
+            val ips = state.lanLocalIps.ifEmpty { listOfNotNull(state.lanLocalIp) }
+            OnlineInfoOverlay(
+                title = stringResource(R.string.sf_lan_host_title),
+                subtitle = if (ips.isNotEmpty()) {
+                    stringResource(R.string.sf_lan_host_sub, ips.joinToString("  •  "))
+                } else {
+                    stringResource(R.string.sf_lan_no_ip)
+                },
+                onCancel = controller::cancelOnline,
+            )
+        } else if (state.btMode) {
+            OnlineInfoOverlay(
+                title = stringResource(R.string.sf_bt_host_title),
+                subtitle = stringResource(R.string.sf_bt_host_sub),
+                onCancel = controller::cancelOnline,
+            )
+        } else if (state.roomCode != null) {
+            OnlineInfoOverlay(
+                title = stringResource(R.string.sf_mp_room, state.roomCode ?: ""),
+                subtitle = stringResource(R.string.sf_mp_waiting_sub),
+                onCancel = controller::cancelOnline,
+            )
+        } else {
+            PublicQueueOverlay(
+                rooms = state.activeRooms,
+                queueCount = state.queueCount,
+                awaitingHost = state.awaitingJoinOk,
+                notice = state.queueNotice,
+                onJoinRoom = controller::requestJoinRoom,
+                onCancel = controller::cancelOnline,
+            )
+        }
+        SfOnlineStatus.SELECTING -> CharacterSelectOverlay(
+            fighters = controller.selectableFighters(),
+            lockedFighters = controller.lockedFighters(),
+            subtitle = stringResource(R.string.sf_mp_pick_sub, state.roomCode ?: ""),
+            onSelect = { controller.selectCharacter(it) },
+            lowEnd = lowEnd,
+            isActuallyUnlocked = controller::isFighterActuallyUnlocked,
+        )
+        SfOnlineStatus.WAITING_MAP -> if (state.isHost) {
+            StageSelectOverlay(
+                theme = theme,
+                unlockedMaps = if (controller.devUnlockAll()) null else controller.unlockedMaps(),
+                onSelect = controller::chooseMapOnline,
+                onBack = null,
+                lowEnd = lowEnd,
+            )
+        } else {
+            OnlineInfoOverlay(
+                title = stringResource(R.string.sf_mp_room, state.roomCode ?: ""),
+                subtitle = stringResource(R.string.sf_mp_host_choosing_map),
+                onCancel = controller::cancelOnline,
+            )
+        }
+        else -> Unit
+    }
+}
+
+/** Permisos, menús BT/LAN y errores locales: Android puro. */
+@Composable
+internal fun AndroidSfOnlinePlatformOverlays(
+    state: StreetFighterState,
+    showOnlineMenu: Boolean,
+    onShowOnlineMenuChange: (Boolean) -> Unit,
+    controller: StreetFighterController,
+) {
+    val context = LocalContext.current
+    var pendingBtAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val btEnableLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val action = pendingBtAction
+        pendingBtAction = null
+        if (result.resultCode == Activity.RESULT_OK) action?.invoke()
+    }
+    val whenBtEnabled: (() -> Unit) -> Unit = { action ->
+        val adapter =
+            (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+        when {
+            adapter == null -> Unit
+            adapter.isEnabled -> action()
+            else -> {
+                pendingBtAction = action
+                runCatching {
+                    btEnableLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+                }
+            }
+        }
+    }
+    val btPermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { grants ->
+        val action = pendingBtAction
+        pendingBtAction = null
+        if (grants.values.all { it }) action?.invoke()
+    }
+    val withBtPerms: (Array<String>, () -> Unit) -> Unit = { permissions, action ->
+        val granted = Build.VERSION.SDK_INT < 31 || permissions.all {
+            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+        }
+        if (granted) {
+            whenBtEnabled(action)
+        } else {
+            pendingBtAction = { whenBtEnabled(action) }
+            btPermLauncher.launch(permissions)
+        }
+    }
+
+    if (showOnlineMenu && state.onlineStatus == SfOnlineStatus.OFF) {
+        OnlineMenuOverlay(
+            onCreate = {
+                onShowOnlineMenuChange(false)
+                controller.startOnline(create = true)
+            },
+            onJoin = { code ->
+                onShowOnlineMenuChange(false)
+                controller.startOnline(create = false, code = code)
+            },
+            onQuickMatch = {
+                onShowOnlineMenuChange(false)
+                controller.startOnlineQuick()
+            },
+            onBtHost = {
+                onShowOnlineMenuChange(false)
+                withBtPerms(btHostPerms()) {
+                    runCatching {
+                        context.startActivity(
+                            Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+                                .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300),
+                        )
+                    }
+                    controller.startBtHost()
+                }
+            },
+            onBtScan = {
+                onShowOnlineMenuChange(false)
+                withBtPerms(btScanPerms(), controller::startBtScan)
+            },
+            onLanHost = {
+                onShowOnlineMenuChange(false)
+                controller.startLanHost()
+            },
+            onLanJoin = { ip ->
+                onShowOnlineMenuChange(false)
+                controller.connectLanHost(ip)
+            },
+            lanDiscovered = state.lanDiscovered,
+            onLanScanStart = controller::startLanDiscovery,
+            onLanScanStop = controller::stopLanDiscovery,
+            onDismiss = { onShowOnlineMenuChange(false) },
+        )
+    }
+    if (state.btPicking) {
+        BtDevicePickerOverlay(
+            devices = state.btDevices,
+            onPick = controller::connectBtDevice,
+            onCancel = controller::cancelBtScan,
+        )
+    }
+    if (state.joinRequestPending) {
+        JoinRequestOverlay(
+            onAccept = { controller.respondJoin(true) },
+            onReject = { controller.respondJoin(false) },
+        )
+    }
+    if (state.btError != null && state.onlineStatus == SfOnlineStatus.OFF) {
+        BtRetryOverlay(
+            titleRes = if (state.lanMode) R.string.sf_lan_error_title else R.string.sf_bt_error_title,
+            error = state.btError ?: "",
+            hintRes = if (state.lanMode) R.string.sf_lan_error_hint else R.string.sf_bt_error_hint,
+            onRetry = {
+                val lanAddress = state.lanHostAddress
+                val btAddress = state.btRetryAddress
+                when {
+                    state.lanMode && lanAddress != null -> controller.connectLanHost(lanAddress)
+                    state.lanMode -> controller.startLanHost()
+                    btAddress != null ->
+                        withBtPerms(btScanPerms()) { controller.connectBtDevice(btAddress) }
+                    else -> withBtPerms(btHostPerms()) {
+                        runCatching {
+                            context.startActivity(
+                                Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+                                    .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300),
+                            )
+                        }
+                        controller.startBtHost()
+                    }
+                }
+            },
+            onCancel = controller::dismissBtError,
+        )
+    }
+}
+
+@Composable
+internal fun OnlineMenuOverlay(
+    onCreate: () -> Unit,
+    onJoin: (String) -> Unit,
+    onQuickMatch: () -> Unit,
+    onBtHost: () -> Unit,
+    onBtScan: () -> Unit,
+    onLanHost: () -> Unit,
+    onLanJoin: (String) -> Unit,
+    lanDiscovered: List<SfLanGame>,
+    onLanScanStart: () -> Unit,
+    onLanScanStop: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var code by remember { mutableStateOf("") }
+    var lanIp by remember { mutableStateOf("") }
+    // 🆕 (2026-07-26) Mientras el menú online está abierto, escucha balizas LAN (autodescubrimiento).
+    DisposableEffect(Unit) {
+        onLanScanStart()
+        onDispose { onLanScanStop() }
+    }
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color(0xF0101018)),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Con 3 secciones (online/BT/LAN) el menú puede exceder el alto en landscape → scroll
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()).padding(vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = stringResource(R.string.sf_mp_title),
+                color = Color(0xFFD4AF37),
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 3.sp,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            PowButton(text = stringResource(R.string.sf_mp_public), onClick = onQuickMatch)
+            Spacer(modifier = Modifier.height(10.dp))
+            PowButton(text = stringResource(R.string.sf_mp_create), onClick = onCreate)
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = { code = it.uppercase().take(4) },
+                    label = { Text(stringResource(R.string.sf_mp_code_label)) },
+                    singleLine = true,
+                    modifier = Modifier.width(140.dp),
+                    // Paridad con el tema vino/dorado del modo (no el M3 default morado)
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFD4AF37),
+                        unfocusedBorderColor = Color(0xFF6B1C3A),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = Color(0xFFD4AF37),
+                        focusedLabelColor = Color(0xFFD4AF37),
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                    ),
+                )
+                PowButton(
+                    text = stringResource(R.string.sf_mp_join),
+                    onClick = { if (code.length == 4) onJoin(code) },
+                    enabled = code.length == 4,
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            // ─── BLUETOOTH (sin internet): anfitrión visible / buscar al anfitrión ───
+            Text(
+                text = stringResource(R.string.sf_bt_section),
+                color = Color(0xFFD4AF37).copy(alpha = 0.8f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PowButton(text = stringResource(R.string.sf_bt_host), onClick = onBtHost)
+                PowButton(text = stringResource(R.string.sf_bt_scan), onClick = onBtScan)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            // ─── 🆕 SERVIDOR LOCAL (LAN): el jugador hostea su sala en la misma red Wi-Fi ───
+            Text(
+                text = stringResource(R.string.sf_lan_section),
+                color = Color(0xFFD4AF37).copy(alpha = 0.8f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            PowButton(text = stringResource(R.string.sf_lan_host), onClick = onLanHost)
+            Spacer(modifier = Modifier.height(10.dp))
+            // 🆕 (2026-07-26) AUTODESCUBRIMIENTO: partidas encontradas en la MISMA red Wi-Fi (sin
+            // teclear IP). Tocar una tarjeta se une directo por la IP de su baliza.
+            Text(
+                text = stringResource(R.string.sf_lan_discovered_label),
+                color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp, letterSpacing = 1.sp,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            if (lanDiscovered.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.sf_lan_searching),
+                    color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp,
+                )
+            } else {
+                lanDiscovered.forEach { game ->
+                    PowButton(text = "▶  ${game.name}", onClick = { onLanJoin(game.ip) })
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.sf_lan_or_ip),
+                color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = lanIp,
+                    onValueChange = { lanIp = it.trim() },
+                    label = { Text(stringResource(R.string.sf_lan_ip_label)) },
+                    singleLine = true,
+                    modifier = Modifier.width(180.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFD4AF37),
+                        unfocusedBorderColor = Color(0xFF6B1C3A),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = Color(0xFFD4AF37),
+                        focusedLabelColor = Color(0xFFD4AF37),
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                    ),
+                )
+                PowButton(
+                    text = stringResource(R.string.sf_mp_join),
+                    onClick = { if (lanIp.contains('.')) onLanJoin(lanIp) },
+                    enabled = lanIp.count { it == '.' } == 3, // IPv4 completa
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.sf_mp_cancel), color = Color(0xFFD4AF37)) }
+        }
+    }
+}
+
+@Composable
+internal fun OnlineInfoOverlay(title: String, subtitle: String, onCancel: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color(0xF0101018)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = title,
+                color = Color(0xFFD4AF37),
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 4.sp,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = subtitle,
+                color = Color.White.copy(alpha = 0.75f),
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(300.dp),
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            TextButton(onClick = onCancel) { Text(stringResource(R.string.sf_mp_cancel), color = Color(0xFFD4AF37)) }
+        }
+    }
+}
+
+// ------------------------------------------------------------------
+// LISTA DE ESPERA de la sala pública: resumen de partidas + salas activas
+// como tarjetas; las que están en 'waiting' (falta rival) son TOCABLES y
+// te unen directo (pendientes 2 y 3 del AUDIT: lista rica + refresh 5 s).
+// ------------------------------------------------------------------
+
+@Composable
+internal fun PublicQueueOverlay(
+    rooms: List<SfRoomSummary>,
+    queueCount: Int?,
+    awaitingHost: Boolean,
+    notice: String?,
+    onJoinRoom: (String) -> Unit,
+    onCancel: () -> Unit,
+) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color(0xF0101018)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = stringResource(R.string.sf_mp_queue_title),
+                color = Color(0xFFD4AF37),
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 4.sp,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(
+                    if (awaitingHost) R.string.sf_mp_awaiting_host else R.string.sf_mp_queue_sub,
+                ),
+                color = Color.White.copy(alpha = 0.75f),
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(300.dp),
+            )
+            // Aviso del lobby (p. ej. "el anfitrión rechazó tu solicitud")
+            notice?.let {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(text = it, color = Color(0xFFFFB74D), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+            // Resumen (LIST_ROOMS): null = aún sin datos del servidor
+            queueCount?.let { q ->
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = stringResource(R.string.sf_mp_rooms_summary, rooms.size, q),
+                    color = Color.White.copy(alpha = 0.55f),
+                    fontSize = 11.sp,
+                )
+            }
+            if (rooms.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    rooms.forEach { room ->
+                        RoomCard(room = room, enabled = !awaitingHost, onJoin = onJoinRoom)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            TextButton(onClick = onCancel) { Text(stringResource(R.string.sf_mp_cancel), color = Color(0xFFD4AF37)) }
+        }
+    }
+}
+
+@Composable
+internal fun RoomCard(room: SfRoomSummary, enabled: Boolean, onJoin: (String) -> Unit) {
+    // Solo se puede SOLICITAR entrar a salas en 'waiting' con hueco (el anfitrión decide)
+    val joinable = enabled && room.phase == "waiting" && room.players < 2
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (joinable) Color(0xFF6B1C3A) else Color(0xFF23233A))
+            .let { m -> if (joinable) m.clickable { onJoin(room.code) } else m }
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = room.code,
+            color = if (joinable) Color(0xFFD4AF37) else Color.White.copy(alpha = 0.6f),
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 2.sp,
+        )
+        Text(
+            text = stringResource(if (joinable) R.string.sf_mp_room_waiting else R.string.sf_mp_room_busy),
+            color = Color.White.copy(alpha = if (joinable) 0.9f else 0.5f),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+// ------------------------------------------------------------------
+// (HOST) Solicitud de unión pendiente — lobby estilo AoE2: el anfitrión
+// decide si el solicitante entra a la sala (ACEPTAR / RECHAZAR).
+// ------------------------------------------------------------------
+
+@Composable
+internal fun JoinRequestOverlay(onAccept: () -> Unit, onReject: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color(0xB3000000)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF1A1016))
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = stringResource(R.string.sf_mp_join_request),
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(280.dp),
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                PowButton(text = stringResource(R.string.sf_mp_accept), onClick = onAccept)
+                PowButton(
+                    text = stringResource(R.string.sf_mp_reject),
+                    onClick = onReject,
+                    color = Color(0xFF2A1C21),
+                )
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------
+// Falla de conexión BLUETOOTH: overlay BLOQUEANTE (consume los toques —
+// nada de tocar el selector de abajo por accidente) con el error claro
+// y REINTENTAR / CANCELAR. Cancelar es la ÚNICA salida al selector.
+// ------------------------------------------------------------------
+
+@Composable
+internal fun BtRetryOverlay(titleRes: Int, error: String, hintRes: Int, onRetry: () -> Unit, onCancel: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xF0101018))
+            .clickable(enabled = true, onClick = {}), // bloquea los toques hacia abajo
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = stringResource(titleRes),
+                color = Color(0xFFFFB74D),
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 3.sp,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = error,
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(320.dp),
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = stringResource(hintRes),
+                color = Color.White.copy(alpha = 0.55f),
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(320.dp),
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            PowButton(text = stringResource(R.string.sf_bt_retry), onClick = onRetry)
+            Spacer(modifier = Modifier.height(10.dp))
+            TextButton(onClick = onCancel) {
+                Text(stringResource(R.string.sf_mp_cancel), color = Color(0xFFD4AF37))
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------
+// Selector de anfitrión BLUETOOTH: emparejados + hallados por discovery.
+// ------------------------------------------------------------------
+
+@Composable
+internal fun BtDevicePickerOverlay(
+    devices: List<SfBtDevice>,
+    onPick: (String) -> Unit,
+    onCancel: () -> Unit,
+) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color(0xF0101018)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = stringResource(R.string.sf_bt_pick_title),
+                color = Color(0xFFD4AF37),
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 3.sp,
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = stringResource(R.string.sf_bt_pick_sub),
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(300.dp),
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            if (devices.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.sf_bt_none),
+                    color = Color.White.copy(alpha = 0.55f),
+                    fontSize = 12.sp,
+                )
+            } else {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    devices.forEach { dev ->
+                        Column(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFF6B1C3A))
+                                .clickable { onPick(dev.address) }
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                text = dev.name,
+                                color = Color(0xFFD4AF37),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                            )
+                            Text(
+                                text = dev.address,
+                                color = Color.White.copy(alpha = 0.6f),
+                                fontSize = 9.sp,
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            TextButton(onClick = onCancel) { Text(stringResource(R.string.sf_mp_cancel), color = Color(0xFFD4AF37)) }
+        }
+    }
+}
+
+/** Reduce el bitmap a `targetW` px (nearest, sin filtro) → efecto PIXELADO al re-escalarlo grande. */
+

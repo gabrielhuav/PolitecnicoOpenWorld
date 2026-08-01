@@ -2,27 +2,42 @@
 
 ## Qué es / What it is
 
-**ES:** POW es un juego Android 2D *top-down* sobre **mapas reales** (OpenStreetMap). El jugador
+**ES:** POW es un juego 2D *top-down* sobre **mapas reales** (OpenStreetMap). El jugador
 camina/conduce por calles reales (foco: ESCOM / Zacatenco, CDMX), comparte el mundo con NPCs
 procedurales (peatones + vehículos) y con otros jugadores vía servidor en tiempo real. El campus
 de ESCOM aloja un **minijuego de supervivencia zombi** con interiores y combate melee/ranged.
+Además trae **"Huelum vs. Goya"**, un modo de pelea 1v1 estilo arcade.
 
-**EN:** POW is an Android 2D top-down game over **real-world maps** (OpenStreetMap). The player
+**EN:** POW is a 2D top-down game over **real-world maps** (OpenStreetMap). The player
 walks/drives real streets (focus: ESCOM / Zacatenco, Mexico City), shares the world with
 procedural NPCs (pedestrians + vehicles) and other players over a real-time server. The ESCOM
-campus hosts a **zombie survival minigame** with interiors and melee/ranged combat.
+campus hosts a **zombie survival minigame** with interiors and melee/ranged combat. It also ships
+**"Huelum vs. Goya"**, an arcade-style 1v1 fighting mode.
 
-## Tres proyectos / Three projects
+> 🍏 **Ya no es "un juego Android".** Desde 2026-07-30 el modo pelea (con menú, Ajustes y
+> Coleccionables) **corre también en iOS**, desde el mismo código Kotlin. El mundo abierto sigue
+> siendo solo-Android y es trabajo futuro. Qué corre dónde: `00_INDEX.md` → "Qué corre en cada
+> plataforma". Dónde tocar cada cosa: **`11_SEPARACION_IOS_ANDROID.md`**.
+
+## Los módulos y los proyectos hermanos
 
 ```text
-.
-├── PolitecnicoOpenWorld/   # Cliente Android (Kotlin + Compose)  ── este repo
-├── Multiplayer/            # Servidor open world (Node.js + ws, v3, dockerizado)
-└── MultiplayerInteriores/      # Servidor minijuego zombi (zombis autoritativos, dockerizado)
+PolitecnicoOpenWorld/        ── este repo
+├── shared/                  # 🔷 Kotlin Multiplatform: el juego. Android + iOS
+│   └── src/{commonMain,androidMain,iosMain}/
+├── app/                     # 🤖 La app Android (consume :shared)
+└── iosApp/                  # 🍏 El proyecto Xcode (consume :shared como framework)
+
+Multiplayer/                 # Servidor open world (Node.js + ws, v3, dockerizado)
+MultiplayerInteriores/       # Servidor minijuego zombi (zombis autoritativos, dockerizado)
+MultiplayerSF/               # Servidor del multijugador de pelea
 ```
 
-> Los dos directorios de servidor son hermanos del proyecto Android; pueden no estar en todos los
-> checkouts. / The two server dirs are siblings of the Android project; may be absent in some checkouts.
+> Los directorios de servidor son **hermanos** del proyecto, no submódulos; pueden no estar en todos
+> los checkouts. / The server dirs are siblings of the project; may be absent in some checkouts.
+>
+> ⚠️ **`shared/` y `app/` no son intercambiables.** La regla de qué va en cada uno está en
+> `10_ARQUITECTURA_SEPARACION.md` §2 y, con árbol de decisión, en `11_SEPARACION_IOS_ANDROID.md` §2.
 
 ## MVVM (contrato — síguelo al añadir código / contract — follow when adding code)
 

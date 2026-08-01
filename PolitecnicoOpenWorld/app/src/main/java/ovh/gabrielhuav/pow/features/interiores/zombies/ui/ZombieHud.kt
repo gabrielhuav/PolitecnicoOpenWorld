@@ -203,7 +203,6 @@ fun ZombieHud(
                                 GameAction.Y -> if (pressed) onSecondaryPressed() else onSecondaryReleased()
                             }
                         },
-                        onClaimCollectiblePressed = { onInteract() }
                     )
                 }
             }

@@ -1,5 +1,10 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
+import kotlinx.serialization.encodeToString
+import ovh.gabrielhuav.pow.data.json.PowJson
+import ovh.gabrielhuav.pow.data.json.jsonArrayOf
+import ovh.gabrielhuav.pow.data.json.jsonOf
+
 import android.content.Context
 import android.webkit.WebView
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,7 +13,6 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
-import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -48,7 +52,6 @@ internal fun WebMapLayer(
     allCollectibles: List<ActiveCollectible>,
     cachingClient: CachingWebViewClient,
     webViewRef: MutableState<WebView?>,
-    gson: Gson,
     coroutineScope: CoroutineScope,
     base64Cache: MutableMap<String, String>,
     widthCache: MutableMap<String, Float>,
@@ -67,7 +70,7 @@ internal fun WebMapLayer(
     lastWebPoliceHolder: BooleanArray,
     lastWebZombieHolder: BooleanArray,
 ) {
-                val collectiblesJson = remember(allCollectibles) { gson.toJson(allCollectibles) }
+                val collectiblesJson = remember(allCollectibles) { PowJson.encodeToString(allCollectibles) }
                 AndroidView(
                     factory = { ctx ->
                         WebView(ctx).apply {
@@ -363,7 +366,7 @@ internal fun WebMapLayer(
                             }
                         }
 
-                        wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs(${gson.toJson(npcPayloads)});", null)
+                        wv.evaluateJavascript("if(typeof updateNpcs==='function')updateNpcs(${PowJson.encodeToString(npcPayloads)});", null)
                         } // fin guard web: lista de NPCs sin cambios → no se reenvía al WebView
 
                         // BURBUJAS 💬 de "platica" (remate Misión 2): se envían CADA frame (fuera del
@@ -372,7 +375,7 @@ internal fun WebMapLayer(
                         val talkPayload = uiState.npcs
                             .filter { it.talkingUntil > nowBubble }
                             .map { mapOf("id" to it.id, "lat" to it.location.latitude, "lng" to it.location.longitude) }
-                        wv.evaluateJavascript("if(typeof updateTalkBubbles==='function')updateTalkBubbles(${gson.toJson(talkPayload)});", null)
+                        wv.evaluateJavascript("if(typeof updateTalkBubbles==='function')updateTalkBubbles(${jsonArrayOf(talkPayload)});", null)
 
                         wv.evaluateJavascript("if(typeof updateCollectibles==='function')updateCollectibles(${JSONObject.quote(collectiblesJson)});", null)
 
@@ -396,7 +399,7 @@ internal fun WebMapLayer(
                                 assetPath = it.assetPath
                             )
                         }
-                        val landmarksJson = gson.toJson(landmarksPayload)
+                        val landmarksJson = PowJson.encodeToString(landmarksPayload)
                         wv.evaluateJavascript("if(typeof updateLandmarks==='function')updateLandmarks(${JSONObject.quote(landmarksJson)});", null)
                         } // fin guard landmarks web (solo se reenvían al cambiar / heartbeat)
 
@@ -409,7 +412,7 @@ internal fun WebMapLayer(
                             val metroPayload = uiState.metroStations.map {
                                 mapOf("name" to it.name, "lat" to it.location.latitude, "lng" to it.location.longitude)
                             }
-                            wv.evaluateJavascript("if(typeof updateMetro==='function')updateMetro(${JSONObject.quote(gson.toJson(metroPayload))});", null)
+                            wv.evaluateJavascript("if(typeof updateMetro==='function')updateMetro(${JSONObject.quote(jsonArrayOf(metroPayload))});", null)
                         }
                         // 🚌 ESTACIONES DE METROBÚS: igual que el metro (antes el web no las marcaba).
                         webMetrobusTick[0]++
@@ -418,7 +421,7 @@ internal fun WebMapLayer(
                             val metrobusPayload = uiState.metrobusStations.map {
                                 mapOf("name" to it.name, "lat" to it.location.latitude, "lng" to it.location.longitude)
                             }
-                            wv.evaluateJavascript("if(typeof updateMetrobus==='function')updateMetrobus(${JSONObject.quote(gson.toJson(metrobusPayload))});", null)
+                            wv.evaluateJavascript("if(typeof updateMetrobus==='function')updateMetrobus(${JSONObject.quote(jsonArrayOf(metrobusPayload))});", null)
                         }
                         if (uiState.showRoadNetwork) {
                             val roadsPayload = roadNetwork.map { way ->
@@ -428,7 +431,7 @@ internal fun WebMapLayer(
                                     "nodes" to way.nodes.map { mapOf("lat" to it.lat, "lon" to it.lon) }
                                 )
                             }
-                            val roadsJson = gson.toJson(roadsPayload)
+                            val roadsJson = jsonArrayOf(roadsPayload)
                             wv.evaluateJavascript("if(typeof updateRoads==='function')updateRoads(${JSONObject.quote(roadsJson)});", null)
                         } else {
                             wv.evaluateJavascript("if(typeof updateRoads==='function')updateRoads('[]');", null)
@@ -469,7 +472,7 @@ internal fun WebMapLayer(
                                     ))
                                 } ?: emptyList()
                                 val ipObj = mapOf("paths" to paths, "blocks" to blocks, "walls" to walls)
-                                wv.evaluateJavascript("if(typeof updateInteriorPaths==='function')updateInteriorPaths(${JSONObject.quote(gson.toJson(ipObj))});", null)
+                                wv.evaluateJavascript("if(typeof updateInteriorPaths==='function')updateInteriorPaths(${JSONObject.quote(jsonOf(ipObj))});", null)
                             } else {
                                 wv.evaluateJavascript("if(typeof updateInteriorPaths==='function')updateInteriorPaths('{}');", null)
                             }
@@ -481,7 +484,7 @@ internal fun WebMapLayer(
                         if (uiState.destinationMarker != null && uiState.routeWaypoints.isNotEmpty() && uiState.showDestinationRoute) {
                             val currentLoc = uiState.currentLocation
                             if (currentLoc != null) {
-                                val routeJson = uiState.routeWaypoints.map { mapOf("lat" to it.latitude, "lng" to it.longitude) }.let { gson.toJson(it) }
+                                val routeJson = uiState.routeWaypoints.map { mapOf("lat" to it.latitude, "lng" to it.longitude) }.let { PowJson.encodeToString(it) }
                                 wv.evaluateJavascript("if(typeof updateDestinationRoute==='function')updateDestinationRoute(${currentLoc.latitude}, ${currentLoc.longitude}, $routeJson, true);", null)
                             }
                         } else wv.evaluateJavascript("if(typeof updateDestinationRoute==='function')updateDestinationRoute(0, 0, [], false);", null)
@@ -489,7 +492,7 @@ internal fun WebMapLayer(
                         // MODO HISTORIA: línea GPS roja de campaña (ENCB → ESCOM). Se dibuja/limpia
                         // según el estado; al llegar a ESCOM el VM la vacía y aquí se borra sola.
                         if (uiState.campaignRouteWaypoints.isNotEmpty()) {
-                            val campJson = uiState.campaignRouteWaypoints.map { mapOf("lat" to it.latitude, "lng" to it.longitude) }.let { gson.toJson(it) }
+                            val campJson = uiState.campaignRouteWaypoints.map { mapOf("lat" to it.latitude, "lng" to it.longitude) }.let { PowJson.encodeToString(it) }
                             wv.evaluateJavascript("if(typeof updateCampaignRoute==='function')updateCampaignRoute($campJson);", null)
                         } else wv.evaluateJavascript("if(typeof updateCampaignRoute==='function')updateCampaignRoute([]);", null)
 
@@ -512,7 +515,7 @@ internal fun WebMapLayer(
                                 mapOf("id" to it.id, "lat" to it.location.latitude, "lng" to it.location.longitude,
                                     "emoji" to if (it.type == NpcType.POLICE_COP) "👮" else "🚓")
                             }
-                            wv.evaluateJavascript("if(typeof updatePolice==='function')updatePolice(${plocW?.latitude ?: 0.0}, ${plocW?.longitude ?: 0.0}, ${gson.toJson(policePayload)});", null)
+                            wv.evaluateJavascript("if(typeof updatePolice==='function')updatePolice(${plocW?.latitude ?: 0.0}, ${plocW?.longitude ?: 0.0}, ${jsonArrayOf(policePayload)});", null)
                         }
 
                         // Waypoint del OBJETIVO (🎯) + línea jugador→objetivo (te indica a dónde ir).
@@ -539,7 +542,7 @@ internal fun WebMapLayer(
                             val zombiePayload = zombiesW.map {
                                 mapOf("id" to it.id, "lat" to it.location.latitude, "lng" to it.location.longitude)
                             }
-                            wv.evaluateJavascript("if(typeof updateZombies==='function')updateZombies(${plocW?.latitude ?: 0.0}, ${plocW?.longitude ?: 0.0}, ${gson.toJson(zombiePayload)});", null)
+                            wv.evaluateJavascript("if(typeof updateZombies==='function')updateZombies(${plocW?.latitude ?: 0.0}, ${plocW?.longitude ?: 0.0}, ${jsonArrayOf(zombiePayload)});", null)
                         }
 
                         // ─── PRANKEDY (compañero) en WEB ──────────────────────────────────

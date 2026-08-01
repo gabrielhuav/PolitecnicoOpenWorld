@@ -175,61 +175,6 @@ private fun DPadButton(icon: ImageVector, onClick: () -> Unit) {
 // ==========================================
 
 
-@Composable
-fun ActionButtonsController(
-    modifier: Modifier = Modifier,
-    backgroundAlpha: Float = 0.6f,
-    onActionChanged: (GameAction, Boolean) -> Unit,
-    onClaimCollectiblePressed: () -> Unit // <--- Parámetro recibido
-) {
-    Box(
-        modifier = modifier
-            .size(ControllerBaseSize)
-            .clip(CircleShape)
-            .background(Color.Black.copy(alpha = backgroundAlpha.coerceIn(0f, 1f))),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // Y - Amarillo
-            ActionButton(
-                text = "Y",
-                color = Color(0xFFF1C40F),
-                onHoldEvent = { isPressed -> onActionChanged(GameAction.Y, isPressed) }
-            )
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // X - Azul
-                ActionButton(
-                    text = "X",
-                    color = Color(0xFF3498DB),
-                    onHoldEvent = { isPressed ->
-                        // El ViewModel ya centraliza TODA la lógica de interacción (coches, gatos,
-                        // vendedores y coleccionables) al recibir GameAction.X.
-                        onActionChanged(GameAction.X, isPressed)
-                    }
-                )
-
-                Spacer(modifier = Modifier.size(48.dp))
-
-                // B - Rojo (Ataque Especial)
-                ActionButton(
-                    text = "B",
-                    color = Color(0xFFE74C3C),
-                    onHoldEvent = { isPressed -> onActionChanged(GameAction.B, isPressed) }
-                )
-            }
-
-            // A - Verde (Correr)
-            ActionButton(
-                text = "A",
-                color = Color(0xFF2ECC71),
-                onHoldEvent = { isPressed -> onActionChanged(GameAction.A, isPressed) }
-            )
-        }
-    }
-}
-
-
 // ==========================================
 // CONTROLES DE VEHÍCULO (MODO CONDUCCIÓN — MISMO DIAMANTE XBOX QUE A PIE)
 // ==========================================

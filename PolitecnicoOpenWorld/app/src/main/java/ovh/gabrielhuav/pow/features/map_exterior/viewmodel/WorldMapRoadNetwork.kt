@@ -7,7 +7,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import kotlin.math.floor
 
@@ -93,7 +93,7 @@ internal suspend fun WorldMapViewModel.applyRoadNetwork(network: List<MapWay>, p
         }
     }
 
-internal fun WorldMapViewModel.maybeRefetchRoadNetwork(currentLoc: org.osmdroid.util.GeoPoint) {
+internal fun WorldMapViewModel.maybeRefetchRoadNetwork(currentLoc: GeoPoint) {
         // DE-DUP (2026-06-21, par 5): sincronizado al MIEMBRO canónico de WorldMapViewModel.kt antes de
         // borrarlo. El miembro DIVERGÍA: reconstruye TODOS los índices (rebuildRoadNodeGrid + buildRoadGraph
         // = grid de routing + grafo A*) en vez de llamar updateVisibleRoads/spawnShineCTOMarker/

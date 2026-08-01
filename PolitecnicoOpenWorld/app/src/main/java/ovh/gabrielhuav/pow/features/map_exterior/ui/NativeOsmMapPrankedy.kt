@@ -73,7 +73,7 @@ internal fun renderPrankedyOnMap(
                 ?: emojiToDrawable(context, "🎭", exactPixels) // Fallback visible si falla asset
         }
         prankedyMarker.icon = icon
-        prankedyMarker.position = prankedyLoc
+        prankedyMarker.position = prankedyLoc.toOsm()
         prankedyMarker.isEnabled = true
         prankedyMarker.setAlpha(1f)
 
@@ -83,7 +83,7 @@ internal fun renderPrankedyOnMap(
             emojiToDrawable(context, "🎭", indicatorSize)
         }
         prankedyIndicatorMarker.icon = indicatorIcon
-        prankedyIndicatorMarker.position = prankedyLoc
+        prankedyIndicatorMarker.position = prankedyLoc.toOsm()
         // Indicador 🎭 flotante DESHABILITADO: que Prankedy se vea como un peatón más
         // (mismo tamaño, sin emoji gigante encima).
         prankedyIndicatorMarker.isEnabled = false

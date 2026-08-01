@@ -1,7 +1,9 @@
 package ovh.gabrielhuav.pow.data.repository
 
 import android.content.Context
-import com.google.gson.Gson
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import ovh.gabrielhuav.pow.data.json.PowJson
 import java.io.File
 
 // ─── PARTIDA COMPLETA DEL MODO HISTORIA (JSON, CON SLOTS) ─────────────────────
@@ -10,17 +12,23 @@ import java.io.File
 // sesión: escuela, posición (coordenadas), vida, nivel de búsqueda, vehículo, skin,
 // NPCs activos cercanos y el objetivo de la campaña. Permite tener varias partidas.
 
+// ⚠️⚠️ TODOS los campos LLEVAN VALOR POR DEFECTO, y no es por estilo: es lo que mantiene vivas
+// las partidas guardadas de los jugadores. Gson rellenaba solo los campos AUSENTES (null/0/false);
+// kotlinx.serialization, en cambio, LANZA EXCEPCIÓN si falta un campo sin default → la partida
+// NO CARGARÍA. Al migrar de Gson (Fase 3) se añadió default a los 11 que no lo tenían.
+// **Si añades un campo nuevo, dale SIEMPRE un default** o romperás los guardados existentes.
+@Serializable
 data class GameSaveData(
-    val schoolId: String,
-    val lat: Double,
-    val lon: Double,
-    val health: Float,
-    val wantedLevel: Int,
-    val isDriving: Boolean,
-    val isDrivingPoliceCar: Boolean,
-    val vehicleModel: String?,   // CarModel.name o null si va a pie
-    val vehicleColor: Int?,
-    val skin: String,            // PlayerSkin.name
+    val schoolId: String = "",
+    val lat: Double = 0.0,
+    val lon: Double = 0.0,
+    val health: Float = 0f,
+    val wantedLevel: Int = 0,
+    val isDriving: Boolean = false,
+    val isDrivingPoliceCar: Boolean = false,
+    val vehicleModel: String? = null,   // CarModel.name o null si va a pie
+    val vehicleColor: Int? = null,
+    val skin: String = "",              // PlayerSkin.name
     val nearbyNpcs: List<SavedNpc> = emptyList(),
     val objectiveId: String? = null,   // id del objetivo activo (MissionCatalog)
     val objectiveDone: Boolean = false,
@@ -49,18 +57,19 @@ data class GameSaveData(
     // Tipo de guardado: "MANUAL" (el jugador eligió slot) o "AUTO" (al salir/cerrar la app).
     // Nullable por compatibilidad con guardados antiguos (Gson los deja en null).
     val saveType: String? = null,
-    val savedAt: Long
+    val savedAt: Long = 0L,
 )
 
 // NPC "congelado" en el guardado: solo lo imprescindible para re-inyectarlo al cargar
 // (la IA lo adopta y vuelve a simularlo). Los campos de IA (trait, miedo…) no se guardan.
+@Serializable
 data class SavedNpc(
-    val id: String,
-    val type: String,   // NpcType.name
-    val lat: Double,
-    val lon: Double,
-    val health: Float,
-    val rotation: Float
+    val id: String = "",
+    val type: String = "",   // NpcType.name
+    val lat: Double = 0.0,
+    val lon: Double = 0.0,
+    val health: Float = 0f,
+    val rotation: Float = 0f,
 )
 
 // Resumen de un slot para pintar el menú de slots (sin exponer todo el JSON).
@@ -78,20 +87,19 @@ data class SaveSlotSummary(
 class SaveGameRepository(context: Context) {
 
     private val appContext = context.applicationContext
-    private val gson = Gson()
 
     private fun file(slot: Int): File = File(appContext.filesDir, "pow_campaign_save_$slot.json")
 
     /** Guarda (o sobrescribe) la partida del slot indicado. */
     fun save(slot: Int, data: GameSaveData) {
         if (slot !in 1..SLOT_COUNT) return
-        try { file(slot).writeText(gson.toJson(data)) } catch (_: Exception) {}
+        try { file(slot).writeText(PowJson.encodeToString(data)) } catch (_: Exception) {}
     }
 
     /** Lee la partida del slot, o null si no existe / está corrupta. */
     fun load(slot: Int): GameSaveData? = try {
         val f = file(slot)
-        if (f.exists()) gson.fromJson(f.readText(), GameSaveData::class.java) else null
+        if (f.exists()) PowJson.decodeFromString<GameSaveData>(f.readText()) else null
     } catch (_: Exception) { null }
 
     /** ¿El slot tiene una partida? */

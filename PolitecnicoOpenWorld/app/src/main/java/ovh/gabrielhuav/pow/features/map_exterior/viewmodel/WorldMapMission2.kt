@@ -3,7 +3,7 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import org.osmdroid.util.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog
 import ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2
 import ovh.gabrielhuav.pow.domain.models.map.CharacterVisualConfig

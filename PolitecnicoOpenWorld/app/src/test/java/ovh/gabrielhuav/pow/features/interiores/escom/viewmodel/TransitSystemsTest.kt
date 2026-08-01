@@ -42,9 +42,9 @@ class TransitSystemsTest {
 
     @Test
     fun map_image_filenames_differ_by_system() {
-        // Gotcha conocido: metro = map.png, metrobús = mapa.png.
-        assertEquals("TRANSIT/METRO/map.png", TransitSystems.METRO.mapImage)
-        assertEquals("TRANSIT/METROBUS/mapa.png", TransitSystems.METROBUS.mapImage)
+        // Gotcha conocido: metro = map.webp, metrobús = mapa.webp.
+        assertEquals("TRANSIT/METRO/map.webp", TransitSystems.METRO.mapImage)
+        assertEquals("TRANSIT/METROBUS/mapa.webp", TransitSystems.METROBUS.mapImage)
     }
 
     @Test

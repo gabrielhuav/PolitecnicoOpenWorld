@@ -1,5 +1,8 @@
 package ovh.gabrielhuav.pow.features.interiores.zombies.ui
 
+import kotlinx.serialization.encodeToString
+import ovh.gabrielhuav.pow.data.json.PowJson
+
 import android.content.Context
 import android.graphics.drawable.BitmapDrawable
 import androidx.compose.foundation.Image
@@ -16,7 +19,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
@@ -149,7 +151,7 @@ private fun buildParkedCars(
 ): List<ParkedCar> {
     val navGraph = try {
         context.assets.open(campus.navGraphAsset).use { ins ->
-            Gson().fromJson(InputStreamReader(ins), LandmarkNavGraph::class.java)
+            PowJson.decodeFromString<LandmarkNavGraph>(ins.reader().readText())
         }
     } catch (e: Exception) {
         return emptyList()

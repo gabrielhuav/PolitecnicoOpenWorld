@@ -1,5 +1,7 @@
 package ovh.gabrielhuav.pow.di
 
+import ovh.gabrielhuav.pow.data.local.room.getInstance
+
 import android.content.Context
 import dagger.Module
 import dagger.Provides
