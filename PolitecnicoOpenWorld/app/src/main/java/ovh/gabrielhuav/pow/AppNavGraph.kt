@@ -641,7 +641,13 @@ fun AppNavGraph(
                                         launchSingleTop = true
                                     }
                                 },
-                                onLanguageApplied = { activity.recreate() },
+                                onLanguageApplied = { tag ->
+                                    // API 33+ aplica el locale por app y recrea por cambio de
+                                    // configuracion. En API 24-32 mantenemos el recreate historico.
+                                    if (!ovh.gabrielhuav.pow.i18n.LocaleHelper.applyApplicationLocale(activity, tag)) {
+                                        activity.recreate()
+                                    }
+                                },
                                 accountContent = {
                                     AndroidAccountSettings(authManager) {
                                         worldMapViewModel.disconnectFromMultiplayer()

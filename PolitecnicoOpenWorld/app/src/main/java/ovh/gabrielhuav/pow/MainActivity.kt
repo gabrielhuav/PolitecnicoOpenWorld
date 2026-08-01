@@ -44,6 +44,9 @@ class MainActivity : ComponentActivity() {
     // que se inflen los recursos. "" = idioma del sistema. Ver i18n/LocaleHelper.kt.
     override fun attachBaseContext(newBase: Context) {
         val lang = ovh.gabrielhuav.pow.data.repository.SettingsRepository(newBase).getLanguage()
+        // Android 13+: el locale por aplicacion tambien alimenta Compose Multiplatform Resources.
+        // API 24-32 conserva el Context envuelto de la linea siguiente.
+        ovh.gabrielhuav.pow.i18n.LocaleHelper.applyApplicationLocale(newBase, lang)
         super.attachBaseContext(ovh.gabrielhuav.pow.i18n.LocaleHelper.wrap(newBase, lang))
     }
 
