@@ -112,4 +112,9 @@ class SfStateMachineTest {
             )
         }
     }
+
+    @Test
+    fun `la SUPER ART normal puede cortar la carrera de IA contra IA`() {
+        assertTrue(SfStateMachine.canEnter(SfFighterState.RUN, SfFighterState.SUPER_ART))
+    }
 }

@@ -20,8 +20,13 @@ object SfAnimation {
         if (frame >= anim.size) 0 else frame
 
     /** Vencimiento del frame [idx]: ahora + delay×FRAME_TIME_MS (espejo de withAnimationFrame). */
-    fun frameTimerMs(anim: List<SfAnimFrame>, idx: Int, now: Long): Long =
-        now + (anim[idx].delay * SfConstants.FRAME_TIME_MS).toLong()
+    fun frameTimerMs(
+        anim: List<SfAnimFrame>,
+        idx: Int,
+        now: Long,
+        durationMultiplier: Float = 1f,
+    ): Long = now +
+        (anim[idx].delay * SfConstants.FRAME_TIME_MS * durationMultiplier).toLong()
 
     /**
      * ¿Toca avanzar al siguiente frame? `false` si el frame actual es FREEZE/TRANSITION

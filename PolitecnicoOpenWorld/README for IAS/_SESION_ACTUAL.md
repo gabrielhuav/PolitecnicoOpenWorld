@@ -13,12 +13,12 @@
 > arcade y la BD sobreviven intactos**. Había **3 regresiones jugables** (música que rebobina,
 > preview borrosa, el `"?"` al elegir peleador): corregidas y medidas en `016e7406`.
 >
-> ✅ Corregidos idioma Android 13+ para `:shared`, el `"?"` del selector y la IA de SF: SUPER ART
-> prioritaria/reintentable, consumo de inputs alineado con la máquina de estados y combos confirmados.
+> ✅ Corregidos idioma Android 13+ para `:shared`, el `"?"` del selector y la IA de SF: en IA vs IA
+> la barra llena fuerza SUPER ART; ahora impacta, daña, vacía la barra y dura ~1.8 s.
 > ✅ 142 PNG → WebP: 87.3 MB → 40.8 MB (ahorro 46.5 MB / 53.2 %); AAB local 353.15 MB.
 >
 > Release preparado: `versionName` **1.0.0.15**, notas ES+EN reescritas, `gh-pages` viva.
-> iOS **no bloquea**: el release es de Android. **279 tests = 119 app + 160 shared**, 0 fallos.
+> iOS **no bloquea**: el release es de Android. **285 tests = 119 app + 166 shared**, 0 fallos.
 
 ## 🖥️ Rutas por PC
 
@@ -126,12 +126,14 @@ portar (ahora el muestreo depende de la gama: normal 1, baja 4) · el **`"?"`** 
 `Context` envuelto anterior. La lógica de SF/ajustes/coleccionables sigue en `commonMain`; iOS
 mantiene su costura `AppleLanguages` y reconstrucción del árbol.
 
-**Aceptado por el dueño para release:** la validación jugable final se hizo manualmente. Siguen
-como deuda explícita la sesión de mundo abierto de media hora y una pasada integral de audio/interiores.
+**Aceptado por el dueño para release:** la validación jugable se hizo manualmente antes del último
+ajuste de SUPER ART; su impacto/daño/tiempo quedó cubierto por pruebas KMP puras y se confirmará
+visualmente en la pista cerrada. Siguen como deuda la media hora de mundo y audio/interiores.
 
 **Release preparado:** `versionName` **1.0.0.15**, notas ES+EN, `gh-pages` viva y workflow revisado.
 Los 142 PNG restantes se convirtieron y sus referencias se actualizaron: 87,279,165 → 40,806,326
-bytes. `bundleRelease` pasó; AAB local **353,149,573 bytes** (353.15 MB), bajo 450/500 MB.
+bytes. `bundleRelease` pasó; AAB local **353,150,996 bytes** (353.15 MB), bajo 450/500 MB.
+`tools/.local/` quedó ignorado: el codec `cwebp` no se versiona.
 
 ## 4. PENDIENTE — prioridad
 
@@ -177,7 +179,7 @@ faltan `attack`/`hurt` en 6 peleadores. Los SFX globales no se normalizan como v
 
 Windows: `.\gradlew.bat`. Mac: fijar el JBR de Android Studio y añadir
 `:shared:iosSimulatorArm64Test :shared:linkDebugFrameworkIosSimulatorArm64`.
-Esperado Android: **279 = 119 app + 160 shared**, 0 fallos (medido en Windows 2026-08-01).
+Esperado Android: **285 = 119 app + 166 shared**, 0 fallos (medido en Windows 2026-08-01).
 En Mac conservar además `:shared:iosSimulatorArm64Test`. Si se toca `commonTest`, ejecutar el guard.
 
 Detekt CI desde la raíz exterior:

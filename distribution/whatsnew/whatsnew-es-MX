@@ -1,7 +1,7 @@
 POW 1.0.0.15
 
-• Huelum vs. Goya: la música del selector ya no vuelve a empezar al entrar.
-• Los retratos del selector de peleadores se ven nítidos otra vez.
-• Al elegir peleador ya no aparece un signo de interrogación antes de la animación.
-• Arranque más ligero y menos tirones al abrir el selector en gama baja.
-• Mejoras de estabilidad.
+• Mejoramos la IA de Huelum vs. Goya: pelea con más iniciativa y usa su SUPER ART al llenar la barra.
+• La SUPER ART ahora conecta, causa daño y muestra mejor su animación.
+• Selector más nítido, sin "?" y con música estable.
+• Optimizamos imágenes y rendimiento en gama baja.
+• Esta versión prepara la base compartida para iOS; App Store y crossplay siguen en desarrollo.

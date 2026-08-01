@@ -4,6 +4,10 @@
 
 # 🆕 Carpeta temporal de revisión de audio (tools/sf_audio_review.sh --mp3); NO empaquetar
 tools/_audio_review/
+
+# Binarios descargados para herramientas locales (por ejemplo, cwebp/libwebp en Windows).
+# Los assets .webp resultantes sí se versionan; el codec y sus DLL no.
+/tools/.local/
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml

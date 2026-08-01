@@ -47,9 +47,23 @@ internal fun StreetFighterViewModel.buildCpuInput(now: Long, sim: StreetFighterV
     if (inTutorial) return SfInput()
     val i = selfIndex.coerceIn(0, 1)
     repairFacing(sim, i, now)
+    val aiVs = _state.value.aiVsAi
+    val me = sim.fighter(i)
+
+    // Contrato del modo espectador IA vs IA: barra llena = SUPER ART en el primer tick en que
+    // la máquina de estados pueda aceptarla. Se evalúa ANTES de la cadencia aleatoria y se vuelve
+    // a emitir mientras el medidor siga lleno; así una animación/recovery que rechace un pulso no
+    // puede hacer que la CPU conserve la barra. También abandona fatality/combos pendientes.
+    forcedAiVsAiSuperInput(aiVs, me.superReady)?.let { forced ->
+        cpuFatalityUntilMs[i] = 0L
+        cpuComboQueue[i].clear()
+        cpuComboAwaiting[i] = null
+        cpuHold[i] = SfInput()
+        cpuNextDecisionMs[i] = now
+        return forced
+    }
     if (now < cpuNextDecisionMs[i]) return cpuHold[i]
 
-    val aiVs = _state.value.aiVsAi
     // 🆕 (2026-07-18n) En IA vs IA cada índice puede tener su PROPIA dificultad (desnivel
     // aleatorio de startAiVsAi) para que la pelea se resuelva; fuera de IA vs IA = la global.
     val difficulty = if (aiVs) cpuDiffOverride[i] ?: _state.value.cpuDifficulty
@@ -65,7 +79,6 @@ internal fun StreetFighterViewModel.buildCpuInput(now: Long, sim: StreetFighterV
     cpuNextDecisionMs[i] = now + desync +
         (baseDelay * (1f - 0.42f * cpuIntensity)).toLong().coerceAtLeast(30L)
 
-    val me = sim.fighter(i)
     val foe = sim.fighter(1 - i)
     val dist = abs(me.x - foe.x)
     var decision = when (difficulty) {
@@ -168,6 +181,10 @@ internal fun StreetFighterViewModel.buildCpuInput(now: Long, sim: StreetFighterV
     cpuHold[i] = oneShot.withCpuOneShotsReleased()
     return oneShot
 }
+
+/** Regla absoluta del modo IA vs IA; fuera de él no modifica la política de la CPU. */
+internal fun forcedAiVsAiSuperInput(aiVsAi: Boolean, superReady: Boolean): SfInput? =
+    if (aiVsAi && superReady) SfInput(superArt = true) else null
 
 /** Conserva solo direcciones sostenidas; cada botón de la CPU dura exactamente un tick. */
 internal fun SfInput.withCpuOneShotsReleased(): SfInput = copy(

@@ -1,7 +1,7 @@
 POW 1.0.0.15
 
-• Huelum vs. Goya: the character-select music no longer restarts when you enter.
-• Fighter portraits in the character select look sharp again.
-• Picking a fighter no longer flashes a question mark before the animation.
-• Lighter startup and less stutter when opening the roster on low-end phones.
-• Stability improvements.
+• Improved Huelum vs. Goya AI: fighters engage more and use SUPER ART when the meter is full.
+• SUPER ART now connects, deals damage, and has a clearer animation.
+• Sharper fighter select, no "?" flash, and stable music.
+• Optimized images and performance on low-end phones.
+• This release prepares the shared iOS foundation; App Store and cross-play remain in development.

@@ -27,6 +27,9 @@ object SfStateMachine {
         SfFighterState.LIGHT_KICK, SfFighterState.MEDIUM_KICK, SfFighterState.HEAVY_KICK,
     )
 
+    /** La SUPER ART normal puede cortar la carrera solo para la regla forzada de IA vs IA. */
+    val SUPER_ART_VALID_FROM: Set<SfFighterState> = SPECIAL_VALID_FROM + SfFighterState.RUN
+
     /** Orígenes de los golpes normales de pie (incluye chain cancel, exige attackStruck aparte). */
     val ATTACK_VALID_FROM: Set<SfFighterState> = setOf(
         SfFighterState.IDLE, SfFighterState.WALK_FORWARD, SfFighterState.WALK_BACKWARD,
@@ -135,7 +138,7 @@ object SfStateMachine {
         SfFighterState.THROWN to SfFighterState.entries.toSet(),
         SfFighterState.GET_UP to setOf(SfFighterState.THROWN),
         SfFighterState.TAUNT to NEUTRAL_GROUND,
-        SfFighterState.SUPER_ART to SPECIAL_VALID_FROM,
+        SfFighterState.SUPER_ART to SUPER_ART_VALID_FROM,
         SfFighterState.RUN to setOf(SfFighterState.DASH_FORWARD, SfFighterState.RUN),
         SfFighterState.FATALITY to setOf(
             SfFighterState.RUN, SfFighterState.DASH_FORWARD,

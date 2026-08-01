@@ -16,6 +16,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHitSplash
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHurtArea
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfSuperArt
 import kotlin.random.Random
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -70,7 +71,21 @@ internal fun StreetFighterViewModel.updateAttackBoxCollided(sim: StreetFighterVi
     val attacker = sim.fighter(idx)
     val meta = attackMeta[attacker.state] ?: return
     if (attacker.attackStruck) return
-    val hit = frameDef(attacker).hit ?: return
+    val hit = frameDef(attacker).hit
+    if (hit == null && SfSuperArt.shouldAutoConnect(attacker, animOf(attacker).size)) {
+        val defender = sim.fighter(1 - idx)
+        applyAttackHit(
+            sim = sim,
+            attackerIdx = idx,
+            strength = meta.strength,
+            type = meta.type,
+            area = SfHurtArea.BODY,
+            hitPos = (attacker.x + defender.x) / 2f to defender.y - 60f,
+            now = now,
+        )
+        return
+    }
+    if (hit == null) return
     if (hit[2] == 0 || hit[3] == 0) return
     val actualHit = SfBox.fromList(hit).toWorld(attacker.x, attacker.y, attacker.direction)
 

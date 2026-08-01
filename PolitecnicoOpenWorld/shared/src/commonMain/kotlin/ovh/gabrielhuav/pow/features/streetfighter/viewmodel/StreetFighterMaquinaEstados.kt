@@ -298,6 +298,10 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
         // atacar desde ella (por eso vale la pena correr).
         SfFighterState.RUN -> {
             when {
+                // IA vs IA tiene un contrato más fuerte que el resto de modos: barra llena
+                // siempre lanza la SUPER ART normal. El jugador y las otras CPU conservan el
+                // comando histórico de súper en carrera = fatality.
+                input.superArt && _state.value.aiVsAi && trySuperArt(sim, idx, now) -> Unit
                 // 🆕 FATALITY: súper EN CARRERA con el medidor lleno (su comando propio)
                 input.superArt && tryFatality(sim, idx, now) -> Unit
                 input.up -> changeState(sim, idx, SfFighterState.JUMP_START, now)

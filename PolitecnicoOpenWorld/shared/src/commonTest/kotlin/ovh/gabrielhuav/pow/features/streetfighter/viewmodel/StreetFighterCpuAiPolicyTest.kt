@@ -1,8 +1,11 @@
 package ovh.gabrielhuav.pow.features.streetfighter.viewmodel
 
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfConstants
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCpuDifficulty
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfInput
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfSuperArt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -62,6 +65,28 @@ class StreetFighterCpuAiPolicyTest {
                 difficulty.name,
             )
         }
+    }
+
+    @Test
+    fun `IA contra IA fuerza la super al llenar la barra sin esperar otra decision`() {
+        val forced = forcedAiVsAiSuperInput(aiVsAi = true, superReady = true)
+        assertEquals(SfInput(superArt = true), forced)
+
+        val ready = ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighter(
+            id = ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId.PRANKEDY,
+            playerIndex = 0,
+            x = 0f,
+            direction = ovh.gabrielhuav.pow.domain.models.streetfighter.SfDirection.RIGHT,
+            state = SfFighterState.SUPER_ART,
+            superMeter = SfConstants.SUPER_METER_MAX,
+        )
+        assertEquals(0, SfSuperArt.consumeMeter(ready).superMeter)
+    }
+
+    @Test
+    fun `la regla absoluta de super no altera ningun otro modo ni una barra incompleta`() {
+        assertEquals(null, forcedAiVsAiSuperInput(aiVsAi = false, superReady = true))
+        assertEquals(null, forcedAiVsAiSuperInput(aiVsAi = true, superReady = false))
     }
 
     @Test

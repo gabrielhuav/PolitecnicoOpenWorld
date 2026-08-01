@@ -27,6 +27,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHealthBar
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfSplashes
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfPhysics
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStateMachine
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfSuperArt
 import ovh.gabrielhuav.pow.domain.models.streetfighter.sfUsableBonusPowerCount
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_DOWNED_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_NEW_ATTACK_STATES
@@ -1042,7 +1043,12 @@ open class StreetFighterViewModel(
         val idx = SfAnimation.frameIndex(anim, frame)
         return f.copy(
             animationFrame = idx,
-            animationTimerMs = SfAnimation.frameTimerMs(anim, idx, now),
+            animationTimerMs = SfAnimation.frameTimerMs(
+                anim = anim,
+                idx = idx,
+                now = now,
+                durationMultiplier = SfSuperArt.animationDurationMultiplier(f.state),
+            ),
         )
     }
 
@@ -1178,9 +1184,11 @@ open class StreetFighterViewModel(
             }
             SfFighterState.SUPER_ART, SfFighterState.FATALITY -> {
                 // Súper y fatality CONSUMEN el medidor entero: no se repiten sin recargarlo.
-                nf = nf.copy(
-                    velocityX = 0f, velocityY = 0f, attackStruck = false, superMeter = 0,
-                )
+                nf = if (newState == SfFighterState.SUPER_ART) {
+                    SfSuperArt.consumeMeter(nf)
+                } else {
+                    nf.copy(velocityX = 0f, velocityY = 0f, attackStruck = false, superMeter = 0)
+                }
                 withNetAudioCapture(idx) { emitSpecialVoice(nf.id, now) }
             }
             SfFighterState.THROW -> nf = nf.copy(velocityX = 0f, velocityY = 0f)
