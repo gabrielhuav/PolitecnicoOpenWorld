@@ -65,6 +65,25 @@ object SfStateMachine {
         SfFighterState.DASH_FORWARD, SfFighterState.DASH_BACKWARD,
     )
 
+    /**
+     * Estados cuyo handler termina con `changeState(..., IDLE)`. Mantener este contrato junto
+     * evita que una animacion completada quede atrapada porque la tabla rechace su recuperacion.
+     */
+    val IDLE_RECOVERY_FROM: Set<SfFighterState> = setOf(
+        SfFighterState.WALK_FORWARD, SfFighterState.WALK_BACKWARD,
+        SfFighterState.JUMP_LAND, SfFighterState.CROUCH_UP, SfFighterState.IDLE_TURN,
+        SfFighterState.LIGHT_PUNCH, SfFighterState.MEDIUM_PUNCH, SfFighterState.HEAVY_PUNCH,
+        SfFighterState.LIGHT_KICK, SfFighterState.MEDIUM_KICK, SfFighterState.HEAVY_KICK,
+        SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_HEAD_MEDIUM, SfFighterState.HURT_HEAD_HEAVY,
+        SfFighterState.HURT_BODY_LIGHT, SfFighterState.HURT_BODY_MEDIUM, SfFighterState.HURT_BODY_HEAVY,
+        SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY,
+        SfFighterState.BLOCK_HIGH, SfFighterState.PARRY_HIGH,
+        SfFighterState.LONG_KICK, SfFighterState.OVERHEAD,
+        SfFighterState.GRAB, SfFighterState.THROW, SfFighterState.TAUNT,
+        SfFighterState.SUPER_ART, SfFighterState.RUN,
+        SfFighterState.IDLE_RELAXED, SfFighterState.TALK,
+    ) + SF_BONUS_POWER_STATES + CROUCH_RECOVERY_FROM + DASH_RECOVERY_FROM
+
     /** Ataques AÉREOS: solo mientras se está en el aire. */
     val AIR_ATTACK_VALID_FROM: Set<SfFighterState> = setOf(
         SfFighterState.JUMP_UP, SfFighterState.JUMP_FORWARD, SfFighterState.JUMP_BACKWARD,
@@ -72,17 +91,10 @@ object SfStateMachine {
 
     val VALID_FROM: Map<SfFighterState, Set<SfFighterState>> = mapOf(
         SfFighterState.IDLE to setOf(
-            SfFighterState.IDLE, SfFighterState.WALK_FORWARD, SfFighterState.WALK_BACKWARD,
+            SfFighterState.IDLE,
             SfFighterState.JUMP_UP, SfFighterState.JUMP_FORWARD, SfFighterState.JUMP_BACKWARD,
-            SfFighterState.CROUCH_UP, SfFighterState.JUMP_LAND, SfFighterState.IDLE_TURN,
-            SfFighterState.LIGHT_PUNCH, SfFighterState.MEDIUM_PUNCH, SfFighterState.HEAVY_PUNCH,
-            SfFighterState.LIGHT_KICK, SfFighterState.MEDIUM_KICK, SfFighterState.HEAVY_KICK,
-            SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_HEAD_MEDIUM, SfFighterState.HURT_HEAD_HEAVY,
-            SfFighterState.HURT_BODY_LIGHT, SfFighterState.HURT_BODY_MEDIUM, SfFighterState.HURT_BODY_HEAVY,
-            SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM, SfFighterState.SPECIAL_1_HEAVY,
             SfFighterState.STUN,
-            SfFighterState.BLOCK_HIGH, // 🆕 (2026-07-26) soltar la guardia alta vuelve a IDLE al instante
-        ) + SF_BONUS_POWER_STATES.toSet() + CROUCH_RECOVERY_FROM + DASH_RECOVERY_FROM,
+        ) + IDLE_RECOVERY_FROM,
         SfFighterState.WALK_FORWARD to setOf(
             SfFighterState.IDLE, SfFighterState.JUMP_FORWARD, SfFighterState.WALK_BACKWARD, SfFighterState.JUMP_LAND,
         ),
@@ -108,7 +120,9 @@ object SfStateMachine {
             SfFighterState.CROUCH_DOWN, SfFighterState.CROUCH_TURN,
             SfFighterState.BLOCK_LOW, // 🆕 (2026-07-26) la guardia baja rebota a cuclillas (responsivo)
         ) + CROUCH_RECOVERY_FROM,
-        SfFighterState.CROUCH_UP to setOf(SfFighterState.CROUCH, SfFighterState.BLOCK_LOW), // 🆕 soltar guardia baja
+        SfFighterState.CROUCH_UP to setOf(
+            SfFighterState.CROUCH, SfFighterState.CROUCH_TURN, SfFighterState.BLOCK_LOW,
+        ), // 🆕 soltar guardia baja o salir inmediatamente del giro agachado
         SfFighterState.IDLE_TURN to setOf(
             SfFighterState.IDLE, SfFighterState.JUMP_LAND, SfFighterState.WALK_FORWARD, SfFighterState.WALK_BACKWARD,
         ),
