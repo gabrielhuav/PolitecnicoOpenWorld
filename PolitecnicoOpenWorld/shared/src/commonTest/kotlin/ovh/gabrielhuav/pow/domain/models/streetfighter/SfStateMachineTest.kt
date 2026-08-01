@@ -104,6 +104,14 @@ class SfStateMachineTest {
     }
 
     @Test
+    fun `movimientos bajos recuperan a crouch o idle sin esperar al watchdog`() {
+        SfStateMachine.CROUCH_RECOVERY_FROM.forEach { from ->
+            assertTrue(SfStateMachine.canEnter(from, SfFighterState.CROUCH), "$from -> CROUCH")
+            assertTrue(SfStateMachine.canEnter(from, SfFighterState.IDLE), "$from -> IDLE")
+        }
+    }
+
+    @Test
     fun `la SUPER ART es alcanzable desde todo origen que acepta poderes`() {
         SfStateMachine.SPECIAL_VALID_FROM.forEach { from ->
             assertTrue(

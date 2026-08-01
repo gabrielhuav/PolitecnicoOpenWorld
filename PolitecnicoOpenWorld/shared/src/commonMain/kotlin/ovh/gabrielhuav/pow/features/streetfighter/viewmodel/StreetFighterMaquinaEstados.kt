@@ -135,7 +135,12 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
             if (tryPowerInput(sim, idx, input, now)) return
             if (tryGroundUtilityInput(sim, idx, input, now)) return
             if (tryAttacks(sim, idx, input, now)) return
-            if (isAnimationCompleted(f)) changeState(sim, idx, SfFighterState.IDLE, now)
+            val wantsMove = input.forward || input.backward || input.up || input.down
+            if (wantsMove && changeState(sim, idx, SfFighterState.IDLE, now)) {
+                handleCommonNeutral(sim, idx, input, now)
+            } else if (isAnimationCompleted(f)) {
+                changeState(sim, idx, SfFighterState.IDLE, now)
+            }
         }
         SfFighterState.IDLE_TURN -> {
             // Cancelar giro con input (jugador + IA). Si el input es ataque, puede salir
@@ -233,16 +238,14 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
         SfFighterState.BONUS_POWER_7, SfFighterState.BONUS_POWER_8, SfFighterState.BONUS_POWER_9,
         SfFighterState.BONUS_POWER_10, SfFighterState.BONUS_POWER_11,
         -> {
-            // 🆕 (2026-07-25) BONUS_POWER_10 de YOALLI = metamorfosis PRINCIPAL (jefe FINAL del
-            // arcade): al terminar la anim el id pasa a LA PRESIDENTA con VIDA LLENA y se QUEDA.
+            // BONUS_POWER_10 de Yoalli: al terminar pasa a Presidenta con vida llena.
             if (f.id == SfFighterId.YOALLI_EHECATL && f.state == SfFighterState.BONUS_POWER_10) {
                 if (isAnimationCompleted(f)) {
                     completeYoalliMetamorphosis(sim, idx, now)
                 }
                 return
             }
-            // Dirección opuesta (histórica, hoy inactiva en gameplay: P11 no es lanzable y no hay
-            // disparo automático): La Presidenta → Yoalli. Se conserva por simetría/animación.
+            // BONUS_POWER_11 de Presidenta: al terminar pasa a Yoalli con vida llena.
             if (f.id == SfFighterId.LA_PRESIDENTA && f.state == SfFighterState.BONUS_POWER_11) {
                 if (isAnimationCompleted(f)) {
                     completePresidentaMetamorphosis(sim, idx, now)
@@ -347,18 +350,18 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
             changeState(sim, idx, SfFighterState.IDLE, now)
         }
         SfFighterState.PARRY_LOW -> if (isAnimationCompleted(f)) {
-            changeState(sim, idx, SfFighterState.CROUCH, now)
+            recoverFromCrouchState(sim, idx, input, now)
         }
         // Ataques agachado: encadenan entre sí (cancel) y vuelven a cuclillas.
         SfFighterState.CROUCH_PUNCH, SfFighterState.CROUCH_KICK,
         SfFighterState.CROUCH_HEAVY_PUNCH,
         -> {
             if (tryCrouchChainCancel(sim, idx, input, now)) return
-            if (isAnimationCompleted(f)) changeState(sim, idx, SfFighterState.CROUCH, now)
+            if (isAnimationCompleted(f)) recoverFromCrouchState(sim, idx, input, now)
         }
         // La barrida NO cancela: es el final de la cadena baja (derriba).
         SfFighterState.SWEEP -> if (isAnimationCompleted(f)) {
-            changeState(sim, idx, SfFighterState.CROUCH, now)
+            recoverFromCrouchState(sim, idx, input, now)
         }
         // Aéreos: siguen cayendo; al tocar el suelo aterrizan como un salto normal.
         SfFighterState.AIR_PUNCH, SfFighterState.AIR_KICK -> {
@@ -388,7 +391,7 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
         SfFighterState.HURT_CROUCH -> if (isAnimationCompleted(f)) {
             val opp = sim.fighter(1 - idx)
             sim.setFighter(1 - idx, opp.copy(attackStruck = false))
-            changeState(sim, idx, SfFighterState.CROUCH, now)
+            recoverFromCrouchState(sim, idx, input, now)
         }
         // Derribo: cae, se queda un momento y se levanta solo (wake-up).
         SfFighterState.THROWN -> if (isAnimationCompleted(f)) {
@@ -421,6 +424,23 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
             }
         }
         SfFighterState.VICTORY -> Unit
+    }
+}
+
+/**
+ * Recuperación responsiva de cualquier movimiento bajo. Mantener abajo conserva cuclillas;
+ * cualquier otra dirección vuelve a neutro y se interpreta en el mismo tick.
+ */
+internal fun StreetFighterViewModel.recoverFromCrouchState(
+    sim: StreetFighterViewModel.Sim,
+    idx: Int,
+    input: SfInput,
+    now: Long,
+) {
+    if (input.down) {
+        changeState(sim, idx, SfFighterState.CROUCH, now)
+    } else if (changeState(sim, idx, SfFighterState.IDLE, now)) {
+        handleCommonNeutral(sim, idx, input, now)
     }
 }
 
@@ -692,9 +712,7 @@ internal fun StreetFighterViewModel.usableBonusPowerCount(id: SfFighterId): Int 
 
 /**
  * Fin de BONUS_POWER_11 de La Presidenta → Yoalli Ehécatl con VIDA LLENA. El cambio de id es
- * PERMANENTE. ⚠️ 🆕 (2026-07-25) Dirección HISTÓRICA/inactiva en gameplay: la metamorfosis
- * automática del arcade ahora es la INVERSA (Yoalli→Presidenta, ver [tryYoalliMetamorphosis] y
- * [completeYoalliMetamorphosis]). Se conserva por simetría (animación disponible).
+ * permanente durante la pelea y [SfFighter.metamorphosed] evita volver a transformarse.
  */
 internal fun StreetFighterViewModel.completePresidentaMetamorphosis(sim: StreetFighterViewModel.Sim, idx: Int, now: Long) {
     val f = sim.fighter(idx)
@@ -709,9 +727,7 @@ internal fun StreetFighterViewModel.completePresidentaMetamorphosis(sim: StreetF
 
 /**
  * Fin de BONUS_POWER_10 de Yoalli: se convierte en LA PRESIDENTA con la VIDA LLENA (su
- * "segunda vida" del round 1). 🆕 (2026-07-25) Antes conservaba la vida (~1/4); ahora es la
- * metamorfosis PRINCIPAL del arcade (Yoalli jefe FINAL → Presidenta), espejo de lo que hacía
- * La Presidenta. El cambio de id es PERMANENTE (persiste entre rondas).
+ * "segunda vida" del round 1), espejo de Presidenta → Yoalli. El cambio de id persiste entre rondas.
  */
 internal fun StreetFighterViewModel.completeYoalliMetamorphosis(sim: StreetFighterViewModel.Sim, idx: Int, now: Long) {
     val f = sim.fighter(idx)

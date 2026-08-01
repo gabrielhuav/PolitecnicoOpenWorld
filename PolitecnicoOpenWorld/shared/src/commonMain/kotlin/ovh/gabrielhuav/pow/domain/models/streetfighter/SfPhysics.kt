@@ -34,13 +34,25 @@ object SfPhysics {
     fun clampToStage(f: SfFighter): SfFighter {
         var x = f.x
         var y = f.y
+        var velocityX = f.velocityX
+        var velocityY = f.velocityY
         if (x.isNaN() || x.isInfinite()) x = SfConstants.STAGE_MID_POINT + SfConstants.STAGE_PADDING
         if (y.isNaN() || y.isInfinite()) y = SfConstants.STAGE_FLOOR
+        if (velocityX.isNaN() || velocityX.isInfinite()) velocityX = 0f
+        if (velocityY.isNaN() || velocityY.isInfinite()) velocityY = 0f
         x = x.coerceIn(SfConstants.STAGE_X_MIN, SfConstants.STAGE_X_MAX)
         // No permitir caer bajo el piso; el salto puede subir pero con tope de aire
         y = y.coerceIn(SfConstants.STAGE_FLOOR - STAGE_AIR_CEILING, SfConstants.STAGE_FLOOR)
-        return if (x != f.x || y != f.y) f.copy(x = x, y = y) else f
+        return if (x != f.x || y != f.y || velocityX != f.velocityX || velocityY != f.velocityY) {
+            f.copy(x = x, y = y, velocityX = velocityX, velocityY = velocityY)
+        } else {
+            f
+        }
     }
+
+    /** Un estado aéreo que ya cruzó el piso debe aterrizar en este mismo tick. */
+    fun shouldLand(f: SfFighter): Boolean =
+        f.isAirborne && f.y >= SfConstants.STAGE_FLOOR && f.velocityY >= 0f
 
     /**
      * 🆕 (2026-07-27, Fase 2c del refactor del motor) EMPUJE DE PUSHBOXES: resultado de un tick de

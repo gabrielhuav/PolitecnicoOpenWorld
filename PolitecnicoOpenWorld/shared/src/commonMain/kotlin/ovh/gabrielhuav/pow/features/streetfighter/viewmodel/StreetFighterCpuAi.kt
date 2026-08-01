@@ -16,6 +16,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireballState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfInput
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStateMachine
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfSuperArt
 import kotlin.math.abs
 import kotlin.random.Random
 
@@ -49,6 +50,8 @@ internal fun StreetFighterViewModel.buildCpuInput(now: Long, sim: StreetFighterV
     repairFacing(sim, i, now)
     val aiVs = _state.value.aiVsAi
     val me = sim.fighter(i)
+    val difficulty = if (aiVs) cpuDiffOverride[i] ?: _state.value.cpuDifficulty
+    else _state.value.cpuDifficulty
 
     // Contrato del modo espectador IA vs IA: barra llena = SUPER ART en el primer tick en que
     // la máquina de estados pueda aceptarla. Se evalúa ANTES de la cadencia aleatoria y se vuelve
@@ -62,24 +65,32 @@ internal fun StreetFighterViewModel.buildCpuInput(now: Long, sim: StreetFighterV
         cpuNextDecisionMs[i] = now
         return forced
     }
+
+    // La SUPER ART rival tiene arranque visible: una CPU competente debe poder saltar,
+    // retroceder o interrumpirla antes de que llegue su cuadro de impacto.
+    val foe = sim.fighter(1 - i)
+    cpuDefenseAgainstSuper(me, foe, difficulty)?.let { defense ->
+        cpuComboQueue[i].clear()
+        cpuComboAwaiting[i] = null
+        cpuHold[i] = defense.withCpuOneShotsReleased()
+        cpuNextDecisionMs[i] = now
+        return defense
+    }
     if (now < cpuNextDecisionMs[i]) return cpuHold[i]
 
     // 🆕 (2026-07-18n) En IA vs IA cada índice puede tener su PROPIA dificultad (desnivel
     // aleatorio de startAiVsAi) para que la pelea se resuelva; fuera de IA vs IA = la global.
-    val difficulty = if (aiVs) cpuDiffOverride[i] ?: _state.value.cpuDifficulty
-    else _state.value.cpuDifficulty
     // Desync en IA vs IA: P1 piensa un poco desfasado → no se copian el espejo eterno
     val desync = if (aiVs) (i * 17L) else 0L
     val baseDelay = when (difficulty) {
         SfCpuDifficulty.BASICA -> Random.nextLong(650L, 1100L)
-        SfCpuDifficulty.NORMAL -> Random.nextLong(120L, 260L)
-        SfCpuDifficulty.AVANZADA -> Random.nextLong(55L, 120L)
-        SfCpuDifficulty.PESADILLA -> Random.nextLong(35L, 75L)
+        SfCpuDifficulty.NORMAL -> Random.nextLong(90L, 200L)
+        SfCpuDifficulty.AVANZADA -> Random.nextLong(45L, 95L)
+        SfCpuDifficulty.PESADILLA -> Random.nextLong(28L, 60L)
     }
     cpuNextDecisionMs[i] = now + desync +
         (baseDelay * (1f - 0.42f * cpuIntensity)).toLong().coerceAtLeast(30L)
 
-    val foe = sim.fighter(1 - i)
     val dist = abs(me.x - foe.x)
     var decision = when (difficulty) {
         SfCpuDifficulty.BASICA -> maybeCpuSuperArtInput(me, foe, dist, now, i, difficulty, aiVs)
@@ -185,6 +196,46 @@ internal fun StreetFighterViewModel.buildCpuInput(now: Long, sim: StreetFighterV
 /** Regla absoluta del modo IA vs IA; fuera de él no modifica la política de la CPU. */
 internal fun forcedAiVsAiSuperInput(aiVsAi: Boolean, superReady: Boolean): SfInput? =
     if (aiVsAi && superReady) SfInput(superArt = true) else null
+
+internal enum class CpuSuperDefense { INTERRUPT, BACKDASH, JUMP_BACK }
+
+/** Política pura: la dificultad básica conserva una ventana didáctica; las demás reaccionan. */
+internal fun cpuSuperDefensePlan(
+    difficulty: SfCpuDifficulty,
+    distance: Float,
+    beforeImpact: Boolean,
+): CpuSuperDefense? = when {
+    distance > SfSuperArt.HIT_RANGE -> null
+    difficulty == SfCpuDifficulty.BASICA -> null
+    beforeImpact && distance <= StreetFighterViewModel.CPU_CLINCH_DIST + 16f &&
+        difficulty in setOf(SfCpuDifficulty.AVANZADA, SfCpuDifficulty.PESADILLA) ->
+        CpuSuperDefense.INTERRUPT
+    difficulty == SfCpuDifficulty.PESADILLA -> CpuSuperDefense.BACKDASH
+    else -> CpuSuperDefense.JUMP_BACK
+}
+
+/** Traduce la lectura del arranque rival a un input defensivo que puede evitarlo o cancelarlo. */
+internal fun StreetFighterViewModel.cpuDefenseAgainstSuper(
+    me: SfFighter,
+    foe: SfFighter,
+    difficulty: SfCpuDifficulty,
+): SfInput? {
+    if (foe.state != SfFighterState.SUPER_ART || me.isAirborne || me.downed ||
+        me.state in SF_HURT_STATES
+    ) return null
+    val animationSize = dataFor(foe).animations[SfFighterState.SUPER_ART.jsKey]?.size ?: 0
+    val beforeImpact = foe.animationFrame < SfSuperArt.impactFrameIndex(animationSize)
+    return when (cpuSuperDefensePlan(difficulty, abs(me.x - foe.x), beforeImpact)) {
+        CpuSuperDefense.INTERRUPT -> SfInput(lightPunch = true)
+        CpuSuperDefense.BACKDASH -> if (hasAnim(me, SfFighterState.DASH_BACKWARD)) {
+            cpuRetreatFlags(me, foe).copy(dashBackward = true)
+        } else {
+            cpuJumpBack(me, foe)
+        }
+        CpuSuperDefense.JUMP_BACK -> cpuJumpBack(me, foe)
+        null -> null
+    }
+}
 
 /** Conserva solo direcciones sostenidas; cada botón de la CPU dura exactamente un tick. */
 internal fun SfInput.withCpuOneShotsReleased(): SfInput = copy(
@@ -433,22 +484,22 @@ internal fun StreetFighterViewModel.normalCpuDecision(sim: StreetFighterViewMode
 
     return when {
         dist > StreetFighterViewModel.CPU_MID_DIST -> when {
-            !ownFireballActive(sim, selfIndex) && roll < 0.16f ->
+            !ownFireballActive(sim, selfIndex) && roll < 0.22f ->
                 SfInput(special = SfAttackStrength.LIGHT)
-            roll < 0.30f -> cpuJumpIn(me, foe)
+            roll < 0.38f -> cpuJumpIn(me, foe)
             else -> cpuApproach(me, foe)
         }
         dist > StreetFighterViewModel.CPU_MELEE_DIST -> when {
-            roll < 0.58f -> cpuApproach(me, foe)
+            roll < 0.50f -> cpuApproach(me, foe)
             !ownFireballActive(sim, selfIndex) &&
                 now >= specialCooldownUntil[selfIndex] &&
-                roll < 0.58f + 0.10f * specialBias -> SfInput(special = SfAttackStrength.LIGHT)
-            roll < 0.88f -> cpuJumpIn(me, foe)
+                roll < 0.50f + 0.16f * specialBias -> SfInput(special = SfAttackStrength.LIGHT)
+            roll < 0.90f -> cpuJumpIn(me, foe)
             else -> cpuRetreatFlags(me, foe)
         }
         else -> when { // melee
-            roll < 0.72f + 0.12f * cpuIntensity -> variedCpuAttack(selfIndex)
-            roll < 0.88f -> cpuRetreatFlags(me, foe) // micro-spacing
+            roll < 0.80f + 0.10f * cpuIntensity -> variedCpuAttack(selfIndex)
+            roll < 0.92f -> cpuRetreatFlags(me, foe) // micro-spacing
             else -> cpuJumpIn(me, foe)
         }
     }
@@ -551,7 +602,7 @@ internal fun StreetFighterViewModel.smartCpuDecision(sim: StreetFighterViewModel
     }
     val specialFar = (specialFarBase * style.specialBias).coerceAtMost(0.34f)
     val specialMid = (specialMidBase * style.specialBias).coerceAtMost(0.24f)
-    val blockChance = if (nightmare) 0.55f else 0.72f + 0.1f * cpuIntensity
+    val blockChance = if (nightmare) 0.82f else 0.76f + 0.1f * cpuIntensity
     val attackMelee = ((if (nightmare) 0.78f else 0.70f) * style.pressureBias)
         .coerceIn(0.62f, 0.88f)
 
@@ -583,7 +634,7 @@ internal fun StreetFighterViewModel.smartCpuDecision(sim: StreetFighterViewModel
     nextComboInput(selfIndex, me, now)?.let { return it }
     // Si el rival está a tiro y en desventaja, ARRANCA una ruta del catálogo. La
     // probabilidad sube con el escalón y con el gusto por combos del personaje.
-    val comboChance = (if (nightmare) 0.45f else 0.22f + 0.20f * cpuIntensity) *
+    val comboChance = (if (nightmare) 0.58f else 0.30f + 0.25f * cpuIntensity) *
         cpuStyleForLevel(me.id).comboBias
     if (dist < StreetFighterViewModel.CPU_MELEE_DIST && !me.isAirborne && roll < comboChance &&
         queueCombo(selfIndex, me, now)

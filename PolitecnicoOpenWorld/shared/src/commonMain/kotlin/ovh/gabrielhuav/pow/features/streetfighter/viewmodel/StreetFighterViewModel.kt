@@ -52,6 +52,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireballState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHitSplash
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHurtArea
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfInput
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfMetamorphosis
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfProjectileEvent
 import ovh.gabrielhuav.pow.domain.models.streetfighter.bonusPowerIndex
 import ovh.gabrielhuav.pow.domain.models.streetfighter.sfBonusPowerState
@@ -1152,14 +1153,13 @@ open class StreetFighterViewModel(
             SfFighterState.BONUS_POWER_7, SfFighterState.BONUS_POWER_8, SfFighterState.BONUS_POWER_9,
             SfFighterState.BONUS_POWER_10, SfFighterState.BONUS_POWER_11,
             -> {
-                val returnsToPresidenta = nf.id == SfFighterId.YOALLI_EHECATL &&
-                    newState == SfFighterState.BONUS_POWER_10
+                val isMetamorphosis = SfMetamorphosis.isTransformationPower(nf.id, newState)
                 nf = nf.copy(
                     velocityX = 0f,
                     velocityY = 0f,
                     attackStruck = false,
                     fireballFired = false,
-                    metamorphosing = nf.metamorphosing || returnsToPresidenta,
+                    metamorphosing = nf.metamorphosing || isMetamorphosis,
                 )
                 withNetAudioCapture(idx) { emitSpecialVoice(nf.id, now) }
             }
@@ -1250,7 +1250,21 @@ open class StreetFighterViewModel(
     /** Cola común del update: posición, slide, animación, límites y colisión de ataque. */
     private fun finishFighterUpdate(sim: Sim, idx: Int, now: Long, dt: Float) {
         // 🆕 (2026-07-22, Fase 1) cinemática de un tick (posición + slide) extraída a SfPhysics (puro).
-        sim.setFighter(idx, SfPhysics.step(sim.fighter(idx), dt))
+        sim.setFighter(idx, clampFighterToStage(SfPhysics.step(sim.fighter(idx), dt)))
+
+        // Aterrizaje en el MISMO tick en que se cruza el piso. Antes dependía del tick siguiente;
+        // un valor de velocidad roto podía dejar un estado JUMP/AIR clavado y parecer que el NPC
+        // desaparecía. clampToStage también sanea velocidades NaN/infinitas.
+        if (SfPhysics.shouldLand(sim.fighter(idx))) {
+            val landedBeforeFacing = sim.fighter(idx).copy(y = SfConstants.STAGE_FLOOR, velocityY = 0f)
+            sim.setFighter(idx, landedBeforeFacing)
+            forceState(sim, idx, SfFighterState.JUMP_LAND, now)
+            val landed = sim.fighter(idx)
+            val opponent = sim.fighter(1 - idx)
+            val facing = if (landed.x <= opponent.x) SfDirection.RIGHT else SfDirection.LEFT
+            sim.setFighter(idx, landed.copy(direction = facing))
+            _soundEvents.tryEmit("land")
+        }
 
         sim.setFighter(idx, updateAnimation(sim.fighter(idx), now))
         updateStageConstraints(sim, idx, dt)

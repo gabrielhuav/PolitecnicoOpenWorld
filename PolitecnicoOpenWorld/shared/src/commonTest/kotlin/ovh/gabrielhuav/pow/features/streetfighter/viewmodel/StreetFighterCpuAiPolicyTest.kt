@@ -90,6 +90,46 @@ class StreetFighterCpuAiPolicyTest {
     }
 
     @Test
+    fun `la super rival se puede interrumpir de cerca antes de impactar`() {
+        assertEquals(
+            CpuSuperDefense.INTERRUPT,
+            cpuSuperDefensePlan(SfCpuDifficulty.AVANZADA, distance = 70f, beforeImpact = true),
+        )
+        assertEquals(
+            CpuSuperDefense.INTERRUPT,
+            cpuSuperDefensePlan(SfCpuDifficulty.PESADILLA, distance = 45f, beforeImpact = true),
+        )
+    }
+
+    @Test
+    fun `la IA esquiva una super a alcance y no reacciona si ya esta fuera`() {
+        assertEquals(
+            CpuSuperDefense.JUMP_BACK,
+            cpuSuperDefensePlan(SfCpuDifficulty.NORMAL, distance = 100f, beforeImpact = true),
+        )
+        assertEquals(
+            CpuSuperDefense.BACKDASH,
+            cpuSuperDefensePlan(SfCpuDifficulty.PESADILLA, distance = 100f, beforeImpact = false),
+        )
+        assertEquals(
+            null,
+            cpuSuperDefensePlan(
+                SfCpuDifficulty.PESADILLA,
+                distance = SfSuperArt.HIT_RANGE + 1f,
+                beforeImpact = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `la dificultad basica conserva la ventana didactica ante la super`() {
+        assertEquals(
+            null,
+            cpuSuperDefensePlan(SfCpuDifficulty.BASICA, distance = 40f, beforeImpact = true),
+        )
+    }
+
+    @Test
     fun `la garantia de super se vuelve mas rapida al subir dificultad`() {
         val waits = SfCpuDifficulty.entries.map { cpuSuperCommitDelayMs(it, aiVs = true) }
         assertEquals(listOf(900L, 650L, 420L, 250L), waits)

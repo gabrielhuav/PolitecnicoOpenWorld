@@ -71,10 +71,29 @@ class SfPhysicsTest {
 
     @Test
     fun `clamp - rescata NaN e infinito al centro del stage y al piso`() {
-        val roto = fighter(x = Float.NaN, y = Float.POSITIVE_INFINITY)
+        val roto = fighter(
+            x = Float.NaN,
+            y = Float.POSITIVE_INFINITY,
+            vx = Float.NEGATIVE_INFINITY,
+            vy = Float.NaN,
+        )
         val r = SfPhysics.clampToStage(roto)
         assertEquals(SfConstants.STAGE_MID_POINT + SfConstants.STAGE_PADDING, r.x, 0.01f)
         assertEquals(SfConstants.STAGE_FLOOR, r.y, 0.01f)
+        assertEquals(0f, r.velocityX, 0.01f)
+        assertEquals(0f, r.velocityY, 0.01f)
+    }
+
+    @Test
+    fun `un salto que cruza el piso aterriza sin quedar desaparecido`() {
+        val crossing = fighter(
+            y = SfConstants.STAGE_FLOOR,
+            vy = 120f,
+        ).copy(state = SfFighterState.JUMP_FORWARD)
+        val rising = crossing.copy(y = SfConstants.STAGE_FLOOR - 30f, velocityY = -120f)
+
+        assertEquals(true, SfPhysics.shouldLand(crossing))
+        assertEquals(false, SfPhysics.shouldLand(rising))
     }
 
     @Test

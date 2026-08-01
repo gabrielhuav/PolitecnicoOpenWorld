@@ -16,6 +16,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHitSplash
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHurtArea
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfMetamorphosis
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfSuperArt
 import kotlin.random.Random
 
@@ -72,8 +73,8 @@ internal fun StreetFighterViewModel.updateAttackBoxCollided(sim: StreetFighterVi
     val meta = attackMeta[attacker.state] ?: return
     if (attacker.attackStruck) return
     val hit = frameDef(attacker).hit
-    if (hit == null && SfSuperArt.shouldAutoConnect(attacker, animOf(attacker).size)) {
-        val defender = sim.fighter(1 - idx)
+    val defender = sim.fighter(1 - idx)
+    if (hit == null && SfSuperArt.canAutoConnect(attacker, defender, animOf(attacker).size)) {
         applyAttackHit(
             sim = sim,
             attackerIdx = idx,
@@ -89,7 +90,6 @@ internal fun StreetFighterViewModel.updateAttackBoxCollided(sim: StreetFighterVi
     if (hit[2] == 0 || hit[3] == 0) return
     val actualHit = SfBox.fromList(hit).toWorld(attacker.x, attacker.y, attacker.direction)
 
-    val defender = sim.fighter(1 - idx)
     val hurtRows = frameDef(defender).hurt ?: return
     for ((i, area) in SfHurtArea.entries.withIndex()) {
         val hurtBox = SfBox.fromList(hurtRows.getOrNull(i)).toWorld(defender.x, defender.y, defender.direction)
@@ -404,9 +404,8 @@ internal fun StreetFighterViewModel.applyAttackHit(
         return
     }
 
-    // 🆕 YOALLI EHÉCATL (jefe FINAL) no “pierde” al KO: a ≤1/4 de vida (o daño letal) se
-    // metamorfosea en LA PRESIDENTA con la VIDA LLENA (una sola vez). Invulnerable en la anim.
-    if (tryYoalliMetamorphosis(sim, defenderIdx, attackerIdx, now)) {
+    // Presidenta ↔ Yoalli: a ≤1/4 de vida obtienen su segunda forma una sola vez en ronda 1.
+    if (tryBossMetamorphosis(sim, defenderIdx, attackerIdx, now)) {
         hurtFreezeUntilMs = now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong()
         return
     }
@@ -460,30 +459,24 @@ internal fun StreetFighterViewModel.applyAttackHit(
 /**
  * 🆕 (2026-07-25) Si la defensora es YOALLI EHÉCATL (jefe FINAL) sin haber metamorfoseado y el
  * golpe la deja en ≤25% HP (o la mataría), lanza BONUS_POWER_10 y NO aplica KO.
- * Al terminar la anim (ver handler BONUS_POWER_*), el id pasa a LA PRESIDENTA con VIDA LLENA.
+ * Al terminar la animación (ver handler BONUS_POWER_*), cambia a la forma opuesta con vida llena.
  * @return true si se consumió el golpe como metamorfosis (el caller no hace KO/hurt).
  */
-internal fun StreetFighterViewModel.tryYoalliMetamorphosis(
+internal fun StreetFighterViewModel.tryBossMetamorphosis(
     sim: StreetFighterViewModel.Sim,
     defenderIdx: Int,
     attackerIdx: Int,
     now: Long,
 ): Boolean {
     val d = sim.fighter(defenderIdx)
-    // 🆕 (2026-07-25, decisión del dueño) INVERTIDA: ahora es YOALLI EHÉCATL (jefe FINAL del
-    // arcade) quien a ≤1/4 de vida se metamorfosea en LA PRESIDENTA (antes era al revés).
-    if (d.id != SfFighterId.YOALLI_EHECATL || d.metamorphosed || d.metamorphosing) return false
-    // 🆕 (2026-07-22, decisión del dueño) La metamorfosis automática SOLO ocurre en el
-    // ROUND 1. Si sobrevivió el round 1 sin transformarse, ya no se transforma.
-    if (_state.value.roundNumber != 1) return false
+    val plan = SfMetamorphosis.planFor(d, _state.value.roundNumber) ?: return false
     val maxHp = SfConstants.HEALTH_MAX_HIT_POINTS
     val threshold = maxHp / 4 // 50 de 200
-    if (d.hitPoints > threshold) return false
-    // Ya está en ≤1/4 (el HP se restó arriba). Arranca anim de metamorfosis (Yoalli→Presidenta).
+    // Ya está en ≤1/4 (el HP se restó arriba). Arranca la animación propia de su dirección.
     // FORZAR estado: puede venir de HURT (validFrom de BONUS_POWER no lo incluye).
     val pinnedHp = d.hitPoints.coerceIn(1, threshold)
     var nf = d.copy(
-        state = SfFighterState.BONUS_POWER_10,
+        state = plan.powerState,
         hitPoints = pinnedHp,
         metamorphosing = true,
         metamorphosed = false,
@@ -498,7 +491,7 @@ internal fun StreetFighterViewModel.tryYoalliMetamorphosis(
     nf = withAnimationFrame(nf, 0, now)
     sim.setFighter(defenderIdx, clampFighterToStage(nf))
     sim.setFighter(attackerIdx, sim.fighter(attackerIdx).copy(attackStruck = true))
-    // metamorfosis Yoalli → grito + subtítulo (viaja si es MI peleadora: el rival la oye)
+    // Grito + subtítulo (viaja si es MI peleadora: el rival lo oye).
     withNetAudioCapture(defenderIdx) { emitSpecialVoice(d.id, now) }
     return true
 }
@@ -506,8 +499,7 @@ internal fun StreetFighterViewModel.tryYoalliMetamorphosis(
 /** Invulnerable durante cualquiera de las dos direcciones de la metamorfosis. */
 internal fun StreetFighterViewModel.isMetamorphosing(f: SfFighter): Boolean =
     f.metamorphosing ||
-        (f.id == SfFighterId.LA_PRESIDENTA && f.state == SfFighterState.BONUS_POWER_11 && !f.metamorphosed) ||
-        (f.id == SfFighterId.YOALLI_EHECATL && f.state == SfFighterState.BONUS_POWER_10)
+        (SfMetamorphosis.isTransformationPower(f.id, f.state) && !f.metamorphosed)
 
 // ------------------------------------------------------------------
 // Fireballs (Fireball.js) — animación, movimiento, colisión
