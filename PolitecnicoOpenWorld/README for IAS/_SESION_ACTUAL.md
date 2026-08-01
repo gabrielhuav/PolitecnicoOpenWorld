@@ -3,16 +3,22 @@
 > Único traspaso entre IAs. Ventana de 2 días; máximo 200 líneas. Aquí va estado medido,
 > trabajo abierto y trampas caras. Diseño e historia viven en los documentos de cada área.
 
-**Última actualización:** 2026-07-30 · Opus 5 (Mac) · rama `perf-gama-baja-coleccionables`
+**Última actualización:** 2026-07-31 · Opus 5 (Windows, escritorio) · rama `perf-gama-baja-coleccionables`
 
-> ➡️ **AHORA LE TOCA A WINDOWS: verificar Android y publicar** →
-> **`PROMPT_WINDOWS_verificar_android_y_release.md`** (§3bis).
-> Esta rama lleva **80 commits** sobre `main` —la migración KMP entera— y **nadie ha jugado Android
-> desde que empezó**: en el Mac no hay AVD.
+> ➡️ **AHORA LE TOCA A SOL 5.6: publicar hoy y bajar el tamaño** →
+> **`PROMPT_SOL_release_hoy_y_webp.md`** (rutas del emulador, CI/CD revisado, PNG→WebP medido).
 >
-> En iOS: **SF corre entero** y en el mundo abierto **ya se camina por el mapa**, con el HUD de
-> Android y las bardas frenando. Faltan NPCs y coleccionables (los alimenta el `WorldMapViewModel`).
-> Después de Android, la **fase 4** (42 strings), que **bloquea la 5**. **429 tests.**
+> **Android YA está verificado en emulador y arreglado.** Se probó ACTUALIZANDO encima de un build
+> de `main` con partida hecha, que es la prueba que vale: **saves, ajustes, idioma, sesión de
+> arcade y la BD sobreviven intactos**. Había **3 regresiones jugables** (música que rebobina,
+> preview borrosa, el `"?"` al elegir peleador): corregidas y medidas en `016e7406`.
+>
+> 🔴 **Queda una CUARTA sin arreglar y es decisión del dueño:** el selector de idioma **ya no
+> afecta a nada de `:shared`** (Ajustes, Coleccionables y SF salen en el idioma del SISTEMA).
+> Causa medida y tres vías de ataque en el prompt de Sol §2. No es crash ni pérdida de datos.
+>
+> Release preparado: `versionName` **1.0.0.15**, notas ES+EN reescritas, `gh-pages` viva.
+> iOS **no bloquea**: el release es de Android. **274 tests Android + 155 iOS.**
 
 ## 🖥️ Rutas por PC
 
@@ -94,32 +100,51 @@ saber sin abrirlo:
   **se traga el ReferenceError sin log** y el mapa se queda quieto sin que nadie sepa por qué.
   ⚠️ Falta la **VUELTA** del puente (JS → Kotlin): haría falta `WKScriptMessageHandler`.
 
-## 3bis. 📦 Traspaso a Windows (07-31)
+## 3bis. ✅ Android verificado en emulador (07-31) — MEDIDO, no estimado
 
-**`PROMPT_WINDOWS_verificar_android_y_release.md`** — verificar Android y sacar el release.
-Lo que más riesgo tiene, por orden:
+Detalle completo y rutas de la máquina: **`PROMPT_SOL_release_hoy_y_webp.md`**.
 
-1. 🔴 **Datos guardados.** Gson→kotlinx, SharedPreferences→multiplatform-settings, Room KMP,
-   OkHttp→Ktor. ⚠️ **Hay que probar ACTUALIZANDO sobre una instalación con partida**, no limpia:
-   instalar de cero no prueba nada de esto.
-2. 🔴 **Los 3 gestores de IA con `PowMapaConcurrente`.** 14 tests, pero la concurrencia real solo
-   se ve **jugando media hora** con nivel de búsqueda alto: tirones, policías clavados, patrullas
-   que desaparecen.
-3. 🟠 SF completo con el **audio nuevo** (82 `.ogg`→`.m4a`, BGM 24→16 bits) e interiores
-   (se quitó `onClaimCollectiblePressed` de 5 llamadas).
-4. 🟢 El menú de Android debe salir **igual que siempre**: si aparece un botón EN OBRAS, es bug.
+**Cómo se probó:** build de `main` instalado primero → partida hecha (idioma, Modo Dev, arcade a
+medias) → `adb install -r -d` con el de la rama **encima**. Instalar limpio no prueba migración.
 
-Release: subir `versionName` (hoy `1.0.0.14`), notas ES+EN, y el AAB va por **402 MB de los 500**.
-El adelgazamiento (PNG→WebP ~60 MB, BGM→Ogg ~23 MB) **necesita Windows**: en el Mac no hay
-`ffmpeg` ni `cwebp`. Script listo: `tools/optimizar_assets_produccion.sh --dry-run`.
+| Riesgo | Resultado |
+|---|---|
+| Prefs (`pow_game_settings`, `APP_LANGUAGE`, `DEVELOPER_MODE`) | ✅ mismo archivo, mismas claves |
+| Sesión de arcade `_V2` (`pow_sf_arcade.xml`) | ✅ byte a byte; sale “Continuar pelea” |
+| `files/databases/pow_roads.db` | ✅ intacta, no se rehizo |
+| Menú (6 botones, insignias, **ningún EN OBRAS**) · Ajustes (6 categorías, Modo Dev) | ✅ |
+| Minimizar/volver en pelea | ✅ vuelve en PAUSA, sin crash |
+
+**3 regresiones jugables, arregladas en `016e7406`** (el commit las explica con su medida):
+música que **rebobinaba** por el catch-up de `ON_RESUME` de `LifecycleRegistry` + `reproducir()`
+que rebobina por contrato · **preview a 1/16 de píxeles** por perder `BitmapRegionDecoder` al
+portar (ahora el muestreo depende de la gama: normal 1, baja 4) · el **`"?"`** de ~300 ms porque
+`animate` está en la clave de la caché (ahora se rellena con la otra variante).
+
+🔴 **La CUARTA, SIN arreglar — decisión del dueño:** **el selector de idioma no afecta a `:shared`.**
+Con `APP_LANGUAGE=es` el menú sale en español (`R.string` de `:app`) pero **Ajustes, Coleccionables
+y SF salen en el idioma del sistema**. `LocaleHelper.wrap` (`createConfigurationContext` +
+`Locale.setDefault`) arregla `R.string`, pero **Compose Resources lee `LocaleList.getAdjustedDefault()`**,
+que es la lista del SISTEMA. Es el mismo muro del §8bis-1 de iOS, en Android sin resolver. Vías de
+ataque en el prompt de Sol §2. Impacto: solo a quien elige idioma ≠ al del teléfono.
+
+**Sin verificar todavía:** mundo abierto media hora (gestores de IA), interiores, y **el audio
+oyéndolo** (el emulador no devuelve sonido).
+
+**Release preparado:** `versionName` **1.0.0.15**, notas ES+EN reescritas, `gh-pages` viva, workflow
+revisado entero. CI: avisa a 450 MB, falla a 500; última medida propia del CI **416 MB**.
+PNG→WebP **medido hoy: 142 archivos, 87,3 MB** — ⚠️ **`cwebp` NO está en esta PC** (`ffmpeg` sí) y
+el script borra los `.png` **sin tocar las 81 referencias en 26 archivos** de código. No va en este
+release.
 
 ## 4. PENDIENTE — prioridad
 
 ### 🔴 P0
 
-1. **Windows:** confirmar en emulador que Android sigue igual tras los arreglos de §2bis. Tocan
-   `commonMain`, así que Android hereda los tres: retrato del peleador en la tarjeta, `\'` en
-   inglés y `systemBarsPadding` en la ✕. **Ninguno se ha visto en Android todavía.**
+1. **Publicar 1.0.0.15** y, antes, decidir qué se hace con el **idioma en `:shared`** (§3bis).
+   Todo lo demás del release está listo. → `PROMPT_SOL_release_hoy_y_webp.md`.
+   ✅ Lo de §2bis ya se vio en Android: los tres arreglos heredados de `commonMain` (retrato en la
+   tarjeta, `\'` en inglés y `systemBarsPadding` en la ✕) están bien en el emulador.
 2. **Decisión del dueño — On-Demand Resources sí o no.** Bloquea la fase 4 en adelante del mundo
    abierto en iOS: con el mundo el bundle son **399 MB** contra los **200 MB por datos móviles** de
    Apple. Sin ODR, la app solo se baja por Wi-Fi. Datos en el doc 12 §0.

@@ -1,7 +1,7 @@
-POW 1.0.0.14
+POW 1.0.0.15
 
-• Multiplayer: both players now HEAR the same thing, not just see it.
-• Faster online fights: direct phone-to-phone connection when the network allows it.
-• Stability improvements for Bluetooth and local Wi-Fi.
-• Triggers now available across the 5 interiors.
+• Huelum vs. Goya: the character-select music no longer restarts when you enter.
+• Fighter portraits in the character select look sharp again.
+• Picking a fighter no longer flashes a question mark before the animation.
+• Lighter startup and less stutter when opening the roster on low-end phones.
 • Stability improvements.

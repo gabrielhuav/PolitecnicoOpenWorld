@@ -1,7 +1,7 @@
-POW 1.0.0.14
+POW 1.0.0.15
 
-• Multijugador: ahora los dos jugadores ESCUCHAN lo mismo, no solo ven lo mismo.
-• Peleas en línea más rápidas: conexión directa entre teléfonos cuando la red lo permite.
-• Mejoras de estabilidad en Bluetooth y Wi-Fi local.
-• Gatillos ahora disponibles en los 5 interiores.
+• Huelum vs. Goya: la música del selector ya no vuelve a empezar al entrar.
+• Los retratos del selector de peleadores se ven nítidos otra vez.
+• Al elegir peleador ya no aparece un signo de interrogación antes de la animación.
+• Arranque más ligero y menos tirones al abrir el selector en gama baja.
 • Mejoras de estabilidad.
