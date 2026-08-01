@@ -3,22 +3,22 @@
 > Único traspaso entre IAs. Ventana de 2 días; máximo 200 líneas. Aquí va estado medido,
 > trabajo abierto y trampas caras. Diseño e historia viven en los documentos de cada área.
 
-**Última actualización:** 2026-07-31 · Opus 5 (Windows, escritorio) · rama `perf-gama-baja-coleccionables`
+**Última actualización:** 2026-08-01 · Sol 5.6 (Windows, escritorio) · rama `perf-gama-baja-coleccionables`
 
-> ➡️ **AHORA LE TOCA A SOL 5.6: publicar hoy y bajar el tamaño** →
-> **`PROMPT_SOL_release_hoy_y_webp.md`** (rutas del emulador, CI/CD revisado, PNG→WebP medido).
+> ➡️ **Release Android 1.0.0.15 listo para PR/merge a `main`.** El merge dispara
+> `.github/workflows/android-release.yml` y sube a Play `alpha` (prueba cerrada).
 >
 > **Android YA está verificado en emulador y arreglado.** Se probó ACTUALIZANDO encima de un build
 > de `main` con partida hecha, que es la prueba que vale: **saves, ajustes, idioma, sesión de
 > arcade y la BD sobreviven intactos**. Había **3 regresiones jugables** (música que rebobina,
 > preview borrosa, el `"?"` al elegir peleador): corregidas y medidas en `016e7406`.
 >
-> 🔴 **Queda una CUARTA sin arreglar y es decisión del dueño:** el selector de idioma **ya no
-> afecta a nada de `:shared`** (Ajustes, Coleccionables y SF salen en el idioma del SISTEMA).
-> Causa medida y tres vías de ataque en el prompt de Sol §2. No es crash ni pérdida de datos.
+> ✅ Corregidos idioma Android 13+ para `:shared`, el `"?"` del selector y la IA de SF: SUPER ART
+> prioritaria/reintentable, consumo de inputs alineado con la máquina de estados y combos confirmados.
+> ✅ 142 PNG → WebP: 87.3 MB → 40.8 MB (ahorro 46.5 MB / 53.2 %); AAB local 353.15 MB.
 >
 > Release preparado: `versionName` **1.0.0.15**, notas ES+EN reescritas, `gh-pages` viva.
-> iOS **no bloquea**: el release es de Android. **274 tests Android + 155 iOS.**
+> iOS **no bloquea**: el release es de Android. **279 tests = 119 app + 160 shared**, 0 fallos.
 
 ## 🖥️ Rutas por PC
 
@@ -121,28 +121,24 @@ que rebobina por contrato · **preview a 1/16 de píxeles** por perder `BitmapRe
 portar (ahora el muestreo depende de la gama: normal 1, baja 4) · el **`"?"`** de ~300 ms porque
 `animate` está en la clave de la caché (ahora se rellena con la otra variante).
 
-🔴 **La CUARTA, SIN arreglar — decisión del dueño:** **el selector de idioma no afecta a `:shared`.**
-Con `APP_LANGUAGE=es` el menú sale en español (`R.string` de `:app`) pero **Ajustes, Coleccionables
-y SF salen en el idioma del sistema**. `LocaleHelper.wrap` (`createConfigurationContext` +
-`Locale.setDefault`) arregla `R.string`, pero **Compose Resources lee `LocaleList.getAdjustedDefault()`**,
-que es la lista del SISTEMA. Es el mismo muro del §8bis-1 de iOS, en Android sin resolver. Vías de
-ataque en el prompt de Sol §2. Impacto: solo a quien elige idioma ≠ al del teléfono.
+✅ **Idioma de `:shared` corregido en Android 13+:** `LocaleManager.applicationLocales` +
+`android:localeConfig` alimentan a la vez `R.string` y Compose Resources. API 24-32 conserva el
+`Context` envuelto anterior. La lógica de SF/ajustes/coleccionables sigue en `commonMain`; iOS
+mantiene su costura `AppleLanguages` y reconstrucción del árbol.
 
-**Sin verificar todavía:** mundo abierto media hora (gestores de IA), interiores, y **el audio
-oyéndolo** (el emulador no devuelve sonido).
+**Aceptado por el dueño para release:** la validación jugable final se hizo manualmente. Siguen
+como deuda explícita la sesión de mundo abierto de media hora y una pasada integral de audio/interiores.
 
-**Release preparado:** `versionName` **1.0.0.15**, notas ES+EN reescritas, `gh-pages` viva, workflow
-revisado entero. CI: avisa a 450 MB, falla a 500; última medida propia del CI **416 MB**.
-PNG→WebP **medido hoy: 142 archivos, 87,3 MB** — ⚠️ **`cwebp` NO está en esta PC** (`ffmpeg` sí) y
-el script borra los `.png` **sin tocar las 81 referencias en 26 archivos** de código. No va en este
-release.
+**Release preparado:** `versionName` **1.0.0.15**, notas ES+EN, `gh-pages` viva y workflow revisado.
+Los 142 PNG restantes se convirtieron y sus referencias se actualizaron: 87,279,165 → 40,806,326
+bytes. `bundleRelease` pasó; AAB local **353,149,573 bytes** (353.15 MB), bajo 450/500 MB.
 
 ## 4. PENDIENTE — prioridad
 
 ### 🔴 P0
 
-1. **Publicar 1.0.0.15** y, antes, decidir qué se hace con el **idioma en `:shared`** (§3bis).
-   Todo lo demás del release está listo. → `PROMPT_SOL_release_hoy_y_webp.md`.
+1. **Publicar 1.0.0.15:** crear PR `perf-gama-baja-coleccionables` → `main` y fusionarlo. Revisar
+   `play-compliance`, AAB ~353 MB y `playstore-closed-testing` en track `alpha`.
    ✅ Lo de §2bis ya se vio en Android: los tres arreglos heredados de `commonMain` (retrato en la
    tarjeta, `\'` en inglés y `systemBarsPadding` en la ✕) están bien en el emulador.
 2. **Decisión del dueño — On-Demand Resources sí o no.** Bloquea la fase 4 en adelante del mundo
@@ -181,9 +177,8 @@ faltan `attack`/`hurt` en 6 peleadores. Los SFX globales no se normalizan como v
 
 Windows: `.\gradlew.bat`. Mac: fijar el JBR de Android Studio y añadir
 `:shared:iosSimulatorArm64Test :shared:linkDebugFrameworkIosSimulatorArm64`.
-Esperado: **228 = 114 app + 114 shared**, 0 fallos (MEDIDO en Mac el 07-30 con
-`:app:testDebugUnitTest` + `:shared:iosSimulatorArm64Test`). Si se toca `commonTest`, ejecutar
-el guard de nombres.
+Esperado Android: **279 = 119 app + 160 shared**, 0 fallos (medido en Windows 2026-08-01).
+En Mac conservar además `:shared:iosSimulatorArm64Test`. Si se toca `commonTest`, ejecutar el guard.
 
 Detekt CI desde la raíz exterior:
 
