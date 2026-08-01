@@ -1,7 +1,7 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
-import kotlinx.serialization.encodeToString
 import ovh.gabrielhuav.pow.data.json.PowJson
+import ovh.gabrielhuav.pow.data.json.jsonOf
 
 import android.content.Context
 import android.util.Log
@@ -298,7 +298,9 @@ class SfWebRtcClient(
             fallback()
             return
         }
-        val line = PowJson.encodeToString(payload.filterValues { it != null })
+        // `Map<String, Any?>` no tiene serializer seguro en kotlinx (y los fireballs son modelos).
+        // `jsonOf` conserva el formato Gson del protocolo y recibe esos modelos ya como JsonElement.
+        val line = jsonOf(payload)
         runCatching {
             sendExecutor.execute {
                 val ok = runCatching {
@@ -356,12 +358,7 @@ class SfWebRtcClient(
         meter: Int,
         audio: List<String>,
     ) = sendHot(
-        mapOf(
-            "type" to "PLAYER_STATE", "x" to x, "y" to y, "state" to state,
-            "frame" to frame, "dir" to dir, "hp" to hp, "timer" to timer,
-            "fireballs" to fireballs, "meter" to meter,
-            "audio" to audio.ifEmpty { null },
-        ),
+        sfPlayerStatePayload(x, y, state, frame, dir, hp, timer, fireballs, meter, audio),
     ) { relay.sendPlayerState(x, y, state, frame, dir, hp, timer, fireballs, meter, audio) }
 
     override fun close() {

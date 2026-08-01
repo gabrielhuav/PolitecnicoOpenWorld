@@ -1,8 +1,10 @@
 package ovh.gabrielhuav.pow.data.json
 
 import com.google.gson.Gson
+import kotlinx.serialization.json.encodeToJsonElement
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfNetFireball
 
 /**
  * 🍏 COMPATIBILIDAD DEL FORMATO DE CABLE — red de seguridad de la Fase 3
@@ -85,5 +87,33 @@ class JsonObjectCompatGsonTest {
     fun `booleanos y cadenas con acentos, comillas y barras`() {
         comparar("t" to true, "f" to false)
         comparar("nombre" to "Señor de la tienda", "raro" to "com\"illas\\y barras/")
+    }
+
+    @Test
+    fun `PLAYER_STATE con fireballs conserva el formato Gson`() {
+        val fireballs = listOf(
+            SfNetFireball(
+                x = 321.5f,
+                y = 144.25f,
+                dir = -1,
+                strength = "HEAVY",
+                state = "FLYING",
+                frame = 3,
+            ),
+        )
+        val deGson = gson.toJson(
+            mapOf(
+                "type" to "PLAYER_STATE",
+                "fireballs" to fireballs,
+                "meter" to 60,
+            ),
+        )
+        val deJsonOf = jsonOf(
+            "type" to "PLAYER_STATE",
+            "fireballs" to PowJson.encodeToJsonElement(fireballs),
+            "meter" to 60,
+        )
+
+        assertEquals(deGson, deJsonOf)
     }
 }

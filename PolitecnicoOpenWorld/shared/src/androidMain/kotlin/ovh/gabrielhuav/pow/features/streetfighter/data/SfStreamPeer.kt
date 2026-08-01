@@ -1,6 +1,5 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
-import kotlinx.serialization.encodeToString
 import ovh.gabrielhuav.pow.data.json.PowJson
 import ovh.gabrielhuav.pow.data.json.jsonOf
 
@@ -270,13 +269,7 @@ abstract class SfStreamPeer : SfNetTransport {
         audio: List<String>,
     ) =
         sendRaw(
-            mapOf(
-                "type" to "PLAYER_STATE", "x" to x, "y" to y, "state" to state,
-                "frame" to frame, "dir" to dir, "hp" to hp, "timer" to timer,
-                "fireballs" to fireballs, "meter" to meter,
-                // Vacío → null → `sendRaw` lo filtra (no engorda el snapshot de ~15 Hz).
-                "audio" to audio.ifEmpty { null },
-            ),
+            sfPlayerStatePayload(x, y, state, frame, dir, hp, timer, fireballs, meter, audio),
         )
 
     // ── Salas/cola/lobby: solo tienen sentido con el server online → no-op local ──

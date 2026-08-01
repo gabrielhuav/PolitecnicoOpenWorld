@@ -1,6 +1,6 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
-import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.encodeToJsonElement
 import ovh.gabrielhuav.pow.data.json.PowJson
 import ovh.gabrielhuav.pow.data.json.jsonOf
 
@@ -97,6 +97,34 @@ data class SfNetFireball(
     val strength: String = "",
     val state: String = "",          // SfFireballState.name
     val frame: Int = 0,
+)
+
+/**
+ * Construye el snapshot de pelea con los modelos ya convertidos al árbol JSON.
+ *
+ * `jsonOf` acepta listas heterogéneas, pero deliberadamente no intenta serializar modelos Kotlin
+ * por reflexión (eso no existe en iOS). Por eso [SfNetFireball], aunque sea `@Serializable`, debe
+ * entrar como [kotlinx.serialization.json.JsonElement]. Mantenerlo aquí evita que relay, WebRTC y
+ * los transportes locales vuelvan a divergir.
+ */
+@Suppress("LongParameterList")
+internal fun sfPlayerStatePayload(
+    x: Float,
+    y: Float,
+    state: String,
+    frame: Int,
+    dir: Int,
+    hp: Int,
+    timer: Int?,
+    fireballs: List<SfNetFireball>,
+    meter: Int,
+    audio: List<String>,
+): Map<String, Any?> = mapOf(
+    "type" to "PLAYER_STATE", "x" to x, "y" to y, "state" to state,
+    "frame" to frame, "dir" to dir, "hp" to hp, "timer" to timer,
+    "fireballs" to PowJson.encodeToJsonElement(fireballs), "meter" to meter,
+    // Vacío → null → `jsonOf` lo filtra: no engorda el snapshot de ~15 Hz.
+    "audio" to audio.ifEmpty { null },
 )
 
 // 🍏 Fase 4: transporte por **Ktor** (antes OkHttp). Ktor es multiplataforma — el motor es OkHttp
@@ -205,14 +233,7 @@ class SfMatchClient : SfNetTransport {
         audio: List<String>,
     ) =
         send(
-            mapOf(
-                "type" to "PLAYER_STATE", "x" to x, "y" to y, "state" to state,
-                "frame" to frame, "dir" to dir, "hp" to hp, "timer" to timer,
-                "fireballs" to fireballs, "meter" to meter,
-                // Vacío → null → `send` lo filtra: no engorda el snapshot de ~15 Hz.
-                // El relay de Render lo reenvía solo (hace `{...msg}`), sin redeploy.
-                "audio" to audio.ifEmpty { null },
-            ),
+            sfPlayerStatePayload(x, y, state, frame, dir, hp, timer, fireballs, meter, audio),
         )
 
     override fun close() {
