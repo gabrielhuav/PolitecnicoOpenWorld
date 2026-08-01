@@ -15,6 +15,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireballState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfInput
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStateMachine
 import kotlin.math.abs
 import kotlin.random.Random
 
@@ -57,30 +58,33 @@ internal fun StreetFighterViewModel.buildCpuInput(now: Long, sim: StreetFighterV
     val desync = if (aiVs) (i * 17L) else 0L
     val baseDelay = when (difficulty) {
         SfCpuDifficulty.BASICA -> Random.nextLong(650L, 1100L)
-        SfCpuDifficulty.NORMAL -> Random.nextLong(160L, 340L)
+        SfCpuDifficulty.NORMAL -> Random.nextLong(120L, 260L)
         SfCpuDifficulty.AVANZADA -> Random.nextLong(55L, 120L)
         SfCpuDifficulty.PESADILLA -> Random.nextLong(35L, 75L)
     }
     cpuNextDecisionMs[i] = now + desync +
         (baseDelay * (1f - 0.42f * cpuIntensity)).toLong().coerceAtLeast(30L)
 
-    var decision = when (difficulty) {
-        SfCpuDifficulty.BASICA -> basicCpuDecision(sim, i)
-        SfCpuDifficulty.NORMAL -> normalCpuDecision(sim, i, now)
-        SfCpuDifficulty.AVANZADA -> smartCpuDecision(sim, i, now, nightmare = false)
-        SfCpuDifficulty.PESADILLA -> smartCpuDecision(sim, i, now, nightmare = true)
-    }
-
     val me = sim.fighter(i)
     val foe = sim.fighter(1 - i)
     val dist = abs(me.x - foe.x)
+    var decision = when (difficulty) {
+        SfCpuDifficulty.BASICA -> maybeCpuSuperArtInput(me, foe, dist, now, i, difficulty, aiVs)
+            ?: basicCpuDecision(sim, i)
+        SfCpuDifficulty.NORMAL -> maybeCpuSuperArtInput(me, foe, dist, now, i, difficulty, aiVs)
+            ?: normalCpuDecision(sim, i, now)
+        SfCpuDifficulty.AVANZADA -> smartCpuDecision(sim, i, now, nightmare = false)
+        SfCpuDifficulty.PESADILLA -> smartCpuDecision(sim, i, now, nightmare = true)
+    }
 
     // 🆕 (2026-07-25) Con un FATALITY comprometido (dash → RUN → súper), el run-up NO lleva
     // ataque, así que el force-engage / watchdog / anti-walk-loop lo abortarían. Los saltamos
     // mientras la intención esté activa: la propia `maybeFatalityInput` decide y se auto-cancela.
     val fatalityCommitted = now < cpuFatalityUntilMs[i]
 
-    if (now < cpuForceEngageUntilMs[i] && !me.isAirborne && !fatalityCommitted) {
+    if (now < cpuForceEngageUntilMs[i] && !me.isAirborne && !fatalityCommitted &&
+        !decision.hasAttackOrSpecial()
+    ) {
         decision = if (dist > StreetFighterViewModel.CPU_MELEE_DIST * 0.75f) {
             cpuApproach(me, foe)
         } else {
@@ -100,7 +104,7 @@ internal fun StreetFighterViewModel.buildCpuInput(now: Long, sim: StreetFighterV
     // distancia: si están LEJOS obliga a CERRAR distancia (approach), y en rango de golpe
     // fuerza ataque o clinch break. Así nunca se estancan sin pelear.
     val watchdogLimit = when {
-        difficulty == SfCpuDifficulty.BASICA && aiVs -> 3500L
+        difficulty == SfCpuDifficulty.BASICA && aiVs -> 900L
         difficulty == SfCpuDifficulty.BASICA -> null
         aiVs -> 420L
         else -> 700L
@@ -154,19 +158,70 @@ internal fun StreetFighterViewModel.buildCpuInput(now: Long, sim: StreetFighterV
     val bonusStateReady = bonusCount > 0 && me.state in attackValidFrom && !me.metamorphosing
     val bonusPositionReady = !isNearStageCorner(me.x) && dist in 70f..200f
     val bonusCooldownReady = now >= specialCooldownUntil[i]
-    if (bonusStateReady && bonusPositionReady && bonusCooldownReady &&
+    if (!cpuHold[i].hasAttackOrSpecial() && bonusStateReady && bonusPositionReady && bonusCooldownReady &&
         Random.nextFloat() < bonusChance) {
         cpuHold[i] = SfInput(bonusPower = Random.nextInt(1, bonusCount + 1))
     }
 
     val oneShot = cpuHold[i]
     // Sostener direcciones (presión / walk-back); botones y salto = un tick
-    cpuHold[i] = oneShot.copy(
-        lightPunch = false, mediumPunch = false, heavyPunch = false,
-        lightKick = false, mediumKick = false, heavyKick = false,
-        special = null, bonusPower = null, up = false,
-    )
+    cpuHold[i] = oneShot.withCpuOneShotsReleased()
     return oneShot
+}
+
+/** Conserva solo direcciones sostenidas; cada botón de la CPU dura exactamente un tick. */
+internal fun SfInput.withCpuOneShotsReleased(): SfInput = copy(
+    up = false,
+    lightPunch = false, mediumPunch = false, heavyPunch = false,
+    lightKick = false, mediumKick = false, heavyKick = false,
+    special = null, bonusPower = null,
+    dashForward = false, dashBackward = false,
+    parry = false, grab = false, taunt = false, superArt = false,
+)
+
+/** Plazo máximo antes de que una CPU deje el azar y garantice su SUPER ART. */
+internal fun cpuSuperCommitDelayMs(difficulty: SfCpuDifficulty, aiVs: Boolean): Long =
+    when (difficulty) {
+        SfCpuDifficulty.BASICA -> if (aiVs) 900L else 2200L
+        SfCpuDifficulty.NORMAL -> if (aiVs) 650L else 1400L
+        SfCpuDifficulty.AVANZADA -> if (aiVs) 420L else 850L
+        SfCpuDifficulty.PESADILLA -> if (aiVs) 250L else 500L
+    }
+
+/**
+ * Garantia de gasto del medidor para cualquier dificultad. La CPU puede usarlo antes por su
+ * decision normal (Avanzada/Pesadilla), pero nunca lo retiene indefinidamente por mala suerte.
+ */
+internal fun StreetFighterViewModel.maybeCpuSuperArtInput(
+    me: SfFighter,
+    foe: SfFighter,
+    dist: Float,
+    now: Long,
+    selfIndex: Int,
+    difficulty: SfCpuDifficulty,
+    aiVs: Boolean,
+): SfInput? {
+    val i = selfIndex.coerceIn(0, 1)
+    if (!me.superReady || !hasAnim(me, SfFighterState.SUPER_ART)) {
+        cpuSuperReadySinceMs[i] = 0L
+        return null
+    }
+    if (cpuSuperReadySinceMs[i] == 0L) {
+        cpuSuperReadySinceMs[i] = now.coerceAtLeast(1L)
+        return null
+    }
+    val maxWaitMs = cpuSuperCommitDelayMs(difficulty, aiVs)
+    if (now - cpuSuperReadySinceMs[i] < maxWaitMs) return null
+    if (me.isAirborne || me.downed || me.metamorphosing || me.state in SF_HURT_STATES) return null
+    if (me.state !in SfStateMachine.SPECIAL_VALID_FROM) return null
+    // Un normal solo puede cancelar al conectar. Si todavía va al aire, se reintenta en la
+    // siguiente decisión sin dar la barra por gastada.
+    if (me.state in attackMeta && !me.attackStruck) return null
+    if (dist >= StreetFighterViewModel.CPU_MELEE_DIST) return cpuApproach(me, foe)
+    cpuFatalityUntilMs[i] = 0L
+    // No se confirma aquí: el timer se limpia cuando el motor realmente consume el medidor.
+    // Así un input rechazado por transición/animación vuelve a intentarse en vez de perderse.
+    return SfInput(superArt = true)
 }
 
 
@@ -305,7 +360,7 @@ internal fun StreetFighterViewModel.cpuStyle(id: SfFighterId): CpuStyle = when (
 // Decisiones por dificultad
 // ------------------------------------------------------------------
 
-/** BÁSICA — aprendible: lenta, pocos golpes, sin poderes. */
+/** BÁSICA — aprendible: lenta y con pocos golpes; la súper cargada no se desperdicia. */
 internal fun StreetFighterViewModel.basicCpuDecision(sim: StreetFighterViewModel.Sim, selfIndex: Int): SfInput {
     val me = sim.fighter(selfIndex)
     val foe = sim.fighter(1 - selfIndex)
@@ -447,10 +502,25 @@ internal fun StreetFighterViewModel.smartCpuDecision(sim: StreetFighterViewModel
     // fiel a su estilo (y más peligroso) conforme avanzas la escalera.
     val style = cpuStyleForLevel(me.id)
 
-    // 🆕 (2026-07-25) FATALITY comprometido: se evalúa ANTES del clinch/space/watchdog para que,
-    // una vez decidido, la IA lo COMPLETE (corra y suelte el súper) en vez de abortarlo al cerrar
-    // distancia. Rival ATURDIDO + medidor lleno = garantizado (sí o sí).
-    maybeFatalityInput(me, foe, dist, now, selfIndex, nightmare)?.let { return it }
+    // La SUPER ART normal tiene prioridad absoluta al llenarse el medidor. La ruta de fatality
+    // (dash -> RUN -> super) puede fallar si la carrera se interrumpe; si se evalua primero se
+    // apropia de la barra indefinidamente y la IA parece no usar nunca su poder cargado.
+    val normalSuperAvailable = me.superReady && hasAnim(me, SfFighterState.SUPER_ART)
+    maybeCpuSuperArtInput(
+        me = me,
+        foe = foe,
+        dist = dist,
+        now = now,
+        selfIndex = selfIndex,
+        difficulty = if (nightmare) SfCpuDifficulty.PESADILLA else SfCpuDifficulty.AVANZADA,
+        aiVs = aiVs,
+    )?.let { return it }
+    // Mientras exista una SUPER ART normal disponible, ni siquiera se abre una intención de
+    // fatality: aunque la garantía todavía esté midiendo su plazo, esa ruta no puede apropiarse
+    // de la barra. El fatality queda como respaldo para un moveset sin SUPER_ART utilizable.
+    if (!normalSuperAvailable) {
+        maybeFatalityInput(me, foe, dist, now, selfIndex, nightmare)?.let { return it }
+    }
 
     val specialFarBase = when {
         nightmare && aiVs -> 0.24f
@@ -493,7 +563,7 @@ internal fun StreetFighterViewModel.smartCpuDecision(sim: StreetFighterViewModel
     }
 
     // 🆕 (2026-07-21) RUTA DE COMBO en curso: sigue encadenando los pasos pendientes.
-    nextComboInput(selfIndex, now)?.let { return it }
+    nextComboInput(selfIndex, me, now)?.let { return it }
     // Si el rival está a tiro y en desventaja, ARRANCA una ruta del catálogo. La
     // probabilidad sube con el escalón y con el gusto por combos del personaje.
     val comboChance = (if (nightmare) 0.45f else 0.22f + 0.20f * cpuIntensity) *
@@ -501,7 +571,7 @@ internal fun StreetFighterViewModel.smartCpuDecision(sim: StreetFighterViewModel
     if (dist < StreetFighterViewModel.CPU_MELEE_DIST && !me.isAirborne && roll < comboChance &&
         queueCombo(selfIndex, me, now)
     ) {
-        nextComboInput(selfIndex, now)?.let { return it }
+        nextComboInput(selfIndex, me, now)?.let { return it }
     }
 
     // 🆕 (2026-07-21) La CPU usa el MOVESET nuevo cuando el peleador lo tiene.
@@ -752,16 +822,41 @@ internal fun StreetFighterViewModel.queueCombo(selfIndex: Int, me: SfFighter, no
     }.filter { combo -> combo.steps.all { canPerform(me, it) } }
     val chosen = options.randomOrNull() ?: return false
     cpuComboQueue[i].addAll(chosen.steps)
+    cpuComboAwaiting[i] = null
     cpuComboUntilMs[i] = now + StreetFighterViewModel.COMBO_ROUTE_TIMEOUT_MS
     return true
 }
 
 /** Siguiente paso de la ruta encolada (null si no hay o si expiró). */
-internal fun StreetFighterViewModel.nextComboInput(selfIndex: Int, now: Long): SfInput? {
+internal fun StreetFighterViewModel.nextComboInput(selfIndex: Int, me: SfFighter, now: Long): SfInput? {
     val i = selfIndex.coerceIn(0, 1)
-    if (cpuComboQueue[i].isEmpty()) return null
-    if (now > cpuComboUntilMs[i]) { cpuComboQueue[i].clear(); return null }
-    return inputForAction(cpuComboQueue[i].removeFirst())
+    if (cpuComboQueue[i].isEmpty()) { cpuComboAwaiting[i] = null; return null }
+    if (now > cpuComboUntilMs[i]) {
+        cpuComboQueue[i].clear()
+        cpuComboAwaiting[i] = null
+        return null
+    }
+
+    // Un paso solo sale de la cola DESPUÉS de observar el estado que demuestra que el motor
+    // lo aceptó. Antes se eliminaba al pulsarlo: durante recovery/crouch/jump se perdían pasos
+    // enteros y las rutas de combo casi nunca llegaban al especial o a la súper.
+    cpuComboAwaiting[i]?.let { attempt ->
+        val enteredExpectedState = me.state in stateForAction(attempt.action) &&
+            (me.state != attempt.stateBefore || me.animationTimerMs != attempt.animationTimerBeforeMs)
+        if (enteredExpectedState) {
+            if (cpuComboQueue[i].firstOrNull() == attempt.action) cpuComboQueue[i].removeFirst()
+            cpuComboAwaiting[i] = null
+        }
+    }
+    val action = cpuComboQueue[i].firstOrNull() ?: return null
+    if (cpuComboAwaiting[i] == null) {
+        cpuComboAwaiting[i] = StreetFighterViewModel.CpuComboAttempt(
+            action = action,
+            stateBefore = me.state,
+            animationTimerBeforeMs = me.animationTimerMs,
+        )
+    }
+    return inputForAction(action)
 }
 
 /** Arma un SfInput de golpe (puño o patada) de la fuerza pedida. */

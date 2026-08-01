@@ -18,6 +18,12 @@ import ovh.gabrielhuav.pow.features.streetfighter.data.SfFrameCatalog
 import ovh.gabrielhuav.pow.platform.assets.PowAssets
 import kotlin.random.Random
 
+internal fun weakerAiVsDifficulty(difficulty: SfCpuDifficulty): SfCpuDifficulty = when (difficulty) {
+    SfCpuDifficulty.PESADILLA -> SfCpuDifficulty.AVANZADA
+    SfCpuDifficulty.AVANZADA -> SfCpuDifficulty.NORMAL
+    else -> difficulty
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // PARCIAL de StreetFighterViewModel: 🧪 IA VS IA, GAUNTLET, SHOWCASE y AUDITORÍA de assets (herramientas de QA)
 //
@@ -52,8 +58,9 @@ fun StreetFighterViewModel.startAiVsAi(
         strongIndex = 0
     } else {
         val weak = Random.nextInt(2)
-        val steps = 1 + Random.nextInt(2)
-        val weakDiff = SfCpuDifficulty.entries[(difficulty.ordinal - steps).coerceAtLeast(0)]
+        // El desnivel sigue resolviendo los espejos, pero el show no degrada un bot hasta una
+        // IA pasiva/sin super. Pesadilla vs Avanzada mantiene variedad y ambos usan todo el moveset.
+        val weakDiff = weakerAiVsDifficulty(difficulty)
         cpuDiffOverride[weak] = weakDiff
         cpuDiffOverride[1 - weak] = difficulty
         strongIndex = 1 - weak

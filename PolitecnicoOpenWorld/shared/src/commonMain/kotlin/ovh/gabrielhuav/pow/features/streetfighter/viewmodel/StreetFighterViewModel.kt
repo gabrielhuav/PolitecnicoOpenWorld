@@ -441,6 +441,9 @@ open class StreetFighterViewModel(
     // suelta el súper — SOBREPONIÉNDOSE al clinch/watchdog que si no lo abortaban al cerrar
     // distancia. Antes el fatality de la IA "nunca" salía por eso. 0 = sin intención activa.
     internal val cpuFatalityUntilMs = LongArray(2) { 0L }
+    // Momento en que cada CPU lleno su barra. Impide que el azar conserve el medidor durante
+    // toda la ronda: al vencer el plazo de su dificultad, se acerca y ejecuta la SUPER ART.
+    internal val cpuSuperReadySinceMs = LongArray(2) { 0L }
     // Variedad ofensiva: memoria de los últimos tres golpes (fuerza×tipo, 0..5) por CPU.
     internal val cpuAttackHistory = Array(2) { ArrayDeque<Int>() }
     // 🆕 (2026-07-18n) Dificultad POR ÍNDICE solo para IA vs IA: si ambos son iguales (dos
@@ -1361,6 +1364,10 @@ open class StreetFighterViewModel(
             cpuNextDecisionMs[1] = 0L
             cpuHold[0] = SfInput()
             cpuHold[1] = SfInput()
+            cpuComboQueue[0].clear()
+            cpuComboQueue[1].clear()
+            cpuComboAwaiting[0] = null
+            cpuComboAwaiting[1] = null
             cpuLastOffenseMs[0] = 0L
             cpuLastOffenseMs[1] = 0L
             cpuWantsSpaceUntilMs[0] = 0L
@@ -1675,6 +1682,13 @@ open class StreetFighterViewModel(
 
     /** Cola de acciones pendientes por índice (la IA ejecuta una por decisión). */
     internal val cpuComboQueue = Array(2) { ArrayDeque<SfComboAction>() }
+    internal data class CpuComboAttempt(
+        val action: SfComboAction,
+        val stateBefore: SfFighterState,
+        val animationTimerBeforeMs: Long,
+    )
+    /** Paso emitido que todavía debe ser confirmado por un cambio real de estado/animación. */
+    internal val cpuComboAwaiting = arrayOfNulls<CpuComboAttempt>(2)
     internal val cpuComboUntilMs = LongArray(2)
 
     // ⚠️ Estas DOS se quedan como MIEMBROS a propósito: son extensiones de `SfInput` declaradas
@@ -1683,7 +1697,8 @@ open class StreetFighterViewModel(
 
     internal fun SfInput.hasAttackOrSpecial(): Boolean =
         lightPunch || mediumPunch || heavyPunch || lightKick || mediumKick || heavyKick ||
-            special != null || bonusPower != null
+            special != null || bonusPower != null || superArt || grab || parry || taunt ||
+            dashForward || dashBackward || up
 
     internal fun SfInput.isOnlyWalkToward(me: SfFighter, foe: SfFighter): Boolean {
         if (hasAttackOrSpecial() || up || down) return false
@@ -1917,6 +1932,13 @@ open class StreetFighterViewModel(
         cpuForceEngageUntilMs[1] = 0L
         cpuFatalityUntilMs[0] = 0L
         cpuFatalityUntilMs[1] = 0L
+        cpuSuperReadySinceMs[0] = 0L
+        cpuSuperReadySinceMs[1] = 0L
+        cpuComboQueue[0].clear()
+        cpuComboQueue[1].clear()
+        cpuComboAwaiting[0] = null
+        cpuComboAwaiting[1] = null
+        cpuComboUntilMs.fill(0L)
         cpuAttackHistory[0].clear()
         cpuAttackHistory[1].clear()
         cpuDiffOverride[0] = null
@@ -2154,6 +2176,23 @@ open class StreetFighterViewModel(
         specialCooldownUntil[1] = 0L
         cpuFatalityUntilMs[0] = 0L
         cpuFatalityUntilMs[1] = 0L
+        cpuSuperReadySinceMs[0] = 0L
+        cpuSuperReadySinceMs[1] = 0L
+        cpuStaleApproach[0] = 0
+        cpuStaleApproach[1] = 0
+        cpuLastOffenseMs[0] = 0L
+        cpuLastOffenseMs[1] = 0L
+        cpuWantsSpaceUntilMs[0] = 0L
+        cpuWantsSpaceUntilMs[1] = 0L
+        cpuForceEngageUntilMs[0] = 0L
+        cpuForceEngageUntilMs[1] = 0L
+        cpuAttackHistory[0].clear()
+        cpuAttackHistory[1].clear()
+        cpuComboQueue[0].clear()
+        cpuComboQueue[1].clear()
+        cpuComboAwaiting[0] = null
+        cpuComboAwaiting[1] = null
+        cpuComboUntilMs.fill(0L)
         lastHitTakenMs.fill(0L)
         rapidHitsTaken.fill(0)
         comboEscapeUntilMs.fill(0L)

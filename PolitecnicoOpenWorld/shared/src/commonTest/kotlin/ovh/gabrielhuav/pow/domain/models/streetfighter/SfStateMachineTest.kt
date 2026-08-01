@@ -102,4 +102,14 @@ class SfStateMachineTest {
         assertTrue(SfStateMachine.canEnter(SfFighterState.DASH_FORWARD, SfFighterState.FATALITY))
         assertFalse(SfStateMachine.canEnter(SfFighterState.IDLE, SfFighterState.FATALITY))
     }
+
+    @Test
+    fun `la SUPER ART es alcanzable desde todo origen que acepta poderes`() {
+        SfStateMachine.SPECIAL_VALID_FROM.forEach { from ->
+            assertTrue(
+                SfStateMachine.canEnter(from, SfFighterState.SUPER_ART),
+                "SUPER_ART debe aceptar el input desde $from",
+            )
+        }
+    }
 }

@@ -45,10 +45,11 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
             }
         }
         SfFighterState.WALK_FORWARD -> {
+            if (tryPowerInput(sim, idx, input, now)) return
+            if (tryGroundUtilityInput(sim, idx, input, now)) return
             when {
-                input.special?.let { trySpecial(sim, idx, it, now) } == true -> Unit
-                !input.forward -> changeState(sim, idx, SfFighterState.IDLE, now)
                 input.up -> changeState(sim, idx, SfFighterState.JUMP_FORWARD, now)
+                input.down && tryCrouchAttackFromStanding(sim, idx, input, now) -> Unit
                 input.down -> changeState(sim, idx, SfFighterState.CROUCH_DOWN, now)
                 // 🆕 (2026-07-22) Caminando adelante YA cuenta como "adelante + ataque":
                 // medio = OVERHEAD, patada fuerte = PATADA LARGA. Antes solo salían pulsando
@@ -57,15 +58,19 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
                 // changeState devuelve false y cae al golpe normal.
                 input.mediumPunch && changeState(sim, idx, SfFighterState.OVERHEAD, now) -> Unit
                 input.heavyKick && changeState(sim, idx, SfFighterState.LONG_KICK, now) -> Unit
-                else -> tryAttacks(sim, idx, input, now)
+                tryAttacks(sim, idx, input, now) -> Unit
+                !input.forward -> changeState(sim, idx, SfFighterState.IDLE, now)
             }
         }
         SfFighterState.WALK_BACKWARD -> {
+            if (tryPowerInput(sim, idx, input, now)) return
+            if (tryGroundUtilityInput(sim, idx, input, now)) return
             when {
-                !input.backward -> changeState(sim, idx, SfFighterState.IDLE, now)
                 input.up -> changeState(sim, idx, SfFighterState.JUMP_BACKWARD, now)
+                input.down && tryCrouchAttackFromStanding(sim, idx, input, now) -> Unit
                 input.down -> changeState(sim, idx, SfFighterState.CROUCH_DOWN, now)
-                else -> tryAttacks(sim, idx, input, now)
+                tryAttacks(sim, idx, input, now) -> Unit
+                !input.backward -> changeState(sim, idx, SfFighterState.IDLE, now)
             }
         }
         SfFighterState.JUMP_START -> {
@@ -106,6 +111,8 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
             }
         }
         SfFighterState.CROUCH_DOWN -> {
+            if (tryPowerInput(sim, idx, input, now)) return
+            if (tryCrouchAttacks(sim, idx, input, now)) return
             if (isAnimationCompleted(f)) {
                 changeState(sim, idx, SfFighterState.CROUCH, now)
             } else if (!input.down) {
@@ -116,7 +123,7 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
             }
         }
         SfFighterState.CROUCH -> {
-            if (input.special?.let { trySpecial(sim, idx, it, now) } == true) return
+            if (tryPowerInput(sim, idx, input, now)) return
             // 🆕 (2026-07-21) Arsenal AGACHADO: parry bajo + los 4 golpes bajos.
             // La barrida (patada fuerte) es el remate que derriba.
             if (input.parry && changeState(sim, idx, SfFighterState.PARRY_LOW, now)) return
@@ -124,18 +131,23 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
             if (!input.down) changeState(sim, idx, SfFighterState.CROUCH_UP, now)
             else maybeTurn(sim, idx, SfFighterState.CROUCH_TURN, now)
         }
-        SfFighterState.CROUCH_UP -> if (isAnimationCompleted(f)) changeState(sim, idx, SfFighterState.IDLE, now)
+        SfFighterState.CROUCH_UP -> {
+            if (tryPowerInput(sim, idx, input, now)) return
+            if (tryGroundUtilityInput(sim, idx, input, now)) return
+            if (tryAttacks(sim, idx, input, now)) return
+            if (isAnimationCompleted(f)) changeState(sim, idx, SfFighterState.IDLE, now)
+        }
         SfFighterState.IDLE_TURN -> {
             // Cancelar giro con input (jugador + IA). Si el input es ataque, puede salir
             // directo al golpe (validFrom incluye IDLE_TURN) sin pasar por IDLE.
             val wantsMove = input.forward || input.backward || input.up || input.down
+            if (tryPowerInput(sim, idx, input, now)) return
+            if (tryGroundUtilityInput(sim, idx, input, now)) return
             val wantsOffense = input.lightPunch || input.mediumPunch || input.heavyPunch ||
                 input.lightKick || input.mediumKick || input.heavyKick ||
-                input.special != null || input.bonusPower != null
+                input.special != null || input.bonusPower != null || input.superArt
             when {
                 wantsOffense -> {
-                    if (input.bonusPower?.let { tryBonusPower(sim, idx, it, now) } == true) return
-                    if (input.special?.let { trySpecial(sim, idx, it, now) } == true) return
                     if (tryAttacks(sim, idx, input, now)) return
                     if (changeState(sim, idx, SfFighterState.IDLE, now)) {
                         handleCommonNeutral(sim, idx, input, now)
@@ -150,8 +162,9 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
             }
         }
         SfFighterState.CROUCH_TURN -> {
-            val wantsAction = !input.down || input.special != null ||
-                input.lightPunch || input.mediumPunch || input.heavyPunch
+            if (tryPowerInput(sim, idx, input, now)) return
+            if (tryCrouchAttacks(sim, idx, input, now)) return
+            val wantsAction = !input.down
             when {
                 wantsAction && !input.down -> changeState(sim, idx, SfFighterState.CROUCH_UP, now)
                 isAnimationCompleted(f) -> changeState(sim, idx, SfFighterState.CROUCH, now)
@@ -288,6 +301,10 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
                 // 🆕 FATALITY: súper EN CARRERA con el medidor lleno (su comando propio)
                 input.superArt && tryFatality(sim, idx, now) -> Unit
                 input.up -> changeState(sim, idx, SfFighterState.JUMP_START, now)
+                input.forward && input.heavyKick &&
+                    changeState(sim, idx, SfFighterState.LONG_KICK, now) -> Unit
+                input.forward && input.mediumPunch &&
+                    changeState(sim, idx, SfFighterState.OVERHEAD, now) -> Unit
                 tryAttacks(sim, idx, input, now) -> Unit
                 !input.forward -> {
                     sim.setFighter(idx, f.copy(velocityX = 0f))
@@ -405,18 +422,13 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
 
 /** Transiciones comunes de estados neutros (handleIdle del JS): salto/agacharse/caminar/ataques. */
 internal fun StreetFighterViewModel.handleCommonNeutral(sim: StreetFighterViewModel.Sim, idx: Int, input: SfInput, now: Long): Boolean {
-    if (input.bonusPower?.let { tryBonusPower(sim, idx, it, now) } == true) return true
-    // 🆕 (2026-07-21) La SÚPER manda sobre todo lo demás (si hay medidor y arte).
-    if (input.superArt && trySuperArt(sim, idx, now)) return true
-    if (input.special?.let { trySpecial(sim, idx, it, now) } == true) return true
-    // 🆕 Defensa y utilidades antes de moverse: parry, agarre, burla y dashes.
-    if (input.parry && changeState(sim, idx, SfFighterState.PARRY_HIGH, now)) return true
-    if (input.grab && tryGrab(sim, idx, now)) return true
-    if (input.dashForward && changeState(sim, idx, SfFighterState.DASH_FORWARD, now)) return true
-    if (input.dashBackward && changeState(sim, idx, SfFighterState.DASH_BACKWARD, now)) return true
-    if (input.taunt && changeState(sim, idx, SfFighterState.TAUNT, now)) return true
+    if (tryPowerInput(sim, idx, input, now)) return true
+    if (tryGroundUtilityInput(sim, idx, input, now)) return true
     return when {
         input.up -> changeState(sim, idx, SfFighterState.JUMP_START, now)
+        // Botones de la CPU y de la UI duran un pulso. Resolver ↓+golpe en el mismo tick
+        // evita perderlo durante CROUCH_DOWN (la tabla permite el segundo salto de estado).
+        input.down && tryCrouchAttackFromStanding(sim, idx, input, now) -> true
         input.down -> changeState(sim, idx, SfFighterState.CROUCH_DOWN, now)
         // 🆕 Normales con DIRECCIÓN (3rd Strike): adelante+fuerte = patada larga,
         // adelante+medio = overhead (rompe guardia baja). Si el peleador no los tiene,
@@ -429,6 +441,45 @@ internal fun StreetFighterViewModel.handleCommonNeutral(sim: StreetFighterViewMo
         input.backward -> changeState(sim, idx, SfFighterState.WALK_BACKWARD, now)
         else -> tryAttacks(sim, idx, input, now)
     }
+}
+
+/** Botones de utilidad válidos en todos los estados de NEUTRAL_GROUND. */
+internal fun StreetFighterViewModel.tryGroundUtilityInput(
+    sim: StreetFighterViewModel.Sim,
+    idx: Int,
+    input: SfInput,
+    now: Long,
+): Boolean {
+    if (input.parry && changeState(sim, idx, SfFighterState.PARRY_HIGH, now)) return true
+    if (input.grab && tryGrab(sim, idx, now)) return true
+    if (input.dashForward && changeState(sim, idx, SfFighterState.DASH_FORWARD, now)) return true
+    if (input.dashBackward && changeState(sim, idx, SfFighterState.DASH_BACKWARD, now)) return true
+    return input.taunt && changeState(sim, idx, SfFighterState.TAUNT, now)
+}
+
+/** Poderes aceptados por todos los orígenes de SPECIAL_VALID_FROM. */
+internal fun StreetFighterViewModel.tryPowerInput(
+    sim: StreetFighterViewModel.Sim,
+    idx: Int,
+    input: SfInput,
+    now: Long,
+): Boolean {
+    if (input.bonusPower?.let { tryBonusPower(sim, idx, it, now) } == true) return true
+    if (input.superArt && trySuperArt(sim, idx, now)) return true
+    return input.special?.let { trySpecial(sim, idx, it, now) } == true
+}
+
+/** Ejecuta el gesto ↓+golpe pasando por CROUCH_DOWN sin perder el pulso del botón. */
+internal fun StreetFighterViewModel.tryCrouchAttackFromStanding(
+    sim: StreetFighterViewModel.Sim,
+    idx: Int,
+    input: SfInput,
+    now: Long,
+): Boolean {
+    val hasAttack = input.lightPunch || input.mediumPunch || input.heavyPunch ||
+        input.lightKick || input.mediumKick || input.heavyKick
+    if (!hasAttack || !changeState(sim, idx, SfFighterState.CROUCH_DOWN, now)) return false
+    return tryCrouchAttacks(sim, idx, input, now)
 }
 
 /** 🆕 (2026-07-21) SUPER ART: exige medidor lleno + arte propia. */
@@ -556,6 +607,10 @@ internal fun StreetFighterViewModel.tryCrouchChainCancel(sim: StreetFighterViewM
         input.heavyKick -> changeState(sim, idx, SfFighterState.SWEEP, now)
         input.heavyPunch && f.state != SfFighterState.CROUCH_HEAVY_PUNCH ->
             changeState(sim, idx, SfFighterState.CROUCH_HEAVY_PUNCH, now)
+        (input.lightPunch || input.mediumPunch) && f.state != SfFighterState.CROUCH_PUNCH ->
+            changeState(sim, idx, SfFighterState.CROUCH_PUNCH, now)
+        (input.lightKick || input.mediumKick) && f.state != SfFighterState.CROUCH_KICK ->
+            changeState(sim, idx, SfFighterState.CROUCH_KICK, now)
         else -> false
     }
 }
@@ -570,7 +625,7 @@ internal fun StreetFighterViewModel.tryCrouchChainCancel(sim: StreetFighterViewM
 internal fun StreetFighterViewModel.tryChainCancel(sim: StreetFighterViewModel.Sim, idx: Int, input: SfInput, now: Long): Boolean {
     val f = sim.fighter(idx)
     if (!f.attackStruck) return false
-    if (input.special?.let { trySpecial(sim, idx, it, now) } == true) return true
+    if (tryPowerInput(sim, idx, input, now)) return true
     val next = when (attackMeta[f.state]?.strength) {
         SfAttackStrength.LIGHT -> when {
             input.mediumPunch -> SfFighterState.MEDIUM_PUNCH

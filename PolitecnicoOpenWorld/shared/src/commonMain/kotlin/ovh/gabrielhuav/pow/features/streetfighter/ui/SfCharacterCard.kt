@@ -97,8 +97,6 @@ internal fun CharacterCard(
                     filterQuality = FilterQuality.None,
                     colorFilter = if (obscure) ColorFilter.tint(Color(0xFF15151F)) else null,
                 )
-            } else {
-                Text("?", color = Color.White, fontSize = 40.sp)
             }
             if (locked) {
                 Text(
@@ -155,6 +153,15 @@ private fun rememberFighterPreview(
     animate: Boolean,
     gamaBaja: Boolean,
 ): ImageBitmap? {
+    // La card conserva el ultimo frame que realmente alcanzo a pintar. La cache LRU guarda solo
+    // ocho variantes para un roster mayor, por lo que la variante estatica podia ser expulsada
+    // justo al enfocar (estatica -> animada) y el relleno de cache de abajo volvia a ser null.
+    var ultimoFrame by remember(id, gamaBaja) {
+        mutableStateOf(
+            SfPreviewCache.enMemoria(id, animate, gamaBaja)?.frames?.firstOrNull()
+                ?: SfPreviewCache.enMemoria(id, !animate, gamaBaja)?.frames?.firstOrNull(),
+        )
+    }
     var animation by remember(id, animate) {
         mutableStateOf(SfPreviewCache.enMemoria(id, animate, gamaBaja))
     }
@@ -191,5 +198,9 @@ private fun rememberFighterPreview(
             frameIndex = (frameIndex + 1) % anim.frames.size
         }
     }
-    return animation?.frames?.getOrNull(frameIndex) ?: relleno
+    val frameActual = animation?.frames?.getOrNull(frameIndex) ?: relleno
+    LaunchedEffect(frameActual) {
+        if (frameActual != null) ultimoFrame = frameActual
+    }
+    return frameActual ?: ultimoFrame
 }
