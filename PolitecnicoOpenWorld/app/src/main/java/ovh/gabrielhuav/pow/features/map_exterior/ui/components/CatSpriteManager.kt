@@ -9,7 +9,7 @@ import android.graphics.drawable.BitmapDrawable
 /**
  * Gestor de sprites para los gatos del campus (CAT).
  *
- * Spritesheet: assets/ENTITIES/cat.png
+ * Spritesheet: assets/ENTITIES/cat.webp
  * Dimensiones: 576 x 384 px → 12 columnas × 8 filas → frame = 48×48 px
  *
  * Formato RPG Maker MV (cada personaje ocupa 3 cols × 4 filas):
@@ -40,13 +40,13 @@ object CatSpriteManager {
         synchronized(lock) {
             if (spriteSheet != null) return spriteSheet
             return try {
-                val stream = context.assets.open("ENTITIES/cat.png")
+                val stream = context.assets.open("ENTITIES/cat.webp")
                 val bmp = BitmapFactory.decodeStream(stream)
                 stream.close()
                 spriteSheet = bmp
                 bmp
             } catch (e: Exception) {
-                android.util.Log.e("CatSpriteManager", "Error cargando cat.png: ${e.message}")
+                android.util.Log.e("CatSpriteManager", "Error cargando cat.webp: ${e.message}")
                 null
             }
         }

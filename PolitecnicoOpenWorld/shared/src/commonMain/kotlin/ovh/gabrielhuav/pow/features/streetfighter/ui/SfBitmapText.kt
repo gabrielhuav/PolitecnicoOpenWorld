@@ -16,7 +16,7 @@ import ovh.gabrielhuav.pow.features.streetfighter.data.SF_CLASSIC_THEME
 import ovh.gabrielhuav.pow.platform.imagen.PowImagen
 
 /**
- * 🆕 (2026-07-21) TEXTO con la FUENTE ARCADE del modo pelea (la del HUD, `sf_hud_pow.png`)
+ * 🆕 (2026-07-21) TEXTO con la FUENTE ARCADE del modo pelea (la del HUD, `sf_hud_pow.webp`)
  * usable FUERA del Canvas de combate.
  *
  * El dueño pidió que los coleccionables de PELEADOR lleven "las mismas letras del SF". Esa

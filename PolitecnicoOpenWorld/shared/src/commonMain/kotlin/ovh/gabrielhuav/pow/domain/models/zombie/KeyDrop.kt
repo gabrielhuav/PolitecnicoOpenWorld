@@ -5,7 +5,7 @@ package ovh.gabrielhuav.pow.domain.models.zombie
  * jugador recoge UNA, la lleva a ENCB_lab2 y la PRUEBA en su inventario hasta dar con la CORRECTA,
  * que desbloquea la puerta del fondo (2ª secuencia de cómic). Si se equivoca, la desecha y vuelve.
  *
- * Assets en `assets/CAMPAIGN/KEYS/`. La llave correcta es `LLave4.png`.
+ * Assets en `assets/CAMPAIGN/KEYS/`. La llave correcta es `LLave4.webp`.
  */
 data class KeyDrop(
     val id: String,
@@ -24,17 +24,17 @@ data class KeyDrop(
         // Misión 2: la LATA APESTOSA que Prankedy te da en la plática vive como ÍTEM del
         // inventario (slot 2) hasta que la LANZAS en el salón de la mochila (se consume).
         const val MISSION_2 = "mission2"
-        const val M2_STINK_CAN = "CAMPAIGN/MISSION2/lata_apestosa.png"
+        const val M2_STINK_CAN = "CAMPAIGN/MISSION2/lata_apestosa.webp"
         // Las 5 llaves del puzzle (assets reales en CAMPAIGN/KEYS, ojo con el case: "LLave2/4").
         val LAB1_KEY_ASSETS = listOf(
-            "CAMPAIGN/KEYS/Llave.png",
-            "CAMPAIGN/KEYS/LLave2.png",
-            "CAMPAIGN/KEYS/Llave3.png",
-            "CAMPAIGN/KEYS/LLave4.png",
-            "CAMPAIGN/KEYS/Llave5.png"
+            "CAMPAIGN/KEYS/Llave.webp",
+            "CAMPAIGN/KEYS/LLave2.webp",
+            "CAMPAIGN/KEYS/Llave3.webp",
+            "CAMPAIGN/KEYS/LLave4.webp",
+            "CAMPAIGN/KEYS/Llave5.webp"
         )
         // La correcta: abre la puerta de avance de ENCB_lab1.
-        const val LAB1_CORRECT_KEY = "CAMPAIGN/KEYS/LLave4.png"
+        const val LAB1_CORRECT_KEY = "CAMPAIGN/KEYS/LLave4.webp"
 
         // ── INVENTARIO: identificar la llave por MISIÓN ───────────────────────────────────────
         // Cada entrada de `inventoryKeys` (List<String>, se guarda tal cual en las partidas) se

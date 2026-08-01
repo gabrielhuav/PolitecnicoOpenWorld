@@ -570,7 +570,7 @@ fun ZombieGameScreen(
                     if (bpX != null && bpY != null && !state.mission2BackpackTaken && onScreen(bpX, bpY)) {
                         val bpSize = 64f * cam.scale
                         StoryGroundSprite(
-                            assetPath = "CAMPAIGN/MISSION2/mochila_prankedy.png",
+                            assetPath = "CAMPAIGN/MISSION2/mochila_prankedy.webp",
                             sizePx = bpSize,
                             fallbackEmoji = "🎒",
                             contentAlpha = if (state.mission2BackpackNearby) 1f else 0.88f,
@@ -590,7 +590,7 @@ fun ZombieGameScreen(
                     if (evX != null && evY != null && !state.mission3EvidenceTaken && onScreen(evX, evY)) {
                         val evSize = 48f * cam.scale
                         StoryGroundSprite(
-                            assetPath = "CAMPAIGN/MISSION3/evidencia_frasco.png",
+                            assetPath = "CAMPAIGN/MISSION3/evidencia_frasco.webp",
                             sizePx = evSize,
                             fallbackEmoji = "🧪",
                             contentAlpha = if (state.mission3EvidenceNearby) 1f else 0.88f,
@@ -746,7 +746,7 @@ fun ZombieGameScreen(
                     if (stX != null && stY != null && onScreen(stX, stY)) {
                         val canSize = 44f * cam.scale
                         StoryGroundSprite(
-                            assetPath = "CAMPAIGN/MISSION2/lata_apestosa.png",
+                            assetPath = "CAMPAIGN/MISSION2/lata_apestosa.webp",
                             sizePx = canSize,
                             fallbackEmoji = "🥫",
                             modifier = Modifier.absoluteOffset(

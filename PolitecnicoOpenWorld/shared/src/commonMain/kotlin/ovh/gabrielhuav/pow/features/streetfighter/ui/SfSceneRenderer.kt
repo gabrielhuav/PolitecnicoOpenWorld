@@ -567,7 +567,7 @@ fun SfFpsOverlay(modifier: Modifier = Modifier) {
 }
 
 /**
- * Overlay CARGANDO con la fuente arcade POW (sf_hud_pow.png).
+ * Overlay CARGANDO con la fuente arcade POW (sf_hud_pow.webp).
  * Se muestra al decodificar atlas/hojas en gama baja (entrada a pelea puede tardar).
  */
 @Composable

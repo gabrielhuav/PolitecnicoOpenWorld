@@ -63,7 +63,7 @@ import ovh.gabrielhuav.pow.ui.components.PowButton
 // ---------------------------------------------------------------------------
 // Selector de MAPA (pre-pelea) — LÓGICA SEPARADA del draw loop del combate.
 //
-//  - Cada tarjeta: miniatura ESTÁTICA (`*_thumb.png`, ~256 px). NUNCA el atlas completo.
+//  - Cada tarjeta: miniatura ESTÁTICA (`*_thumb.webp`, ~256 px). NUNCA el atlas completo.
 //  - Solo el mapa FOCUSED (tocado) se previsualiza animado si es `_anim.webp`:
 //      se carga UN atlas submuestreado y se pinta UN frame a la vez (sub-rect),
 //      no se muestra el filmstrip/spreadsheet entero.
@@ -319,10 +319,10 @@ private fun StageAnimFrameView(preview: StageAnimPreview) {
 // Carga de assets (solo UI del selector; el combate usa loadStageBackground)
 // ---------------------------------------------------------------------------
 
-/** Miniatura estática ~256 px (`*_thumb.png`); fallback submuestreado del WebP. */
+/** Miniatura estática ~256 px (`*_thumb.webp`); fallback submuestreado del WebP. */
 private fun loadStageStaticThumb(imagesDir: String, file: String): ImageBitmap? {
     return runCatching {
-        val thumbName = file.substringBeforeLast('.') + "_thumb.png"
+        val thumbName = file.substringBeforeLast('.') + "_thumb.webp"
         val fromThumb = runCatching {
             PowImagen.deAsset(imagesDir + thumbName)
         }.getOrNull()

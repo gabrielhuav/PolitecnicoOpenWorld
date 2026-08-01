@@ -95,7 +95,7 @@ fun MetroMapOverlay(
     LaunchedEffect(Unit) {
         mapBitmap = withContext(Dispatchers.IO) {
             try {
-                context.assets.open("TRANSIT/METRO/map.png").use {
+                context.assets.open("TRANSIT/METRO/map.webp").use {
                     BitmapFactory.decodeStream(it)?.asImageBitmap()
                 }
             } catch (e: Exception) {

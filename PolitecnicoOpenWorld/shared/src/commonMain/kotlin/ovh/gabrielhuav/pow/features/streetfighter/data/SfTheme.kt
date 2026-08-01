@@ -106,9 +106,9 @@ val SF_CLASSIC_THEME = SfTheme(
     // ⚠️ (2026-07-15) SIN Ryu.png/Ken.png: las hojas de PELEADOR ya no se precargan aquí — las
     // resuelve SfSharedSheets por peleador elegido. Además Ryu/Ken viven SOLO en el source set
     // DEBUG (app/src/debug/assets/): precargarlos aquí CRASHEARÍA el release de Play Store.
-    // 🆕 kenstage.png ELIMINADO (copyright). hud.png (SF original) REEMPLAZADO por sf_hud_pow.png
+    // 🆕 kenstage.png ELIMINADO (copyright). hud.png (SF original) REEMPLAZADO por sf_hud_pow.webp
     // (fuente + barra + KO + timer POW, generado con GPT). Ver GUIA / build_hud.
-    imageFiles = listOf("shadow.png", "sf_decals_pow.png", "sf_hud_pow.png"),
+    imageFiles = listOf("shadow.webp", "sf_decals_pow.webp", "sf_hud_pow.webp"),
     // "hadouken" = fallback genérico si falta special_<fighter>.m4a (voces scrapeadas X/local).
     // 🆕 (2026-07-26) El audio fue REFACTORIZADO a un sonido PROPIO de POW (conserva el nombre
     // `hadouken.m4a` pero ya NO es el audio con copyright); se CONSERVA. Los specials por personaje
@@ -213,12 +213,12 @@ val SF_CLASSIC_THEME = SfTheme(
         SfStageProp(listOf(808, 24, 48, 32), 278, 53),
     ),
 
-    shadowImage = "shadow.png",
+    shadowImage = "shadow.webp",
     shadowFrame = SfSpriteFrame(listOf(0, 0, 43, 9), listOf(21, 7)),
 
     // (Proyectil de Ken.png ELIMINADO por copyright — cada peleador usa sus propios frames proj-*.)
 
-    splashImage = "sf_decals_pow.png", // 🆕 chispas POW (reemplaza decals.png de SF, copyright)
+    splashImage = "sf_decals_pow.webp", // 🆕 chispas POW (reemplaza decals.png de SF, copyright)
     splashFrames = mapOf(
         SfAttackStrength.LIGHT to listOf(
             listOf(
@@ -264,15 +264,15 @@ val SF_CLASSIC_THEME = SfTheme(
         ),
     ),
 
-    // 🆕 Atlas POW (sf_hud_pow.png): fuente + barra + KO + timer, generado desde las imágenes
+    // 🆕 Atlas POW (sf_hud_pow.webp): fuente + barra + KO + timer, generado desde las imágenes
     // de GPT (chroma-key + recorte + normalización). Reemplaza al hud.png de SF (copyright).
-    hudImage = "sf_hud_pow.png",
+    hudImage = "sf_hud_pow.webp",
     healthBar = listOf(2, 16, 145, 11),
     koWhite = listOf(2, 29, 32, 14),
     koBlack = listOf(42, 29, 32, 14),
     timeDigits = SfDigitStrip(x0 = 2, dx = 16, y = 45, w = 14, h = 16),
     timeDigitsFlash = SfDigitStrip(x0 = 2, dx = 16, y = 63, w = 14, h = 16),
-    // Fuente arcade POW (A-Z/0-9): recortes dentro de sf_hud_pow.png (alto 10, avance 12).
+    // Fuente arcade POW (A-Z/0-9): recortes dentro de sf_hud_pow.webp (alto 10, avance 12).
     letterFont = mapOf(
         '0' to listOf(2, 2, 7, 10), '1' to listOf(11, 2, 5, 10), '2' to listOf(18, 2, 8, 10),
         '3' to listOf(28, 2, 7, 10), '4' to listOf(37, 2, 8, 10), '5' to listOf(47, 2, 7, 10),

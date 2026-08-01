@@ -1241,7 +1241,7 @@ internal fun NativeOsmMap(
                         val cacheKey = "OSM_METROBUS_ICON"
                         val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                             try {
-                                val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open("TRANSIT/METROBUS/icon.png"))
+                                val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open("TRANSIT/METROBUS/icon.webp"))
                                 if (bitmap != null) {
                                     val spriteDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
                                     ExactSizeDrawable(spriteDrawable, exactPixels, exactPixels)

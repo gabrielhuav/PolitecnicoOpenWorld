@@ -507,7 +507,7 @@ fun buildHtml(
                 }
                 if (metrobusMarkers[s.name]) { metrobusMarkers[s.name].setLatLng([s.lat, s.lng]); return; }
                 var sz = 26;
-                var html = '<img src="' + POW_ASSETS + 'TRANSIT/METROBUS/icon.png" ' +
+                var html = '<img src="' + POW_ASSETS + 'TRANSIT/METROBUS/icon.webp" ' +
                            'style="width:' + sz + 'px; height:' + sz + 'px; transform:translate(-50%,-50%); display:block;">';
                 var icon = L.divIcon({ html: html, className: '', iconSize: [0,0] });
                 metrobusMarkers[s.name] = L.marker([s.lat, s.lng], { icon: icon, interactive: false, zIndexOffset: 400 }).addTo(map);
