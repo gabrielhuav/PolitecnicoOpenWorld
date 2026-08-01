@@ -35,7 +35,10 @@ internal fun SettingsSectionGameplay(
         Button(
             onClick = onOptimize,
             shape = RoundedCornerShape(10.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF6B1C3A),
+                contentColor = Color.White,
+            ),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(

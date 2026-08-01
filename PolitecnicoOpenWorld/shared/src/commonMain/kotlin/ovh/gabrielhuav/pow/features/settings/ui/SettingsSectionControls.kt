@@ -70,6 +70,7 @@ internal fun SettingsSectionControls(
                                 } else {
                                     Color(0xFF2A1C21)
                                 },
+                                contentColor = Color.White,
                             ),
                         ) {
                             Text(option.displayName, color = Color.White, fontSize = 12.sp)
@@ -156,7 +157,10 @@ internal fun SettingsSectionControls(
                     Button(
                         onClick = { tutorialWorld = 0 },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A1C21)),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF2A1C21),
+                            contentColor = Color.White,
+                        ),
                     ) {
                         Text(
                             stringResource(Res.string.settings_tutorial_exterior),
@@ -166,7 +170,10 @@ internal fun SettingsSectionControls(
                     Button(
                         onClick = { tutorialWorld = 1 },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2A1C21)),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF2A1C21),
+                            contentColor = Color.White,
+                        ),
                     ) {
                         Text(
                             stringResource(Res.string.settings_tutorial_interior),
@@ -200,7 +207,10 @@ internal fun SettingsSectionControls(
                 onClick = onSave,
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD4AF37)),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFD4AF37),
+                    contentColor = Color.White,
+                ),
             ) {
                 Text(
                     stringResource(Res.string.settings_save),

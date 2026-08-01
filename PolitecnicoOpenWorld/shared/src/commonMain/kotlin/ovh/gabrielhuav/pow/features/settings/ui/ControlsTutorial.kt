@@ -146,6 +146,7 @@ fun ControlsTutorialOverlay(
                     OutlinedButton(
                         onClick = { pageIndex-- },
                         modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
                     ) {
                         Text(stringResource(Res.string.tutorial_prev), color = Color.White)
                     }
@@ -155,7 +156,10 @@ fun ControlsTutorialOverlay(
                         if (pageIndex < pages.lastIndex) pageIndex++ else onDismiss()
                     },
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF6B1C3A),
+                        contentColor = Color.White,
+                    ),
                 ) {
                     Text(
                         stringResource(
@@ -178,15 +182,24 @@ fun ControlsTutorialOverlay(
 fun ControlsTutorialPrompt(onAccept: () -> Unit, onDecline: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDecline,
+        containerColor = Color(0xFF2A1C21),
+        titleContentColor = Color.White,
+        textContentColor = Color(0xFFCCCCCC),
         title = { Text(stringResource(Res.string.tutorial_prompt_title)) },
         text = { Text(stringResource(Res.string.tutorial_prompt_msg)) },
         confirmButton = {
-            TextButton(onClick = onAccept) {
+            TextButton(
+                onClick = onAccept,
+                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFD4AF37)),
+            ) {
                 Text(stringResource(Res.string.tutorial_prompt_yes))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDecline) {
+            TextButton(
+                onClick = onDecline,
+                colors = ButtonDefaults.textButtonColors(contentColor = Color.White),
+            ) {
                 Text(stringResource(Res.string.tutorial_prompt_no))
             }
         },

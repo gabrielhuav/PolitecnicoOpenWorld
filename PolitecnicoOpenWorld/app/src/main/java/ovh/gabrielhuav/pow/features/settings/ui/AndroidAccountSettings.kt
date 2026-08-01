@@ -83,7 +83,10 @@ fun AndroidAccountSettings(
                 onClick = { showDeleteConfirm = true },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB71C1C)),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFB71C1C),
+                    contentColor = Color.White,
+                ),
             ) {
                 Text(
                     stringResource(R.string.settings_account_delete),
@@ -101,7 +104,10 @@ fun AndroidAccountSettings(
                 onClick = { signInLauncher.launch(authManager.signInIntent()) },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0)),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF6B1C3A),
+                    contentColor = Color.White,
+                ),
             ) {
                 Text(
                     stringResource(R.string.settings_account_sign_in),
@@ -124,6 +130,7 @@ fun AndroidAccountSettings(
                 }
             },
             modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFD4AF37)),
         ) {
             Text(
                 stringResource(R.string.settings_account_privacy),
@@ -135,6 +142,9 @@ fun AndroidAccountSettings(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
+            containerColor = Color(0xFF2A1C21),
+            titleContentColor = Color.White,
+            textContentColor = Color(0xFFCCCCCC),
             title = { Text(stringResource(R.string.settings_account_delete_confirm_title)) },
             text = { Text(stringResource(R.string.settings_account_delete_confirm_text)) },
             confirmButton = {
@@ -162,6 +172,7 @@ fun AndroidAccountSettings(
                             }
                         }
                     },
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFD32F2F)),
                 ) {
                     Text(
                         stringResource(R.string.settings_account_delete),
@@ -170,7 +181,10 @@ fun AndroidAccountSettings(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
+                TextButton(
+                    onClick = { showDeleteConfirm = false },
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.White),
+                ) {
                     Text(stringResource(R.string.menu_cancel))
                 }
             },

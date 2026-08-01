@@ -76,7 +76,12 @@ internal fun SettingsSectionMap(state: SettingsState, controller: SettingsContro
             Button(
                 onClick = { controller.changeMapProvider(pending) },
                 enabled = changed,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B1C3A)),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF6B1C3A),
+                    contentColor = Color.White,
+                    disabledContainerColor = Color(0xFF6B1C3A).copy(alpha = 0.38f),
+                    disabledContentColor = Color.White.copy(alpha = 0.38f),
+                ),
                 modifier = Modifier.weight(1f),
             ) {
                 Text(stringResource(Res.string.settings_map_change))
@@ -84,6 +89,10 @@ internal fun SettingsSectionMap(state: SettingsState, controller: SettingsContro
             OutlinedButton(
                 onClick = { pending = state.mapProvider },
                 enabled = changed,
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color.White,
+                    disabledContentColor = Color.White.copy(alpha = 0.38f),
+                ),
                 border = BorderStroke(1.dp, Color(0xFFD4AF37)),
                 modifier = Modifier.weight(1f),
             ) {
