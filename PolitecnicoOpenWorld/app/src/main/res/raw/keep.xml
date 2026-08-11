@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  RECURSOS QUE SOBREVIVEN A `isShrinkResources` (R8, 1.0.0.16).
+
+  El reductor de recursos borra todo lo que no vea referenciado por `R.algo`. Estos tres
+  solo se resuelven por NOMBRE con `Resources.getIdentifier(...)`, asi que para el
+  reductor son basura:
+
+  - ic_npc_person / ic_npc_car → los iconos de los NPC del mapa. El nombre sale de
+    `NpcType.drawableName` (:shared) y se resuelve en `NativeOsmMap.kt` y
+    `WorldMapScreenGoogle.kt`. Sin esta regla los NPC (personas, coches, policia y
+    zombis) desaparecen del mapa en el build de release.
+  - default_web_client_id → lo genera `google-services.json` y `AuthManager` lo lee por
+    id; sin el, el login con Google falla solo en release.
+
+  ⚠️ Si algun dia se resuelve otro recurso con `getIdentifier`, agregalo AQUI.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_npc_person,@drawable/ic_npc_car,@string/default_web_client_id" />

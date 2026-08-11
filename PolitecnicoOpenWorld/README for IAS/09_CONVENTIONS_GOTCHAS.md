@@ -1286,6 +1286,40 @@ matrices por defecto son **border-only** hasta reemplazarse.
 
 ---
 
+## 🆕 R8 activado (release minificado) — lo que el optimizador NO puede ver
+
+Desde **1.0.0.16** el release usa `isMinifyEnabled = true` + `isShrinkResources = true` (recomendación de
+Play Console "Mejora la memoria y el rendimiento de tu app con la optimización de R8"). Las reglas viven en
+`app/proguard-rules.pro` (código) y `app/src/main/res/raw/keep.xml` (recursos).
+
+⚠️ **Un release minificado NO queda validado por navegar la app un rato.** R8 borra lo que no ve, y lo que
+no ve son exactamente las referencias que no están en el bytecode. Las dos que ya mordieron en el primer
+intento — encontradas leyendo `app/build/outputs/mapping/release/usage.txt` y `resources.txt`, no en
+pantalla, porque en pantalla la app arrancaba y navegaba perfecto:
+
+- **Motor HTTP de Ktor → multijugador COMPLETO caído.** `WebSocketManager` y `SfMatchClient` construyen
+  `HttpClient { }` sin motor explícito (es `commonMain` de `:shared`, compartido con iOS). En Android eso
+  resuelve el motor por `ServiceLoader`, leyendo `META-INF/services/io.ktor.client.HttpClientEngineContainer`
+  — una referencia que el bytecode no contiene. R8 se llevó `OkHttpEngineContainer.factory`/`getFactory()` y
+  el `getFactory()` de la interfaz: mundo abierto, interiores y peleas 1v1 mueren al conectar. Lo tapa el
+  `-keep` de Ktor.
+- **Iconos de NPC del mapa.** `NpcType.drawableName` se resuelve con `Resources.getIdentifier(...)`, así que
+  para el reductor de recursos `ic_npc_person` e `ic_npc_car` son basura (`is not reachable` en
+  `resources.txt`). Personas, coches, policía y zombis desaparecen del mapa SOLO en release. Lo tapa
+  `keep.xml`.
+
+**Regla práctica:** si escribes código que resuelve algo por NOMBRE (`getIdentifier`, `ServiceLoader`,
+reflexión), agrega la regla EN EL MISMO CAMBIO y explica QUÉ se rompe sin ella — un `-keep` sin justificar
+devuelve al AAB el peso que R8 acaba de quitar. Y antes de publicar, lee `usage.txt` / `resources.txt` del
+build de release: ahí está lo que R8 borró, que es justo lo que ninguna prueba manual te va a enseñar hasta
+que lo reporte un usuario.
+
+Lo que R8 borra y **está bien** que borre (ya revisado): los recursos propios de osmdroid que la app no usa
+(`marker_default_focused_base`, `osm_ic_*`, `person`, `navto_small`, la brújula). `marker_default` sí se
+conserva, y todos los marcadores llaman `setInfoWindow(null)`, así que no hay ventana de info que dibujar.
+
+---
+
 ## 13. PROTOCOLO DE ACTUALIZACIÓN DE DOCS / DOC UPDATE PROTOCOL (obligatorio / mandatory)
 
 **ES:** Esta carpeta (`00`–`09` + docs de trabajo) es la **única fuente de verdad** que se le pasa a un

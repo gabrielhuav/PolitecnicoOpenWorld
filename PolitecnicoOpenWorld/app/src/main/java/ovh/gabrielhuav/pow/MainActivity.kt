@@ -12,6 +12,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -127,7 +128,16 @@ class MainActivity : ComponentActivity() {
         // de borde a borde. Llamarlo aquí lo activa de forma CONSISTENTE en TODAS las versiones de
         // Android (no solo 15+) y resuelve el aviso "la pantalla de borde a borde puede no mostrarse
         // para todos los usuarios". Las pantallas Compose ya respetan las barras con systemBarsPadding().
-        enableEdgeToEdge()
+        // ⚠️ Los estilos van EXPLICITOS. `enableEdgeToEdge()` sin argumentos usa `SystemBarStyle.auto`,
+        // que elige el color de los iconos del sistema segun el tema del DISPOSITIVO — y el juego pinta
+        // su propia paleta oscura SIEMPRE, tambien con el telefono en modo claro. Medido en un
+        // emulador Android 15 en modo claro: reloj, bateria y los tres botones de navegacion salian
+        // NEGROS sobre el fondo vino de la app, practicamente ilegibles. `dark(...)` significa "fondo
+        // oscuro" -> iconos CLAROS, que es lo correcto en todas las pantallas de este juego.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         // En navegacion de tres botones, evita el bloque opaco que Android agrega por contraste.
         // Los controles interactivos ya aplican systemBarsPadding; el fondo puede ocupar el borde.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
