@@ -478,6 +478,27 @@ val SF_HURT_STATES: Set<SfFighterState> = setOf(
     SfFighterState.STUN,
 ) + SF_BONUS_POWER_STATES
 
+/**
+ * 🆕 Estados en los que el peleador **NO PUEDE EMPEZAR UNA ACCIÓN** porque está sufriendo un golpe
+ * (hitstun) o mareado. Es lo que hay que preguntar antes de decidir "¿ataco ahora?".
+ *
+ * ⚠️ **NO ES [SF_HURT_STATES], y ese nombre engaña.** `SF_HURT_STATES` significa lo CONTRARIO de lo
+ * que parece: es el conjunto de estados en los que el peleador **puede SER golpeado** (su hurtbox
+ * está activa), e incluye IDLE, caminar, agacharse y los seis normales — o sea, casi todo lo que se
+ * hace de pie. Preguntarle "¿está aturdido?" devuelve `true` estando quieto en guardia.
+ *
+ * Esa confusión ya costó un bug de bulto: la IA usaba `SF_HURT_STATES` como "estoy interrumpido",
+ * así que al llenarse su medidor se quedaba PARALIZADA para siempre — ni súper, ni golpes, ni
+ * movimiento — y la pelea se ganaba sola. Ver `cpuIsInterrupted`.
+ */
+val SF_HITSTUN_STATES: Set<SfFighterState> = setOf(
+    SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_HEAD_MEDIUM, SfFighterState.HURT_HEAD_HEAVY,
+    SfFighterState.HURT_BODY_LIGHT, SfFighterState.HURT_BODY_MEDIUM, SfFighterState.HURT_BODY_HEAVY,
+    SfFighterState.HURT_CROUCH,
+    // El mareo también inmoviliza: su handler ignora TODOS los inputs hasta que expira.
+    SfFighterState.STUN,
+)
+
 /** Caja alineada a ejes relativa al ancla (pies) del peleador. */
 data class SfBox(val x: Float, val y: Float, val width: Float, val height: Float) {
     /** A coordenadas absolutas espejando por dirección (collisions.js getActualBoxDimensions). */

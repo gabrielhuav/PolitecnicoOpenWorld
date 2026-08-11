@@ -1,5 +1,7 @@
 package ovh.gabrielhuav.pow.features.streetfighter.viewmodel
 
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_HITSTUN_STATES
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_HURT_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAttackStrength
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfConstants
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCpuDifficulty
@@ -177,6 +179,61 @@ class StreetFighterCpuAiPolicyTest {
         val waits = SfCpuDifficulty.entries.map { cpuSuperCommitDelayMs(it, aiVs = false) }
         assertEquals(listOf(1400L, 900L, 500L, 250L), waits)
         assertTrue(waits.zipWithNext().all { (slower, faster) -> slower > faster })
+    }
+
+    // ─── REGRESIÓN: la CPU se paralizaba al llenar su medidor ────────────────────────────────
+    // `SF_HURT_STATES` significa "PUEDE ser golpeado", no "está aturdido": incluye IDLE, caminar,
+    // agacharse y los seis normales. La IA lo usaba como "estoy interrumpido", así que de pie daba
+    // `true` casi siempre y los tres sitios que lo consultan devolvían un input VACÍO. Al llenarse
+    // la barra, `buildCpuInput` corta por `maybeCpuSuperArtInput` antes que nada → la CPU se
+    // quedaba tiesa para siempre (el medidor solo se vacía al lanzar la súper) y la pelea se
+    // ganaba sola. Estos dos tests fijan la diferencia entre los dos conjuntos.
+
+    @Test
+    fun `estar de pie o atacando no cuenta como interrumpido`() {
+        val neutros = listOf(
+            SfFighterState.IDLE,
+            SfFighterState.WALK_FORWARD,
+            SfFighterState.WALK_BACKWARD,
+            SfFighterState.CROUCH,
+            SfFighterState.LIGHT_PUNCH,
+            SfFighterState.HEAVY_KICK,
+        )
+        neutros.forEach { state ->
+            assertFalse(
+                cpuIsInterrupted(state, isAirborne = false, downed = false),
+                "la CPU debe poder actuar en ${state.name}",
+            )
+            // Y siguen siendo golpeables: es justo la ambigüedad que causó el bug.
+            assertTrue(state in SF_HURT_STATES, "${state.name} sigue teniendo hurtbox activa")
+            assertFalse(state in SF_HITSTUN_STATES, "${state.name} no es hitstun")
+        }
+    }
+
+    @Test
+    fun `la CPU se considera interrumpida en hitstun mareo aire y derribo`() {
+        val bloqueados = listOf(
+            SfFighterState.HURT_HEAD_HEAVY,
+            SfFighterState.HURT_BODY_LIGHT,
+            SfFighterState.HURT_CROUCH,
+            SfFighterState.STUN,
+        )
+        bloqueados.forEach { state ->
+            assertTrue(
+                cpuIsInterrupted(state, isAirborne = false, downed = false),
+                "la CPU no debe actuar en ${state.name}",
+            )
+        }
+        assertTrue(cpuIsInterrupted(SfFighterState.IDLE, isAirborne = true, downed = false))
+        assertTrue(cpuIsInterrupted(SfFighterState.IDLE, isAirborne = false, downed = true))
+        assertTrue(
+            cpuIsInterrupted(
+                SfFighterState.IDLE,
+                isAirborne = false,
+                downed = false,
+                metamorphosing = true,
+            ),
+        )
     }
 
     @Test

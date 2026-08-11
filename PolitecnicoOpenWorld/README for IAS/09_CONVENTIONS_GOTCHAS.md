@@ -1286,6 +1286,30 @@ matrices por defecto son **border-only** hasta reemplazarse.
 
 ---
 
+## 🆕 `SF_HURT_STATES` NO significa "está siendo golpeado"
+
+Significa **"PUEDE ser golpeado"** — es el conjunto de estados con la hurtbox activa, y por eso
+incluye `IDLE`, caminar, agacharse y los seis normales: casi todo lo que se hace de pie. El nombre
+viene del `FighterHurtStates` del JS original y engaña a cualquiera que lo lea hoy.
+
+Para "no puedo actuar porque me están pegando" existe **`SF_HITSTUN_STATES`** (los `HURT_*` +
+`STUN`), y para la IA el predicado **`cpuIsInterrupted`**, que ya suma aire/derribo/metamorfosis.
+
+**Lo que costó la confusión (1.0.0.16):** la IA preguntaba `me.state in SF_HURT_STATES` como si
+fuera "estoy interrumpido" en tres sitios de `StreetFighterCpuAi.kt`. De pie eso es `true` casi
+siempre, y los tres devuelven un `SfInput()` **vacío** cuando da `true`. Al llenarse el medidor de
+la CPU, `buildCpuInput` corta por `maybeCpuSuperArtInput` **antes que toda la demás lógica**, así
+que la CPU dejaba de emitir súper, golpes y movimiento — **para siempre**, porque el medidor solo
+se vacía al lanzar la súper. Todo el resto de esa función era código muerto. En el árcade la pelea
+se ganaba sola en cuanto la barra rival se llenaba.
+
+**Regla:** antes de escribir `in SF_HURT_STATES`, decide cuál de las dos preguntas estás haciendo.
+Si es "¿le entra el golpe?" → `SF_HURT_STATES`. Si es "¿puede actuar?" → `SF_HITSTUN_STATES` /
+`cpuIsInterrupted`. Los tests `estar de pie o atacando no cuenta como interrumpido` y
+`la CPU se considera interrumpida en hitstun mareo aire y derribo` fijan la diferencia.
+
+---
+
 ## 🆕 R8 activado (release minificado) — lo que el optimizador NO puede ver
 
 Desde **1.0.0.16** el release usa `isMinifyEnabled = true` + `isShrinkResources = true` (recomendación de
