@@ -1,6 +1,6 @@
 POW 1.0.0.16
 
-• Mejoramos la visualización de borde a borde en más versiones y modos de navegación de Android.
-• Reducimos el uso de memoria al cargar iconos, coleccionables y objetos pequeños del mundo.
-• Los bitmaps ahora se decodifican al tamaño necesario y se preparan antes de llegar a la GPU.
-• Incluye mejoras generales de estabilidad y rendimiento para dispositivos de gama baja.
+• Huelum vs. Goya: la CPU se quedaba paralizada al llenarse su barra de poder y la pelea se ganaba sola. Ya lanza su súper y sigue peleando.
+• La barra de estado y los botones de navegación ahora se leen bien con el tema claro del sistema, y dejaron de encimarse con el texto del menú.
+• La descarga pesa menos y la app usa menos memoria: los iconos se cargan al tamaño en que se ven.
+• Mejoras de estabilidad y rendimiento en equipos de gama baja.
