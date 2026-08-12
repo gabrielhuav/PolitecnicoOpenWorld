@@ -1,7 +1,6 @@
 POW 1.0.0.16
 
-• Improved Huelum vs. Goya AI: fighters engage more and use SUPER ART when the meter is full.
-• SUPER ART now connects, deals damage, and has a clearer animation.
-• Sharper fighter select, no "?" flash, and stable music.
-• Optimized images and performance on low-end phones.
-• This release prepares the shared iOS foundation; App Store and cross-play remain in development.
+• Huelum vs. Goya: the CPU froze once its power bar filled and the fight won itself. It now throws its super and keeps fighting.
+• The status bar and navigation buttons are now legible with a light system theme, and no longer overlap the menu text.
+• Smaller download and lower memory use: icons are loaded at the size they are shown.
+• Stability and performance improvements on low-end devices.

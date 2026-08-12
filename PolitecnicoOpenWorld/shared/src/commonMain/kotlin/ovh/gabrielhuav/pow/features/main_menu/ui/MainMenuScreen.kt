@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -160,18 +161,26 @@ fun MainMenuScreen(
 
         // ⚠️ En iOS `etiquetaVersion` es null y esto NO se pinta: la App Store no admite etiquetas
         // tipo PRE-ALPHA en una ficha publicada. En Android sigue saliendo igual que siempre.
+        // ⚠️ `systemBarsPadding()` va en ESTAS DOS esquinas, no en el `BoxWithConstraints` de arriba:
+        // el degradado del fondo tiene que seguir llegando al borde (eso ES el borde a borde), pero el
+        // texto no. Sin esto, en navegación de TRES BOTONES la barra de ~48 dp se comía justo esta
+        // franja y los botones de atrás/inicio/recientes quedaban encima de la versión y del chip de
+        // cuenta. Con gestos no se notaba porque la barra es una línea delgada. Medido en un emulador
+        // Android 15. En iOS el mismo modificador respeta el indicador de inicio.
         controller.versionName?.let { version ->
             Text(
                 text = stringResource(Res.string.menu_version, version),
                 color = Color.White.copy(alpha = 0.3f),
                 fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+                modifier = Modifier.align(Alignment.BottomEnd).systemBarsPadding().padding(16.dp)
             )
         }
 
         // Chip de estado de sesión (abajo-izquierda). Lo aporta la plataforma: Android pinta el de
         // Firebase, iOS no pinta nada porque allí no hay Google Sign-In.
-        Box(modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)) { chipDeCuenta() }
+        Box(
+            modifier = Modifier.align(Alignment.BottomStart).systemBarsPadding().padding(16.dp)
+        ) { chipDeCuenta() }
 
         // ─── Diálogo de nombre del jugador (solo aparece tras warmup OK) ──
         if (state.showMultiplayerDialog) {

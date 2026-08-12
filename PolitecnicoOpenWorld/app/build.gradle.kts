@@ -54,7 +54,10 @@ android {
             buildConfigField("String", "SF_SERVER_URL", "\"wss://politecnicoopenworld-2.onrender.com\"")
         }
         release {
-            isMinifyEnabled = false
+            // Play Console: habilita R8 para eliminar y optimizar codigo no usado en el AAB.
+            isMinifyEnabled = true
+            // AGP 9 integra la reduccion optimizada de recursos con el grafo de R8.
+            isShrinkResources = true
             // Solo firma si CI proporcionó la keystore (env); local sin env → release sin firmar.
             if (!System.getenv("RELEASE_KEYSTORE_PATH").isNullOrEmpty()) {
                 signingConfig = signingConfigs.getByName("release")

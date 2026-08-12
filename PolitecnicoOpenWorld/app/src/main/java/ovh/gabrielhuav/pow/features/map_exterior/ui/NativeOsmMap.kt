@@ -37,6 +37,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapPanEnd
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapPanStart
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.onMapZoomChanged
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.selectLandmark
+import ovh.gabrielhuav.pow.platform.imagen.decodeAssetSampled
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.roundToInt
@@ -882,7 +883,11 @@ internal fun NativeOsmMap(
                         val cacheKey = "COL_${collectible.assetPath}"
                         val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                             try {
-                                val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open(collectible.assetPath))
+                                val bitmap = context.assets.decodeAssetSampled(
+                                    collectible.assetPath,
+                                    exactPixels,
+                                    exactPixels,
+                                )
                                 if (bitmap != null) {
                                     val glowDrawable = android.graphics.drawable.GradientDrawable().apply {
                                         shape = android.graphics.drawable.GradientDrawable.OVAL
@@ -1157,7 +1162,11 @@ internal fun NativeOsmMap(
                         val cacheKey = "OSM_METRO_ICON"
                         val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                             try {
-                                val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open("TRANSIT/METRO/icon.webp"))
+                                val bitmap = context.assets.decodeAssetSampled(
+                                    "TRANSIT/METRO/icon.webp",
+                                    exactPixels,
+                                    exactPixels,
+                                )
                                 if (bitmap != null) {
                                     val spriteDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
                                     ExactSizeDrawable(spriteDrawable, exactPixels, exactPixels)
@@ -1241,7 +1250,11 @@ internal fun NativeOsmMap(
                         val cacheKey = "OSM_METROBUS_ICON"
                         val cachedIcon = nativeDrawableCache.getOrPut(cacheKey) {
                             try {
-                                val bitmap = android.graphics.BitmapFactory.decodeStream(context.assets.open("TRANSIT/METROBUS/icon.webp"))
+                                val bitmap = context.assets.decodeAssetSampled(
+                                    "TRANSIT/METROBUS/icon.webp",
+                                    exactPixels,
+                                    exactPixels,
+                                )
                                 if (bitmap != null) {
                                     val spriteDrawable = android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
                                     ExactSizeDrawable(spriteDrawable, exactPixels, exactPixels)

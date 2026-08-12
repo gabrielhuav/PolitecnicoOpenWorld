@@ -95,6 +95,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import ovh.gabrielhuav.pow.platform.imagen.decodeAssetSampled
 import ovh.gabrielhuav.pow.R
 import ovh.gabrielhuav.pow.domain.models.zombie.DoorKind
 import ovh.gabrielhuav.pow.domain.models.zombie.ZombieRoomCatalog
@@ -858,8 +859,11 @@ fun ZombieGameScreen(
                 LaunchedEffect(Unit) {
                     handBitmap = withContext(Dispatchers.IO) {
                         try {
-                            context.assets.open("SPRITES/ZOMBIE/zombie_hand.webp")
-                                .use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
+                            context.assets.decodeAssetSampled(
+                                "SPRITES/ZOMBIE/zombie_hand.webp",
+                                requestedWidth = 256,
+                                requestedHeight = 256,
+                            )?.asImageBitmap()
                         } catch (e: Exception) { null }
                     }
                 }

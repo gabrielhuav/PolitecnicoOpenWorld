@@ -1286,6 +1286,64 @@ matrices por defecto son **border-only** hasta reemplazarse.
 
 ---
 
+## 🆕 `SF_HURT_STATES` NO significa "está siendo golpeado"
+
+Significa **"PUEDE ser golpeado"** — es el conjunto de estados con la hurtbox activa, y por eso
+incluye `IDLE`, caminar, agacharse y los seis normales: casi todo lo que se hace de pie. El nombre
+viene del `FighterHurtStates` del JS original y engaña a cualquiera que lo lea hoy.
+
+Para "no puedo actuar porque me están pegando" existe **`SF_HITSTUN_STATES`** (los `HURT_*` +
+`STUN`), y para la IA el predicado **`cpuIsInterrupted`**, que ya suma aire/derribo/metamorfosis.
+
+**Lo que costó la confusión (1.0.0.16):** la IA preguntaba `me.state in SF_HURT_STATES` como si
+fuera "estoy interrumpido" en tres sitios de `StreetFighterCpuAi.kt`. De pie eso es `true` casi
+siempre, y los tres devuelven un `SfInput()` **vacío** cuando da `true`. Al llenarse el medidor de
+la CPU, `buildCpuInput` corta por `maybeCpuSuperArtInput` **antes que toda la demás lógica**, así
+que la CPU dejaba de emitir súper, golpes y movimiento — **para siempre**, porque el medidor solo
+se vacía al lanzar la súper. Todo el resto de esa función era código muerto. En el árcade la pelea
+se ganaba sola en cuanto la barra rival se llenaba.
+
+**Regla:** antes de escribir `in SF_HURT_STATES`, decide cuál de las dos preguntas estás haciendo.
+Si es "¿le entra el golpe?" → `SF_HURT_STATES`. Si es "¿puede actuar?" → `SF_HITSTUN_STATES` /
+`cpuIsInterrupted`. Los tests `estar de pie o atacando no cuenta como interrumpido` y
+`la CPU se considera interrumpida en hitstun mareo aire y derribo` fijan la diferencia.
+
+---
+
+## 🆕 R8 activado (release minificado) — lo que el optimizador NO puede ver
+
+Desde **1.0.0.16** el release usa `isMinifyEnabled = true` + `isShrinkResources = true` (recomendación de
+Play Console "Mejora la memoria y el rendimiento de tu app con la optimización de R8"). Las reglas viven en
+`app/proguard-rules.pro` (código) y `app/src/main/res/raw/keep.xml` (recursos).
+
+⚠️ **Un release minificado NO queda validado por navegar la app un rato.** R8 borra lo que no ve, y lo que
+no ve son exactamente las referencias que no están en el bytecode. Las dos que ya mordieron en el primer
+intento — encontradas leyendo `app/build/outputs/mapping/release/usage.txt` y `resources.txt`, no en
+pantalla, porque en pantalla la app arrancaba y navegaba perfecto:
+
+- **Motor HTTP de Ktor → multijugador COMPLETO caído.** `WebSocketManager` y `SfMatchClient` construyen
+  `HttpClient { }` sin motor explícito (es `commonMain` de `:shared`, compartido con iOS). En Android eso
+  resuelve el motor por `ServiceLoader`, leyendo `META-INF/services/io.ktor.client.HttpClientEngineContainer`
+  — una referencia que el bytecode no contiene. R8 se llevó `OkHttpEngineContainer.factory`/`getFactory()` y
+  el `getFactory()` de la interfaz: mundo abierto, interiores y peleas 1v1 mueren al conectar. Lo tapa el
+  `-keep` de Ktor.
+- **Iconos de NPC del mapa.** `NpcType.drawableName` se resuelve con `Resources.getIdentifier(...)`, así que
+  para el reductor de recursos `ic_npc_person` e `ic_npc_car` son basura (`is not reachable` en
+  `resources.txt`). Personas, coches, policía y zombis desaparecen del mapa SOLO en release. Lo tapa
+  `keep.xml`.
+
+**Regla práctica:** si escribes código que resuelve algo por NOMBRE (`getIdentifier`, `ServiceLoader`,
+reflexión), agrega la regla EN EL MISMO CAMBIO y explica QUÉ se rompe sin ella — un `-keep` sin justificar
+devuelve al AAB el peso que R8 acaba de quitar. Y antes de publicar, lee `usage.txt` / `resources.txt` del
+build de release: ahí está lo que R8 borró, que es justo lo que ninguna prueba manual te va a enseñar hasta
+que lo reporte un usuario.
+
+Lo que R8 borra y **está bien** que borre (ya revisado): los recursos propios de osmdroid que la app no usa
+(`marker_default_focused_base`, `osm_ic_*`, `person`, `navto_small`, la brújula). `marker_default` sí se
+conserva, y todos los marcadores llaman `setInfoWindow(null)`, así que no hay ventana de info que dibujar.
+
+---
+
 ## 13. PROTOCOLO DE ACTUALIZACIÓN DE DOCS / DOC UPDATE PROTOCOL (obligatorio / mandatory)
 
 **ES:** Esta carpeta (`00`–`09` + docs de trabajo) es la **única fuente de verdad** que se le pasa a un

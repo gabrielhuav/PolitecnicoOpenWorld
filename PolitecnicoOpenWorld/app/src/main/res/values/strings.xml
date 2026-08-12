@@ -346,7 +346,7 @@
     <!-- ─── Diálogos de guardar/cargar (MainActivity) ─── -->
     <string name="save_dialog_load">Cargar partida</string>
     <string name="save_dialog_new_slot">Nueva partida · elige slot</string>
-    <string name="save_toast_saved">Partida guardada (slot %1$s)</string>
+    <string name="save_toast_saved">Partida guardada (slot %1$d)</string>
     <!-- ─── Transit metrobús (player-facing) ─── -->
     <string name="cd_metrobus_map">Mapa del Metrobús</string>
     <string name="int_metrobus_select_dest">SISTEMA METROBÚS · SELECCIONA TU DESTINO</string>

@@ -1,6 +1,6 @@
 package ovh.gabrielhuav.pow.features.streetfighter.viewmodel
 
-import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_HURT_STATES
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_HITSTUN_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BONUS_POWER_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BLOCK_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_NEW_MOVE_STATES
@@ -250,6 +250,25 @@ internal fun cpuComboRouteTimeoutMs(difficulty: SfCpuDifficulty): Long = when (d
 internal fun isCpuComboRoute(combo: SfCombo, maxLevel: Int): Boolean =
     combo.level <= maxLevel && combo.steps.size >= 2
 
+/**
+ * ¿La CPU está INTERRUMPIDA ahora mismo, o sea sin poder empezar una acción nueva?
+ *
+ * ⚠️ Pregunta por [SF_HITSTUN_STATES], **NUNCA** por `SF_HURT_STATES`. El nombre de aquel engaña:
+ * es "PUEDE ser golpeado" (hurtbox activa) e incluye IDLE, caminar, agacharse y los seis normales.
+ *
+ * Con `SF_HURT_STATES` esto era `true` casi siempre estando de pie, y como los tres sitios que lo
+ * consultan devuelven un `SfInput()` VACÍO cuando da `true`, la CPU se quedaba tiesa: al llenarse
+ * su medidor `buildCpuInput` cortaba por [maybeCpuSuperArtInput] antes que nada y ya no emitía ni
+ * súper, ni golpes, ni movimiento — para siempre, porque el medidor solo se vacía al lanzar la
+ * súper. El resto de esa función era código muerto. Se ganaba la pelea sin pelear.
+ */
+internal fun cpuIsInterrupted(
+    state: SfFighterState,
+    isAirborne: Boolean,
+    downed: Boolean,
+    metamorphosing: Boolean = false,
+): Boolean = isAirborne || downed || metamorphosing || state in SF_HITSTUN_STATES
+
 internal enum class CpuSuperDefense { INTERRUPT, BACKDASH, JUMP_BACK }
 
 /** Política pura: la dificultad básica conserva una ventana didáctica; las demás reaccionan. */
@@ -273,8 +292,8 @@ internal fun StreetFighterViewModel.cpuDefenseAgainstSuper(
     foe: SfFighter,
     difficulty: SfCpuDifficulty,
 ): SfInput? {
-    if (foe.state != SfFighterState.SUPER_ART || me.isAirborne || me.downed ||
-        me.state in SF_HURT_STATES
+    if (foe.state != SfFighterState.SUPER_ART ||
+        cpuIsInterrupted(me.state, me.isAirborne, me.downed)
     ) return null
     val animationSize = dataFor(foe).animations[SfFighterState.SUPER_ART.jsKey]?.size ?: 0
     val beforeImpact = foe.animationFrame < SfSuperArt.impactFrameIndex(animationSize)
@@ -335,7 +354,7 @@ internal fun StreetFighterViewModel.maybeCpuSuperArtInput(
     if (now - cpuSuperReadySinceMs[i] < maxWaitMs) return null
     // Una vez comprometida, no empieza otra acción durante recovery/aire/daño: deja que ese
     // estado termine y reintenta en el siguiente tick en vez de volver a distraerse.
-    if (me.isAirborne || me.downed || me.metamorphosing || me.state in SF_HURT_STATES) return SfInput()
+    if (cpuIsInterrupted(me.state, me.isAirborne, me.downed, me.metamorphosing)) return SfInput()
     if (me.state !in SfStateMachine.SPECIAL_VALID_FROM) return SfInput()
     // Un normal solo puede cancelar al conectar. Si todavía va al aire, se reintenta en la
     // siguiente decisión sin dar la barra por gastada.
@@ -619,7 +638,7 @@ internal fun StreetFighterViewModel.maybeFatalityInput(
     // Intención ACTIVA. Si ya se gastó el medidor (lo soltó) o murió → cancelar.
     if (!me.superReady) { cpuFatalityUntilMs[idx] = 0L; return null }
     // Interrumpido (golpeado/aéreo/derribado/metamorfosis): espera SIN gastar el medidor.
-    if (me.isAirborne || me.downed || isMetamorphosing(me) || me.state in SF_HURT_STATES) {
+    if (cpuIsInterrupted(me.state, me.isAirborne, me.downed, isMetamorphosing(me))) {
         return SfInput()
     }
     return when (me.state) {
