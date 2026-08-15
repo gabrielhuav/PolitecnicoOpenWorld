@@ -1,6 +1,13 @@
 package ovh.gabrielhuav.pow.domain.models.campaign.mission3
 
-import ovh.gabrielhuav.pow.R
+import org.jetbrains.compose.resources.StringResource
+import ovh.gabrielhuav.pow.shared.recursos.Res
+import ovh.gabrielhuav.pow.shared.recursos.obj_m3_evidencia_desc
+import ovh.gabrielhuav.pow.shared.recursos.obj_m3_evidencia_title
+import ovh.gabrielhuav.pow.shared.recursos.obj_m3_infiltrarse_desc
+import ovh.gabrielhuav.pow.shared.recursos.obj_m3_infiltrarse_title
+import ovh.gabrielhuav.pow.shared.recursos.obj_m3_ir_encb_desc
+import ovh.gabrielhuav.pow.shared.recursos.obj_m3_ir_encb_title
 import ovh.gabrielhuav.pow.domain.models.campaign.CampaignObjective
 
 /**
@@ -61,24 +68,24 @@ object Mission3 {
     // ─── OBJETIVOS (radio 0 = narrativos; los cumple el tick de WorldMapMission3.kt) ───
     val IR_ENCB = CampaignObjective(
         id = "m3_ir_encb",
-        titleRes = R.string.obj_m3_ir_encb_title,
-        descriptionRes = R.string.obj_m3_ir_encb_desc,
+        titleRes = Res.string.obj_m3_ir_encb_title,
+        descriptionRes = Res.string.obj_m3_ir_encb_desc,
         targetLat = ENCB_LAT,
         targetLon = ENCB_LON,
         arriveRadiusMeters = 0.0
     )
     val INFILTRARSE = CampaignObjective(
         id = "m3_infiltrarse",
-        titleRes = R.string.obj_m3_infiltrarse_title,
-        descriptionRes = R.string.obj_m3_infiltrarse_desc,
+        titleRes = Res.string.obj_m3_infiltrarse_title,
+        descriptionRes = Res.string.obj_m3_infiltrarse_desc,
         targetLat = ENCB_LAT,
         targetLon = ENCB_LON,
         arriveRadiusMeters = 0.0
     )
     val RECUPERAR_EVIDENCIA = CampaignObjective(
         id = "m3_recuperar_evidencia",
-        titleRes = R.string.obj_m3_evidencia_title,
-        descriptionRes = R.string.obj_m3_evidencia_desc,
+        titleRes = Res.string.obj_m3_evidencia_title,
+        descriptionRes = Res.string.obj_m3_evidencia_desc,
         targetLat = ENCB_LAT,
         targetLon = ENCB_LON,
         arriveRadiusMeters = 0.0

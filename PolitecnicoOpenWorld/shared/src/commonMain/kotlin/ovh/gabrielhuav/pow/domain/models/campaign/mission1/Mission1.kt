@@ -1,6 +1,15 @@
 package ovh.gabrielhuav.pow.domain.models.campaign.mission1
 
-import ovh.gabrielhuav.pow.R
+import org.jetbrains.compose.resources.StringResource
+import ovh.gabrielhuav.pow.shared.recursos.Res
+import ovh.gabrielhuav.pow.shared.recursos.obj_buscar_pistas_escom_desc
+import ovh.gabrielhuav.pow.shared.recursos.obj_buscar_pistas_escom_title
+import ovh.gabrielhuav.pow.shared.recursos.obj_escoltar_prankedy_desc
+import ovh.gabrielhuav.pow.shared.recursos.obj_escoltar_prankedy_title
+import ovh.gabrielhuav.pow.shared.recursos.obj_ingresar_escom_desc
+import ovh.gabrielhuav.pow.shared.recursos.obj_ingresar_escom_title
+import ovh.gabrielhuav.pow.shared.recursos.obj_ir_encb_desc
+import ovh.gabrielhuav.pow.shared.recursos.obj_ir_encb_title
 import ovh.gabrielhuav.pow.domain.models.campaign.CampaignObjective
 
 /**
@@ -31,8 +40,8 @@ object Mission1 {
     // ⚠️ Coordenadas APROXIMADAS de la ENCB — ajústalas al punto exacto que quieras.
     val IR_ENCB = CampaignObjective(
         id = "ir_encb",
-        titleRes = R.string.obj_ir_encb_title,
-        descriptionRes = R.string.obj_ir_encb_desc,
+        titleRes = Res.string.obj_ir_encb_title,
+        descriptionRes = Res.string.obj_ir_encb_desc,
         targetLat = 19.498600,
         targetLon = -99.148900
     )
@@ -46,8 +55,8 @@ object Mission1 {
     // pequeño: basta con llegar y quedar AL LADO de la puerta (no hay que interactuar).
     val ESCOLTAR_PRANKEDY = CampaignObjective(
         id = "escoltar_prankedy",
-        titleRes = R.string.obj_escoltar_prankedy_title,
-        descriptionRes = R.string.obj_escoltar_prankedy_desc,
+        titleRes = Res.string.obj_escoltar_prankedy_title,
+        descriptionRes = Res.string.obj_escoltar_prankedy_desc,
         targetLat = ESCOM_DOOR_LAT,
         targetLon = ESCOM_DOOR_LON,
         // 12 m era demasiado estricto: combinado con "Prankedy a <45 m de la puerta", la ventana en
@@ -64,8 +73,8 @@ object Mission1 {
     // de la ESCOM (lo marca WorldMapViewModel al disparar el fade de la puerta). Ver checkObjectiveProgress.
     val INGRESAR_ESCOM = CampaignObjective(
         id = "ingresar_escom",
-        titleRes = R.string.obj_ingresar_escom_title,
-        descriptionRes = R.string.obj_ingresar_escom_desc,
+        titleRes = Res.string.obj_ingresar_escom_title,
+        descriptionRes = Res.string.obj_ingresar_escom_desc,
         targetLat = ESCOM_DOOR_LAT,
         targetLon = ESCOM_DOOR_LON,
         arriveRadiusMeters = 0.0
@@ -78,8 +87,8 @@ object Mission1 {
     // VOLVER al campus con INGRESAR_ESCOM cumplida.
     val BUSCAR_PISTAS_ESCOM = CampaignObjective(
         id = "buscar_pistas_escom",
-        titleRes = R.string.obj_buscar_pistas_escom_title,
-        descriptionRes = R.string.obj_buscar_pistas_escom_desc,
+        titleRes = Res.string.obj_buscar_pistas_escom_title,
+        descriptionRes = Res.string.obj_buscar_pistas_escom_desc,
         targetLat = ESCOM_DOOR_LAT,
         targetLon = ESCOM_DOOR_LON,
         arriveRadiusMeters = 0.0

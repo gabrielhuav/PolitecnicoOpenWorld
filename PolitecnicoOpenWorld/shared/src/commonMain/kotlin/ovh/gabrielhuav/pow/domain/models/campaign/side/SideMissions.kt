@@ -1,6 +1,15 @@
 package ovh.gabrielhuav.pow.domain.models.campaign.side
 
-import ovh.gabrielhuav.pow.R
+import org.jetbrains.compose.resources.StringResource
+import ovh.gabrielhuav.pow.shared.recursos.Res
+import ovh.gabrielhuav.pow.shared.recursos.obj_s1_entregar_desc
+import ovh.gabrielhuav.pow.shared.recursos.obj_s1_entregar_title
+import ovh.gabrielhuav.pow.shared.recursos.obj_s1_recoger_desc
+import ovh.gabrielhuav.pow.shared.recursos.obj_s1_recoger_title
+import ovh.gabrielhuav.pow.shared.recursos.obj_s2_eliminar_desc
+import ovh.gabrielhuav.pow.shared.recursos.obj_s2_eliminar_title
+import ovh.gabrielhuav.pow.shared.recursos.obj_s2_ir_desc
+import ovh.gabrielhuav.pow.shared.recursos.obj_s2_ir_title
 import ovh.gabrielhuav.pow.domain.models.campaign.CampaignObjective
 
 /**
@@ -42,16 +51,16 @@ object SideMissions {
     // side1: ambos por LLEGADA (radio > 0) → los completa checkObjectiveProgress solo.
     val S1_RECOGER = CampaignObjective(
         id = "s1_recoger_botiquin",
-        titleRes = R.string.obj_s1_recoger_title,
-        descriptionRes = R.string.obj_s1_recoger_desc,
+        titleRes = Res.string.obj_s1_recoger_title,
+        descriptionRes = Res.string.obj_s1_recoger_desc,
         targetLat = S1_PICKUP_LAT,
         targetLon = S1_PICKUP_LON,
         arriveRadiusMeters = 25.0
     )
     val S1_ENTREGAR = CampaignObjective(
         id = "s1_entregar_botiquin",
-        titleRes = R.string.obj_s1_entregar_title,
-        descriptionRes = R.string.obj_s1_entregar_desc,
+        titleRes = Res.string.obj_s1_entregar_title,
+        descriptionRes = Res.string.obj_s1_entregar_desc,
         targetLat = S1_DELIVER_LAT,
         targetLon = S1_DELIVER_LON,
         arriveRadiusMeters = 25.0
@@ -59,16 +68,16 @@ object SideMissions {
     // side2: llegar a la zona (radio > 0) y luego ELIMINAR (radio 0 = narrativo, lo cierra el tick).
     val S2_IR = CampaignObjective(
         id = "s2_ir_zona",
-        titleRes = R.string.obj_s2_ir_title,
-        descriptionRes = R.string.obj_s2_ir_desc,
+        titleRes = Res.string.obj_s2_ir_title,
+        descriptionRes = Res.string.obj_s2_ir_desc,
         targetLat = S2_ZONE_LAT,
         targetLon = S2_ZONE_LON,
         arriveRadiusMeters = 35.0
     )
     val S2_ELIMINAR = CampaignObjective(
         id = "s2_eliminar_infectados",
-        titleRes = R.string.obj_s2_eliminar_title,
-        descriptionRes = R.string.obj_s2_eliminar_desc,
+        titleRes = Res.string.obj_s2_eliminar_title,
+        descriptionRes = Res.string.obj_s2_eliminar_desc,
         targetLat = S2_ZONE_LAT,
         targetLon = S2_ZONE_LON,
         arriveRadiusMeters = 0.0

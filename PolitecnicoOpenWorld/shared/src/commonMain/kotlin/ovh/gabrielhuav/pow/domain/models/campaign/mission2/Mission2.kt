@@ -1,6 +1,17 @@
 package ovh.gabrielhuav.pow.domain.models.campaign.mission2
 
-import ovh.gabrielhuav.pow.R
+import org.jetbrains.compose.resources.StringResource
+import ovh.gabrielhuav.pow.shared.recursos.Res
+import ovh.gabrielhuav.pow.shared.recursos.obj_m2_esconderse_desc
+import ovh.gabrielhuav.pow.shared.recursos.obj_m2_esconderse_title
+import ovh.gabrielhuav.pow.shared.recursos.obj_m2_hablar_prankedy_desc
+import ovh.gabrielhuav.pow.shared.recursos.obj_m2_hablar_prankedy_title
+import ovh.gabrielhuav.pow.shared.recursos.obj_m2_pista_brote_desc
+import ovh.gabrielhuav.pow.shared.recursos.obj_m2_pista_brote_title
+import ovh.gabrielhuav.pow.shared.recursos.obj_m2_pista_rumor_desc
+import ovh.gabrielhuav.pow.shared.recursos.obj_m2_pista_rumor_title
+import ovh.gabrielhuav.pow.shared.recursos.obj_m2_recuperar_mochila_desc
+import ovh.gabrielhuav.pow.shared.recursos.obj_m2_recuperar_mochila_title
 import ovh.gabrielhuav.pow.domain.models.campaign.CampaignObjective
 
 /**
@@ -25,7 +36,7 @@ import ovh.gabrielhuav.pow.domain.models.campaign.CampaignObjective
  * La lógica viva (máquina de fases) está en WorldMapMission2.kt (exterior) y en el motor de
  * interiores (salón). La fase se persiste en el JSON de guardado (GameSaveData.mission2Phase).
  * Los DIÁLOGOS son texto de historia y van hardcodeados en español (misma convención que los
- * cómics y las frases de Prankedy). Los TÍTULOS de objetivos sí van por @StringRes (widget).
+ * cómics y las frases de Prankedy). Los TÍTULOS de objetivos sí van por (widget).
  */
 object Mission2 {
 
@@ -97,8 +108,8 @@ object Mission2 {
     //     WorldMapMission2.kt, no por llegada — igual que INGRESAR_ESCOM; ver checkObjectiveProgress). ───
     val ESCONDERSE_POLICIA = CampaignObjective(
         id = "m2_esconderse_policia",
-        titleRes = R.string.obj_m2_esconderse_title,
-        descriptionRes = R.string.obj_m2_esconderse_desc,
+        titleRes = Res.string.obj_m2_esconderse_title,
+        descriptionRes = Res.string.obj_m2_esconderse_desc,
         // La fase se juega DENTRO del lobby: el 🎯 apunta a la puerta de la ESCOM para guiarte
         // a ENTRAR si sigues la misión desde el mapa global (dentro no hay waypoint exterior).
         targetLat = 19.50490,
@@ -107,32 +118,32 @@ object Mission2 {
     )
     val PISTA_RUMOR = CampaignObjective(
         id = "m2_pista_rumor",
-        titleRes = R.string.obj_m2_pista_rumor_title,
-        descriptionRes = R.string.obj_m2_pista_rumor_desc,
+        titleRes = Res.string.obj_m2_pista_rumor_title,
+        descriptionRes = Res.string.obj_m2_pista_rumor_desc,
         targetLat = RUMOR_LAT,
         targetLon = RUMOR_LON,
         arriveRadiusMeters = 0.0
     )
     val PISTA_BROTE = CampaignObjective(
         id = "m2_pista_brote",
-        titleRes = R.string.obj_m2_pista_brote_title,
-        descriptionRes = R.string.obj_m2_pista_brote_desc,
+        titleRes = Res.string.obj_m2_pista_brote_title,
+        descriptionRes = Res.string.obj_m2_pista_brote_desc,
         targetLat = BROTE_LAT,
         targetLon = BROTE_LON,
         arriveRadiusMeters = 0.0
     )
     val HABLAR_PRANKEDY = CampaignObjective(
         id = "m2_hablar_prankedy",
-        titleRes = R.string.obj_m2_hablar_prankedy_title,
-        descriptionRes = R.string.obj_m2_hablar_prankedy_desc,
+        titleRes = Res.string.obj_m2_hablar_prankedy_title,
+        descriptionRes = Res.string.obj_m2_hablar_prankedy_desc,
         targetLat = PRANKEDY_LAT,
         targetLon = PRANKEDY_LON,
         arriveRadiusMeters = 0.0
     )
     val RECUPERAR_MOCHILA = CampaignObjective(
         id = "m2_recuperar_mochila",
-        titleRes = R.string.obj_m2_recuperar_mochila_title,
-        descriptionRes = R.string.obj_m2_recuperar_mochila_desc,
+        titleRes = Res.string.obj_m2_recuperar_mochila_title,
+        descriptionRes = Res.string.obj_m2_recuperar_mochila_desc,
         // La mochila está en un SALÓN de la ESCOM: el waypoint apunta a la puerta del edificio.
         targetLat = 19.50490,
         targetLon = -99.14674,

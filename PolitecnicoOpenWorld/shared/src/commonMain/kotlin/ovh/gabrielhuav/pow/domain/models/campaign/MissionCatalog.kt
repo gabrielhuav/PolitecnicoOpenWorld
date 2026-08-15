@@ -1,7 +1,17 @@
 package ovh.gabrielhuav.pow.domain.models.campaign
 
-import androidx.annotation.StringRes
-import ovh.gabrielhuav.pow.R
+import org.jetbrains.compose.resources.StringResource
+import ovh.gabrielhuav.pow.shared.recursos.Res
+import ovh.gabrielhuav.pow.shared.recursos.mission1_desc
+import ovh.gabrielhuav.pow.shared.recursos.mission1_title
+import ovh.gabrielhuav.pow.shared.recursos.mission2_desc
+import ovh.gabrielhuav.pow.shared.recursos.mission2_title
+import ovh.gabrielhuav.pow.shared.recursos.mission3_desc
+import ovh.gabrielhuav.pow.shared.recursos.mission3_title
+import ovh.gabrielhuav.pow.shared.recursos.side1_desc
+import ovh.gabrielhuav.pow.shared.recursos.side1_title
+import ovh.gabrielhuav.pow.shared.recursos.side2_desc
+import ovh.gabrielhuav.pow.shared.recursos.side2_title
 import ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.all
 import ovh.gabrielhuav.pow.domain.models.campaign.mission1.Mission1
 import ovh.gabrielhuav.pow.domain.models.campaign.mission2.Mission2
@@ -16,8 +26,8 @@ import ovh.gabrielhuav.pow.domain.models.campaign.side.SideMissions
  */
 data class CampaignMissionInfo(
     val id: String,
-    @StringRes val titleRes: Int,
-    @StringRes val descriptionRes: Int,
+    val titleRes: StringResource,
+    val descriptionRes: StringResource,
     // Misión que debe estar COMPLETADA para desbloquear esta (null = disponible desde el inicio).
     val requiresMissionId: String? = null,
     val side: Boolean = false
@@ -57,11 +67,11 @@ object MissionCatalog {
     const val SIDE_1_ID = "side1"
     const val SIDE_2_ID = "side2"
     val missions: List<CampaignMissionInfo> = listOf(
-        CampaignMissionInfo(MISSION_1_ID, R.string.mission1_title, R.string.mission1_desc),
-        CampaignMissionInfo(MISSION_2_ID, R.string.mission2_title, R.string.mission2_desc, requiresMissionId = MISSION_1_ID),
-        CampaignMissionInfo(MISSION_3_ID, R.string.mission3_title, R.string.mission3_desc, requiresMissionId = MISSION_2_ID),
-        CampaignMissionInfo(SIDE_1_ID, R.string.side1_title, R.string.side1_desc, requiresMissionId = MISSION_2_ID, side = true),
-        CampaignMissionInfo(SIDE_2_ID, R.string.side2_title, R.string.side2_desc, requiresMissionId = MISSION_3_ID, side = true)
+        CampaignMissionInfo(MISSION_1_ID, Res.string.mission1_title, Res.string.mission1_desc),
+        CampaignMissionInfo(MISSION_2_ID, Res.string.mission2_title, Res.string.mission2_desc, requiresMissionId = MISSION_1_ID),
+        CampaignMissionInfo(MISSION_3_ID, Res.string.mission3_title, Res.string.mission3_desc, requiresMissionId = MISSION_2_ID),
+        CampaignMissionInfo(SIDE_1_ID, Res.string.side1_title, Res.string.side1_desc, requiresMissionId = MISSION_2_ID, side = true),
+        CampaignMissionInfo(SIDE_2_ID, Res.string.side2_title, Res.string.side2_desc, requiresMissionId = MISSION_3_ID, side = true)
     )
 
     /** Primer objetivo de una misión (para el "TP al objetivo" del Modo Desarrollador). */

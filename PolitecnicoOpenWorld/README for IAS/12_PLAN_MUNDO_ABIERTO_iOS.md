@@ -140,10 +140,34 @@ Corregido: sin patrulla a la que volver, el policía se retira — que es lo que
 **juega media hora el mundo abierto en Android** al terminar: el tráfico y los peatones no los caza
 ningún test.
 
-### 🔜 Fase 4 — `R.string` → `composeResources` (50 archivos)
+### 🟡 Fase 4 — `R.string` → `composeResources` · **LA CAMPAÑA YA ESTÁ (08-14)**
 
 Mecánico y sin riesgo, pero largo. La receta ya está probada: es lo que se hizo con Ajustes
 (`SettingsSections`). Se puede repartir por features.
+
+> ## ✅ Los 42 strings de campaña, hechos — que eran el ESLABÓN de la cadena
+>
+> Se movieron los 42 (ES **y** EN) a `composeResources` y se **borraron de `res/`**: una sola
+> fuente de verdad, porque no los usaba nadie más (medido: 0 usos fuera de
+> `domain/models/campaign/`). Con ellos bajaron a `commonMain` los **6 archivos de campaña**
+> (`CampaignObjective`, `MissionCatalog`, `Mission1/2/3`, `SideMissions`) conservando el paquete
+> → **ningún import de `:app` cambió**.
+>
+> `CampaignObjective.titleRes` y `CampaignMissionInfo.titleRes` pasaron de `@StringRes Int` a
+> **`StringResource`**. Consumidores: 4 de UI (alias `stringResourceComun`, porque esos dos
+> archivos aún mezclan `R.string` propios) y 5 del ViewModel.
+>
+> ### ⚠️ Lo que este cambio enseña y vale para los otros 44 archivos
+>
+> **Fuera de un `@Composable` no hay forma SÍNCRONA de resolver un `StringResource`.** Compose
+> Resources solo ofrece `getString`, que es `suspend`; `getLocalizedString(R.string.x)` sí era
+> síncrono porque bajaba a `Context`. En el VM eso se resuelve con `WorldMapAvisos.kt`, y la
+> regla es la que está escrita en su cabecera: **la BANDERA se pone ya y el TEXTO llega un frame
+> después**. Si `objectiveDone` viajara dentro del `launch`, el tick que la lee vería el valor
+> viejo y la misión avanzaría tarde. **No metas banderas en ese helper.**
+>
+> ⚠️ Al copiar los valores hay que **quitar el `\'`**: `composeResources` no des-escapa (doc 11
+> §8bis nº2). Se hizo en el paso de migración.
 
 ### 🟡 Fase 5 — `WorldMapViewModel` + sus 22 parciales · **UI DE CONTROLES HECHA (07-31)**
 
@@ -178,10 +202,13 @@ Mecánico y sin riesgo, pero largo. La receta ya está probada: es lo que se hiz
 
 #### Lo que queda de la fase: el ViewModel (~5 000 líneas)
 
-> ## 🔗 LA CADENA DE BLOQUEO — medida el 2026-07-31
+> ## ✅ LA CADENA DE BLOQUEO — ROTA el 2026-08-14
+>
+> El eslabón (`CampaignObjective` → `@StringRes Int` → 42 strings) ya está en `commonMain`; ver
+> la fase 4. Lo de abajo se conserva porque explica **por qué** la fase 4 iba antes que la 5.
 >
 > Se intentó mover `WorldMapState.kt` (335 líneas, el estado del VM) y **falló por UN símbolo**.
-> Esto es lo que hay de verdad, y explica por qué la fase 4 va ANTES que la 5:
+> Esto es lo que había, y explica por qué la fase 4 va ANTES que la 5:
 >
 > ```
 > WorldMapState  ──necesita──►  CampaignObjective
