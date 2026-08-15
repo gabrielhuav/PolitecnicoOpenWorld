@@ -315,7 +315,8 @@ siguiente y se olvide.
 ```bash
 .\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest
 ```
-Hoy: **228 tests** (114 `:app` + 114 `:shared`), 0 fallos.
+Hoy: **312 tests** (125 `:app` + 187 `:shared`), 0 fallos. Medido el 2026-08-14 en el Mac; los
+187 de `:shared` son los MISMOS en `testAndroidHostTest` y en `iosSimulatorArm64Test`.
 
 ```bash
 .\gradlew.bat :shared:compileKotlinIosSimulatorArm64
@@ -388,6 +389,12 @@ también a Android sin que nadie lo hubiera notado.
 6. **`systemBarsPadding()` va en el WIDGET, no en la pantalla.** La pelea se dibuja a sangre a
    propósito; meter el inset arriba la encogería. Sin él, la ✕ de salir y el contador de FPS se
    colaban bajo la barra de estado en iOS.
+   🆕 **MEDIDO en el Mac (2026-08-14):** en iOS ese modificador **sí** aporta el inset del indicador
+   de inicio — la etiqueta de versión del menú cae a **54 pt del borde** en un iPhone 17 Pro (34 pt
+   de área segura + los 16 dp de `padding`), y el degradado sigue llegando al borde. ⚠️ Pero en el
+   MENÚ eso hoy **no se ve**: las dos esquinas de abajo están vacías en iOS (`versionName` es `null`
+   por §5 y nadie pasa `chipDeCuenta`). El inset de las esquinas es para Android; en iOS solo
+   importará el día que se pinte algo ahí.
 
 ---
 

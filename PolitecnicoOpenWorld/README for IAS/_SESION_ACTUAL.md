@@ -3,22 +3,22 @@
 > Único traspaso entre IAs. Ventana de 2 días; máximo 200 líneas. Aquí va estado medido,
 > trabajo abierto y trampas caras. Diseño e historia viven en los documentos de cada área.
 
-**Última actualización:** 2026-08-01 · Sol 5.6 (Windows, escritorio) · rama `perf-gama-baja-coleccionables`
+**Última actualización:** 2026-08-14 · Opus 5 (Mac) · rama `ios/verificacion-mac-1.0.0.17`
 
-> ➡️ **Release Android 1.0.0.15 listo para PR/merge a `main`.** El merge dispara
-> `.github/workflows/android-release.yml` y sube a Play `alpha` (prueba cerrada).
+> ➡️ **`main` va por 1.0.0.17 y 1.0.0.16 ya está en prueba cerrada de Play.** Lo de esta sesión es
+> la **primera compilación real para iOS** de los dos archivos que 1.0.0.16 tocó desde Windows, donde
+> los targets de Apple ni se configuran.
 >
-> **Android YA está verificado en emulador y arreglado.** Se probó ACTUALIZANDO encima de un build
-> de `main` con partida hecha, que es la prueba que vale: **saves, ajustes, idioma, sesión de
-> arcade y la BD sobreviven intactos**. Había **3 regresiones jugables** (música que rebobina,
-> preview borrosa, el `"?"` al elegir peleador): corregidas y medidas en `016e7406`.
+> ✅ **`PowImagenReducida.ios.kt` (Skia) compila a la primera y funciona**: pelea completa en el
+> simulador con ESCOMBOY y con **La Llorona** (la de los 3 atlas ALPHA), retratos del roster, 60 FPS
+> y sin crash. Las firmas de Skiko extraídas desde Windows eran correctas.
+> ✅ **`systemBarsPadding()` en las dos esquinas del menú**: en iOS aporta de verdad el inset del
+> indicador de inicio (**medido: 54 pt del borde**) y el degradado sigue llegando al borde. ⚠️ Pero
+> **hoy no se ve en iOS**: las dos esquinas están vacías allí (`versionName = null`, sin
+> `chipDeCuenta`). El cambio es para Android; en iOS solo importará cuando se pinte algo ahí.
 >
-> ✅ Corregidos idioma Android 13+ para `:shared`, el `"?"` del selector y la IA de SF: en IA vs IA
-> la barra llena fuerza SUPER ART; ahora impacta, daña, vacía la barra y dura ~1.8 s.
-> ✅ 142 PNG → WebP: 87.3 MB → 40.8 MB (ahorro 46.5 MB / 53.2 %); AAB local 353.15 MB.
->
-> Release preparado: `versionName` **1.0.0.15**, notas ES+EN reescritas, `gh-pages` viva.
-> iOS **no bloquea**: el release es de Android. **285 tests = 119 app + 166 shared**, 0 fallos.
+> **312 tests = 125 app + 187 shared**, 0 fallos; los 187 de `:shared` corren IGUAL en JVM y en
+> `iosSimulatorArm64`. Medido en el Mac, no estimado.
 
 ## 🖥️ Rutas por PC
 
@@ -64,6 +64,11 @@ PC nueva: `SETUP_PC_NUEVA.md`; `gradle-wrapper.jar` y `secrets.properties` no vi
   `disponible()` = se juega · `sePinta()` = aparece el botón. No los confundas.
 - **Sin insignias PREALPHA/BETA**: `IosMainMenuController` devuelve `mostrarInsignias = false` y
   `versionName = null` porque la App Store las rechaza. En Android se quedan.
+- **Decodificar imágenes en iOS = Skia** (`decodificarReducido`): `Image.makeFromEncoded` +
+  `scalePixels` sobre un `Bitmap` con `allocN32Pixels`. El buffer grande lo posee la `Image` y se
+  cierra a mano → se libera SIN esperar al GC de Kotlin/Native. ⚠️ **No es el `inSampleSize` de
+  Android y no hay forma de que lo sea desde Skiko**: el pico de memoria es el mismo, lo que baja
+  es cuánto dura. Los atlas son **WebP** (ya no PNG). Verificado en el simulador el 2026-08-14.
 
 ## 2bis. 🍏 Trampas de iOS que solo se ven en el simulador
 
@@ -139,10 +144,8 @@ bytes. `bundleRelease` pasó; AAB local **353,150,996 bytes** (353.15 MB), bajo 
 
 ### 🔴 P0
 
-1. **Publicar 1.0.0.15:** crear PR `perf-gama-baja-coleccionables` → `main` y fusionarlo. Revisar
-   `play-compliance`, AAB ~353 MB y `playstore-closed-testing` en track `alpha`.
-   ✅ Lo de §2bis ya se vio en Android: los tres arreglos heredados de `commonMain` (retrato en la
-   tarjeta, `\'` en inglés y `systemBarsPadding` en la ✕) están bien en el emulador.
+1. ✅ **1.0.0.15/16 publicados** (1.0.0.16 en prueba cerrada; `main` va por 1.0.0.17).
+   ✅ **iOS de 1.0.0.16 verificado en el Mac el 08-14** (Skia + `systemBarsPadding`, ver cabecera).
 2. **Decisión del dueño — On-Demand Resources sí o no.** Bloquea la fase 4 en adelante del mundo
    abierto en iOS: con el mundo el bundle son **399 MB** contra los **200 MB por datos móviles** de
    Apple. Sin ODR, la app solo se baja por Wi-Fi. Datos en el doc 12 §0.
@@ -179,8 +182,10 @@ faltan `attack`/`hurt` en 6 peleadores. Los SFX globales no se normalizan como v
 
 Windows: `.\gradlew.bat`. Mac: fijar el JBR de Android Studio y añadir
 `:shared:iosSimulatorArm64Test :shared:linkDebugFrameworkIosSimulatorArm64`.
-Esperado Android: **285 = 119 app + 166 shared**, 0 fallos (medido en Windows 2026-08-01).
-En Mac conservar además `:shared:iosSimulatorArm64Test`. Si se toca `commonTest`, ejecutar el guard.
+Esperado Android: **312 = 125 app + 187 shared**, 0 fallos (medido en el Mac 2026-08-14).
+En Mac conservar además `:shared:iosSimulatorArm64Test` (los mismos 187). Si se toca `commonTest`,
+ejecutar el guard. Para abrir la app: `linkDebugFrameworkIosSimulatorArm64` y luego ⌘R en Xcode —
+Xcode NO regenera el framework solo, y sin ese paso corres el binario viejo sin enterarte.
 
 Detekt CI desde la raíz exterior:
 

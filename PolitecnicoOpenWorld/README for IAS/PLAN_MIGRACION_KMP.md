@@ -108,7 +108,7 @@ El resto de números salen de `grep`/`find`/`wc` sobre `app/src/main`, y de
 |---|---:|
 | Archivos `.kt` en `app/src/main` | **250** |
 | Líneas | **61,345** |
-| Archivos de test | 19 (**131 tests**) — *foto del ANTES, Fase 0. Hoy son 228.* |
+| Archivos de test | 19 (**131 tests**) — *foto del ANTES, Fase 0. Hoy son 312.* |
 | Módulos Gradle | **1** (`:app`) |
 | Assets | **358 MB** |
 

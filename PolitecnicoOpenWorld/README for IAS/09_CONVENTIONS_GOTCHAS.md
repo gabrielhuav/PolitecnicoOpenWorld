@@ -1431,6 +1431,14 @@ escribieron en Windows, donde los targets iOS ni se configuran: nada de esto se 
    contains illegal characters"*), y en JVM sí. Al escribir tests en `commonTest`, usa ` - ` en vez
    de paréntesis y quita las comas.
 
+⚠️ **Buscar un símbolo en una klib NO prueba que exista API de Kotlin.** Una klib de Skiko/Compose
+lleva dentro la librería nativa entera, así que `strings` encuentra también los símbolos C++ de
+Skia. Pasó al escribir `PowImagenReducida.ios.kt` desde Windows: `getScaledDimensions` aparece en
+`skiko-iosSimulatorArm64Main-0.144.6.klib`, pero es `SkCodecImageGenerator::getScaledDimensions` en
+C++ — el `Codec` de Kotlin solo expone `readPixels`, sin sample size. **Los símbolos de Kotlin son
+los que van con firma de Kotlin** (`readPixels(org.jetbrains.skia.Bitmap){}`); los que empiezan por
+`__ZN`/`__ZNK` son C++ y no se pueden llamar. Verificado en el Mac el 2026-08-14.
+
 ⚠️ **Y la trampa que no es de código: la ABI de las klibs.** Las librerías multiplataforma publican
 klibs de Kotlin/Native con una `abi_version` fija, y **no son compatibles hacia adelante**: un
 compilador 2.2.10 no puede leer una klib de ABI 2.3.0. Cuando pasa, el mensaje MIENTE — dice
@@ -1457,7 +1465,7 @@ deja registros huérfanos en CoreSimulator.
 
 ### ⚠️ Esta lista es solo de COMPILACIÓN. La otra mitad no compila mal: se ve mal.
 
-Hay una segunda familia de fallos de iOS que **pasa los 228 tests y compila sin un warning**, y solo
+Hay una segunda familia de fallos de iOS que **pasa los 312 tests y compila sin un warning**, y solo
 aparece al abrir el simulador: el idioma que no cambia, la imagen que sale gris porque el asset no
 viajó al bundle, el botón bajo la barra de estado. Están en
 **[`11_SEPARACION_IOS_ANDROID.md`](11_SEPARACION_IOS_ANDROID.md) §8bis**, con la causa medida de
