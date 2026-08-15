@@ -64,6 +64,13 @@ PC nueva: `SETUP_PC_NUEVA.md`; `gradle-wrapper.jar` y `secrets.properties` no vi
   `disponible()` = se juega · `sePinta()` = aparece el botón. No los confundas.
 - **Sin insignias PREALPHA/BETA**: `IosMainMenuController` devuelve `mostrarInsignias = false` y
   `versionName = null` porque la App Store las rechaza. En Android se quedan.
+- 📱 **El dueño ya tiene un iPhone físico (08-14).** El framework de DISPOSITIVO
+  (`:shared:linkDebugFrameworkIosArm64`) enlaza — medido ese día, nunca se había compilado — y cae
+  donde lo busca `FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]`. Falta solo elegir cuenta en Signing
+  (`DEVELOPMENT_TEAM` vacío); un **Apple ID gratis** sirve para el propio iPhone, los 99 USD son
+  para TestFlight. Detalle en `iosApp/README.md`.
+  ⚠️ **Los números de memoria del simulador NO valen para el dispositivo**: ahí no hay jetsam. El
+  pico de los atlas (§decodificar) solo se puede juzgar en el iPhone.
 - **Decodificar imágenes en iOS = Skia** (`decodificarReducido`): `Image.makeFromEncoded` +
   `scalePixels` sobre un `Bitmap` con `allocN32Pixels`. El buffer grande lo posee la `Image` y se
   cierra a mano → se libera SIN esperar al GC de Kotlin/Native. ⚠️ **No es el `inSampleSize` de

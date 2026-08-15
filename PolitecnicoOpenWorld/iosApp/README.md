@@ -30,6 +30,25 @@ es exactamente donde apunta `FRAMEWORK_SEARCH_PATHS`. Después se abre `POW.xcod
 
 ⚠️ **Ese comando hay que repetirlo cada vez que cambies Kotlin.** Xcode no se entera solo.
 
+### En un iPhone de verdad
+
+Es **otro** framework, y el proyecto ya está preparado para elegirlo solo
+(`FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]`):
+
+```bash
+./gradlew :shared:linkDebugFrameworkIosArm64
+```
+
+**MEDIDO el 2026-08-14: enlaza bien (4m 12s la primera vez)** y deja
+`shared/build/bin/iosArm64/debugFramework/Shared.framework`. Tarda mucho más que el del simulador
+porque Kotlin/Native compila de verdad para ARM en vez de reutilizar el caché del host.
+
+⚠️ **Lo único que falta es la firma:** el target no tiene `DEVELOPMENT_TEAM` (está en
+`CODE_SIGN_STYLE = Automatic`, sin equipo). Hay que abrir POW.xcodeproj → Signing & Capabilities y
+elegir la cuenta; eso lo hace el dueño, no un script. **Con un Apple ID gratis basta para correrlo
+en tu propio iPhone** (el perfil caduca a los 7 días y hay que reinstalar); la cuenta de 99 USD/año
+solo hace falta para TestFlight y la App Store. `IPHONEOS_DEPLOYMENT_TARGET` es **16.0**.
+
 ---
 
 ## Cómo está montado — tres archivos y ya
