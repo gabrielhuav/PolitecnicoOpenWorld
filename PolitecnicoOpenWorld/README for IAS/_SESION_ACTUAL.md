@@ -112,40 +112,18 @@ saber sin abrirlo:
   **se traga el ReferenceError sin log** y el mapa se queda quieto sin que nadie sepa por qué.
   ⚠️ Falta la **VUELTA** del puente (JS → Kotlin): haría falta `WKScriptMessageHandler`.
 
-## 3bis. ✅ Android verificado en emulador (07-31) — MEDIDO, no estimado
+## 3bis. ✅ Android de 1.0.0.15/16: verificado y PUBLICADO — solo lo que sigue vigente
 
-Detalle completo y rutas de la máquina: **`PROMPT_SOL_release_hoy_y_webp.md`**.
+Detalle de aquellas sesiones: `PROMPT_SOL_release_hoy_y_webp.md` y el commit `016e7406`.
 
-**Cómo se probó:** build de `main` instalado primero → partida hecha (idioma, Modo Dev, arcade a
-medias) → `adb install -r -d` con el de la rama **encima**. Instalar limpio no prueba migración.
-
-| Riesgo | Resultado |
-|---|---|
-| Prefs (`pow_game_settings`, `APP_LANGUAGE`, `DEVELOPER_MODE`) | ✅ mismo archivo, mismas claves |
-| Sesión de arcade `_V2` (`pow_sf_arcade.xml`) | ✅ byte a byte; sale “Continuar pelea” |
-| `files/databases/pow_roads.db` | ✅ intacta, no se rehizo |
-| Menú (6 botones, insignias, **ningún EN OBRAS**) · Ajustes (6 categorías, Modo Dev) | ✅ |
-| Minimizar/volver en pelea | ✅ vuelve en PAUSA, sin crash |
-
-**3 regresiones jugables, arregladas en `016e7406`** (el commit las explica con su medida):
-música que **rebobinaba** por el catch-up de `ON_RESUME` de `LifecycleRegistry` + `reproducir()`
-que rebobina por contrato · **preview a 1/16 de píxeles** por perder `BitmapRegionDecoder` al
-portar (ahora el muestreo depende de la gama: normal 1, baja 4) · el **`"?"`** de ~300 ms porque
-`animate` está en la clave de la caché (ahora se rellena con la otra variante).
-
-✅ **Idioma de `:shared` corregido en Android 13+:** `LocaleManager.applicationLocales` +
-`android:localeConfig` alimentan a la vez `R.string` y Compose Resources. API 24-32 conserva el
-`Context` envuelto anterior. La lógica de SF/ajustes/coleccionables sigue en `commonMain`; iOS
-mantiene su costura `AppleLanguages` y reconstrucción del árbol.
-
-**Aceptado por el dueño para release:** la validación jugable se hizo manualmente antes del último
-ajuste de SUPER ART; su impacto/daño/tiempo quedó cubierto por pruebas KMP puras y se confirmará
-visualmente en la pista cerrada. Siguen como deuda la media hora de mundo y audio/interiores.
-
-**Release preparado:** `versionName` **1.0.0.15**, notas ES+EN, `gh-pages` viva y workflow revisado.
-Los 142 PNG restantes se convirtieron y sus referencias se actualizaron: 87,279,165 → 40,806,326
-bytes. `bundleRelease` pasó; AAB local **353,150,996 bytes** (353.15 MB), bajo 450/500 MB.
-`tools/.local/` quedó ignorado: el codec `cwebp` no se versiona.
+- **Cómo se prueba un release aquí:** instalar el build de `main`, HACER partida, y encima
+  `adb install -r -d` el de la rama. **Instalar limpio no prueba migración** — saves, prefs,
+  sesión de arcade `_V2` y `pow_roads.db` sobrevivieron.
+- ✅ **Idioma de `:shared` en Android 13+:** `LocaleManager.applicationLocales` +
+  `android:localeConfig` alimentan a la vez `R.string` y Compose Resources; API 24-32 conserva el
+  `Context` envuelto. iOS mantiene su costura `AppleLanguages` + reconstrucción del árbol.
+- ✅ **142 PNG → WebP:** 87.3 → 40.8 MB. AAB local 353.15 MB, bajo el aviso de 450 y el tope de 500.
+  `tools/.local/` ignorado: el codec `cwebp` no se versiona.
 
 ## 4. PENDIENTE — prioridad
 
