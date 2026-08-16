@@ -113,6 +113,13 @@ fun JsonArray.getString(index: Int): String =
     (getOrNull(index) as? JsonPrimitive)?.contentOrNull
         ?: throw PowJsonException("falta el texto en el índice $index o es null")
 
+/**
+ * `JSONArray.optLong(index, fallback)`. Añadida al portar `OverpassRepository`: la lista de nodos
+ * de una vía es un array de ids `Long` puros (`"nodes": [123, 456]`), sin objetos de por medio.
+ */
+fun JsonArray.optLong(index: Int, fallback: Long = 0L): Long =
+    (getOrNull(index) as? JsonPrimitive)?.contentOrNull?.toLongOrNull() ?: fallback
+
 /** `JSONArray.optJSONObject(index)`: el objeto en esa posición, o `null`. */
 fun JsonArray.optJSONObject(index: Int): JsonObject? = getOrNull(index) as? JsonObject
 

@@ -3,7 +3,7 @@
 > Único traspaso entre IAs. Ventana de 2 días; máximo 200 líneas. Aquí va estado medido,
 > trabajo abierto y trampas caras. Diseño e historia viven en los documentos de cada área.
 
-**Última actualización:** 2026-08-14 · Opus 5 (Mac) · rama `ios/verificacion-mac-1.0.0.17`
+**Última actualización:** 2026-08-15 · Opus 5 (Mac) · rama `ios/verificacion-mac-1.0.0.17`
 
 > ➡️ **`main` va por 1.0.0.17 y 1.0.0.16 ya está en prueba cerrada de Play.** Lo de esta sesión es
 > la **primera compilación real para iOS** de los dos archivos que 1.0.0.16 tocó desde Windows, donde
@@ -17,8 +17,14 @@
 > **hoy no se ve en iOS**: las dos esquinas están vacías allí (`versionName = null`, sin
 > `chipDeCuenta`). El cambio es para Android; en iOS solo importará cuando se pinte algo ahí.
 >
-> **312 tests = 125 app + 187 shared**, 0 fallos; los 187 de `:shared` corren IGUAL en JVM y en
-> `iosSimulatorArm64`. Medido en el Mac, no estimado.
+> ➡️ **08-15: el MUNDO LIBRE ya corre en iOS con vida propia.** Fases 3 y 4 cerradas y
+> `WorldMapState` abajo. El mismo `NpcAiManager` de Android mueve **39 NPCs medidos** en el
+> simulador (peatones y tráfico, con spawn/despawn por distancia) mientras el jugador camina, la
+> cámara lo sigue y las bardas frenan. Falta el `WorldMapViewModel` (fase 5) para policía,
+> coleccionables y landmarks, y **la caché de calles** para no comerse los 429 de Overpass.
+>
+> **513 tests = 125 app + 194 shared ×2 plataformas**, 0 fallos; los 194 de `:shared` corren IGUAL
+> en JVM y en `iosSimulatorArm64`. detekt exit 0. Medido en el Mac, no estimado.
 
 ## 🖥️ Rutas por PC
 
@@ -36,7 +42,7 @@ PC nueva: `SETUP_PC_NUEVA.md`; `gradle-wrapper.jar` y `secrets.properties` no vi
 
 - Leer `00_INDEX.md`, `09_CONVENTIONS_GOTCHAS.md` y `10_ARQUITECTURA_SEPARACION.md`.
   **Si el cambio toca las DOS plataformas, `11_SEPARACION_IOS_ANDROID.md` es obligatorio** —
-  ahí están el árbol de decisión, las 10 costuras y las trampas que solo se ven en el simulador.
+  ahí están el árbol de decisión, las 11 costuras y las trampas que solo se ven en el simulador.
 - `PowJson` imita Gson a propósito. `encodeToString(Map)` compila y falla en runtime: usar
   `jsonOf`/`jsonArrayOf`. No cambiar saves ni la ruta Android de la BD.
 - `SfArcadeRepository` conserva la migración `putStringSet` → JSON `_V2`, el `"null"` literal
@@ -83,7 +89,7 @@ Las cinco del 07-30 (idioma, assets fuera del bundle, atlas mal pintado, `\'` si
 `systemBarsPadding`) están explicadas con su causa medida en **`11_SEPARACION_IOS_ANDROID.md` §8bis**.
 El detalle de aquella sesión se purgó a `_ARCHIVO/HISTORIAL_sesiones_2026-07-30.md`.
 
-## 2ter. 🌎 Mundo abierto a iOS — fases 1, 2, 3 (parcial), 5 (parcial) y 6
+## 2ter. 🌎 Mundo abierto a iOS — fases 1, 2, 3 y 4 hechas · 5 parcial · 6 con NPCs
 
 **Plan, medidas y orden de ataque: `12_PLAN_MUNDO_ABIERTO_iOS.md`.** Aquí solo lo que hay que
 saber sin abrirlo:
@@ -93,19 +99,28 @@ saber sin abrirlo:
   ⚠️ `disponible()` NO cambió (= "¿se juega?"). Lo nuevo es `sePinta()`, **solo para pintar**.
 - ✅ **2 · Dominio puro a `commonMain`**: 22 archivos. El paquete es idéntico → ningún import cambió.
   Patrón a repetir: `java.lang.Math` → `kotlin.math`, `Context` → `PowAssets`, `UUID` → `kotlin.uuid`.
-- 🟡 **3 · Gestores de IA: 3 de 6.** La clave fue **`PowMapaConcurrente`** (mapa + `PowCerrojo`),
-  que sustituye a `ConcurrentHashMap` **conservando la semántica**: migrar es cambiar el tipo y 4
-  nombres, no rehacer ~50 accesos donde el compilador no avisa si te dejas uno. 14 tests.
-  🐞 Al tipar la API salió un **crash latente**: `ConcurrentHashMap.get(null)` lanza NPE y se
-  buscaba con `policeCarId` (`String?`). Corregido.
-  ⚠️ Falta `NpcAiManager` (988) + 2 parciales: **van juntos** y usan `CopyOnWriteArrayList`.
+- ✅ **3 · Gestores de IA: LOS 6.** `NpcAiManager` + sus 2 parciales bajaron el 08-15, con
+  **7 tests nuevos**. Costuras creadas: `PowListaConcurrente`, `PowConjuntoConcurrente`, `PowRef`,
+  `ahoraMs()`, `colorArgb`, `powLog`. Dos trampas que NO daban error y están en 09:
+  🔴 el reloj tenía que ser **de época** (`fearUntil` la compara el VM, que sigue en `:app`), y
+  🔴 el `synchronized(lista)` externo **ya no protege** → `drenar()` para leer-y-vaciar.
+  La receta de los 3 primeros sigue valiendo: **`PowMapaConcurrente`** conserva la semántica de
+  `ConcurrentHashMap`, así que migrar es cambiar el tipo y 4 nombres, no rehacer ~50 accesos donde
+  el compilador no avisa si te dejas uno. 🐞 Al tipar esa API salió un crash latente
+  (`ConcurrentHashMap.get(null)` lanza NPE, se buscaba con `policeCarId: String?`). Corregido.
 - 🟡 **5 · Solo el HUD.** `JoystickController` + `ActionButtonsController` de `commonMain`: **los
   MISMOS controles que Android**. A/B/X/Y avisan "pendiente del ViewModel".
   🔴 ⚠️ **`Modifier.scale()` NO encoge un control: los botones dejan de responder.** Transforma el
   dibujo, no el área táctil. Los controles aceptan `tamano` real (iOS: 100 dp) y son proporcionales.
   🔗 **El VM está BLOQUEADO por la fase 4**: `WorldMapState` → `CampaignObjective` →
   `@StringRes Int` → 42 strings sin migrar. Cadena y orden de ataque en el doc 12.
-- 🟡 **6 · El mapa se ve, se camina y las bardas frenan.** `UIKitView` mete el `WKWebView` en
+- 🟢 **6 · El mapa se ve, se CAMINA, las bardas frenan y HAY NPCs (08-15).** El mismo
+  `NpcAiManager` de Android corre en iOS: `OverpassRepository` (ya multiplataforma, Ktor + PowJson)
+  baja las calles y un tick a 30 Hz mueve **39 NPCs medidos** en el simulador.
+  ⚠️ Se lee `getServerNpcs().toList()`, **no el flujo `npcs`** (ese es solo de red) y **no la lista
+  viva** (Compose no recompondría). ⚠️ Zoom **17**: por debajo de 16.5 el JS no pinta NPCs.
+  ⚠️ **Falta la caché de calles**: iOS pide a Overpass en cada arranque y come 429. Es lo siguiente.
+  Antes de esto (07-31) el mapa ya se veía y se caminaba; `UIKitView` mete el `WKWebView` en
   Compose; `PuenteMapaIos` (Kotlin → JS) llama a las mismas funciones que Android.
   ⚠️ `UIKitView` exige `@OptIn(ExperimentalForeignApi)` **y** `import kotlinx.cinterop.readValue`.
   ⚠️ Cada llamada JS va con `if (typeof f === 'function')`: si el HTML aún no cargó, `WKWebView`

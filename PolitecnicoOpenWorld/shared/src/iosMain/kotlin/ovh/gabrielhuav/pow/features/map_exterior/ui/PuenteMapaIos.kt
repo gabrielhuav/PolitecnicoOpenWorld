@@ -1,6 +1,8 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.map.Npc
+import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import platform.WebKit.WKWebView
 
 /**
@@ -49,6 +51,34 @@ class PuenteMapaIos(private val webView: WKWebView) {
     /** Enciende o apaga la niebla de guerra. */
     fun niebla(encendida: Boolean) {
         llamar("setFogEnabled($encendida)")
+    }
+
+    /**
+     * Pinta los NPCs que simula [ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager].
+     *
+     * ⚠️ **El `type` que se manda NO es el `NpcType` del juego, y elegir mal no da ningún error.**
+     * El JS de `updateNpcs` tiene tres ramas:
+     *  - `"CAR"` / `"MODULAR"` → si hay base64 en `imgCache` pinta la imagen; **si NO lo hay, pinta
+     *    un EMOJI** (🚗 / 🧍). Es el "FIX NPC invisible" del propio HTML.
+     *  - cualquier otra cosa → `<img src="…/SPRITES/ICONS/<drawable>.svg">`, un ARCHIVO de assets.
+     *
+     * En iOS los sprites del mundo **no están en el bundle**, así que la tercera rama pinta el
+     * icono de imagen rota (un "?" azul) — probado en el simulador el 2026-08-15, y por eso aquí
+     * se manda siempre `CAR`/`MODULAR` **sin `imageKey`**: cae en el respaldo de emoji, que se ve
+     * bien y no necesita ni un archivo. El día que los sprites viajen al bundle, se añade
+     * `imageKey` y la misma rama pasa a pintar el sprite sin tocar nada más.
+     *
+     * ⚠️ **Y el JS no dibuja NADA por debajo de zoom 16.5** (`isZoomedIn` en `updateNpcs`): con el
+     * mapa a 16 se manda todo correctamente y no aparece un solo NPC, sin ningún error. Por eso el
+     * mundo de iOS va a 17.
+     */
+    fun actualizarNpcs(npcs: List<Npc>) {
+        val datos = npcs.joinToString(",", prefix = "[", postfix = "]") { npc ->
+            val tipo = if (npc.type == NpcType.CAR || npc.type == NpcType.POLICE_CAR) "CAR" else "MODULAR"
+            """{"id":"${npc.id}","lat":${npc.location.latitude},"lng":${npc.location.longitude},""" +
+                """"type":"$tipo","health":${npc.health},"isDying":${npc.isDying}}"""
+        }
+        llamar("updateNpcs($datos)")
     }
 
     /**

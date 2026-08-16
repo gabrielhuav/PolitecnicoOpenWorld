@@ -9,6 +9,9 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
+import ovh.gabrielhuav.pow.platform.tiempo.ahoraMs
+import kotlin.math.PI
+import kotlin.math.abs
 
 /**
  * Parcial de TRÁFICO / NAVEGACIÓN de calles de [NpcAiManager] (extraído para reducir el tamaño
@@ -41,7 +44,7 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
         if (navGraph.entryWays.contains(way.id) && nodeIndex < 0) {
             if (npc.type == NpcType.PERSON) return npc.copy(targetNodeIndex = 1, moveDirection = 1)
 
-            carExitCooldowns[npc.id] = System.currentTimeMillis() + 60000L
+            carExitCooldowns[npc.id] = ahoraMs() + 60000L
             return npc.copy(
                 navState = ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MACRO_OSM,
                 currentLocalWay = null,
@@ -78,8 +81,9 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
             var minDist = Double.MAX_VALUE
             for (i in nextWay.nodes.indices) {
                 val n = nextWay.nodes[i]
-                val d = Math.pow(n.localX - reachedNode.localX.toDouble(), 2.0) +
-                        Math.pow(n.localY - reachedNode.localY.toDouble(), 2.0)
+                val dx = n.localX - reachedNode.localX.toDouble()
+                val dy = n.localY - reachedNode.localY.toDouble()
+                val d = dx * dx + dy * dy
                 if (d < minDist) {
                     minDist = d
                     closestIdx = i
@@ -111,20 +115,20 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
     val dLat = targetGlobal.latitude - npc.location.latitude
     val dist = sqrt(dLon * dLon + dLat * dLat)
     val angle = atan2(dLat, dLon)
-    val targetAngle = -Math.toDegrees(angle).toFloat()
+    val targetAngle = -((angle) * 180.0 / PI).toFloat()
     val isFacingRight = cos(angle) >= 0
 
     val diff = (targetAngle - npc.rotationAngle + 540) % 360 - 180
     val smoothFactor = if (npc.type == NpcType.CAR) 0.45f else 0.20f
     val smoothedAngle = (npc.rotationAngle + diff * smoothFactor + 360) % 360
-    val actualSpeed = npc.speed * (1.0f - (Math.abs(diff) / 60f).toFloat()).coerceIn(0.15f, 1.0f)
+    val actualSpeed = npc.speed * (1.0f - (abs(diff) / 60f).toFloat()).coerceIn(0.15f, 1.0f)
     // FIX "ángulo incorrecto" + anti-órbita (ver mover de calles): heading suavizado
     // solo con desvío pequeño; con desvío grande, directo al objetivo (converge siempre).
-    val moveRad = if (npc.type == NpcType.CAR && Math.abs(diff) < 50f)
-        Math.toRadians(-smoothedAngle.toDouble())
+    val moveRad = if (npc.type == NpcType.CAR && abs(diff) < 50f)
+        ((-smoothedAngle.toDouble()) * PI / 180.0)
     else angle
 
-    val isOnCooldown = parkingCooldowns[npc.id]?.let { System.currentTimeMillis() < it } ?: false
+    val isOnCooldown = parkingCooldowns[npc.id]?.let { ahoraMs() < it } ?: false
 
     if (dist > actualSpeed * 3 && npc.type == NpcType.CAR && !way.nodes.any { it.isParkingSlot } && !isOnCooldown) {
         val nearbyParkingEntrances = navGraph.ways.filter { w ->
@@ -156,7 +160,7 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
         val pauseTime = when {
             // Punto de interés (banca, cafetería, palapas...): espera larga de 10-25 s
             npc.type == NpcType.PERSON && targetLocalNode.isStopPoint ->
-                System.currentTimeMillis() + Random.nextLong(10_000L, 25_000L)
+                ahoraMs() + Random.nextLong(10_000L, 25_000L)
             else -> npc.chatUntil
         }
 
@@ -166,7 +170,7 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
             rotationAngle = smoothedAngle,
             facingRight = isFacingRight,
             chatUntil = pauseTime,
-            isMoving = pauseTime <= System.currentTimeMillis()
+            isMoving = pauseTime <= ahoraMs()
         )
     } else {
         npc.copy(
@@ -187,11 +191,11 @@ internal fun NpcAiManager.moveNpc(npc: Npc, network: List<MapWay>, now: Long, sp
         val wakeUpTime = parkedTimers[npc.id]
 
         if (wakeUpTime == null) {
-            parkedTimers[npc.id] = System.currentTimeMillis() + Random.nextLong(PARKING_WAKE_MIN_MS, PARKING_WAKE_MAX_MS)
+            parkedTimers[npc.id] = ahoraMs() + Random.nextLong(PARKING_WAKE_MIN_MS, PARKING_WAKE_MAX_MS)
             return npc
-        } else if (System.currentTimeMillis() > wakeUpTime) {
-            parkedTimers.remove(npc.id)
-            parkingCooldowns[npc.id] = System.currentTimeMillis() + 20000
+        } else if (ahoraMs() > wakeUpTime) {
+            parkedTimers.quitar(npc.id)
+            parkingCooldowns[npc.id] = ahoraMs() + 20000
 
             val way = npc.currentLocalWay ?: return null
             val newDir = npc.moveDirection * -1
@@ -461,7 +465,7 @@ internal fun NpcAiManager.moveNpc(npc: Npc, network: List<MapWay>, now: Long, sp
     val dLat = tLat - npc.location.latitude
     val dist = sqrt(dLon * dLon + dLat * dLat)
     val angle = atan2(dLat, dLon)
-    val targetAngle = -Math.toDegrees(angle).toFloat()
+    val targetAngle = -((angle) * 180.0 / PI).toFloat()
     val isFacingRight = cos(angle) >= 0
 
     val diff = (targetAngle - npc.rotationAngle + 540) % 360 - 180
@@ -471,7 +475,7 @@ internal fun NpcAiManager.moveNpc(npc: Npc, network: List<MapWay>, now: Long, sp
     val effectiveSpeed = npc.speed * speedScale.coerceIn(0f, 1f).toDouble() *
             (if (feared) NpcAiManager.FEAR_SPEED_MULT.toDouble() else 1.0) *
             (if (npc.type == NpcType.CAR) npc.speedVariation.toDouble() else 1.0)
-    val actualSpeed = effectiveSpeed * (1.0f - (Math.abs(diff) / 60f).toFloat()).coerceIn(0.15f, 1.0f)
+    val actualSpeed = effectiveSpeed * (1.0f - (abs(diff) / 60f).toFloat()).coerceIn(0.15f, 1.0f)
     val moving = actualSpeed > 1e-9
     // FIX "ángulo incorrecto" + FIX "círculos alrededor del jugador":
     // El sprite usa smoothedAngle. Mover SIEMPRE a lo largo del heading suavizado
@@ -481,8 +485,8 @@ internal fun NpcAiManager.moveNpc(npc: Npc, network: List<MapWay>, now: Long, sp
     // Ahora: con desvío PEQUEÑO (manejo normal) se mueve según su sprite (coinciden
     // visualmente); con desvío GRANDE (giros cerrados/esquives) avanza DIRECTO al
     // objetivo, que converge siempre — el sprite lo alcanza vía el smoothing.
-    val moveRad = if (npc.type == NpcType.CAR && Math.abs(diff) < 50f)
-        Math.toRadians(-smoothedAngle.toDouble())
+    val moveRad = if (npc.type == NpcType.CAR && abs(diff) < 50f)
+        ((-smoothedAngle.toDouble()) * PI / 180.0)
     else angle
 
     if (dist > actualSpeed * 3 && npc.type == NpcType.CAR) {

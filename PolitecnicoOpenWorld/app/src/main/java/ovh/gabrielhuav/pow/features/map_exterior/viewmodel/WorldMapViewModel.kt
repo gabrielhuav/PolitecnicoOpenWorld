@@ -904,9 +904,9 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                         // de abajo las expira a 450 ms, igual que las de la policía normal).
                         if (npcAiManager.pendingPoliceShots.isNotEmpty()) {
                             val nowS = System.currentTimeMillis()
-                            val shots = synchronized(npcAiManager.pendingPoliceShots) {
-                                val l = npcAiManager.pendingPoliceShots.toList(); npcAiManager.pendingPoliceShots.clear(); l
-                            }
+                            // ⚠️ `drenar()` y no `toList()+clear()`: el `synchronized` de antes ya
+                            // no excluye al cerrojo interno de PowListaConcurrente (09 §KMP).
+                            val shots = npcAiManager.pendingPoliceShots.drenar()
                             if (shots.isNotEmpty()) {
                                 wantedManager.addPoliceShots(shots.map { PoliceShot(it.first, it.second, nowS) })
                             }
@@ -1024,9 +1024,7 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                 }
 
                                 if (isServerDelegatedHost) {
-                                    synchronized(npcAiManager.pendingDespawns) {
-                                        npcAiManager.pendingDespawns.forEach { remoteEntities.remove(it) }
-                                    }
+                                    npcAiManager.pendingDespawns.copia().forEach { remoteEntities.remove(it) }
                                     // No re-insertar coches recién abordados (snapshot viejo de la IA).
                                     processedNpcs.forEach { if (!isCarTombstoned(it.id)) remoteEntities[it.id] = it }
                                 }
@@ -1062,11 +1060,7 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                             ws.sendMessage(PowJson.encodeToString(myData))
 
                                             if (isServerDelegatedHost) {
-                                                val despawnsToSend = synchronized(npcAiManager.pendingDespawns) {
-                                                    val list = npcAiManager.pendingDespawns.toList()
-                                                    npcAiManager.pendingDespawns.clear()
-                                                    list
-                                                }
+                                                val despawnsToSend = npcAiManager.pendingDespawns.drenar()
 
                                                 despawnsToSend.forEach { idToRemove ->
                                                     ws.sendMessage(jsonOf(mapOf("type" to "NPC_DESTROY", "npcId" to idToRemove)))
@@ -1097,7 +1091,7 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                                     ws.sendMessage(jsonOf(mapOf("type" to "NPC_BATCH_UPDATE", "npcs" to npcBatch)))
                                                 }
                                             } else {
-                                                synchronized(npcAiManager.pendingDespawns) { npcAiManager.pendingDespawns.clear() }
+                                                npcAiManager.pendingDespawns.clear()
                                             }
                                         } catch (e: Exception) {
                                             Log.e("Network", "Error al enviar datos: ${e.message}")

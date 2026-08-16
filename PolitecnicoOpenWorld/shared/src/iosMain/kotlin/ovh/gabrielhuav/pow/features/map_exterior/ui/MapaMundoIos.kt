@@ -25,10 +25,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
-import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlinx.coroutines.delay
+import ovh.gabrielhuav.pow.data.repository.OverpassRepository
+import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.cargarColisionesExteriores
 import ovh.gabrielhuav.pow.domain.models.map.chocaAlMoverse
 import androidx.compose.ui.Alignment
@@ -89,6 +92,58 @@ fun MapaMundoIos(alVolver: () -> Unit) {
     // ⚠️ Si el archivo faltara, `cargarColisionesExteriores` devuelve vacío y se puede atravesar
     // todo: es su modo degradado a propósito — mejor un mundo sin bardas que un crash al entrar.
     val colisiones = remember { cargarColisionesExteriores() }
+
+    // 🧠 EL CEREBRO DE LOS NPCs, el MISMO que Android (`:shared` desde el 2026-08-15).
+    val cerebro = remember { NpcAiManager() }
+    var npcs by remember { mutableStateOf<List<Npc>>(emptyList()) }
+    var estadoCalles by remember { mutableStateOf(EstadoCalles.DESCARGANDO) }
+
+    // 1️⃣ Las calles. Sin red, `updateNpcs` sale por `if (!networkIsReady) return` y NO hay NPCs:
+    // no es un detalle de arranque, es el contrato del manager.
+    LaunchedEffect(Unit) {
+        // ⚠️ **Overpass limita por IP y devuelve 429 en cuanto pides seguido.** Android casi no lo
+        // nota porque cachea la red en Room (celdas de 2 km, TTL 7 días) y solo baja lo que le
+        // falta; iOS todavía NO tiene esa caché, así que pide en cada arranque y el 429 es
+        // frecuente — pasó en la segunda prueba del simulador. Hasta que exista la caché, se
+        // reintenta con espera creciente. **La caché sigue pendiente y es lo que toca después.**
+        repeat(INTENTOS_CALLES) { intento ->
+            val calles = OverpassRepository().fetchRoadNetwork(ESCOM_LAT, ESCOM_LON)
+            if (calles.isNotEmpty()) {
+                cerebro.updateRoadNetwork(calles)
+                estadoCalles = EstadoCalles.LISTO
+                return@LaunchedEffect
+            }
+            estadoCalles = EstadoCalles.REINTENTANDO
+            delay(4000L * (intento + 1))
+        }
+        // Se dice en pantalla: sin esto, "Overpass me limitó" y "el código no funciona" se ven igual.
+        estadoCalles = EstadoCalles.SIN_RED
+    }
+
+    // 2️⃣ El tick. 33 ms = ~30 Hz, el mismo ritmo que el game loop de Android.
+    // ⚠️ `amIHost = true` porque en iOS no hay multijugador: este cliente es la autoridad de su
+    // propio mundo. Con `false` el manager no simula nada (y es correcto que así sea).
+    LaunchedEffect(estadoCalles) {
+        if (estadoCalles != EstadoCalles.LISTO) return@LaunchedEffect
+        while (true) {
+            cerebro.updateNpcs(jugador, amIHost = true)
+            // ⚠️ **`getServerNpcs()`, NO el flujo `npcs`.** Son dos cosas distintas y el nombre
+            // engaña: `npcs` (`StateFlow`) solo lo escribe `setRemoteNpcs`, o sea los NPCs que
+            // llegan por RED. Los que simula la IA de este cliente viven en `serverNpcs`. Leyendo
+            // el flujo se ve un mundo vacío para siempre, sin ningún error: el tick corre, spawnea
+            // y mueve, y la pantalla recibe una lista vacía. Android lo hace bien porque el VM
+            // llama a `getServerNpcs()`.
+            // ⚠️ **`.toList()` NO sobra.** `getServerNpcs()` devuelve la lista VIVA (el propio
+            // `PowListaConcurrente`), no una foto. Asignarla tal cual a un estado de Compose es
+            // asignar SIEMPRE la misma referencia: Compose no ve cambio, no recompone, y el
+            // contador se queda clavado en el primer número mientras el mapa se llena de NPCs
+            // (pasó: decía "2" con 25 en pantalla). Además evita leer la lista desde la UI
+            // mientras la IA la muta.
+            npcs = cerebro.getServerNpcs().toList()
+            puente?.actualizarNpcs(npcs)
+            delay(33)
+        }
+    }
 
     // El aviso se va solo: un cartel fijo estorba más que informa. 4 s es lo que tarda en leerse
     // una frase corta sin prisa — el mismo orden que un Snackbar largo de Material.
@@ -155,7 +210,7 @@ fun MapaMundoIos(alVolver: () -> Unit) {
                     .padding(horizontal = 12.dp, vertical = 6.dp),
             )
             Text(
-                "Caminas y las bardas frenan · Faltan NPCs y coleccionables",
+                textoEstado(estadoCalles, npcs.size),
                 color = Color.White.copy(alpha = 0.85f),
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
@@ -229,8 +284,17 @@ private const val PASO_METROS = 1.2
 private const val ESCOM_LAT = 19.504603
 private const val ESCOM_LON = -99.145985
 
-/** Zoom 16: la escala a la que se juega el mundo abierto. */
-private const val ZOOM_JUEGO = 16
+/**
+ * Zoom 17.
+ *
+ * ⚠️ **No es un gusto, es un requisito:** `updateNpcs` del HTML no dibuja NI UN NPC por debajo de
+ * **16.5** (`isZoomedIn`). A 16 el puente manda los datos, el JS los recibe y no aparece nada, sin
+ * error por ningún lado. Si algún día se baja el zoom, hay que tocar también esa guarda del HTML.
+ */
+private const val ZOOM_JUEGO = 17
+
+/** Cuántas veces se le insiste a Overpass antes de rendirse y decirlo en pantalla. */
+private const val INTENTOS_CALLES = 4
 
 /**
  * ⚠️ Marcador de sitio. Hoy no se usa ni una imagen porque no hay inyección de datos; el día que la
@@ -238,3 +302,17 @@ private const val ZOOM_JUEGO = 16
  * que ya tiene ese manejador escrito y verificado).
  */
 private const val PREFIJO_ASSETS_PENDIENTE = "pow-asset:///"
+
+/** En qué punto está la descarga de calles, que es de lo que dependen los NPCs. */
+private enum class EstadoCalles { DESCARGANDO, REINTENTANDO, LISTO, SIN_RED }
+
+/**
+ * El texto del cartel. Dice la VERDAD de lo que está pasando: sin esto, "Overpass me limitó por
+ * IP" y "el código no funciona" se ven exactamente igual en pantalla.
+ */
+private fun textoEstado(estado: EstadoCalles, cuantos: Int): String = when (estado) {
+    EstadoCalles.DESCARGANDO -> "Descargando las calles de Overpass…"
+    EstadoCalles.REINTENTANDO -> "Overpass limitó la petición (429). Reintentando…"
+    EstadoCalles.SIN_RED -> "Sin calles: Overpass no respondió (suele ser el límite por IP). Se camina, sin NPCs."
+    EstadoCalles.LISTO -> "Caminas, las bardas frenan y la IA mueve $cuantos NPCs"
+}

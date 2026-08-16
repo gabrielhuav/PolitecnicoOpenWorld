@@ -1431,6 +1431,24 @@ escribieron en Windows, donde los targets iOS ni se configuran: nada de esto se 
    contains illegal characters"*), y en JVM sí. Al escribir tests en `commonTest`, usa ` - ` en vez
    de paréntesis y quita las comas.
 
+⚠️ **Un reloj MONÓTONO no puede sustituir a `System.currentTimeMillis()` si la marca CRUZA de
+módulo.** Al bajar `NpcAiManager` a `commonMain` (2026-08-15) lo natural era `TimeSource.Monotonic`
+—es lo que ya usa `PoliceManager`—, pero ese manager escribe `Npc.fearUntil`/`aggroUntil` y quien
+las compara es el `WorldMapViewModel`, que sigue en `:app` con `System.currentTimeMillis()`. Dos
+orígenes distintos = un `aggroUntil` de cinco mil contra un `now` de un billón y medio: **todos los
+NPCs pierden miedo y agresión al instante**, sin error de compilación y sin test rojo. La costura es
+**`ahoraMs()`** (`platform/tiempo/PowReloj.kt`), que usa `kotlin.time.Clock` y da el MISMO valor de
+época en las dos plataformas. Regla: mientras quede una sola línea comparando esas marcas con
+`System.currentTimeMillis()`, el reloj compartido tiene que ser de época.
+
+⚠️ **`synchronized(x)` desde otro módulo NO excluye al cerrojo interno de las colecciones `Pow*`.**
+`pendingDespawns` se drenaba con `synchronized(lista) { toList(); clear() }` desde `:app`. Al pasar
+la lista a `PowListaConcurrente`, ese candado sigue COMPILANDO y ya no protege: entre el `toList()`
+y el `clear()` cabe un `add` de la IA, y **ese despawn se pierde** — lo cual no se ve en este
+cliente, se ve en los OTROS, con un NPC fantasma. Por eso las colecciones concurrentes llevan
+operaciones compuestas (`PowListaConcurrente.drenar()`, `PowMapaConcurrente.calcular`): **si
+necesitas leer-y-modificar, la operación va DENTRO de la clase**, no en el call-site.
+
 ⚠️ **Buscar un símbolo en una klib NO prueba que exista API de Kotlin.** Una klib de Skiko/Compose
 lleva dentro la librería nativa entera, así que `strings` encuentra también los símbolos C++ de
 Skia. Pasó al escribir `PowImagenReducida.ios.kt` desde Windows: `getScaledDimensions` aparece en

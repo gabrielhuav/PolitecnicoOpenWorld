@@ -11,11 +11,19 @@ import ovh.gabrielhuav.pow.domain.models.map.Landmark
 import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
-import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.random.Random
+import ovh.gabrielhuav.pow.platform.color.colorArgb
+import ovh.gabrielhuav.pow.platform.concurrencia.PowListaConcurrente
+import ovh.gabrielhuav.pow.platform.concurrencia.PowMapaConcurrente
+import ovh.gabrielhuav.pow.platform.concurrencia.PowRef
+import ovh.gabrielhuav.pow.platform.log.powLog
+import ovh.gabrielhuav.pow.platform.tiempo.ahoraMs
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.concurrent.Volatile
+import ovh.gabrielhuav.pow.platform.concurrencia.PowConjuntoConcurrente
 
 /**
  * Cerebro de IA de los NPCs del mundo abierto: peatones, autos/tráfico, zombis y la caza de policía
@@ -120,22 +128,22 @@ class NpcAiManager {
         }
 
         val CAR_COLORS = intArrayOf(
-            android.graphics.Color.rgb(200, 30, 30),
-            android.graphics.Color.rgb(30, 60, 160),
-            android.graphics.Color.rgb(235, 235, 235),
-            android.graphics.Color.rgb(25, 25, 25),
-            android.graphics.Color.rgb(120, 120, 130),
-            android.graphics.Color.rgb(30, 120, 60),
-            android.graphics.Color.rgb(210, 180, 40)
+            colorArgb(200, 30, 30),
+            colorArgb(30, 60, 160),
+            colorArgb(235, 235, 235),
+            colorArgb(25, 25, 25),
+            colorArgb(120, 120, 130),
+            colorArgb(30, 120, 60),
+            colorArgb(210, 180, 40)
         )
     }
 
     private val _npcs = MutableStateFlow<List<Npc>>(emptyList())
     val npcs: StateFlow<List<Npc>> = _npcs.asStateFlow()
 
-    private val cachedRoadNetwork = AtomicReference<List<MapWay>>(emptyList())
-    private val cachedLandmarks = AtomicReference<List<Landmark>>(emptyList())
-    internal val cachedNavLandmarks = AtomicReference<List<Landmark>>(emptyList())
+    private val cachedRoadNetwork = PowRef<List<MapWay>>(emptyList())
+    private val cachedLandmarks = PowRef<List<Landmark>>(emptyList())
+    internal val cachedNavLandmarks = PowRef<List<Landmark>>(emptyList())
     @Volatile private var lastParkingDbgMs = 0L   // throttle del log de diagnóstico del estacionamiento
 
     fun setLandmarks(landmarks: List<Landmark>) {
@@ -148,14 +156,14 @@ class NpcAiManager {
         val minLat: Double, val maxLat: Double,
         val minLon: Double, val maxLon: Double
     )
-    private val cachedWayBoxes = AtomicReference<List<WayBox>>(emptyList())
+    private val cachedWayBoxes = PowRef<List<WayBox>>(emptyList())
     // OPT: lista de vías ya filtradas (sin nodos vacíos) precomputada UNA vez al fijar la red, para
     // no re-materializar cachedWaysFiltered.get() en cada chequeo de spawn por tick.
-    private val cachedWaysFiltered = AtomicReference<List<MapWay>>(emptyList())
-    internal val nodeToWays = AtomicReference<Map<Long, List<MapWay>>>(emptyMap())
+    private val cachedWaysFiltered = PowRef<List<MapWay>>(emptyList())
+    internal val nodeToWays = PowRef<Map<Long, List<MapWay>>>(emptyMap())
 
-    val pendingDespawns = mutableListOf<String>()
-    val pendingPoliceShots = mutableListOf<Pair<GeoPoint, GeoPoint>>()
+    val pendingDespawns = PowListaConcurrente<String>()
+    val pendingPoliceShots = PowListaConcurrente<Pair<GeoPoint, GeoPoint>>()
 
     @Volatile var globalZombieMode: Boolean = false
     @Volatile var deviceTierFactor: Float = 1.0f
@@ -211,15 +219,15 @@ class NpcAiManager {
     val POLICE_SHOOT_COOLDOWN_MS = 1200L
     @Volatile var lastPoliceSpawnMs = 0L
 
-    internal val parkedTimers = java.util.concurrent.ConcurrentHashMap<String, Long>()
-    internal val parkingCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
-    internal val carExitCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
-    private val populatedLandmarks = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    internal val parkedTimers = PowMapaConcurrente<String, Long>()
+    internal val parkingCooldowns = PowMapaConcurrente<String, Long>()
+    internal val carExitCooldowns = PowMapaConcurrente<String, Long>()
+    private val populatedLandmarks = PowConjuntoConcurrente<String>()
     // FIX ESCOM vacía: cooldown de re-población por landmark. Los NPCs del campus se
     // despawnean a despawnDistance (~310 m) pero el campus solo se "des-poblaba" a
     // >0.02° (~2.2 km), así que al volver quedaba SIN IA. Ahora, si el campus está
     // marcado como poblado pero ya no tiene NPCs vivos, se repuebla (con cooldown).
-    private val landmarkRepopulateAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    private val landmarkRepopulateAt = PowMapaConcurrente<String, Long>()
     private val LANDMARK_REPOPULATE_COOLDOWN_MS = 8_000L
     // ── ESTACIONAMIENTO como ESCENOGRAFÍA ──────────────────────────────────
     // Los carros estacionados son escenario fijo del campus, NO NPCs efímeros. Antes:
@@ -235,7 +243,7 @@ class NpcAiManager {
     private val PARKING_MIN_CARS = 4          // piso absoluto (lotes con pocos slots)
     internal val PARKING_WAKE_MIN_MS = 90_000L
     internal val PARKING_WAKE_MAX_MS = 240_000L
-    internal val landmarkEntranceCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    internal val landmarkEntranceCooldowns = PowMapaConcurrente<String, Long>()
 
     internal val carSpeed    = CAR_SPEED
     internal val personSpeed = PERSON_SPEED
@@ -287,7 +295,7 @@ class NpcAiManager {
         _npcs.value = currentLocals + remoteList
     }
 
-    internal var serverNpcs = CopyOnWriteArrayList<Npc>()
+    internal var serverNpcs = PowListaConcurrente<Npc>()
 
     fun setServerNpcs(npcs: List<Npc>) {
         serverNpcs.clear()
@@ -326,10 +334,10 @@ class NpcAiManager {
     }
 
     private class FearEvent(val lat: Double, val lon: Double, val until: Long)
-    private val pendingFear = CopyOnWriteArrayList<FearEvent>()
+    private val pendingFear = PowListaConcurrente<FearEvent>()
 
     fun triggerFear(lat: Double, lon: Double) {
-        pendingFear.add(FearEvent(lat, lon, System.currentTimeMillis() + FEAR_DURATION_MS))
+        pendingFear.add(FearEvent(lat, lon, ahoraMs() + FEAR_DURATION_MS))
     }
 
     private fun applyPendingFear() {
@@ -411,20 +419,20 @@ class NpcAiManager {
                     .sortedByDescending { calculateDistance(it.location.latitude, it.location.longitude, pLat0, pLon0) }
                     .take(excess)
                 serverNpcs.removeAll(farthest)
-                farthest.forEach { synchronized(pendingDespawns) { pendingDespawns.add(it.id) } }
+                farthest.forEach { pendingDespawns.add(it.id) }
             }
 
             val activeLandmarks = cachedNavLandmarks.get()
 
             // DIAGNÓSTICO (POW_DBG, cada ~2 s): cuántos landmarks con navGraph ve la IA y a qué distancia
             // está el más cercano. Si activeLandmarks=0 → el navGraph NO llega a la IA (problema de carga).
-            val nowDbg = System.currentTimeMillis()
+            val nowDbg = ahoraMs()
             if (nowDbg - lastParkingDbgMs > 2000L) {
                 lastParkingDbgMs = nowDbg
                 val nearest = activeLandmarks.minByOrNull { calculateDistance(pLat0, pLon0, it.location.latitude, it.location.longitude) }
                 val nd = nearest?.let { calculateDistance(pLat0, pLon0, it.location.latitude, it.location.longitude) }
                 val poblado = nearest?.let { populatedLandmarks.contains(it.id.toString()) }
-                android.util.Log.d("POW_DBG", "parking: navLandmarks=${activeLandmarks.size} nearestId=${nearest?.id} nearestDist=$nd yaPoblado=$poblado (umbral<0.01) maxTotalNpcs=$maxTotalNpcs npcsVivos=${serverNpcs.size} globalZombie=$globalZombieMode")
+                powLog("POW_DBG", "parking: navLandmarks=${activeLandmarks.size} nearestId=${nearest?.id} nearestDist=$nd yaPoblado=$poblado (umbral<0.01) maxTotalNpcs=$maxTotalNpcs npcsVivos=${serverNpcs.size} globalZombie=$globalZombieMode")
             }
 
             for (landmark in activeLandmarks) {
@@ -448,13 +456,13 @@ class NpcAiManager {
                 val lotEmptyButPopulated = parkedAlive == 0 && populatedLandmarks.contains(lmKey)
                 val needsRepopulate = dist < 0.01 && populatedLandmarks.contains(lmKey) &&
                     parkedAlive < minCars &&
-                    (lotEmptyButPopulated || System.currentTimeMillis() >= (landmarkRepopulateAt[lmKey] ?: 0L))
+                    (lotEmptyButPopulated || ahoraMs() >= (landmarkRepopulateAt[lmKey] ?: 0L))
                 if (dist < 0.01 && (!populatedLandmarks.contains(lmKey) || needsRepopulate)) {
                   try {
                     val firstPopulate = !populatedLandmarks.contains(lmKey)   // true solo la 1ª vez (no en rellenos)
-                    android.util.Log.d("POW_DBG", "parking ENTRA al bloque lm=$lmKey dist=$dist parkedAlive=$parkedAlive primera=$firstPopulate (slots a buscar...)")
+                    powLog("POW_DBG", "parking ENTRA al bloque lm=$lmKey dist=$dist parkedAlive=$parkedAlive primera=$firstPopulate (slots a buscar...)")
                     populatedLandmarks.add(lmKey)
-                    landmarkRepopulateAt[lmKey] = System.currentTimeMillis() + LANDMARK_REPOPULATE_COOLDOWN_MS
+                    landmarkRepopulateAt[lmKey] = ahoraMs() + LANDMARK_REPOPULATE_COOLDOWN_MS
 
                     val availableSlots = getAvailableParkingSlots(landmark, serverNpcs)
                     // Rellena SOLO hasta el objetivo (no por porcentaje). Los carros estacionados NO se
@@ -469,7 +477,7 @@ class NpcAiManager {
                             timerOffset += Random.nextLong(20000L, 40000L)
                         }
                     }
-                    android.util.Log.d("POW_DBG", "parking POBLANDO lm=${landmark.id} dist=$dist totalSlots=$totalSlots objetivo=$targetCars slotsLibres=${availableSlots.size} spawneados=$dbgSpawned (npcs=${serverNpcs.size}/$maxTotalNpcs)")
+                    powLog("POW_DBG", "parking POBLANDO lm=${landmark.id} dist=$dist totalSlots=$totalSlots objetivo=$targetCars slotsLibres=${availableSlots.size} spawneados=$dbgSpawned (npcs=${serverNpcs.size}/$maxTotalNpcs)")
 
                     val navGraph = landmark.navGraph
                     if (firstPopulate && navGraph != null && !globalZombieMode) {
@@ -502,7 +510,7 @@ class NpcAiManager {
                         }
                     }
                   } catch (e: Exception) {
-                    android.util.Log.e("POW_DBG", "parking EXCEPCIÓN al poblar lm=$lmKey", e)
+                    powLog("POW_DBG", "parking EXCEPCIÓN al poblar lm=$lmKey: ${e.message}")
                   }
                 } else if (dist >= 0.02) {
                     populatedLandmarks.remove(landmark.id.toString())
@@ -513,12 +521,12 @@ class NpcAiManager {
                     }
                     if (parkedHere.isNotEmpty()) {
                         serverNpcs.removeAll(parkedHere)
-                        parkedHere.forEach { synchronized(pendingDespawns) { pendingDespawns.add(it.id) } }
+                        parkedHere.forEach { pendingDespawns.add(it.id) }
                     }
                 }
             }
 
-            val nowSpawn = System.currentTimeMillis()
+            val nowSpawn = ahoraMs()
             if (activeCount < maxActiveNpcs && nowSpawn - lastSpawnScanMs >= SPAWN_SCAN_MS) {
                 lastSpawnScanMs = nowSpawn
                 val pLat = pLat0
@@ -589,7 +597,7 @@ class NpcAiManager {
                 }
             }
 
-            val now = System.currentTimeMillis()
+            val now = ahoraMs()
 
             applyPendingFear()
 
@@ -696,7 +704,7 @@ class NpcAiManager {
                                 val hp = maxHealthForRole(role)
                                 serverNpcs[i] = h.copy(type = NpcType.ZOMBIE, health = hp, maxHealth = hp, isDying = false, chatUntil = 0L, fearUntil = 0L, trait = ovh.gabrielhuav.pow.domain.models.map.NpcTrait.AGGRESSIVE, visualConfig = null, zombieRole = role)
                             } else {
-                                synchronized(pendingDespawns) { pendingDespawns.add(h.id) }
+                                pendingDespawns.add(h.id)
                             }
                         }
                     }
@@ -709,7 +717,7 @@ class NpcAiManager {
                 if (npc.type == NpcType.CAT) {
                     val moved = moveLocalNpc(npc)
                     if (moved == null) {
-                        synchronized(pendingDespawns) { pendingDespawns.add(npc.id) }
+                        pendingDespawns.add(npc.id)
                     }
                     moved
                 } else if (!npc.displayName.isNullOrEmpty()) {
@@ -729,7 +737,7 @@ class NpcAiManager {
                     } else if ((globalZombieMode || npc.id.startsWith(SIDE_ZOMBIE_PREFIX)) && npc.type == NpcType.ZOMBIE) {
                         val moved = moveZombieNpc(npc, currentNetwork, now, pLat0, pLon0)
                         if (moved == null) {
-                            synchronized(pendingDespawns) { pendingDespawns.add(npc.id) }
+                            pendingDespawns.add(npc.id)
                         }
                         moved
                     } else if (globalZombieMode && npc.type == NpcType.POLICE_COP) {
@@ -742,7 +750,7 @@ class NpcAiManager {
                         val speedScale = if (npc.type == NpcType.CAR) carFollowScale(npc, cars) else 1f
                         val moved = moveNpc(npc, currentNetwork, now, speedScale)
                         if (moved == null && !npc.id.startsWith(ROUTE_NPC_PREFIX)) {
-                            synchronized(pendingDespawns) { pendingDespawns.add(npc.id) }
+                            pendingDespawns.add(npc.id)
                             null
                         } else {
                             // Los NPCs de ruta NUNCA se despawnean por la IA (p. ej. nodo dentro de un
@@ -785,7 +793,7 @@ class NpcAiManager {
 
     private fun spawnParkedCar(landmark: Landmark, way: ovh.gabrielhuav.pow.domain.models.ai.LocalWay, node: ovh.gabrielhuav.pow.domain.models.ai.LocalNode, delayMs: Long): Npc {
         val globalPos = landmark.toGlobalGeoPoint(node.localX, node.localY)
-        val newCarId = "PARKED_CAR_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
+        val newCarId = "PARKED_CAR_${ahoraMs()}_${Random.nextInt(1000)}"
 
         val nodeIndex = way.nodes.indexOf(node)
         val prevNode = if (nodeIndex > 0) way.nodes[nodeIndex - 1] else node
@@ -793,9 +801,9 @@ class NpcAiManager {
         val globalPrev = landmark.toGlobalGeoPoint(prevNode.localX, prevNode.localY)
         val dLon = globalPos.longitude - globalPrev.longitude
         val dLat = globalPos.latitude - globalPrev.latitude
-        val angle = -Math.toDegrees(atan2(dLat, dLon)).toFloat()
+        val angle = -((atan2(dLat, dLon)) * 180.0 / PI).toFloat()
 
-        parkedTimers[newCarId] = System.currentTimeMillis() + delayMs
+        parkedTimers[newCarId] = ahoraMs() + delayMs
 
         return Npc(
             id = newCarId,
@@ -804,7 +812,7 @@ class NpcAiManager {
             rotationAngle = angle,
             speed = 0.0,
             carModel = CarModel.entries.random(),
-            carColor = android.graphics.Color.rgb(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256)),
+            carColor = colorArgb(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256)),
             navState = ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED,
             currentLandmark = landmark,
             currentLocalWay = way,
@@ -816,7 +824,7 @@ class NpcAiManager {
 
     private fun spawnCampusPedestrian(landmark: Landmark, way: ovh.gabrielhuav.pow.domain.models.ai.LocalWay, node: ovh.gabrielhuav.pow.domain.models.ai.LocalNode): Npc {
         val globalPos = landmark.toGlobalGeoPoint(node.localX, node.localY)
-        val newId = "CAMPUS_PED_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
+        val newId = "CAMPUS_PED_${ahoraMs()}_${Random.nextInt(1000)}"
 
         val nodeIndex = way.nodes.indexOf(node)
         val visualConfig = NPC_OUTFITS.random()
@@ -843,7 +851,7 @@ class NpcAiManager {
 
     private fun spawnCampusVendor(landmark: Landmark, node: ovh.gabrielhuav.pow.domain.models.ai.LocalNode): Npc {
         val globalPos = landmark.toGlobalGeoPoint(node.localX, node.localY)
-        val newId = "VENDOR_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
+        val newId = "VENDOR_${ahoraMs()}_${Random.nextInt(1000)}"
         
         // Usamos una skin específica del catálogo (ej. la de playera amarilla para que resalte)
         val visualConfig = NPC_OUTFITS.getOrNull(3) ?: NPC_OUTFITS.first()
@@ -866,7 +874,7 @@ class NpcAiManager {
 
     private fun spawnCampusCat(landmark: Landmark, way: ovh.gabrielhuav.pow.domain.models.ai.LocalWay, node: ovh.gabrielhuav.pow.domain.models.ai.LocalNode): Npc {
         val globalPos = landmark.toGlobalGeoPoint(node.localX, node.localY)
-        val newId = "CAT_${System.currentTimeMillis()}_${Random.nextInt(1000)}"
+        val newId = "CAT_${ahoraMs()}_${Random.nextInt(1000)}"
         val nodeIndex = way.nodes.indexOf(node)
         
         // Velocidad baja para el gatito
@@ -909,16 +917,16 @@ class NpcAiManager {
                 if (d in 0.00002..CHAT_DISTANCE.toDouble() && Random.nextFloat() < CHAT_CHANCE) {
                     val angA = atan2(nb.location.latitude - na.location.latitude,
                         nb.location.longitude - na.location.longitude)
-                    val angB = angA + Math.PI
+                    val angB = angA + PI
                     val until = now + CHAT_DURATION_MS
                     val cooldown = until + 30_000L // 30 segundos de inmunidad después de terminar
                     serverNpcs[serverNpcs.indexOfFirst { it.id == na.id }.takeIf { it >= 0 } ?: continue] =
                         na.copy(chatUntil = until, chatCooldownUntil = cooldown, chatPartnerId = nb.id, isMoving = false,
-                            rotationAngle = (-Math.toDegrees(angA).toFloat() + 360) % 360,
+                            rotationAngle = (-((angA) * 180.0 / PI).toFloat() + 360) % 360,
                             facingRight = cos(angA) >= 0)
                     serverNpcs[serverNpcs.indexOfFirst { it.id == nb.id }.takeIf { it >= 0 } ?: continue] =
                         nb.copy(chatUntil = until, chatCooldownUntil = cooldown, chatPartnerId = na.id, isMoving = false,
-                            rotationAngle = (-Math.toDegrees(angB).toFloat() + 360) % 360,
+                            rotationAngle = (-((angB) * 180.0 / PI).toFloat() + 360) % 360,
                             facingRight = cos(angB) >= 0)
                     used.add(ia); used.add(ib)
                     break

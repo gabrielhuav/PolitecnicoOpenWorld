@@ -63,7 +63,7 @@ internal fun WorldMapViewModel.onInteractButtonPressed() {
                 // unos segundos para que el volcado lo ignore.
                 boardedCarTombstones[carId] = nowMs + 10_000L
                 // Y avisar a los demás clientes que ese NPC dejó de existir.
-                synchronized(npcAiManager.pendingDespawns) { npcAiManager.pendingDespawns.add(carId) }
+                npcAiManager.pendingDespawns.add(carId)
                 if (carNpc.isFirstTimeBoarded) {
                     spawnOustedDriver(carNpc.location)
                     raiseWantedLevel(1) // robar un auto ocupado es delito → +1 estrella

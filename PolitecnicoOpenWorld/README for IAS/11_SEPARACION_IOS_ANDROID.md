@@ -79,7 +79,7 @@ actual fun fuentePorDefecto(): PowAssetsFuente = …   // AssetManager
 actual fun fuentePorDefecto(): PowAssetsFuente = …   // NSBundle
 ```
 
-### Las 10 costuras que existen hoy — y punto
+### Las 11 costuras que existen hoy — y punto
 
 Si necesitas algo de plataforma, **mira primero si ya está aquí**. Casi siempre lo está.
 
@@ -89,6 +89,7 @@ Si necesitas algo de plataforma, **mira primero si ya está aquí**. Casi siempr
 | `PowAudio` | sonido | `SoundPool` + `MediaPlayer` | `AVAudioPlayer` |
 | `decodificarReducido` | decodificar imagen a menor resolución | `inSampleSize` | decodificar y escalar |
 | `PowCerrojo` | exclusión mutua | `synchronized` | `NSRecursiveLock` |
+| `powLog` | traza de depuración | `android.util.Log` | `println` (consola de Xcode) |
 | `PowViewModel` | clase base de ViewModel | `androidx.lifecycle.ViewModel` | clase con su scope |
 | `plataformaActual` | en qué plataforma estoy | `ANDROID` | `IOS` |
 | `crearPowDatabaseBuilder` | abrir la BD | driver del sistema | driver empaquetado |
@@ -99,7 +100,21 @@ Si necesitas algo de plataforma, **mira primero si ya está aquí**. Casi siempr
 ⚠️ **Antes de añadir la número 11, pregúntate si no es más bien una costura B.** Cada `expect`
 nuevo es un archivo más que mantener en dos sitios, para siempre.
 
-### Y una herramienta que NO es una costura: `PowMapaConcurrente`
+### Y las que NO son costuras: la familia `Pow*` de concurrencia, tiempo y color
+
+Ninguna de estas es un `expect/actual`: son clases normales de `commonMain` que sustituyen a algo
+de la JVM. **Míralas antes de abrir una costura nueva.**
+
+| En vez de | Usa | Ojo con |
+|---|---|---|
+| `ConcurrentHashMap` | `PowMapaConcurrente` | `.remove()` → `.quitar()`, etc. (abajo) |
+| `CopyOnWriteArrayList` | `PowListaConcurrente` | `iterator()` da una COPIA; para leer-y-vaciar, `drenar()` |
+| `ConcurrentHashMap.newKeySet()` | `PowConjuntoConcurrente` | — |
+| `AtomicReference` | `PowRef` | `get`/`set` igual; sin `compareAndSet` |
+| `System.currentTimeMillis()` | `ahoraMs()` | **de época a propósito** (ver 09) |
+| `android.graphics.Color.rgb` | `colorArgb` | mismos bits ARGB |
+
+#### El caso que mejor explica el patrón: `PowMapaConcurrente`
 
 `java.util.concurrent.ConcurrentHashMap` no existe en Kotlin/Native. **No lo envuelvas en un
 `expect`**: hay una clase normal en `commonMain` que hace el trabajo, `PowMapaConcurrente` (mapa

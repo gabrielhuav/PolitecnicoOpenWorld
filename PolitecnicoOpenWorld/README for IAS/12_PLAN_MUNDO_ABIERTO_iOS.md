@@ -94,16 +94,54 @@ Dos cosas hubo que tocar, y las dos son el patrón a repetir:
    En Android es el mismo `AssetManager` y el mismo archivo.
    ⚠️ También hubo que actualizar su única llamada, en `ZombieGameScreen.kt`.
 
-### 🟡 Fase 3 — Los gestores de IA (EN CURSO: 3 de 6 hechos, 07-30)
+### ✅ Fase 3 — Los gestores de IA (COMPLETA, 2026-08-15)
 
 | Gestor | Líneas | Estado |
 |---|---:|---|
 | `PoliceManager` | 404 | ✅ en `commonMain`, **con 10 tests nuevos** |
 | `CampaignEscortPolice` | 402 | ✅ en `commonMain` |
 | `PrankedyManager` | 624 | ✅ en `commonMain` |
-| `NpcAiManager` | 988 | 🔜 `CopyOnWriteArrayList` + `AtomicReference` |
-| `NpcAiManagerTraffic` | 565 | 🔜 ⚠️ **parcial de `NpcAiManager`: van juntos** |
-| `NpcAiManagerMovement` | 224 | 🔜 igual, parcial |
+| `NpcAiManager` | 988 | ✅ en `commonMain`, **con 7 tests nuevos** |
+| `NpcAiManagerTraffic` | 565 | ✅ (fueron los tres juntos, como estaba previsto) |
+| `NpcAiManagerMovement` | 224 | ✅ |
+
+#### Las costuras que hubo que crear (y por qué no valía nada más simple)
+
+| Lo que había | Lo que hay | La razón, en corto |
+|---|---|---|
+| `CopyOnWriteArrayList` | **`PowListaConcurrente`** | Implementa `MutableList` → los ~60 call-sites no se tocan. `iterator()` recorre una COPIA, igual que el original. |
+| `ConcurrentHashMap.newKeySet()` | **`PowConjuntoConcurrente`** | Mismo patrón, para `populatedLandmarks`. |
+| `AtomicReference` | **`PowRef`** | Métodos `get`/`set` a propósito: sustituir es cambiar el tipo. |
+| `System.currentTimeMillis()` | **`ahoraMs()`** (`PowReloj`) | ⚠️ **De ÉPOCA, no monótono.** Ver abajo. |
+| `android.graphics.Color.rgb` | **`colorArgb`** | Mismos bits ARGB; `Npc.carColor` sigue siendo `Int`. |
+| `android.util.Log` | **`powLog`** (`expect/actual`) | logcat en Android, `println` en iOS. |
+
+> ### ⚠️ El reloj tenía que ser DE ÉPOCA, y por poco no se ve
+>
+> Lo natural era `TimeSource.Monotonic`, que es lo que ya hacía `PoliceManager`. **Habría roto el
+> juego en silencio.** `NpcAiManager` escribe `Npc.fearUntil` y `aggroUntil`, y quien las compara
+> es el `WorldMapViewModel`, que sigue en `:app` con `System.currentTimeMillis()`. Dos relojes con
+> orígenes distintos = `aggroUntil` de cinco mil contra un `now` de un billón y medio: **todos los
+> NPCs pierden miedo y agresión al instante**. No lo caza el compilador ni un test; se ve jugando.
+> `kotlin.time.Clock` da el mismo valor que `System.currentTimeMillis()` en las dos plataformas.
+> Hay un test que lo fija (`fearUntil queda en el futuro cercano del reloj de epoca`).
+
+> ### ⚠️ `synchronized(lista)` desde fuera ya NO protege nada
+>
+> `pendingDespawns` y `pendingPoliceShots` se drenaban desde `:app` con
+> `synchronized(lista) { toList(); clear() }`. Ese candado **no excluye al cerrojo interno** de
+> `PowListaConcurrente`, así que compila y deja una ventana por la que se pierden despawns — y un
+> despawn perdido no se ve aquí, se ve en los OTROS clientes, con un NPC fantasma. Por eso existe
+> **`drenar()`**, que lee y vacía sin soltar el cerrojo. Los 5 call-sites de `:app` ya lo usan.
+
+> ### 🐞 Por qué esta clase tenía 0 tests
+>
+> Al escribir la red de seguridad ANTES de migrar (como pide esta fase), los 7 tests fallaron con
+> `ExceptionInInitializerError`: `CAR_COLORS` llamaba a `android.graphics.Color.rgb(...)` en un
+> inicializador de campo, y en un test JVM sin Robolectric eso **lanza**. O sea: la clase no se
+> podía ni construir en un test. Al pasar a `colorArgb` sí se puede, así que la red existe desde
+> la migración y no antes. También hubo que poner `isReturnDefaultValues = true` en los host tests
+> de `:shared`, porque el `actual` Android de `powLog` toca `android.util.Log`.
 
 #### 🔐 La herramienta que hizo esto seguro: `PowMapaConcurrente`
 
@@ -289,9 +327,37 @@ El VM necesita Hilt y `Context` → **patrón Controller**, igual que `StreetFig
 > con **7 tests**. ⚠️ Lleva el `cos(latitud)` en el eje este a propósito: sin él, el jugador correría
 > más rápido en horizontal que en vertical y no se notaría hasta caminar en diagonal.
 >
+> ## ✅ Y YA HAY NPCs, TRÁFICO Y VIDA (2026-08-15) — verificado en el simulador
+>
+> `MapaMundoIos` monta el **mismo `NpcAiManager` que Android**: baja las calles con
+> `OverpassRepository` (ya multiplataforma), le da un tick a ~30 Hz y empuja el resultado por
+> `PuenteMapaIos.actualizarNpcs`. **Medido en el simulador: 39 NPCs** —peatones y coches— con
+> spawn y despawn por distancia mientras el jugador camina.
+>
+> ### Las tres trampas de este enganche, las tres invisibles
+>
+> 1. **`getServerNpcs()`, NO el flujo `npcs`.** El `StateFlow` `npcs` solo lo escribe
+>    `setRemoteNpcs`, o sea los NPCs que llegan por RED. Los que simula la IA de este cliente
+>    viven en `serverNpcs`. Leyendo el flujo el mundo sale VACÍO para siempre y no hay ni un error:
+>    el tick corre, spawnea y mueve, y la pantalla recibe una lista vacía.
+> 2. **`getServerNpcs()` devuelve la lista VIVA, no una foto** → hay que hacerle `.toList()` antes
+>    de meterla en un estado de Compose. Si no, es siempre la misma referencia, Compose no ve
+>    cambio y **el contador se queda clavado** (decía "2" con 25 NPCs en pantalla).
+> 3. **El `type` que entiende el JS no es el `NpcType` del juego.** `CAR`/`MODULAR` caen en un
+>    respaldo de EMOJI (🚗/🧍) cuando no hay sprite; cualquier otro valor intenta cargar
+>    `SPRITES/ICONS/<x>.svg`, que **no está en el bundle de iOS** → se pinta el "?" de imagen rota.
+>    Se manda siempre `CAR`/`MODULAR` sin `imageKey` hasta que los sprites viajen al bundle.
+>
+> ⚠️ **Y el zoom del mundo en iOS es 17, no 16, por obligación:** `updateNpcs` del HTML no dibuja
+> NI UN NPC por debajo de **16.5** (`isZoomedIn`). A 16 se manda todo bien y no aparece nada.
+>
+> ⚠️ **Falta la caché de calles.** Android guarda la red en Room (celdas de 2 km, TTL 7 días);
+> iOS pide a Overpass en cada arranque y **se come 429 con facilidad** (pasó en la 2ª prueba). Hay
+> reintento con espera creciente y el cartel lo dice en pantalla, pero **la caché es lo siguiente**.
+>
 > ⚠️ **Lo que falta para que sea jugable:**
-> - **NPCs, policía, coleccionables, landmarks.** Hay función JS para todos (`updateNpcs`,
->   `updatePolice`, `updateCollectibles`, `updateLandmarks`); quien las alimenta es el
+> - **Policía, coleccionables, landmarks.** Hay función JS para todos (`updatePolice`,
+>   `updateCollectibles`, `updateLandmarks`); quien las alimenta es el
 >   `WorldMapViewModel`, que sigue en `:app` — **fase 5**.
 > - ~~**Colisiones**~~ ✅ **HECHO (07-31)**: `cargarColisionesExteriores()` +
 >   `chocaAlMoverse()` en `commonMain`, con **8 tests**. Lee `assets/CONFIG/exterior_collisions.json`

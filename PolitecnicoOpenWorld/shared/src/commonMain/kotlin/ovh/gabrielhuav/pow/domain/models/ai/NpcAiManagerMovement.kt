@@ -8,6 +8,8 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlin.math.PI
+import kotlin.math.abs
 
 /**
  * Parcial de MOVIMIENTO / GEOMETRÍA de [NpcAiManager] (extraído para reducir el tamaño de la
@@ -50,7 +52,7 @@ internal fun NpcAiManager.moveZombieNpc(
         val sp = personSpeed * ZOMBIE_SPEED_MULT * NpcAiManager.speedMulForRole(ovh.gabrielhuav.pow.domain.models.map.ZombieRole.SCOUT)
         return npc.copy(
             location = GeoPoint(npc.location.latitude + sin(a) * sp, npc.location.longitude + cos(a) * sp),
-            rotationAngle = (-Math.toDegrees(a).toFloat()),
+            rotationAngle = (-((a) * 180.0 / PI).toFloat()),
             isMoving = true,
             facingRight = cos(a) >= 0,
             screamUntil = newScream,
@@ -112,7 +114,7 @@ internal fun NpcAiManager.moveZombieNpc(
 
     return npc.copy(
         location = GeoPoint(npc.location.latitude + dLat, npc.location.longitude + dLon),
-        rotationAngle = -Math.toDegrees(dir).toFloat(),
+        rotationAngle = -((dir) * 180.0 / PI).toFloat(),
         isMoving = true,
         facingRight = facingRight,
         navState = ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MACRO_OSM
@@ -140,10 +142,10 @@ internal fun NpcAiManager.movePoliceHunter(npc: Npc, network: List<MapWay>, now:
                     serverNpcs[zi] = if (nh <= 0f) serverNpcs[zi].copy(health = 0f, isDying = true)
                     else serverNpcs[zi].copy(health = nh)
                 }
-                synchronized(pendingPoliceShots) { pendingPoliceShots.add(npc.location to z.location) }
+                pendingPoliceShots.add(npc.location to z.location)
                 val a0 = atan2(z.location.latitude - npc.location.latitude, z.location.longitude - npc.location.longitude)
                 return npc.copy(chatUntil = now + POLICE_SHOOT_COOLDOWN_MS,
-                    rotationAngle = (-Math.toDegrees(a0).toFloat() + 360) % 360,
+                    rotationAngle = (-((a0) * 180.0 / PI).toFloat() + 360) % 360,
                     facingRight = cos(a0) >= 0, isMoving = false)
             }
             return npc
@@ -154,7 +156,7 @@ internal fun NpcAiManager.movePoliceHunter(npc: Npc, network: List<MapWay>, now:
     val sp = personSpeed * POLICE_SPEED_MULT
     return npc.copy(
         location = GeoPoint(npc.location.latitude + sin(dir) * sp, npc.location.longitude + cos(dir) * sp),
-        rotationAngle = (-Math.toDegrees(dir).toFloat() + 360) % 360,
+        rotationAngle = (-((dir) * 180.0 / PI).toFloat() + 360) % 360,
         isMoving = true,
         facingRight = cos(dir) >= 0,
         navState = ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MACRO_OSM
@@ -170,14 +172,14 @@ internal fun NpcAiManager.carFollowScale(car: Npc, cars: List<Npc>): Float {
     var minAhead = Double.MAX_VALUE
     for (other in cars) {
         if (other.id == car.id) continue
-        val headDiff = Math.abs(((other.rotationAngle - car.rotationAngle + 540f) % 360f) - 180f)
+        val headDiff = abs(((other.rotationAngle - car.rotationAngle + 540f) % 360f) - 180f)
         if (headDiff > 90f) continue
         val dLat = other.location.latitude - car.location.latitude
         val dLon = other.location.longitude - car.location.longitude
         val d = sqrt(dLat * dLat + dLon * dLon)
         if (d > NpcAiManager.CAR_FOLLOW_DISTANCE) continue
         val ang = atan2(dLat, dLon)
-        val diff = Math.abs(((Math.toDegrees(ang - fwd) + 540) % 360) - 180)
+        val diff = abs(((((ang - fwd) * 180.0 / PI) + 540) % 360) - 180)
         if (diff < 45 && d < minAhead) minAhead = d
     }
     if (minAhead == Double.MAX_VALUE) return 1f
@@ -200,7 +202,7 @@ internal fun NpcAiManager.moveAggroNpc(npc: Npc): Npc {
     val dLon = aggroPlayerLon - npc.location.longitude
     val dist = sqrt(dLat * dLat + dLon * dLon)
     val angle = atan2(dLat, dLon)
-    val targetAngle = (-Math.toDegrees(angle).toFloat() + 360) % 360
+    val targetAngle = (-((angle) * 180.0 / PI).toFloat() + 360) % 360
     val facing = cos(angle) >= 0
     if (dist <= NpcAiManager.AGGRO_STOP_DIST) {
         return npc.copy(isMoving = false, rotationAngle = targetAngle, facingRight = facing)
@@ -219,6 +221,6 @@ internal fun NpcAiManager.moveAggroNpc(npc: Npc): Npc {
 
 internal fun NpcAiManager.calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
     val dLat = lat1 - lat2
-    val dLon = (lon1 - lon2) * cos(lat1 * Math.PI / 180)
+    val dLon = (lon1 - lon2) * cos(lat1 * PI / 180)
     return sqrt(dLat * dLat + dLon * dLon)
 }
