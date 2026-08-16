@@ -101,7 +101,7 @@ persists. (osmdroid's built-in downloader uses UA = packageName and was throttle
 
 | Repo | Rol / Role |
 |---|---|
-| `OverpassRepository` | Llama a la **Overpass API** (radio 2 km, timeout 45 s). `fetchRoadNetwork(lat, lon): List<MapWay>`. Regex `CAR_REGEX`/`PEOPLE_REGEX` clasifica `highway`. Parsea JSON a `MapNode`/`MapWay`. |
+| `OverpassRepository` 🍏 | Llama a la **Overpass API** (radio 2 km, timeout 45 s). `fetchRoadNetwork(lat, lon): List<MapWay>`. Regex `CAR_REGEX`/`PEOPLE_REGEX` clasifica `highway`. Parsea JSON a `MapNode`/`MapWay`. **En `:shared/commonMain` desde el 2026-08-15**: Ktor (OkHttp en Android, Darwin en iOS) + `PowJson` en vez de `HttpURLConnection` + `org.json`. El protocolo y las regex no cambiaron. ⚠️ El motor de Ktor se elige por `ServiceLoader` → **depende del `-keep` de `proguard-rules.pro`** (ver 09 §R8). |
 | `SettingsRepository` | **SharedPreferences** (no Room). Controles (`saveControlsSettings(type, scale, swap)`, getters), skin del jugador (`PlayerSkin`), `showRoadNetwork`. `SCALE_MIN..SCALE_MAX` clamp. |
 | `CollectibleRepository` | Siembra 6 coleccionables por defecto si la tabla está vacía. `allCollectiblesFlow: Flow<List<CollectibleEntity>>`. |
 | `MetroRepository` | `object`. `loadStations(context): List<MetroStation>` desde `res/raw/metro` (GeoJSON: name, routes, coords). |

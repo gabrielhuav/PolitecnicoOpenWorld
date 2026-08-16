@@ -45,6 +45,8 @@ Cada *feature* se divide en 3 capas / Every feature splits into 3 layers:
 
 - **Model** (`domain/models/`): `data class` inmutables + lógica pura (`NpcAiManager`,
   `PoliceManager`). **Sin imports de Android, sin UI.** / Immutable data classes + pure logic. No Android, no UI.
+  🍏 **Los 6 gestores de IA, los catálogos de campaña y `WorldMapState` viven en `:shared/commonMain`**
+  (2026-08-15) conservando el paquete, así que los imports de `:app` no cambiaron. Ver 12 §fase 3.
 - **ViewModel** (`features/<name>/viewmodel/`): UN `MutableStateFlow<State>` expuesto como
   `StateFlow` de solo lectura; corre los game loops con coroutines; orquesta repositorios. El
   estado es un `data class` inmutable actualizado con `_state.update { it.copy(...) }`. / ONE
