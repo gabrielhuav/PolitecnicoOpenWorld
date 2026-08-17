@@ -3,28 +3,36 @@
 > Único traspaso entre IAs. Ventana de 2 días; máximo 200 líneas. Aquí va estado medido,
 > trabajo abierto y trampas caras. Diseño e historia viven en los documentos de cada área.
 
-**Última actualización:** 2026-08-15 · Opus 5 (Mac) · rama `ios/verificacion-mac-1.0.0.17`
+**Última actualización:** 2026-08-16 · Opus 5 (**Windows, con emulador**) · rama `ios/verificacion-mac-1.0.0.17`
 
-> ➡️ **`main` va por 1.0.0.17 y 1.0.0.16 ya está en prueba cerrada de Play.** Lo de esta sesión es
-> la **primera compilación real para iOS** de los dos archivos que 1.0.0.16 tocó desde Windows, donde
-> los targets de Apple ni se configuran.
+> ➡️ **08-16: lo que la Mac dejó COMPILANDO ya está PROBADO EN ANDROID.** Esa rama cerró fases 3 y 4
+> y movió `NpcAiManager` + `OverpassRepository` a `commonMain`, pero en el Mac no hay AVD. Esta
+> sesión lo abrió en el emulador (`Nexus`, API 35), que es donde se ven los fallos que ningún test
+> caza. **319 tests = 125 app + 194 shared**, 0 fallos, y **detekt exit 0** (medido en Windows).
 >
-> ✅ **`PowImagenReducida.ios.kt` (Skia) compila a la primera y funciona**: pelea completa en el
-> simulador con ESCOMBOY y con **La Llorona** (la de los 3 atlas ALPHA), retratos del roster, 60 FPS
-> y sin crash. Las firmas de Skiko extraídas desde Windows eran correctas.
-> ✅ **`systemBarsPadding()` en las dos esquinas del menú**: en iOS aporta de verdad el inset del
-> indicador de inicio (**medido: 54 pt del borde**) y el degradado sigue llegando al borde. ⚠️ Pero
-> **hoy no se ve en iOS**: las dos esquinas están vacías allí (`versionName = null`, sin
-> `chipDeCuenta`). El cambio es para Android; en iOS solo importará cuando se pinte algo ahí.
+> ✅ **Títulos de misión desde `composeResources`** (fase 4): correctos en el widget de OBJETIVO y en
+> el registro, **en español Y en inglés**, misiones 1-3 + las 2 secundarias, con el idioma del texto
+> migrado y el de los `R.string` de alrededor SIEMPRE de acuerdo. El apóstrofe de EN sale bien.
+> ✅ **Mundo abierto ~35 min**, en los DOS renderers (web y **OSM nativo**): peatones, tráfico,
+> aparcar, despawn por distancia, niebla, WASTED y respawn. Cero excepciones.
+> ✅ **Calles por Ktor en RELEASE con R8**: borrada `pow_roads.db`, el APK minificado descargó
+> **2512 ways / 11 946 nodos** y los guardó. Los `-keep` del `HttpClientEngineContainer` bastan.
+> ✅ **Marcador de destino y proyectil de Prankedy** en el OSM nativo (los dos archivos del gotcha
+> de smart cast, 09 §12): waypoint colocado con ruta de 3 puntos, e impacto de la lata aplicando daño.
+> ✅ **Migración de datos**: `install -r -d` sobre una partida de 1.0.0.14 conservó los 3 slots.
 >
-> ➡️ **08-15: el MUNDO LIBRE ya corre en iOS con vida propia.** Fases 3 y 4 cerradas y
-> `WorldMapState` abajo. El mismo `NpcAiManager` de Android mueve **39 NPCs medidos** en el
-> simulador (peatones y tráfico, con spawn/despawn por distancia) mientras el jugador camina, la
-> cámara lo sigue y las bardas frenan. Falta el `WorldMapViewModel` (fase 5) para policía,
-> coleccionables y landmarks, y **la caché de calles** para no comerse los 429 de Overpass.
+> ➡️ **08-17: los controles del mundo en iOS ya son IDÉNTICOS a los de Android.** El problema no era
+> el tamaño sino que iOS no forzaba horizontal: se portó la regla de `AppNavGraph` con una costura
+> nueva (doc 11 §4quater) y el HUD volvió a `ControllerBaseSize`. **Compila en los dos targets de
+> iOS y Android sigue en 319/0.** ⚠️ **La mitad Swift (`PowAppDelegate`) NO se ha compilado nunca**:
+> desde Windows no hay Xcode. Es lo primero que hay que abrir en el Mac.
 >
-> **513 tests = 125 app + 194 shared ×2 plataformas**, 0 fallos; los 194 de `:shared` corren IGUAL
-> en JVM y en `iosSimulatorArm64`. detekt exit 0. Medido en el Mac, no estimado.
+> 🔴 **ABIERTO — 2 ANR en el renderer OSM nativo** tras ~13 min. Detalle abajo en §4 P0.
+> ⚠️ **Sin verificar: API ≤32.** No hay imagen de sistema ≤32 instalada ni `cmdline-tools` en esta
+> PC (los 5 AVD son API 35/36). La costura de idioma de API 24-32 sigue SIN probar.
+>
+> Lo de iOS (Skia, `systemBarsPadding` a 54 pt, 39 NPCs en el simulador) se midió en el Mac el
+> 08-14/15 y sigue vigente; los 194 de `:shared` corren igual en JVM y en `iosSimulatorArm64`.
 
 ## 🖥️ Rutas por PC
 
@@ -110,8 +118,10 @@ saber sin abrirlo:
   (`ConcurrentHashMap.get(null)` lanza NPE, se buscaba con `policeCarId: String?`). Corregido.
 - 🟡 **5 · Solo el HUD.** `JoystickController` + `ActionButtonsController` de `commonMain`: **los
   MISMOS controles que Android**. A/B/X/Y avisan "pendiente del ViewModel".
+  ✅ **08-17: y ahora del MISMO TAMAÑO.** iOS ya fuerza horizontal en el mundo (doc 11 §4quater), así
+  que el HUD usa `ControllerBaseSize` (180 dp) como Android y como SF; se borró el encogido a 100 dp.
   🔴 ⚠️ **`Modifier.scale()` NO encoge un control: los botones dejan de responder.** Transforma el
-  dibujo, no el área táctil. Los controles aceptan `tamano` real (iOS: 100 dp) y son proporcionales.
+  dibujo, no el área táctil. Si hay que cambiar tamaño se pasa `tamano` real, que sí es proporcional.
   🔗 **El VM está BLOQUEADO por la fase 4**: `WorldMapState` → `CampaignObjective` →
   `@StringRes Int` → 42 strings sin migrar. Cadena y orden de ataque en el doc 12.
 - 🟢 **6 · El mapa se ve, se CAMINA, las bardas frenan y HAY NPCs (08-15).** El mismo
@@ -149,8 +159,21 @@ Detalle de aquellas sesiones: `PROMPT_SOL_release_hoy_y_webp.md` y el commit `01
 2. **Decisión del dueño — On-Demand Resources sí o no.** Bloquea la fase 4 en adelante del mundo
    abierto en iOS: con el mundo el bundle son **399 MB** contra los **200 MB por datos móviles** de
    Apple. Sin ODR, la app solo se baja por Wi-Fi. Datos en el doc 12 §0.
-3. **Fase 3 del mundo (gestores de IA).** Hacerla **en una máquina con emulador**: cambia
-   concurrencia de juego vivo, tiene 0 tests y en el Mac no hay AVD. Receta en el doc 12 §2.
+3. ✅ **Fase 3 del mundo (gestores de IA): CERRADA y jugada en el emulador el 08-16.** Detalle en
+   el doc 12 §fase 3.
+   🔴 **2 ANR ABIERTOS en el renderer OSM NATIVO** (no en el web), tras ~13 min de juego seguido en
+   el emulador. Los dos con el **mismo stack**: `NativeOsmMap` (lambda de update, ~30 Hz) →
+   `view.overlays.add` → `CopyOnWriteArrayList.copyOf` → `WaitForGcToComplete`, con el heap Java a
+   **141/163 MB (13 % libre)** y 1,05 GB de PSS. **No lo causa la migración de concurrencia**:
+   ese `CopyOnWriteArrayList` es el de **osmdroid**, no `PowListaConcurrente`, y en los dos volcados
+   de ANR **no aparece ni una** de `PowListaConcurrente`/`PowCerrojo`/`PowRef`/`NpcAiManager`; el
+   diff de esta rama en `NativeOsmMap.kt` son 3 líneas de null-check. **Falta medirlo contra `main`
+   para atribuirlo del todo.** 🐞 Sospechoso encontrado de paso, PREEXISTENTE y **también en
+   release**: `TileCache.kt` hace **5 `Log.d` por tesela sin gatear por `BuildConfig.DEBUG`**, con
+   el SHA-256 interpolado — **31 412 líneas en 13 min** (~40/s) de basura que alimenta justo al GC
+   que aparece en el stack.
+4. **NPC fantasma: NO se puede probar con un solo cliente.** `pendingDespawns.drenar()` solo corre
+   dentro de `webSocketManager?.let { … isServerDelegatedHost }` → **hace falta multijugador**.
 4. Probar multijugador en dos dispositivos: ambos deben oír lo mismo (`SF-NET`).
 5. Redeploy `MultiplayerSF/` en Render; con redes distintas buscar `SF-RTC: DataChannel → OPEN`.
 
@@ -180,10 +203,16 @@ faltan `attack`/`hurt` en 6 peleadores. Los SFX globales no se normalizan como v
 ./gradlew :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest
 ```
 
+🍏 **En Windows añade `.\gradlew.bat :shared:compileKotlinIosSimulatorArm64`** — MEDIDO el 08-16:
+compila de verdad (217 archivos / 7,7 MB de klib, `iosMain` incluido), **sin** el aviso de "targets
+disabled" que afirmaba `PLAN_MIGRACION_KMP.md` §12. Esa contradicción con `11 §7` ya está corregida:
+manda el 11. Enlazar el framework sigue siendo solo del Mac.
+
 Windows: `.\gradlew.bat`. Mac: fijar el JBR de Android Studio y añadir
 `:shared:iosSimulatorArm64Test :shared:linkDebugFrameworkIosSimulatorArm64`.
-Esperado Android: **312 = 125 app + 187 shared**, 0 fallos (medido en el Mac 2026-08-14).
-En Mac conservar además `:shared:iosSimulatorArm64Test` (los mismos 187). Si se toca `commonTest`,
+Esperado Android: **319 = 125 app + 194 shared**, 0 fallos (medido en **Windows** el 2026-08-16,
+leyendo los XML de `test-results`, no el log).
+En Mac conservar además `:shared:iosSimulatorArm64Test` (los mismos 194). Si se toca `commonTest`,
 ejecutar el guard. Para abrir la app: `linkDebugFrameworkIosSimulatorArm64` y luego ⌘R en Xcode —
 Xcode NO regenera el framework solo, y sin ese paso corres el binario viejo sin enterarte.
 

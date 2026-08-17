@@ -197,6 +197,34 @@ Lo usa `MapaMundoIos.kt` para el mapa Leaflet del mundo abierto.
 
 ---
 
+## 4quater. 🔄🍏 Forzar la ORIENTACIÓN en iOS (y por qué media costura es Swift)
+
+Android tiene una sola regla, en `AppNavGraph.kt`: **el juego va en horizontal; solo los menús
+(`main_menu`, `story_mode`, `settings`, `collectibles`) permiten vertical**, con el interior de
+Metrobús como excepción vertical. Desde el 2026-08-17 iOS hace lo mismo en el mundo abierto.
+
+| Mitad | Dónde | Qué hace |
+|---|---|---|
+| **DECLARAR** qué orientaciones valen | `iosApp/POW/POWApp.swift` (`PowAppDelegate`) | Responde `application(_:supportedInterfaceOrientationsFor:)` leyendo `OrientacionPow.esHorizontal` |
+| **PEDIR** el giro ya | `platform/orientacion/OrientacionIos.kt` | `requestGeometryUpdate` + `setNeedsUpdateOfSupportedInterfaceOrientations()` |
+| **Usarlo** desde una pantalla | `ForzarHorizontal()` en `MapaMundoIos` | `DisposableEffect`: fija al entrar, libera al salir |
+
+⚠️ **Con una sola mitad no funciona:** sin el delegado la pantalla gira y el usuario puede volver a
+girarla; sin la parte de Kotlin no gira hasta que el usuario mueva el teléfono.
+
+⚠️ **La mitad de Swift NO es pereza, es obligación** (09 §KMP nº5): `supportedInterfaceOrientations`
+vive en una categoría de ObjC y Kotlin/Native la expone como extensión → `overrides nothing`. Y va
+en el AppDelegate y no en un `UIViewController` propio porque con SwiftUI el raíz es un
+`UIHostingController`, que **no** consulta a sus hijos.
+
+⚠️ **Va en `POWApp.swift`, un archivo que YA existía**: añadir un `.swift` nuevo obliga a tocar el
+`project.pbxproj`, que es justo lo que este proyecto evita.
+
+📐 **Lo que esto compra:** el HUD del mundo en iOS usa `ControllerBaseSize` (180 dp) igual que
+Android y que el modo pelea. **Los controles son los mismos en las dos plataformas, siempre.**
+
+---
+
 ## 4bis. 🍏 Dónde vive la navegación de iOS
 
 Todo el juego en iOS es **un solo `ComposeUIViewController`**, y su interior es un `when`:
@@ -330,16 +358,25 @@ siguiente y se olvide.
 ```bash
 .\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest
 ```
-Hoy: **312 tests** (125 `:app` + 187 `:shared`), 0 fallos. Medido el 2026-08-14 en el Mac; los
-187 de `:shared` son los MISMOS en `testAndroidHostTest` y en `iosSimulatorArm64Test`.
+Hoy: **319 tests** (125 `:app` + 194 `:shared`), 0 fallos. Medido el **2026-08-16 en Windows**
+(leído de los XML de `test-results`, no del log); los 194 de `:shared` son los MISMOS en
+`testAndroidHostTest` y en `iosSimulatorArm64Test`.
 
 ```bash
 .\gradlew.bat :shared:compileKotlinIosSimulatorArm64
 ```
 Esto **sí funciona en Windows** y comprueba el código de iOS entero, cinterops de Apple incluidos.
 
+✅ **RE-MEDIDO el 2026-08-16 en Windows, porque `PLAN_MIGRACION_KMP.md` §12 decía lo contrario**
+(que Gradle desactiva los targets de Apple aquí). **Manda esta sección; aquel punto ya está
+corregido.** La prueba de que compila de verdad y no se salta el target: `BUILD SUCCESSFUL` **sin**
+el aviso `targets cannot be built on this machine`, con `kspKotlinIosSimulatorArm64` ejecutado,
+warnings de archivos de **`iosMain`** y **217 archivos / 7,7 MB de klib** en
+`shared/build/classes/kotlin/iosSimulatorArm64/`.
+
 ⚠️ **`linkDebugFrameworkIosSimulatorArm64` NO sirve de prueba fuera de un Mac**: dice
-`BUILD SUCCESSFUL` y no produce ningún archivo.
+`BUILD SUCCESSFUL` y no produce ningún archivo. **Compilar iOS: sí desde Windows. Enlazarlo y
+abrirlo: solo en el Mac.**
 
 ```bash
 bash tools/check_kmp_test_names.sh

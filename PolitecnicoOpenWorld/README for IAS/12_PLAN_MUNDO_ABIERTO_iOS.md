@@ -171,12 +171,22 @@ señaló que `PoliceManager` buscaba con `unit.policeCarId`, que es `String?`. *
 lanza NPE.** Nunca saltó porque en la práctica siempre venía con valor, pero era un crash esperando.
 Corregido: sin patrulla a la que volver, el policía se retira — que es lo que ya hacía esa rama.
 
-#### Lo que falta para cerrar la fase
+#### ✅ La fase quedó CERRADA en el emulador (2026-08-16, Windows)
 
-`NpcAiManager` y sus dos parciales usan además `CopyOnWriteArrayList` y `AtomicReference`.
-**Escribe tests de sus reglas ANTES de tocarlo** (como se hizo con `PoliceManager`) y, si puedes,
-**juega media hora el mundo abierto en Android** al terminar: el tráfico y los peatones no los caza
-ningún test.
+`NpcAiManager` y sus dos parciales usaban además `CopyOnWriteArrayList` y `AtomicReference`. Se
+escribieron los tests de sus reglas ANTES de tocarlo (como con `PoliceManager`) y **el mundo se jugó
+en el emulador**, que es lo que ningún test caza:
+
+- **~35 min de mundo abierto** en el AVD `Nexus` (API 35), con los DOS renderers (web CARTO y
+  **OSM nativo**): peatones y tráfico siguen apareciendo, moviéndose, aparcando y despawneando por
+  distancia. Medido en 12 ciclos de recorrido + 48 pulsaciones de entrar/salir de coche. **Ningún
+  coche fantasma, ninguna excepción, ningún crash.**
+- ⚠️ **Lo que este cliente NO puede probar y hay que decir:** `pendingDespawns.drenar()` vive dentro
+  de `webSocketManager?.let { … isServerDelegatedHost }` (`WorldMapViewModel` ~1063), o sea **solo
+  se ejecuta como HOST de multijugador**. En un jugador la lista ni se drena ni se limpia — igual
+  que antes de la migración, no es una regresión, pero significa que **el NPC fantasma solo se
+  puede ver con dos clientes y el servidor del mundo**. Lo que SÍ corre offline es
+  `pendingPoliceShots.drenar()` (mismo VM, fuera del bloque de red).
 
 ### 🟡 Fase 4 — `R.string` → `composeResources` · **LA CAMPAÑA YA ESTÁ (08-14)**
 
@@ -221,17 +231,24 @@ Mecánico y sin riesgo, pero largo. La receta ya está probada: es lo que se hiz
 > - `ActionButtonsController` (el diamante). De paso se quitó `onClaimCollectiblePressed`, que
 >   estaba declarado y **no lo usaba nadie** — había 5 llamadas pasándolo en balde.
 >
-> ### ⚠️ `Modifier.scale()` NO sirve para encoger un control
+> ### ✅ 2026-08-17: los controles ya son IDÉNTICOS — se arregló la ORIENTACIÓN, no el tamaño
 >
-> Android fuerza horizontal en el mundo abierto; **iOS no**, así que en vertical los controles a
-> 180 dp cada uno no caben (360 dp de 390). El primer intento fue `Modifier.scale(0.55f)` y
-> **los botones dejaron de responder**: `scale` transforma el DIBUJO, no el área táctil, así que el
-> control quedaba donde ya no se veía.
+> Hasta esa fecha iOS pintaba el HUD a **100 dp** porque no forzaba horizontal (Android sí), y dos
+> controles de 180 dp no caben en los ~390 dp de un iPhone en vertical. Es decir: **los controles
+> NO eran iguales**, que es justo lo que este HUD promete.
 >
-> La solución es que los controles acepten un **tamaño real**: `JoystickController(tamano = …)`,
-> `ActionButtonsController(tamano = …)`, `ActionButton(tamano = …)`. Por dentro, el stick y los
-> botones son **proporcionales al diámetro**, así que encogerlos no cambia el tacto. En iOS van a
-> **100 dp**. Android no cambia: el valor por defecto sigue siendo `ControllerBaseSize`.
+> Se arregló por la causa, no por el síntoma: iOS ahora **fuerza horizontal en el mundo** con
+> `ForzarHorizontal()` (doc 11 §4quater) y el HUD volvió a `ControllerBaseSize`, sin pasar `tamano`.
+> El tombstone está en `HudMundoIos.kt`: **no recrear `TAMANO_VERTICAL`**; si algún día se ve
+> apretado, lo que falla es el bloqueo de orientación.
+>
+> ### ⚠️ Sigue vigente: `Modifier.scale()` NO sirve para encoger un control
+>
+> El primer intento (07-31) fue `Modifier.scale(0.55f)` y **los botones dejaron de responder**:
+> `scale` transforma el DIBUJO, no el área táctil, así que el control quedaba donde ya no se veía.
+> Si alguna vez hay que cambiar el tamaño de verdad, los controles aceptan un **tamaño real**:
+> `JoystickController(tamano = …)`, `ActionButtonsController(tamano = …)`, `ActionButton(tamano = …)`;
+> por dentro el stick y los botones son **proporcionales al diámetro**, así que el tacto no cambia.
 >
 > ### Los botones que aún no hacen nada, lo dicen
 >

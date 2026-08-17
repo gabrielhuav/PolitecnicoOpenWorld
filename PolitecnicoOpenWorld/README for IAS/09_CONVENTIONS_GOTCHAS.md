@@ -430,7 +430,8 @@ matrices por defecto son **border-only** hasta reemplazarse.
   JVM). ⚠️ **El mensaje va al FINAL, no al principio:** JUnit4 es `assertTrue(msg, cond)` y
   kotlin.test es `assertTrue(cond, msg)`. Al mover un test hay que **invertir ese orden** o el
   compilador se queja (o peor: en `assertEquals` de 2 args de String colaría silenciosamente).
-  Reparto actual de los **131** tests: **87 en `:app` + 44 en `:shared`** — CI corre AMBOS
+  Reparto actual de los tests (**MEDIDO en Windows el 2026-08-16**, leído de los XML de
+  `test-results`): **319 = 125 en `:app` + 194 en `:shared`** — CI corre AMBOS
   (`pr-quality-gate.yml`); si mueves más dominio, lo que importa es que la SUMA no baje.
 
 
@@ -1430,6 +1431,17 @@ escribieron en Windows, donde los targets iOS ni se configuran: nada de esto se 
 4. **Los nombres de test con backticks NO admiten `(`, `)` ni `,`** en Kotlin/Native (*"Name
    contains illegal characters"*), y en JVM sí. Al escribir tests en `commonTest`, usa ` - ` en vez
    de paréntesis y quita las comas.
+5. **🆕 Lo que viene de una CATEGORÍA de ObjC se puede LLAMAR, pero no SOBREESCRIBIR (2026-08-17).**
+   Kotlin/Native expone las categorías como **extensiones**, y las extensiones no son
+   sobreescribibles. Medido al forzar la orientación en iOS: un `UIViewController` en Kotlin con
+   `override val supportedInterfaceOrientations` (y también con `fun`) muere con
+   **`'supportedInterfaceOrientations' overrides nothing`**, porque ese miembro vive en la categoría
+   `UIViewController (UIViewControllerRotation)`. En cambio
+   `setNeedsUpdateOfSupportedInterfaceOrientations()`, de la MISMA categoría, sí se llama — solo
+   hay que **importarla explícitamente** (`import platform.UIKit.setNeedsUpdateOf…`), y sin el
+   import el error es un simple *"Unresolved reference"* que despista.
+   **Regla:** si hay que RESPONDER a UIKit (no solo pedirle algo), esa mitad va en Swift. Ver
+   `platform/orientacion/OrientacionIos.kt` + `iosApp/POW/POWApp.swift`.
 
 ⚠️ **Un reloj MONÓTONO no puede sustituir a `System.currentTimeMillis()` si la marca CRUZA de
 módulo.** Al bajar `NpcAiManager` a `commonMain` (2026-08-15) lo natural era `TimeSource.Monotonic`
@@ -1483,7 +1495,7 @@ deja registros huérfanos en CoreSimulator.
 
 ### ⚠️ Esta lista es solo de COMPILACIÓN. La otra mitad no compila mal: se ve mal.
 
-Hay una segunda familia de fallos de iOS que **pasa los 312 tests y compila sin un warning**, y solo
+Hay una segunda familia de fallos de iOS que **pasa los 319 tests y compila sin un warning**, y solo
 aparece al abrir el simulador: el idioma que no cambia, la imagen que sale gris porque el asset no
 viajó al bundle, el botón bajo la barra de estado. Están en
 **[`11_SEPARACION_IOS_ANDROID.md`](11_SEPARACION_IOS_ANDROID.md) §8bis**, con la causa medida de

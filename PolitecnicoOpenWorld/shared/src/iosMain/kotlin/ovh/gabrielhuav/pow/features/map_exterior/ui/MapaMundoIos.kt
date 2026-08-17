@@ -46,6 +46,7 @@ import androidx.compose.ui.viewinterop.UIKitView
 // que uses sea correcta. Ver `09_CONVENTIONS_GOTCHAS.md` §KMP/iOS punto 3.
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readValue
+import ovh.gabrielhuav.pow.platform.orientacion.ForzarHorizontal
 import platform.CoreGraphics.CGRectZero
 import platform.WebKit.WKWebView
 import platform.WebKit.WKWebViewConfiguration
@@ -81,6 +82,11 @@ import platform.WebKit.WKWebViewConfiguration
 @OptIn(ExperimentalForeignApi::class)
 @Composable
 fun MapaMundoIos(alVolver: () -> Unit) {
+    // 🔄 HORIZONTAL, igual que Android. Es lo que permite que el HUD use el MISMO tamaño de
+    // controles que Android y que el modo pelea; en vertical no caben dos de 180 dp. Se libera
+    // solo al salir de esta pantalla (ver `OrientacionIos.kt`).
+    ForzarHorizontal()
+
     // Dónde está el jugador. Es el ÚNICO estado de esta pantalla: el mapa es un WebView, no
     // recompone, y lo que se le manda va por el puente.
     var jugador by remember { mutableStateOf(GeoPoint(ESCOM_LAT, ESCOM_LON)) }

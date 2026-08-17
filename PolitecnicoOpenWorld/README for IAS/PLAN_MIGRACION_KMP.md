@@ -108,7 +108,7 @@ El resto de números salen de `grep`/`find`/`wc` sobre `app/src/main`, y de
 |---|---:|
 | Archivos `.kt` en `app/src/main` | **250** |
 | Líneas | **61,345** |
-| Archivos de test | 19 (**131 tests**) — *foto del ANTES, Fase 0. Hoy son 312.* |
+| Archivos de test | 19 (**131 tests**) — *foto del ANTES, Fase 0. Hoy son 319 (125 + 194).* |
 | Módulos Gradle | **1** (`:app`) |
 | Assets | **358 MB** |
 
@@ -491,10 +491,18 @@ baseline, más el input nuevo) → **exit code 0, ningún issue nuevo**.
    un cambio de módulo saliera casi gratis.
 2. **`SfArcadeCampaignAuditTest` NO se movió** (3 tests): usa `java.io.File` para auditar assets en
    disco, que no existe en `commonTest`. Se queda en `:app`, que es su sitio.
-3. **iOS se declara pero no se compila aquí:** Gradle avisa
-   `The following Kotlin/Native targets cannot be built on this machine and are disabled:
-   iosArm64, iosSimulatorArm64, iosX64`. **Es esperado en Windows y no rompe nada** — en el Mac esos
-   targets sí compilarán. Ese aviso es señal honesta de que **lo de iOS todavía NO está verificado**.
+3. ~~**iOS se declara pero no se compila aquí:** Gradle avisa `The following Kotlin/Native targets
+   cannot be built on this machine and are disabled: iosArm64, iosSimulatorArm64, iosX64`.~~
+   🔴 **CORREGIDO — MEDIDO EN WINDOWS EL 2026-08-16: eso ya NO es cierto y contradecía al doc 11
+   §7.** `.\gradlew.bat :shared:compileKotlinIosSimulatorArm64` termina en **BUILD SUCCESSFUL sin
+   ese aviso**, ejecuta `kspKotlinIosSimulatorArm64` y deja **217 archivos / 7,7 MB de klib** en
+   `shared/build/classes/kotlin/iosSimulatorArm64/` (`bodies.knb` 3,59 MB). Que compila DE VERDAD
+   se ve en que emite warnings de archivos de **`iosMain`** (`PowCerrojo.ios.kt`,
+   `PowViewModel.ios.kt`), que en Windows ni se leerían si el target estuviera desactivado.
+   `:shared:tasks --all` lista `compileKotlinIosArm64` y `compileKotlinIosSimulatorArm64`.
+   ⚠️ **Lo que sigue necesitando un Mac es el ENLACE**, no la compilación:
+   `linkDebugFrameworkIosSimulatorArm64` dice `BUILD SUCCESSFUL` y **no produce ningún archivo**
+   (doc 11 §7). Regla corta: **compilar iOS sí se puede desde Windows; enlazarlo y ABRIRLO, no.**
 
 ### 🆕 GOTCHA REAL que apareció (y que volverá en CADA fase)
 
