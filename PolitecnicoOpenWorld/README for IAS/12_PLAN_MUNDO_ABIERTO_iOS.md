@@ -384,8 +384,20 @@ El VM necesita Hilt y `Context` → **patrón Controller**, igual que `StreetFig
 >   ⚠️ Si el JSON falta devuelve configuración **vacía** (se puede atravesar todo) en vez de lanzar:
 >   un mundo sin bardas es mejor que un crash al entrar. Por eso `CONFIG/` se añadió al `rsync`
 >   del bundle iOS (80 KB).
-> - **La VUELTA del puente (JS → Kotlin)**: en Android es `@JavascriptInterface`; en iOS haría falta
->   `WKScriptMessageHandler`. Sin ella el mapa no avisa de toques ni de arrastres.
+> - ~~**La VUELTA del puente (JS → Kotlin)**~~ ✅ **HECHA (2026-08-17)**: `PuenteJsIos` implementa
+>   `WKScriptMessageHandlerProtocol`. Hoy la usa el **toque del mapa**, que coloca el marcador de
+>   destino igual que en Android; zoom y arrastre ya llegan y solo falta a quién dárselos (fase 5).
+>   🔑 **El HTML compartido NO se tocó.** Sigue llamando a `window.Android.notifyX(...)`, y en iOS
+>   ese objeto lo crea un `WKUserScript` (`PUENTE_JS_SHIM`) que reenvía a
+>   `webkit.messageHandlers`. Nada de `if (iOS)` dentro del mapa.
+>   ⚠️ **El mensaje viaja como STRING** (`fn|arg|arg`), no como objeto: un objeto JS llega como
+>   `NSDictionary` con `NSNumber` dentro y ahí es donde aparecen las sorpresas de tipos.
+>   ⚠️ **`notifyMapClick` solo se dispara si el modo "colocar destino" está encendido**
+>   (`updateDestinationPlacingMode`), y el JS lo apaga tras cada toque → hay que re-encenderlo.
+>   Mismo contrato que Android; si se olvida, los toques se pierden **sin ningún error**.
+>   ⚠️ Las constantes van a **nivel de archivo y no en un `companion`**: `PuenteJsIos` hereda de
+>   `NSObject` y Kotlin/Native corta con *"Fields are not supported for Companion of subclass of
+>   ObjC type"*.
 >
 > ⚠️ Los assets del mundo tampoco están en el bundle de iOS (solo SF y coleccionables). Hoy da
 > igual —sin inyección de datos el HTML no pide ni una imagen—, pero en cuanto haya puente habrá

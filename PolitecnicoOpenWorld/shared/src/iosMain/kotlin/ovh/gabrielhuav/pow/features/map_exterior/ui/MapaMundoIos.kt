@@ -48,6 +48,8 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readValue
 import ovh.gabrielhuav.pow.platform.orientacion.ForzarHorizontal
 import platform.CoreGraphics.CGRectZero
+import platform.WebKit.WKUserScript
+import platform.WebKit.WKUserScriptInjectionTime
 import platform.WebKit.WKWebView
 import platform.WebKit.WKWebViewConfiguration
 
@@ -70,8 +72,9 @@ import platform.WebKit.WKWebViewConfiguration
  * - **NPCs, policía, coleccionables y landmarks** — hay funciones JS para todos (`updateNpcs`,
  *   `updatePolice`, `updateCollectibles`, `updateLandmarks`), pero quien las alimenta es el
  *   `WorldMapViewModel`, que sigue en `:app` (fase 5).
- * - **La vuelta del puente (JS → Kotlin)**: en Android es `@JavascriptInterface`; en iOS haría falta
- *   `WKScriptMessageHandler`. Sin ella el mapa no puede avisar de toques ni de arrastres.
+ * ✅ **La vuelta del puente (JS → Kotlin) ya está** (2026-08-17): `PuenteJsIos` con
+ * `WKScriptMessageHandler`, y un shim que define `window.Android` para que **el HTML compartido no
+ * cambie**. Hoy la usa el toque del mapa, que coloca el marcador de destino igual que en Android.
  *
  * ## Lo importante: el HTML NO está duplicado
  *
@@ -164,6 +167,30 @@ fun MapaMundoIos(alVolver: () -> Unit) {
                 val config = WKWebViewConfiguration().apply {
                     // El mapa ES Leaflet entero: sin JS no hay nada que ver.
                     defaultWebpagePreferences.allowsContentJavaScript = true
+                    // 🌉 LA VUELTA DEL PUENTE (JS → Kotlin). El shim define `window.Android`, que es
+                    // lo que llama el HTML COMPARTIDO, así que el mapa no sabe en qué plataforma
+                    // corre. Ver `PuenteJsIos`.
+                    userContentController.addUserScript(
+                        WKUserScript(
+                            source = PUENTE_JS_SHIM,
+                            // Al PRINCIPIO del documento: si entrara después, el mapa ya habría
+                            // intentado usar `window.Android` y no existiría.
+                            injectionTime = WKUserScriptInjectionTime.WKUserScriptInjectionTimeAtDocumentStart,
+                            forMainFrameOnly = true,
+                        ),
+                    )
+                    userContentController.addScriptMessageHandler(
+                        scriptMessageHandler = PuenteJsIos(
+                            alTocarMapa = { lat, lon ->
+                                // Mismo gesto que Android: el toque coloca el destino. Se vuelve a
+                                // encender el modo porque el JS lo apaga tras cada toque.
+                                val destino = GeoPoint(lat, lon)
+                                puente?.marcarDestino(destino)
+                                puente?.modoColocarDestino(true)
+                            },
+                        ),
+                        name = PUENTE_JS_CANAL,
+                    )
                 }
                 WKWebView(frame = CGRectZero.readValue(), configuration = config).apply {
                     // Sin esto el mapa "rebota" al llegar al borde y se siente roto para un juego.
@@ -194,6 +221,9 @@ fun MapaMundoIos(alVolver: () -> Unit) {
         // cada movimiento, así que el marcador aparece al primer toque de los controles.
         DisposableEffect(puente) {
             puente?.moverJugador(jugador)
+            // El JS solo avisa de los toques si el modo "colocar destino" está encendido, y lo
+            // apaga tras cada uno. Se enciende aquí para que el PRIMER toque ya funcione.
+            puente?.modoColocarDestino(true)
             onDispose { }
         }
 

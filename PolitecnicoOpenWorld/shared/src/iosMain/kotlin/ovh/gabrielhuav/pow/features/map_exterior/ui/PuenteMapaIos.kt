@@ -19,8 +19,8 @@ import platform.WebKit.WKWebView
  * ```
  *
  * ⚠️ **Este puente es de UNA sola dirección: Kotlin → JS.** La vuelta (JS → Kotlin, que en Android
- * es `@JavascriptInterface`) necesita `WKScriptMessageHandler`, y **todavía no está**. Por eso el
- * mapa aún no avisa de toques ni de que el jugador arrastró la vista.
+ * es `@JavascriptInterface`) vive desde el 2026-08-17 en **[PuenteJsIos]**, con
+ * `WKScriptMessageHandler`. Los dos se montan juntos en `MapaMundoIos`.
  *
  * ## Por qué cada llamada lleva `if (typeof f === 'function')`
  *
@@ -79,6 +79,22 @@ class PuenteMapaIos(private val webView: WKWebView) {
                 """"type":"$tipo","health":${npc.health},"isDying":${npc.isDying}}"""
         }
         llamar("updateNpcs($datos)")
+    }
+
+    /**
+     * Enciende el modo "el próximo toque coloca el destino".
+     *
+     * ⚠️ **Sin esto, el JS NO avisa de los toques**: `notifyMapClick` está detrás de
+     * `if (isPlacingDestinationMarker …)` en el HTML. Es el mismo contrato que en Android.
+     * El JS lo apaga solo tras el toque, así que hay que volver a encenderlo para el siguiente.
+     */
+    fun modoColocarDestino(activo: Boolean) {
+        llamar("updateDestinationPlacingMode($activo)")
+    }
+
+    /** Pinta el marcador de destino donde el jugador tocó. */
+    fun marcarDestino(punto: GeoPoint) {
+        llamar("updateDestinationMarker(${punto.latitude}, ${punto.longitude})")
     }
 
     /**
