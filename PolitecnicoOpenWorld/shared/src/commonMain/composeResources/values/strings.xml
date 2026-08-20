@@ -351,4 +351,18 @@
     <string name="side1_title">Secundaria · Suministros médicos</string>
     <string name="side2_desc">Reportan infectados sueltos cerca del campus. Elimínalos antes de que el brote se extienda. Recompensa: $250.</string>
     <string name="side2_title">Secundaria · Contención en Zacatenco</string>
+    <string name="toast_car_injected">🚗 Auto inyectado en MICRO_LANDMARK</string>
+    <string name="toast_error_escom_missing">Error: ESCOM no está en el mapa</string>
+    <string name="toast_error_escom_navgraph">Error leyendo escom_navgraph.json</string>
+    <string name="wm_carjack_warning">¡Te van a bajar del auto! ¡Acelera!</string>
+    <string name="wm_horde_approaching">🧟 ¡UNA HORDA SE ACERCA!</string>
+    <string name="wm_prankedy_down">🎭 ¡Prankedy cayó! Volverá más tarde…</string>
+    <string name="wm_press_x_activate_zombie">PRESIONA X PARA ACTIVAR MODO ZOMBI</string>
+    <string name="wm_press_x_deactivate_zombie">PRESIONA X PARA DESACTIVAR MODO ZOMBI</string>
+    <string name="wm_press_x_enter">PRESIONA X PARA ENTRAR</string>
+    <string name="wm_press_x_interact">PRESIONA X PARA INTERACTUAR</string>
+    <string name="wm_press_x_pickup">PRESIONA X PARA RECOGER</string>
+    <string name="wm_prompt_metro">PRESIONA X PARA ENTRAR A ESTACIÓN %1$s</string>
+    <string name="wm_prompt_metrobus">PRESIONA X PARA ENTRAR A ESTACIÓN METROBÚS %1$s</string>
+    <string name="wm_wait_loading">⏳ Espera: el mundo aún está cargando…</string>
 </resources>

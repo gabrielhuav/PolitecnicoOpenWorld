@@ -3,6 +3,11 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 import kotlinx.coroutines.flow.update
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase
+import org.jetbrains.compose.resources.getString
+import ovh.gabrielhuav.pow.shared.recursos.Res
+import ovh.gabrielhuav.pow.shared.recursos.wm_prankedy_down
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
 
 /**
  * Extensiones del [WorldMapViewModel] que encapsulan toda la lógica del
@@ -158,10 +163,16 @@ internal fun WorldMapViewModel.runPrankedyTick(playerLoc: GeoPoint, now: Long) {
 
     // Si Prankedy murió este tick, avisar al jugador (location ya es null → el render lo oculta).
     if (result.justDied) {
-        _uiState.update { it.copy(
-            interactionPrompt = getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_prankedy_down),
-            showPrankedyHireDialog = false
-        ) }
+        // ⚠️ **La bandera va AHORA y el texto después, y ese orden importa.** `composeResources`
+        // solo resuelve en `suspend`, así que el aviso entra un frame más tarde; pero
+        // `showPrankedyHireDialog` la lee la UI en este mismo tick y si viajara dentro del
+        // `launch` el diálogo de contratar seguiría abierto sobre un Prankedy ya muerto.
+        // Es la regla de `WorldMapAvisos.kt`: en el launch SOLO texto.
+        _uiState.update { it.copy(showPrankedyHireDialog = false) }
+        viewModelScope.launch {
+            val aviso = getString(Res.string.wm_prankedy_down)
+            _uiState.update { it.copy(interactionPrompt = aviso) }
+        }
     }
 
     // Si el proyectil golpeó AL JUGADOR, bajarle vida (Prankedy es hostil).

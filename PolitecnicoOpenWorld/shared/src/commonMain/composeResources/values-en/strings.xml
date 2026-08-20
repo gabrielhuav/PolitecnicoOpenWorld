@@ -351,4 +351,18 @@
     <string name="side1_title">Side quest · Medical supplies</string>
     <string name="side2_desc">Loose infected reported near campus. Take them out before the outbreak spreads. Reward: $250.</string>
     <string name="side2_title">Side quest · Containment in Zacatenco</string>
+    <string name="toast_car_injected">🚗 Car injected into MICRO_LANDMARK</string>
+    <string name="toast_error_escom_missing">Error: ESCOM is not on the map</string>
+    <string name="toast_error_escom_navgraph">Error reading escom_navgraph.json</string>
+    <string name="wm_carjack_warning">They're pulling you out of the car! Accelerate!</string>
+    <string name="wm_horde_approaching">🧟 A HORDE IS APPROACHING!</string>
+    <string name="wm_prankedy_down">🎭 Prankedy fell! He will return later…</string>
+    <string name="wm_press_x_activate_zombie">PRESS X TO ACTIVATE ZOMBIE MODE</string>
+    <string name="wm_press_x_deactivate_zombie">PRESS X TO DEACTIVATE ZOMBIE MODE</string>
+    <string name="wm_press_x_enter">PRESS X TO ENTER</string>
+    <string name="wm_press_x_interact">PRESS X TO INTERACT</string>
+    <string name="wm_press_x_pickup">PRESS X TO PICKUP</string>
+    <string name="wm_prompt_metro">PRESS X TO ENTER STATION %1$s</string>
+    <string name="wm_prompt_metrobus">PRESS X TO ENTER METROBÚS STATION %1$s</string>
+    <string name="wm_wait_loading">⏳ Wait: the world is still loading…</string>
 </resources>

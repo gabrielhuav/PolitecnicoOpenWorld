@@ -1,6 +1,5 @@
 package ovh.gabrielhuav.pow.data.cache
 
-import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.data.local.room.dao.RoadNetworkDao
@@ -9,8 +8,28 @@ import ovh.gabrielhuav.pow.data.local.room.entity.RoadWayEntity
 import ovh.gabrielhuav.pow.data.local.room.entity.RoadZoneEntity
 import ovh.gabrielhuav.pow.domain.models.map.MapNode
 import ovh.gabrielhuav.pow.domain.models.map.MapWay
+import ovh.gabrielhuav.pow.platform.log.powLog
+import ovh.gabrielhuav.pow.platform.tiempo.ahoraMs
 import kotlin.math.floor
 
+/**
+ * 🗺️ LA CACHÉ DE CALLES DE OVERPASS, IGUAL EN ANDROID Y EN iOS.
+ *
+ * ## Por qué importa que sea compartida
+ *
+ * **Overpass limita por IP y devuelve 429 en cuanto le pides seguido.** Android casi no lo notaba
+ * porque cacheaba en Room desde el principio; iOS no tenía esta clase y pedía la red entera **en
+ * cada arranque**, así que el 429 era lo normal y el mundo salía sin NPCs (`updateNpcs` sale por
+ * `if (!networkIsReady) return`, o sea que sin calles no hay nadie). Bajarla a `commonMain` es lo
+ * que le da a iOS el mismo comportamiento sin escribir una segunda caché que se desincronice.
+ *
+ * La red se guarda por **celdas de ~2 km** con un TTL de 7 días y un LRU de [MAX_ZONES] zonas.
+ *
+ * ⚠️ Al bajarla se cambiaron las TRES cosas que no cruzan (y son justo las de `09 §KMP`):
+ * `android.util.Log` → [powLog]; `Dispatchers.IO` → `Dispatchers.Default`, porque el primero no
+ * existe en Kotlin/Native; y `System.currentTimeMillis()` → [ahoraMs], que da el MISMO valor de
+ * época en las dos plataformas (un reloj monótono aquí rompería el TTL al cruzar de módulo).
+ */
 class RoadNetworkCache(private val dao: RoadNetworkDao) {
 
     private val TAG = "RoadNetworkCache"
@@ -23,19 +42,19 @@ class RoadNetworkCache(private val dao: RoadNetworkDao) {
 
     // ─── GET ──────────────────────────────────────────────────────────────────────
 
-    suspend fun get(lat: Double, lon: Double): List<MapWay>? = withContext(Dispatchers.IO) {
+    suspend fun get(lat: Double, lon: Double): List<MapWay>? = withContext(Dispatchers.Default) {
         val key = cellKey(lat, lon)
 
         val zone = dao.getZone(key)
         if (zone == null) {
-            Log.d(TAG, "MISS (no existe): $key")
+            powLog(TAG, "MISS (no existe): $key")
             return@withContext null
         }
 
-        val ageMs = System.currentTimeMillis() - zone.downloadedAtMs
+        val ageMs = ahoraMs() - zone.downloadedAtMs
         if (ageMs > CACHE_TTL_MS) {
-            Log.d(TAG, "MISS (expirada ${ageMs / 3_600_000}h): $key")
-            dao.deleteExpiredZones(System.currentTimeMillis() - CACHE_TTL_MS)
+            powLog(TAG, "MISS (expirada ${ageMs / 3_600_000}h): $key")
+            dao.deleteExpiredZones(ahoraMs() - CACHE_TTL_MS)
             return@withContext null
         }
 
@@ -43,31 +62,31 @@ class RoadNetworkCache(private val dao: RoadNetworkDao) {
         val nodeEntities = dao.getNodesForZone(key)
 
         if (wayEntities.isEmpty()) {
-            Log.w(TAG, "Zona $key sin ways — escritura incompleta, se re-descargará")
+            powLog(TAG, "Zona $key sin ways — escritura incompleta, se re-descargará")
             return@withContext null
         }
 
         val result = reconstituteNetwork(wayEntities, nodeEntities)
         if (result.isEmpty()) {
-            Log.w(TAG, "Zona $key sin nodos válidos — se re-descargará")
+            powLog(TAG, "Zona $key sin nodos válidos — se re-descargará")
             return@withContext null
         }
-        Log.d(TAG, "HIT: $key → ${result.size} ways (${ageMs / 3_600_000}h de antigüedad)")
+        powLog(TAG, "HIT: $key → ${result.size} ways (${ageMs / 3_600_000}h de antigüedad)")
         result
     }
 
     // ─── PUT ──────────────────────────────────────────────────────────────────────
 
-    suspend fun put(lat: Double, lon: Double, ways: List<MapWay>) = withContext(Dispatchers.IO) {
+    suspend fun put(lat: Double, lon: Double, ways: List<MapWay>) = withContext(Dispatchers.Default) {
         if (ways.isEmpty()) return@withContext
 
         val key = cellKey(lat, lon)
-        val now = System.currentTimeMillis()
+        val now = ahoraMs()
 
         // LRU: liberar espacio si es necesario
         if (dao.getZoneCount() >= MAX_ZONES) {
             dao.deleteOldestZone()
-            Log.d(TAG, "LRU evict para hacer espacio")
+            powLog(TAG, "LRU evict para hacer espacio")
         }
 
         val zoneEntity = RoadZoneEntity(
@@ -96,13 +115,13 @@ class RoadNetworkCache(private val dao: RoadNetworkDao) {
         // UNA SOLA TRANSACCIÓN ATÓMICA — clave para que Room realmente persista
         try {
             dao.insertZoneWithData(zoneEntity, wayEntities, nodeEntities)
-            Log.d(TAG, "GUARDADO OK: $key → ${ways.size} ways, ${nodeEntities.size} nodos")
+            powLog(TAG, "GUARDADO OK: $key → ${ways.size} ways, ${nodeEntities.size} nodos")
         } catch (e: Exception) {
-            Log.e(TAG, "Error guardando $key: ${e.message}")
+            powLog(TAG, "Error guardando $key: ${e.message}")
         }
     }
 
-    suspend fun getStats(): String = withContext(Dispatchers.IO) {
+    suspend fun getStats(): String = withContext(Dispatchers.Default) {
         val zones = dao.getZoneCount()
         val ways  = dao.getTotalWayCount() ?: 0
         "Room: $zones/$MAX_ZONES zonas, $ways ways"

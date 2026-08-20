@@ -1381,7 +1381,7 @@ fun WorldMapScreen(
                     if (designerViewModel.hasNodes()) routeExportLauncher.launch("carril_${designerState.currentLaneId}.json")
                     else android.widget.Toast.makeText(context, "No hay nodos capturados para exportar", android.widget.Toast.LENGTH_SHORT).show()
                 },
-                onSpawnTestCar = { viewModel.spawnDynamicCarInEscom(context) },
+                onSpawnTestCar = { viewModel.spawnDynamicCarInEscom() },
                 onRevert = {
                     val currentLandmark = uiState.landmarks.find { it.id == uiState.selectedLandmarkId }
                     if (currentLandmark != null && originalLandmarkState != null) {

@@ -305,7 +305,52 @@ Mecánico y sin riesgo, pero largo. La receta ya está probada: es lo que se hiz
 > compilado y Android no cambiaría, pero mete un id de recurso de Android en el módulo compartido:
 > justo lo que prohíbe `10 §2bis`. Habría parecido progreso sin serlo.
 >
-> ### Orden correcto para quien siga, CON EMULATOR DELANTE
+> ### ✅ 2026-08-20: pasos 1-4 HECHOS. Queda el 5 y el 6.
+
+**Los 14 textos del mundo ya están en `composeResources`** (ES + EN) y los 17 puntos de llamada
+convertidos. `getLocalizedString(resId, ...)` **ya no existe** en el mundo abierto: hay un tombstone
+en `WorldMapViewModel.kt`. Con eso cae el último `R.string` del ViewModel.
+
+Cómo se convirtió cada caso, que no es mecánico del todo:
+
+| Caso | Qué se hizo |
+|---|---|
+| Ya estaba dentro de una corrutina (7 de coleccionables, horda) | `getString(Res.string.x)` directo |
+| Solo publica `interactionPrompt` (teletransporte) | Se metió dentro del `launch` que ya había |
+| Publica texto **y una bandera** (Prankedy) | **La bandera va síncrona; solo el texto se difiere** |
+| Lo pide el game loop **en cada tick** (carjack) | Se **precarga una vez** en el `init` (`textoCarjack`) |
+| `Toast` de Android (3, en ESCOM) | Pasan por `WorldMapEnvironment.avisar()` |
+
+🐛 **Y se arregló un fallo latente de Android por el camino:** el aviso de la horda se auto-limpiaba
+comparando con el literal **en español**, así que jugando en inglés no se borraba nunca. Ahora se
+compara con el texto ya resuelto.
+
+**`WorldMapEnvironment` existe** (`commonMain`) con su `AndroidWorldMapEnvironment` y su binding de
+Hilt. Es deliberadamente pequeño —`factorDeGama`, `avisar`, `guardarTexto`, `leerTexto`— porque al
+medirlo **la mayoría de los 16 usos de `Context` eran `context.assets.open(...)`**, y para eso ya
+estaba `PowAssets`. `computeDeviceTierFactor` se mudó al lado Android.
+
+Cómo quedó el acoplamiento del mundo con la plataforma:
+
+| Símbolo | Antes | Ahora |
+|---|---|---|
+| `R.string` en el VM | 17 llamadas | **0** |
+| `context.assets` | 4 | **0** (→ `PowAssets`) |
+| `android.content.Context` | 6 imports | 7, pero **solo** en el Modo Diseñador (SAF), el guardado y el entorno |
+
+⏭️ **Lo que queda de la fase 5**, en orden: `viewModelScope` (18) → `PowViewModel.scope`;
+`android.util.Log` (7) → `powLog`; `AndroidViewModel` → `PowViewModel`; Hilt → patrón Controller;
+`TileCache` y `WebSocketManager` (los dos solo-Android) al entorno o fuera; el SAF del Modo
+Diseñador a `guardarTexto`/`leerTexto` (la costura ya existe, falta engancharla);
+`MetroRepository`/`MetrobusRepository` (usan `R.raw` + `org.json`); y por último **mover los 43
+archivos**.
+
+⚠️ **Y el paso 6 sigue pendiente y sigue siendo el que manda: jugar el mundo en Android.** Nada de
+lo de arriba lo sustituye. En este Mac **no hay AVD** (medido), así que esa verificación tiene que
+hacerla alguien con un emulador o un teléfono delante. Lo que sí está verificado aquí: build
+completo de Android con Hilt regenerado, 338 tests, detekt 0 y el mundo de iOS corriendo.
+
+### Orden correcto para quien siga, CON EMULATOR DELANTE
 >
 > 1. Los 42 strings de campaña (ES + EN) a `composeResources`.
 > 2. `CampaignObjective.titleRes: Int` → `StringResource`, y detrás los 17 consumidores (el
@@ -412,6 +457,35 @@ solo-Android**) · overlays · **y el puente JS ↔ nativo**, que es lo que de v
 ### 🔜 Fase 7 — Interiores y zombis (11 536 líneas)
 
 Depende de las fases 3–6. `CollisionGrid` y los catálogos de sala son casi puros.
+
+### ✅ Fase 8bis — Sprites del mundo en iOS (HECHA, 2026-08-20)
+
+El mapa de iOS ya pinta **coches y peatones de verdad**, no emoji, y con el MISMO cálculo que
+Android — que bajó a `commonMain` en el mismo commit:
+
+| Qué | Dónde vive ahora | Quién lo usa |
+|---|---|---|
+| Repintado de carrocería | `TintadoVehiculo.kt` (`commonMain`) | `VehicleSpriteManager` (Android) + `TintadoWebIos` (iOS) |
+| Repintado de ropa y pelo + composición | `TintadoPersonaje.kt` (`commonMain`) | `CharacterSpriteManager` (Android) + `PersonajeWebIos` (iOS) |
+| Caché de calles de Overpass | `RoadNetworkCache` (`commonMain`) | `WorldMapViewModel` (Android) + `MapaMundoIos` (iOS) |
+
+**18 tests nuevos** en `commonTest` cubren los dos repintados, que antes no tenían ninguno en
+ninguna plataforma.
+
+⚠️ **La diferencia de transporte, que no es un atajo:** Android compone el bitmap y lo manda al
+WebView como base64 porque **no puede servirle ficheros**; iOS sí puede (`AssetsWebIos`), así que
+mete una URL en `imgCache` y genera el PNG del otro lado. El cálculo es el mismo; lo que cambia es
+por dónde viaja el resultado.
+
+Coste en el bundle: **2 MB** (`ICONS` 8 KB + `VEHICLES` 1,6 MB + `npc_walk_1` 356 KB + `hair`
+68 KB). No hacen falta los 70 MB de `SPRITES/NPC`: el spawner compartido viste a todos los NPCs con
+un cuerpo y cinco peinados.
+
+⏭️ **Lo que queda del apartado visual:** policía, coleccionables y landmarks — ya hay funciones JS
+para los tres (`updatePolice`, `updateCollectibles`, `updateLandmarks`), y quien las alimenta es el
+`WorldMapViewModel`, o sea la **fase 5**.
+
+---
 
 ### 🔜 Fase 8 — Assets (opcional, NO bloquea)
 

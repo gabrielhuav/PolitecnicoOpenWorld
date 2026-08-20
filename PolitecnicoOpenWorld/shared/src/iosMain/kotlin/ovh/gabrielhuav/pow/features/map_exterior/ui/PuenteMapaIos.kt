@@ -3,6 +3,7 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
+import ovh.gabrielhuav.pow.platform.tiempo.ahoraMs
 import platform.WebKit.WKWebView
 
 /**
@@ -85,13 +86,27 @@ class PuenteMapaIos(private val webView: WKWebView) {
                 // 🚗 COCHE REAL: el sprite del ángulo que toca, servido del bundle.
                 esCoche -> {
                     val clave = claveDeCoche(npc)
-                    registrarImagen(clave, PREFIJO_ASSETS_POW + rutaDeCoche(npc))
+                    registrarImagen(clave, urlDeCoche(npc))
                     """{$comun,"type":"CAR","imageKey":"$clave","width":1,"height":1}"""
                 }
 
-                // 🧍 PERSONA REAL: la TERCERA rama del JS, que pinta
-                // `SPRITES/ICONS/<drawable>.svg` como archivo. No pasa por `imgCache`.
-                else -> """{$comun,"type":"${npc.type.name}","drawable":"${npc.type.drawableName}"}"""
+                // 🧍 PEATÓN ARMADO: cuerpo repintado + pelo, servido por `PersonajeWebIos`.
+                // El fotograma va en la CLAVE, así que al cambiar de fotograma el JS cambia el
+                // `src` solo — que es como camina el NPC sin tocar el HTML compartido.
+                else -> {
+                    val config = npc.visualConfig
+                    if (config == null) {
+                        // Sin configuración visual no hay a quién vestir: se cae al icono de
+                        // siempre (tercera rama del JS), que al menos se ve.
+                        """{$comun,"type":"${npc.type.name}","drawable":"${npc.type.drawableName}"}"""
+                    } else {
+                        val url = PersonajeWebIos.url(config, fotogramaDe(npc))
+                        registrarImagen(url, PREFIJO_ASSETS_POW + url)
+                        // `flip` es el mismo contrato que Android: -1 espeja el sprite.
+                        val flip = if (npc.facingRight) 1 else -1
+                        """{$comun,"type":"MODULAR","imageKey":"$url","flip":$flip}"""
+                    }
+                }
             }
         }
         llamar("updateNpcs($datos)")
@@ -101,11 +116,11 @@ class PuenteMapaIos(private val webView: WKWebView) {
      * Mete una URL en el `imgCache` del HTML, que es de donde `updateNpcs` saca el sprite.
      *
      * ⚠️ **Android guarda ahí un `data:` en base64 y aquí va una URL `pow-asset://`, y eso NO es
-     * un atajo**: el JS solo hace `img.src = imgCache[clave]`, así que le da igual el formato. En
-     * Android hay que componer el bitmap (rotarlo y **tintarlo** con el color del coche) y por eso
-     * acaba en base64; en iOS no hay compositor de sprites todavía, así que se sirve el archivo
-     * tal cual y **los coches salen blancos**: `carColor` se ignora. Es la diferencia visible
-     * entre las dos plataformas hoy, y está aquí para que se vea sin bucear.
+     * un atajo**: el JS solo hace `img.src = imgCache[clave]`, así que le da igual el formato.
+     * Android tiene que componer el bitmap y mandarlo entero porque no puede servir archivos al
+     * WebView; iOS sí puede (`AssetsWebIos`), y el repintado se hace del otro lado de esa URL
+     * (`TintadoWebIos`) con el MISMO algoritmo compartido. Así no viajan cientos de kilobytes de
+     * base64 por cada giro del coche.
      *
      * Solo se manda una vez por clave: son ~48 frames por modelo y reenviarlos en cada tic de
      * 33 ms sería kilobytes de JS por segundo para nada.
@@ -157,6 +172,27 @@ class PuenteMapaIos(private val webView: WKWebView) {
 }
 
 /**
+ * En qué fotograma de la animación de caminar está el peatón.
+ *
+ * ⚠️ **La fórmula es la de Android** (`CharacterSpriteManager.computeFrameIndex`): un fotograma
+ * cada 220 ms mientras camina, y quieto se planta en el 0. Si aquí se cambiara el ritmo, los NPCs
+ * de iOS caminarían a otra velocidad que los de Android sin que fallara nada.
+ *
+ * ⚠️ Y el reloj es [ahoraMs], **no** un `TimeSource` monótono: tiene que ser el MISMO origen que
+ * usa el resto del mundo (09 §KMP).
+ */
+private fun fotogramaDe(npc: Npc): Int {
+    val config = npc.visualConfig ?: return 0
+    val cuantos = PersonajeWebIos.fotogramas(config.bodyFolder, config.bodyPrefix)
+    if (cuantos <= 0) return 0
+    if (!npc.isMoving) return 0
+    return ((ahoraMs() / MS_POR_FOTOGRAMA) % cuantos).toInt()
+}
+
+/** Un fotograma cada 220 ms, el mismo paso que Android. */
+private const val MS_POR_FOTOGRAMA = 220L
+
+/**
  * En qué frame de rotación cae el coche. **La fórmula es la de Android** (`WorldMapScreenWeb.kt`):
  * 48 frames = uno cada 7.5°.
  */
@@ -169,12 +205,32 @@ private fun frameDeCoche(npc: Npc): Int {
 }
 
 /**
- * Clave del `imgCache`. Lleva el modelo y el frame porque **cada ángulo es un archivo distinto**;
- * NO lleva el color, a diferencia de Android, porque aquí no se tinta (ver `registrarImagen`).
+ * Clave del `imgCache`: modelo + frame + color, **la misma tripleta que la `CacheKey` de
+ * `VehicleSpriteManager` en Android**. El color tiene que estar: sin él, dos coches del mismo
+ * modelo y ángulo pero de distinto color compartirían entrada y saldrían los dos del primer color.
  */
-private fun claveDeCoche(npc: Npc): String =
-    if (npc.isPoliceSkin || npc.type == NpcType.POLICE_CAR) "POLICE_${frameDeCoche(npc)}"
-    else "${npc.carModel.name}_${frameDeCoche(npc)}"
+private fun claveDeCoche(npc: Npc): String = when {
+    npc.isPoliceSkin || npc.type == NpcType.POLICE_CAR -> "POLICE_${frameDeCoche(npc)}"
+    !npc.carModel.tintable -> "${npc.carModel.name}_${frameDeCoche(npc)}"
+    else -> "${npc.carModel.name}_${frameDeCoche(npc)}_${colorHex(npc)}"
+}
+
+/**
+ * La URL del sprite: repintada si el modelo es de base blanca, cruda si el asset ya trae su color.
+ *
+ * ⚠️ `tintable = false` (patrullas, y los pre-coloreados que se añadan) **ignora `carColor`** —
+ * mismo contrato que Android, que también se salta el palette swap en ese caso.
+ */
+private fun urlDeCoche(npc: Npc): String {
+    val ruta = rutaDeCoche(npc)
+    val esPatrulla = npc.isPoliceSkin || npc.type == NpcType.POLICE_CAR
+    if (esPatrulla || !npc.carModel.tintable) return PREFIJO_ASSETS_POW + ruta
+    return PREFIJO_ASSETS_POW + TintadoWebIos.PREFIJO + colorHex(npc) + "/" + ruta
+}
+
+/** El color del coche en `rrggbb`, que es como viaja dentro de la URL de tintado. */
+private fun colorHex(npc: Npc): String =
+    (npc.carColor and 0xFFFFFF).toString(16).padStart(6, '0')
 
 /**
  * Ruta del sprite dentro de `assets/`.

@@ -52,7 +52,16 @@ class AssetsWebIos : NSObject(), WKURLSchemeHandlerProtocol {
         // 'pow-asset:///SPRITES/ICONS/foo.svg' -> 'SPRITES/ICONS/foo.svg'
         val ruta = (url?.path ?: "").trimStart('/')
 
-        val bytes = if (ruta.isEmpty()) null else runCatching { PowAssets.bytes(ruta) }.getOrNull()
+        // 🎨 `__tinte/<rrggbb>/<ruta>` = el mismo asset, con la carrocería repintada. Ver
+        // `TintadoWebIos`: se hace aquí y no con un `filter` de CSS porque el repintado es
+        // selectivo (respeta luces, rines y faros) y un filtro pinta el sprite entero.
+        val bytes = when {
+            ruta.isEmpty() -> null
+            ruta.startsWith(TintadoWebIos.PREFIJO) -> TintadoWebIos.resolver(ruta)
+            // 🧍 `__npc/…` = un peatón armado (cuerpo repintado + pelo). Ver `PersonajeWebIos`.
+            ruta.startsWith(PersonajeWebIos.PREFIJO) -> PersonajeWebIos.resolver(ruta)
+            else -> runCatching { PowAssets.bytes(ruta) }.getOrNull()
+        }
 
         if (bytes == null) {
             val resp = NSHTTPURLResponse(
@@ -69,7 +78,8 @@ class AssetsWebIos : NSObject(), WKURLSchemeHandlerProtocol {
         val datos = bytes.aNSData()
         val resp = NSURLResponse(
             uRL = url!!,
-            MIMEType = mimeDe(ruta),
+            // El repintado SIEMPRE sale en PNG, aunque el asset de origen sea WebP.
+            MIMEType = if (esGenerado(ruta)) "image/png" else mimeDe(ruta),
             expectedContentLength = bytes.size.toLong(),
             textEncodingName = null,
         )
@@ -77,6 +87,10 @@ class AssetsWebIos : NSObject(), WKURLSchemeHandlerProtocol {
         startURLSchemeTask.didReceiveData(datos)
         startURLSchemeTask.didFinish()
     }
+
+    /** Lo que generamos al vuelo SIEMPRE sale en PNG, aunque el asset de origen sea WebP. */
+    private fun esGenerado(ruta: String) =
+        ruta.startsWith(TintadoWebIos.PREFIJO) || ruta.startsWith(PersonajeWebIos.PREFIJO)
 
     @ObjCSignatureOverride
     override fun webView(webView: WKWebView, stopURLSchemeTask: WKURLSchemeTaskProtocol) {

@@ -108,14 +108,6 @@ object CharacterSpriteManager {
         null
     }
 
-    private fun applyMultiply(basePixel: Int, tintColor: Int): Int {
-        val a = basePixel ushr 24
-        val r = (((basePixel ushr 16) and 0xFF) * ((tintColor ushr 16) and 0xFF)) / 255
-        val g = (((basePixel ushr 8) and 0xFF) * ((tintColor ushr 8) and 0xFF)) / 255
-        val b = ((basePixel and 0xFF) * (tintColor and 0xFF)) / 255
-        return (a shl 24) or (r shl 16) or (g shl 8) or b
-    }
-
     /**
      * Genera un Drawable escalado y espejeado nativamente para los marcadores de OSMDroid.
      */
@@ -216,39 +208,19 @@ object CharacterSpriteManager {
         }
     }
 
+    /**
+     * ⚠️ El repintado VIVE EN `commonMain` (`TintadoPersonaje.kt`) y lo comparte iOS. Aquí solo
+     * queda el ir y venir de píxeles con `Bitmap`. Si se duplica, los peatones acaban vestidos de
+     * distinto color en cada plataforma y no lo caza ningún test de Android.
+     */
     private fun tintSmartPixels(baseBitmap: Bitmap, color1: Int, color2: Int?): Bitmap {
         val width = baseBitmap.width
         val height = baseBitmap.height
         val pixels = IntArray(width * height)
         baseBitmap.getPixels(pixels, 0, width, 0, 0, width, height)
 
-        for (i in pixels.indices) {
-            val pixel = pixels[i]
-            val a = pixel ushr 24
-            if (a < 50) continue // Ignorar píxeles casi transparentes
+        tintarPersonaje(pixels, color1, color2)
 
-            val r = (pixel ushr 16) and 0xFF
-            val g = (pixel ushr 8) and 0xFF
-            val b = pixel and 0xFF
-
-            // 1. FILTRO DE GRISES: Para NO pintar la piel (que tiene tonos rojizos/cálidos)
-            val maxC = maxOf(r, g, b)
-            val minC = minOf(r, g, b)
-            val diff = maxC - minC
-            if (diff > 15) continue // Si tiene "color" (como la piel), NO LO PINTES
-
-            // 2. SEPARACIÓN POR BRILLO (Luminancia)
-            val brightness = (r + g + b) / 3
-
-            if (brightness > 160) {
-                // Blanco/Gris claro -> PLAYERA o CABELLO
-                pixels[i] = applyMultiply(pixel, color1)
-            } else if (brightness in 45..130 && color2 != null) {
-                // Gris medio/oscuro -> PANTALONES
-                pixels[i] = applyMultiply(pixel, color2)
-            }
-            // Los bordes (menor a 45) se quedan negros.
-        }
         val result = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         result.setPixels(pixels, 0, width, 0, 0, width, height)
         return result

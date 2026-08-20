@@ -27,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlinx.coroutines.delay
+import ovh.gabrielhuav.pow.data.cache.RoadNetworkCache
 import ovh.gabrielhuav.pow.data.repository.OverpassRepository
 import ovh.gabrielhuav.pow.data.repository.iosSettingsRepository
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
@@ -84,7 +85,7 @@ import platform.WebKit.WKWebViewConfiguration
  */
 @OptIn(ExperimentalForeignApi::class)
 @Composable
-fun MapaMundoIos(alVolver: () -> Unit) {
+fun MapaMundoIos(cacheCalles: RoadNetworkCache?, alVolver: () -> Unit) {
     // 🔄 HORIZONTAL, igual que Android. Es lo que permite que el HUD use el MISMO tamaño de
     // controles que Android y que el modo pelea; en vertical no caben dos de 180 dp. Se libera
     // solo al salir de esta pantalla (ver `OrientacionIos.kt`).
@@ -123,14 +124,24 @@ fun MapaMundoIos(alVolver: () -> Unit) {
     // 1️⃣ Las calles. Sin red, `updateNpcs` sale por `if (!networkIsReady) return` y NO hay NPCs:
     // no es un detalle de arranque, es el contrato del manager.
     LaunchedEffect(Unit) {
-        // ⚠️ **Overpass limita por IP y devuelve 429 en cuanto pides seguido.** Android casi no lo
-        // nota porque cachea la red en Room (celdas de 2 km, TTL 7 días) y solo baja lo que le
-        // falta; iOS todavía NO tiene esa caché, así que pide en cada arranque y el 429 es
-        // frecuente — pasó en la segunda prueba del simulador. Hasta que exista la caché, se
-        // reintenta con espera creciente. **La caché sigue pendiente y es lo que toca después.**
+        // ⚠️ **Overpass limita por IP y devuelve 429 en cuanto pides seguido.** Por eso la red se
+        // guarda en Room (celdas de ~2 km, TTL 7 días) con la MISMA clase que Android
+        // (`RoadNetworkCache`, en `commonMain` desde el 2026-08-20). Solo se baja en el primer
+        // arranque de cada celda; a partir de ahí el mundo abre sin tocar la red.
+        // 1) Room primero. Si la celda está guardada y no ha caducado, el mundo arranca SIN red
+        //    y sin gastar una petición a Overpass — que es justo lo que evita el 429.
+        val guardadas = cacheCalles?.get(ESCOM_LAT, ESCOM_LON)
+        if (!guardadas.isNullOrEmpty()) {
+            cerebro.updateRoadNetwork(guardadas)
+            estadoCalles = EstadoCalles.LISTO
+            return@LaunchedEffect
+        }
+
+        // 2) Y si no, se baja y SE GUARDA para la próxima.
         repeat(INTENTOS_CALLES) { intento ->
             val calles = OverpassRepository().fetchRoadNetwork(ESCOM_LAT, ESCOM_LON)
             if (calles.isNotEmpty()) {
+                cacheCalles?.put(ESCOM_LAT, ESCOM_LON, calles)
                 cerebro.updateRoadNetwork(calles)
                 estadoCalles = EstadoCalles.LISTO
                 return@LaunchedEffect
@@ -138,6 +149,7 @@ fun MapaMundoIos(alVolver: () -> Unit) {
             estadoCalles = EstadoCalles.REINTENTANDO
             delay(4000L * (intento + 1))
         }
+
         // Se dice en pantalla: sin esto, "Overpass me limitó" y "el código no funciona" se ven igual.
         estadoCalles = EstadoCalles.SIN_RED
     }

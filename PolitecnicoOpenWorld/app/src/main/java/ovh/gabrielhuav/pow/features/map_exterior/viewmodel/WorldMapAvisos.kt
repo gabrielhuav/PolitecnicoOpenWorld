@@ -37,3 +37,15 @@ internal fun WorldMapViewModel.devAvisarConTitulo(prefijo: String, titulo: Strin
         devShowTpPromptInterno(prefijo + (titulo?.let { getString(it) } ?: respaldo))
     }
 }
+
+/**
+ * Aviso EFÍMERO de plataforma (el `Toast` de Android) con un texto de `composeResources`.
+ *
+ * ⚠️ **No confundir con [avisarConTitulo]**, que escribe en `interactionPrompt`. Aquel es un aviso
+ * DEL JUEGO, se pinta dentro del mundo y existe igual en las dos plataformas; este es para errores
+ * y para el Modo Desarrollador, y lo resuelve cada plataforma a su manera
+ * ([WorldMapEnvironment.avisar]).
+ */
+internal fun WorldMapViewModel.avisarDesdeRecurso(recurso: StringResource) {
+    viewModelScope.launch { entorno.avisar(getString(recurso)) }
+}

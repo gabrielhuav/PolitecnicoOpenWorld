@@ -244,20 +244,64 @@ configuración o vuelve a pasar.
 |---|---|---|
 | `SPRITES/ICONS` | 8 KB | ✅ los dos SVG de peatón y coche |
 | `SPRITES/VEHICLES` | 1,6 MB | ✅ 48 frames de rotación por modelo, ya recortados |
-| `SPRITES/NPC` | **70 MB** | ❌ son ATLAS que hay que recortar por celda, y ese compositor no existe en iOS |
+| `SPRITES/NPC/npc_walk_1` | 356 KB | ✅ los 8 fotogramas de caminar |
+| `SPRITES/NPC/hair` | 68 KB | ✅ los cinco peinados |
+| El resto de `SPRITES/NPC` | ~69 MB | ❌ personajes de campaña e interiores, que en iOS aún no existen |
 
 Se copian en la fase *"Assets de SF al bundle"* del proyecto Xcode (un `rsync` por carpeta), **no**
 añadiendo carpetas al target: tocar el `project.pbxproj` es justo lo que este proyecto evita.
 
-### La diferencia REAL con Android, para que no sorprenda
+⚠️ **Corrección de una suposición que costó tiempo:** los peatones **NO son atlas**. Se creyó que
+`SPRITES/NPC` eran rejillas que había que recortar por celda (por el `NPC_random_1_walk.webp` de
+1254×1254 que hay suelto), pero `CharacterSpriteManager.getAnimationFrames` abre
+`SPRITES/NPC/<carpeta>/<prefijo><i>.webp`: **ficheros sueltos por fotograma**, de ~193×249. Lo que
+falta en iOS no es un recortador de atlas, es el **compositor modular** (cuerpo + pelo, cada uno
+repintado con su color) — y todas sus piezas (`PowImagen`, `tintarCarroceria`) ya son
+multiplataforma.
 
-Android **compone** cada sprite (rota el coche y lo **tinta** con `carColor`) y lo manda al WebView
-como base64 en `window.imgCache`. iOS mete en `imgCache` una **URL `pow-asset://`** — al JS le da
-igual, solo hace `img.src = imgCache[clave]` — pero eso significa que:
+### Cómo llega el sprite al WebView: base64 en Android, URL en iOS
 
-- **los coches de iOS salen BLANCOS**: `carColor` se ignora porque no hay tintado;
-- **los peatones NO son los personajes**, sino `SPRITES/ICONS/ic_npc_person.svg` (la tercera rama
-  del `updateNpcs` del HTML), hasta que exista el recortador de atlas.
+Android **no puede servir archivos** a su `WebView`, así que compone el bitmap (rota + repinta) y lo
+manda entero como `data:` base64 dentro de una llamada JS. iOS **sí puede** (`AssetsWebIos`), así
+que mete en `imgCache` una **URL** y el trabajo se hace del otro lado. Al JS le da igual: solo hace
+`img.src = imgCache[clave]`.
+
+🎨 **Los coches van PINTADOS y con el mismo algoritmo que Android** (2026-08-20): el mapa pide
+`pow-asset:///__tinte/<rrggbb>/SPRITES/VEHICLES/…webp` y `TintadoWebIos` lo resuelve llamando a
+**`tintarCarroceria`, que vive en `commonMain`** (`TintadoVehiculo.kt`) y lo comparten las dos
+plataformas. Antes ese cálculo estaba dentro de `VehicleSpriteManager` mezclado con `Bitmap`; ahora
+Android solo pone el ir y venir de píxeles. Ocho tests de `commonTest` lo cubren.
+
+⚠️ **No se puede hacer con un `filter` de CSS**, que es la tentación obvia: el repintado es
+SELECTIVO (respeta las luces rojas y ámbar, los rines y los faros) y un filtro pinta el sprite
+entero. Y ⚠️ **el PNG se pide en `RGBA_8888` explícito, nunca en el `N32` de Skia**: en Apple `N32`
+es BGRA, así que un coche rojo saldría azul sin ningún error.
+
+🧍 **Y los PEATONES van armados** (2026-08-20): el mapa pide
+`pow-asset:///__npc/<carpeta>/<prefijo>/<fotograma>/<pelo>/<colores>` y `PersonajeWebIos` monta el
+NPC con **`tintarPersonaje` + `componerEncima`, los dos en `commonMain`** — cuerpo en gris
+repintado con la playera y el pantalón, y el pelo encima repintado aparte. Es lo mismo que hace
+`CharacterSpriteManager` en Android, que ahora llama a ese mismo cálculo en vez de tener el suyo.
+
+⚠️ **Los sprites se decodifican a 1/4 (512×512 → 128×128) y el cuerpo y el pelo con el MISMO
+divisor.** En el mapa se ven a ~12 px: generar el PNG a tamaño completo es medio megapíxel que
+nadie llega a ver, por cada fotograma y cada atuendo. Si se redujeran distinto, dejarían de encajar
+y `componerEncima` corta con su `require`.
+
+### 🗺️ Y las calles ya no se piden en cada arranque
+
+`RoadNetworkCache` bajó a **`commonMain`** el 2026-08-20 (antes solo existía en `:app`). iOS le
+pedía a Overpass la red entera cada vez que se abría el mundo y **se comía un 429**, que en pantalla
+se ve como un mundo sin un solo NPC — porque `updateNpcs` sale por `if (!networkIsReady) return`.
+Ahora la red se guarda en Room por celdas de ~2 km con TTL de 7 días, igual que Android.
+
+Medido en el simulador: primer arranque `MISS → Descarga OK: 2512 ways → GUARDADO OK (11 946
+nodos)`; segundo arranque `HIT: 2512 ways`, **sin tocar la red**.
+
+⚠️ Al bajarla hubo que cambiar exactamente las tres cosas de `09 §KMP`: `android.util.Log` →
+`powLog`, `Dispatchers.IO` → `Dispatchers.Default` (no existe en Native) y
+`System.currentTimeMillis()` → `ahoraMs()`. **Ninguna de las tres da error de compilación en
+Android**, así que si se copiara la clase en vez de moverla, el TTL de iOS se rompería en silencio.
 
 ### El ajuste emoji ↔ sprites es el MISMO que Android
 
