@@ -27,7 +27,9 @@ import platform.UIKit.setNeedsUpdateOfSupportedInterfaceOrientations
  *
  * 1. **DECLARAR** la orientación: el `UIViewController` raíz tiene que devolverla en
  *    `supportedInterfaceOrientations`. **Eso NO se puede hacer desde Kotlin** (ver abajo) → lo hace
- *    `PowOrientationHostController`, en `iosApp/POW/ContentView.swift`, que lee [esHorizontal].
+ *    `PowAppDelegate`, en `iosApp/POW/POWApp.swift`, que lee [esHorizontal]. Va en el AppDelegate y
+ *    no en un `UIViewController` propio porque con SwiftUI el raíz es un `UIHostingController`, que
+ *    **no** consulta a sus hijos.
  * 2. **PEDIRLA**: `requestGeometryUpdate` sobre la `UIWindowScene`, que es lo que hace girar la
  *    pantalla en el momento. Eso sí es Kotlin y está aquí, en [aplicar].
  *
@@ -55,7 +57,7 @@ import platform.UIKit.setNeedsUpdateOfSupportedInterfaceOrientations
 object OrientacionPow {
 
     /**
-     * `true` = la app debe ir en horizontal. **Lo lee Swift** (`PowOrientationHostController`).
+     * `true` = la app debe ir en horizontal. **Lo lee Swift** (`PowAppDelegate`, en `POWApp.swift`).
      *
      * Es un `Boolean` y no la máscara de UIKit a propósito: cruzar un `UIInterfaceOrientationMask`
      * (un option-set de `NSUInteger`) por el puente a Swift obliga a convertir tipos en el lado

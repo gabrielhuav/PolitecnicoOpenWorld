@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,6 +28,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlinx.coroutines.delay
 import ovh.gabrielhuav.pow.data.repository.OverpassRepository
+import ovh.gabrielhuav.pow.data.repository.iosSettingsRepository
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.map.Npc
@@ -97,6 +97,19 @@ fun MapaMundoIos(alVolver: () -> Unit) {
     // Texto del aviso de "esta función todavía no está". `null` = no hay nada que decir.
     var aviso by remember { mutableStateOf<String?>(null) }
 
+    // ⏳ `true` en cuanto el HTML del mapa terminó de cargar y ya acepta llamadas.
+    var htmlListo by remember { mutableStateOf(false) }
+
+    // ⚠️ El `remember` NO es por rendimiento: `navigationDelegate` es una referencia DÉBIL y sin
+    // alguien que lo sostenga se libera y el aviso de carga no llega nunca (ver `CargaMapaIos`).
+    val carga = remember { CargaMapaIos { htmlListo = true } }
+
+    // 🧍/🚗 ¿Emoji o sprites de verdad? Es el ajuste "Optimizar para gama baja"
+    // (`npcFullEmoji`) de Jugabilidad, el MISMO que ya usaba Android en su mapa web. Se lee una
+    // vez al entrar: cambiarlo a media partida no es un caso que exista (se cambia en Ajustes,
+    // que es otra pantalla).
+    val usarEmoji = remember { iosSettingsRepository().getNpcFullEmoji() }
+
     // 🧱 Los muros del campus. Se leen UNA vez del bundle (`assets/CONFIG/`) y no cambian.
     // ⚠️ Si el archivo faltara, `cargarColisionesExteriores` devuelve vacío y se puede atravesar
     // todo: es su modo degradado a propósito — mejor un mundo sin bardas que un crash al entrar.
@@ -149,7 +162,7 @@ fun MapaMundoIos(alVolver: () -> Unit) {
             // (pasó: decía "2" con 25 en pantalla). Además evita leer la lista desde la UI
             // mientras la IA la muta.
             npcs = cerebro.getServerNpcs().toList()
-            puente?.actualizarNpcs(npcs)
+            puente?.actualizarNpcs(npcs, usarEmoji = usarEmoji)
             delay(33)
         }
     }
@@ -167,6 +180,10 @@ fun MapaMundoIos(alVolver: () -> Unit) {
                 val config = WKWebViewConfiguration().apply {
                     // El mapa ES Leaflet entero: sin JS no hay nada que ver.
                     defaultWebpagePreferences.allowsContentJavaScript = true
+                    // 🖼️ LOS ASSETS DEL MUNDO. Sin este manejador el HTML pide
+                    // `pow-asset:///SPRITES/…` y WebKit lo descarta sin decir nada: es lo que
+                    // dejaba el mapa sin un solo sprite. Ver `AssetsWebIos`.
+                    setURLSchemeHandler(AssetsWebIos(), forURLScheme = ESQUEMA_ASSETS_POW)
                     // 🌉 LA VUELTA DEL PUENTE (JS → Kotlin). El shim define `window.Android`, que es
                     // lo que llama el HTML COMPARTIDO, así que el mapa no sabe en qué plataforma
                     // corre. Ver `PuenteJsIos`.
@@ -195,15 +212,17 @@ fun MapaMundoIos(alVolver: () -> Unit) {
                 WKWebView(frame = CGRectZero.readValue(), configuration = config).apply {
                     // Sin esto el mapa "rebota" al llegar al borde y se siente roto para un juego.
                     scrollView.bounces = false
+                    // ⏳ Quien avisa de que el HTML ya existe. Sin esto, el estado inicial se
+                    // empujaba antes de tiempo y la guarda del puente se lo tragaba (ver
+                    // `CargaMapaIos`: es lo que dejaba el toque del mapa muerto para siempre).
+                    navigationDelegate = carga
                     val html = buildHtml(
                         lat = ESCOM_LAT,
                         lng = ESCOM_LON,
                         zoom = ZOOM_JUEGO,
-                        // ⚠️ Los assets del mundo NO están en el bundle de iOS (solo los de SF y los
-                        // coleccionables). Da igual el prefijo que se pase: sin inyección de datos
-                        // el HTML no pide ni una imagen. Cuando llegue el puente JS, esto tendrá que
-                        // apuntar a un manejador de esquema de verdad.
-                        assetBaseUrl = PREFIJO_ASSETS_PENDIENTE,
+                        // 🖼️ Los sprites del mundo salen del bundle por `pow-asset://`, que resuelve
+                        // `AssetsWebIos` (registrado arriba en la configuración).
+                        assetBaseUrl = PREFIJO_ASSETS_POW,
                     )
                     // baseURL nula: Leaflet y las teselas de OSM son URLs absolutas HTTPS, así que
                     // no hay nada relativo que resolver.
@@ -214,17 +233,20 @@ fun MapaMundoIos(alVolver: () -> Unit) {
             modifier = Modifier.fillMaxSize(),
         )
 
-        // ⚠️ El primer empujón NO puede salir en cuanto se crea la vista: el HTML todavía se está
-        // cargando y las funciones JS aún no existen (la guarda del puente lo tragaría en silencio
-        // y el jugador no aparecería). `DisposableEffect` corre tras la primera composición, que
-        // en la práctica ya llega tarde para el `loadHTMLString`. Aun así el puente reintenta en
-        // cada movimiento, así que el marcador aparece al primer toque de los controles.
-        DisposableEffect(puente) {
-            puente?.moverJugador(jugador)
+        // 🌉 EL ESTADO INICIAL, cuando el HTML ya puede recibirlo.
+        //
+        // ⚠️ Antes esto era un `DisposableEffect` que corría justo tras crear la vista, o sea con
+        // la página todavía cargando: las dos llamadas se perdían en silencio (la guarda
+        // `typeof f === 'function'` del puente). El marcador del jugador se recuperaba al primer
+        // paso, pero `modoColocarDestino` **no se recuperaba nunca** y el toque en el mapa quedaba
+        // muerto. Ahora lo dispara `CargaMapaIos` desde `didFinishNavigation`.
+        LaunchedEffect(puente, htmlListo) {
+            if (!htmlListo) return@LaunchedEffect
+            val p = puente ?: return@LaunchedEffect
+            p.moverJugador(jugador)
             // El JS solo avisa de los toques si el modo "colocar destino" está encendido, y lo
             // apaga tras cada uno. Se enciende aquí para que el PRIMER toque ya funcione.
-            puente?.modoColocarDestino(true)
-            onDispose { }
+            p.modoColocarDestino(true)
         }
 
         // El cartel de honestidad. Va ARRIBA y con `systemBarsPadding` porque el mapa se dibuja a

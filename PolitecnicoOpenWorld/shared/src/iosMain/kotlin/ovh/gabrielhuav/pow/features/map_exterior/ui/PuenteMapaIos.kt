@@ -72,14 +72,54 @@ class PuenteMapaIos(private val webView: WKWebView) {
      * mapa a 16 se manda todo correctamente y no aparece un solo NPC, sin ningún error. Por eso el
      * mundo de iOS va a 17.
      */
-    fun actualizarNpcs(npcs: List<Npc>) {
+    fun actualizarNpcs(npcs: List<Npc>, usarEmoji: Boolean = true) {
         val datos = npcs.joinToString(",", prefix = "[", postfix = "]") { npc ->
-            val tipo = if (npc.type == NpcType.CAR || npc.type == NpcType.POLICE_CAR) "CAR" else "MODULAR"
-            """{"id":"${npc.id}","lat":${npc.location.latitude},"lng":${npc.location.longitude},""" +
-                """"type":"$tipo","health":${npc.health},"isDying":${npc.isDying}}"""
+            val esCoche = npc.type == NpcType.CAR || npc.type == NpcType.POLICE_CAR
+            val comun = """"id":"${npc.id}","lat":${npc.location.latitude},""" +
+                """"lng":${npc.location.longitude},"health":${npc.health},""" +
+                """"isDying":${npc.isDying}"""
+            when {
+                // 🚗🧍 EMOJI: `CAR`/`MODULAR` SIN `imageKey` → el JS cae en su respaldo de emoji.
+                usarEmoji -> """{$comun,"type":"${if (esCoche) "CAR" else "MODULAR"}"}"""
+
+                // 🚗 COCHE REAL: el sprite del ángulo que toca, servido del bundle.
+                esCoche -> {
+                    val clave = claveDeCoche(npc)
+                    registrarImagen(clave, PREFIJO_ASSETS_POW + rutaDeCoche(npc))
+                    """{$comun,"type":"CAR","imageKey":"$clave","width":1,"height":1}"""
+                }
+
+                // 🧍 PERSONA REAL: la TERCERA rama del JS, que pinta
+                // `SPRITES/ICONS/<drawable>.svg` como archivo. No pasa por `imgCache`.
+                else -> """{$comun,"type":"${npc.type.name}","drawable":"${npc.type.drawableName}"}"""
+            }
         }
         llamar("updateNpcs($datos)")
     }
+
+    /**
+     * Mete una URL en el `imgCache` del HTML, que es de donde `updateNpcs` saca el sprite.
+     *
+     * ⚠️ **Android guarda ahí un `data:` en base64 y aquí va una URL `pow-asset://`, y eso NO es
+     * un atajo**: el JS solo hace `img.src = imgCache[clave]`, así que le da igual el formato. En
+     * Android hay que componer el bitmap (rotarlo y **tintarlo** con el color del coche) y por eso
+     * acaba en base64; en iOS no hay compositor de sprites todavía, así que se sirve el archivo
+     * tal cual y **los coches salen blancos**: `carColor` se ignora. Es la diferencia visible
+     * entre las dos plataformas hoy, y está aquí para que se vea sin bucear.
+     *
+     * Solo se manda una vez por clave: son ~48 frames por modelo y reenviarlos en cada tic de
+     * 33 ms sería kilobytes de JS por segundo para nada.
+     */
+    private fun registrarImagen(clave: String, url: String) {
+        if (!imagenesRegistradas.add(clave)) return
+        // `imgCache` lo crea Android desde Kotlin; aquí hay que crearlo igual antes de escribir.
+        webView.evaluateJavaScript(
+            "if(!window.imgCache) window.imgCache={}; window.imgCache['$clave']='$url';",
+            completionHandler = null,
+        )
+    }
+
+    private val imagenesRegistradas = mutableSetOf<String>()
 
     /**
      * Enciende el modo "el próximo toque coloca el destino".
@@ -100,6 +140,10 @@ class PuenteMapaIos(private val webView: WKWebView) {
     /**
      * Ejecuta [js] en el mapa, con la guarda de "existe la función" delante.
      *
+     * ⚠️ **La guarda hace que una llamada que llega ANTES de que cargue el HTML se pierda en
+     * silencio.** Para lo que se manda en bucle (jugador, NPCs) da igual, se reintenta solo; para
+     * lo que se manda UNA vez, no: ver [CargaMapaIos], que es quien decide cuándo es seguro.
+     *
      * ⚠️ [js] tiene que ser **una llamada**, `nombre(args)`. Se parte por el primer paréntesis para
      * sacar el nombre y comprobarlo antes.
      */
@@ -111,3 +155,44 @@ class PuenteMapaIos(private val webView: WKWebView) {
         )
     }
 }
+
+/**
+ * En qué frame de rotación cae el coche. **La fórmula es la de Android** (`WorldMapScreenWeb.kt`):
+ * 48 frames = uno cada 7.5°.
+ */
+private fun frameDeCoche(npc: Npc): Int {
+    val cuantos = if (npc.isPoliceSkin || npc.type == NpcType.POLICE_CAR) 48 else npc.carModel.frameCount
+    var angulo = npc.rotationAngle % 360f
+    if (angulo < 0f) angulo += 360f
+    val paso = 360f / cuantos
+    return ((angulo / paso).toInt()) % cuantos
+}
+
+/**
+ * Clave del `imgCache`. Lleva el modelo y el frame porque **cada ángulo es un archivo distinto**;
+ * NO lleva el color, a diferencia de Android, porque aquí no se tinta (ver `registrarImagen`).
+ */
+private fun claveDeCoche(npc: Npc): String =
+    if (npc.isPoliceSkin || npc.type == NpcType.POLICE_CAR) "POLICE_${frameDeCoche(npc)}"
+    else "${npc.carModel.name}_${frameDeCoche(npc)}"
+
+/**
+ * Ruta del sprite dentro de `assets/`.
+ *
+ * ⚠️ **La patrulla NO está en `SPRITES/VEHICLES`**, sino en `SPRITES/VEHICLES/POLICE_TOPDOWN`. En
+ * Android eso lo resuelve `PoliceSpriteManager`; aquí es una rama del `when` y si se olvida, la
+ * patrulla cae al 404 y sale el icono de imagen rota.
+ */
+private fun rutaDeCoche(npc: Npc): String {
+    val n = frameDeCoche(npc)
+    if (npc.isPoliceSkin || npc.type == NpcType.POLICE_CAR) {
+        // ⚠️ La patrulla usa CUATRO dígitos (`…ALLD0000.webp`) y los civiles TRES
+        // (`…All_000.webp`). No es un descuido de este archivo: es como están los assets, y así
+        // lo hacen también `PoliceSpriteManager` y `VehicleSpriteManager` en Android.
+        return "SPRITES/VEHICLES/POLICE_TOPDOWN/$PREFIJO_PATRULLA${n.toString().padStart(4, '0')}.webp"
+    }
+    return "SPRITES/VEHICLES/${npc.carModel.dirName}/" +
+        "${npc.carModel.prefix}${n.toString().padStart(3, '0')}.webp"
+}
+
+private const val PREFIJO_PATRULLA = "POLICE_CLEAN_ALLD"

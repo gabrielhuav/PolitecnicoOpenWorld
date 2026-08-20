@@ -225,6 +225,49 @@ Android y que el modo pelea. **Los controles son los mismos en las dos plataform
 
 ---
 
+## 4quinquies. 🖼️🍏 Los SPRITES del mapa en iOS (`pow-asset://`)
+
+El HTML del mapa es **el mismo que Android**, y allí las imágenes cuelgan de
+`file:///android_asset/`, que en iOS no existe. En vez de bifurcar el HTML se parametrizó el
+prefijo (`buildHtml(assetBaseUrl:)`) y iOS pasa `pow-asset:///`, que resuelve **`AssetsWebIos`**
+(un `WKURLSchemeHandler` en Kotlin) leyendo del bundle con `PowAssets`.
+
+⚠️ **Ese manejador ya existía en Swift** (`MapaWeb.swift`) para una vista de prueba que no usa
+nadie, pero `MapaMundoIos` monta su **propia** `WKWebViewConfiguration` desde Kotlin y no
+registraba ninguno: el HTML pedía los sprites y WebKit los descartaba **sin un solo error**. Por eso
+el mapa de iOS salió meses sin una imagen. Si añades otro `WKWebView`, el manejador va en su
+configuración o vuelve a pasar.
+
+### Qué viaja al bundle y qué no
+
+| Carpeta | Tamaño | ¿Al bundle? |
+|---|---|---|
+| `SPRITES/ICONS` | 8 KB | ✅ los dos SVG de peatón y coche |
+| `SPRITES/VEHICLES` | 1,6 MB | ✅ 48 frames de rotación por modelo, ya recortados |
+| `SPRITES/NPC` | **70 MB** | ❌ son ATLAS que hay que recortar por celda, y ese compositor no existe en iOS |
+
+Se copian en la fase *"Assets de SF al bundle"* del proyecto Xcode (un `rsync` por carpeta), **no**
+añadiendo carpetas al target: tocar el `project.pbxproj` es justo lo que este proyecto evita.
+
+### La diferencia REAL con Android, para que no sorprenda
+
+Android **compone** cada sprite (rota el coche y lo **tinta** con `carColor`) y lo manda al WebView
+como base64 en `window.imgCache`. iOS mete en `imgCache` una **URL `pow-asset://`** — al JS le da
+igual, solo hace `img.src = imgCache[clave]` — pero eso significa que:
+
+- **los coches de iOS salen BLANCOS**: `carColor` se ignora porque no hay tintado;
+- **los peatones NO son los personajes**, sino `SPRITES/ICONS/ic_npc_person.svg` (la tercera rama
+  del `updateNpcs` del HTML), hasta que exista el recortador de atlas.
+
+### El ajuste emoji ↔ sprites es el MISMO que Android
+
+`npcFullEmoji` ("Optimizar para gama baja", en Jugabilidad). Encendido, `PuenteMapaIos` manda
+`CAR`/`MODULAR` **sin `imageKey`** y el HTML cae en su respaldo de 🚗/🧍 — cero archivos, cero
+decodificación. Apagado, manda los sprites de arriba. **Se lee al ENTRAR al mapa**, así que un
+cambio en Ajustes se nota al volver a entrar, no en caliente.
+
+---
+
 ## 4bis. 🍏 Dónde vive la navegación de iOS
 
 Todo el juego en iOS es **un solo `ComposeUIViewController`**, y su interior es un `when`:

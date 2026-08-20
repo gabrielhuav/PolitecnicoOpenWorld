@@ -1442,6 +1442,33 @@ escribieron en Windows, donde los targets iOS ni se configuran: nada de esto se 
    import el error es un simple *"Unresolved reference"* que despista.
    **Regla:** si hay que RESPONDER a UIKit (no solo pedirle algo), esa mitad va en Swift. Ver
    `platform/orientacion/OrientacionIos.kt` + `iosApp/POW/POWApp.swift`.
+6. **🆕 Dos métodos de un PROTOCOLO ObjC pueden colapsar en la MISMA firma de Kotlin
+   (2026-08-20).** `WKURLSchemeHandler` declara `webView:startURLSchemeTask:` y
+   `webView:stopURLSchemeTask:`; en Objective-C son selectores distintos, pero Kotlin/Native los
+   ve como dos `webView(WKWebView, WKURLSchemeTaskProtocol)` y corta con **"Conflicting
+   overloads"**. La salida NO es renombrar (romperías el selector y el protocolo dejaría de
+   cumplirse): es **`@ObjCSignatureOverride`** —de `kotlinx.cinterop`, **no** de `kotlin.native`,
+   que es donde se busca primero— en **las dos** implementaciones. Medido en `AssetsWebIos.kt`.
+7. **🆕 Los delegados de UIKit son referencias DÉBILES, y en Kotlin eso se traga al recolector
+   (2026-08-20).** `webView.navigationDelegate = CargaMapaIos { … }` compila, corre y **el callback
+   no llega nunca**: nadie sostiene el objeto y se libera enseguida. En Swift el compilador y el
+   ciclo de vida de la vista lo disimulan; aquí no. El delegado tiene que vivir en un `remember`
+   (o en un campo). ⚠️ Ojo con la asimetría: `addScriptMessageHandler` **sí** retiene fuerte, así
+   que `PuenteJsIos` no necesita nada y `CargaMapaIos` sí — y no hay forma de saberlo mirando el
+   código de Kotlin. Ver `MapaMundoIos.kt`.
+
+⚠️ **En `WKWebView`, una llamada JS que se hace UNA SOLA VEZ no puede salir antes de que cargue
+el HTML — y la guarda que lo protege es justo la que lo esconde.** `PuenteMapaIos` envuelve todo en
+`if (typeof f === 'function')` porque un `ReferenceError` en `WKWebView` **no se ve en ninguna
+parte**. Correcto, pero convierte "todavía no" en "nunca" para lo que no se reintenta. Medido el
+2026-08-20: el estado inicial se empujaba justo tras `loadHTMLString`, así que se perdían
+`updatePlayerMarker` (se recuperaba al primer paso, porque cada paso lo reintenta) y
+`updateDestinationPlacingMode(true)` (**no se recuperaba nunca**: el JS solo avisa del toque si el
+modo está encendido, lo apaga tras cada toque, y quien lo volvía a encender era el manejador del
+toque, que no llegaba a correr). Resultado: el toque en el mapa muerto y la sospecha equivocada de
+que el `WKScriptMessageHandler` estaba roto, cuando **nunca llegó a armarse**. La costura es
+`CargaMapaIos` (`WKNavigationDelegate.didFinishNavigation`). **Regla: lo que se manda en bucle
+puede salir cuando sea; lo que se manda una vez, espera al `didFinish`.**
 
 ⚠️ **Un reloj MONÓTONO no puede sustituir a `System.currentTimeMillis()` si la marca CRUZA de
 módulo.** Al bajar `NpcAiManager` a `commonMain` (2026-08-15) lo natural era `TimeSource.Monotonic`
