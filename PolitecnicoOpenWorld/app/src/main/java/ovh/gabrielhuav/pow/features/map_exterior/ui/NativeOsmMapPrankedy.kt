@@ -105,12 +105,16 @@ internal fun renderPrankedyOnMap(
         view.overlays.add(this)
     }
 
-    if (uiState.prankedyProjectileActive && uiState.prankedyProjectileStart != null && uiState.prankedyProjectileTarget != null) {
+    // `WorldMapState` vive en :shared y Kotlin no hace smart cast de propiedades públicas de otro
+    // módulo (09 §12) → se leen a vals locales ANTES del `if`, y es la condición la que los mira.
+    // Sacarlos aquí (en vez de un `?: return` dentro) evita saltarse el `else` que apaga el marcador.
+    val start = uiState.prankedyProjectileStart
+    val end = uiState.prankedyProjectileTarget
+
+    if (uiState.prankedyProjectileActive && start != null && end != null) {
         view.overlays.remove(projMarker)
         view.overlays.add(projMarker)
 
-        val start = uiState.prankedyProjectileStart
-        val end = uiState.prankedyProjectileTarget
         val p = uiState.prankedyProjectileProgress
 
         val currentLat = start.latitude + (end.latitude - start.latitude) * p

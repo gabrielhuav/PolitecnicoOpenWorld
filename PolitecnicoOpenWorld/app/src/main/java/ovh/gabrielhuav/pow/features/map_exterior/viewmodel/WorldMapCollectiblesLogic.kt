@@ -8,6 +8,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
 import ovh.gabrielhuav.pow.domain.models.map.ShineCTOLocation
+import org.jetbrains.compose.resources.getString
+import ovh.gabrielhuav.pow.shared.recursos.Res
+import ovh.gabrielhuav.pow.shared.recursos.wm_press_x_activate_zombie
+import ovh.gabrielhuav.pow.shared.recursos.wm_press_x_deactivate_zombie
+import ovh.gabrielhuav.pow.shared.recursos.wm_press_x_enter
+import ovh.gabrielhuav.pow.shared.recursos.wm_press_x_interact
+import ovh.gabrielhuav.pow.shared.recursos.wm_press_x_pickup
+import ovh.gabrielhuav.pow.shared.recursos.wm_prompt_metro
+import ovh.gabrielhuav.pow.shared.recursos.wm_prompt_metrobus
 
 internal fun WorldMapViewModel.trySpawningCollectible(playerLat: Double, playerLon: Double) {
         if (!_uiState.value.isRoadNetworkReady || roadNetwork.isEmpty()) return
@@ -65,7 +74,7 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
                 collectiblesManager.clearNearby()
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
-                    val promptText = getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_prompt_metro, nearbyMetro.name.uppercase())
+                    val promptText = getString(Res.string.wm_prompt_metro, nearbyMetro.name.uppercase())
                     _uiState.update { it.copy(interactionPrompt = promptText) }
                     kotlinx.coroutines.delay(3000)
                     _uiState.update { it.copy(interactionPrompt = null) }
@@ -91,7 +100,7 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
                 collectiblesManager.clearNearby()
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
-                    val promptText = getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_prompt_metrobus, nearbyMetrobus.name.uppercase())
+                    val promptText = getString(Res.string.wm_prompt_metrobus, nearbyMetrobus.name.uppercase())
                     _uiState.update { it.copy(interactionPrompt = promptText) }
                     kotlinx.coroutines.delay(3000)
                     _uiState.update { it.copy(interactionPrompt = null) }
@@ -160,13 +169,13 @@ internal fun WorldMapViewModel.checkCollectibleProximity(playerLat: Double, play
                 promptJob?.cancel()
                 promptJob = viewModelScope.launch {
                     val promptText = when {
-                        activeItem.id == "global_zombie_hand" -> if (_uiState.value.globalZombieMode) getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_deactivate_zombie) else getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_activate_zombie)
-                        activeItem.name == "Objeto Misterioso ESCOM" -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_interact)
-                        activeItem.id == ShineCTOLocation.MARKER_ID  -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_enter)
-                        activeItem.id.startsWith("escom_door_")      -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_enter) // <--- Aquí aparece el texto de la puerta
+                        activeItem.id == "global_zombie_hand" -> if (_uiState.value.globalZombieMode) getString(Res.string.wm_press_x_deactivate_zombie) else getString(Res.string.wm_press_x_activate_zombie)
+                        activeItem.name == "Objeto Misterioso ESCOM" -> getString(Res.string.wm_press_x_interact)
+                        activeItem.id == ShineCTOLocation.MARKER_ID  -> getString(Res.string.wm_press_x_enter)
+                        activeItem.id.startsWith("escom_door_")      -> getString(Res.string.wm_press_x_enter) // <--- Aquí aparece el texto de la puerta
                         activeItem.id.startsWith("VENDOR_")          -> "[X] Comprar en tienda"
                         activeItem.id.startsWith("CAT_")             -> "[X] Acariciar al gato"
-                        else -> getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_press_x_pickup)
+                        else -> getString(Res.string.wm_press_x_pickup)
                     }
 
                     _uiState.update { it.copy(interactionPrompt = promptText) }

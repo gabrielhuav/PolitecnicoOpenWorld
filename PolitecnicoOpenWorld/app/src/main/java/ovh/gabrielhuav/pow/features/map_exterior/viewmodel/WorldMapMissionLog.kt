@@ -260,8 +260,7 @@ fun WorldMapViewModel.devTeleportToMissionObjective(missionId: String) {
         soundManager.stopRun()
         currentInteriorRoomId = interiorRoom
         _uiState.update { it.copy(devTpRoute = "interiores_zombies?startRoom=$interiorRoom") }
-        devShowTpPrompt("🧪 TP al checkpoint: " +
-            (obj?.let { o -> getLocalizedString(o.titleRes) } ?: interiorRoom))
+        devAvisarConTitulo("🧪 TP al checkpoint: ", obj?.titleRes, interiorRoom)
         return
     }
 
@@ -277,13 +276,13 @@ fun WorldMapViewModel.devTeleportToMissionObjective(missionId: String) {
     // Requisito de la escolta (M1): Prankedy acompañante JUNTO a ti al llegar.
     if (obj.id == MissionCatalog.ESCOLTAR_PRANKEDY.id) devEnsurePrankedyEscort()
     _uiState.update { it.copy(devTpRoute = DEV_TP_TO_MAP) }
-    devShowTpPrompt("🧪 TP al objetivo: ${getLocalizedString(obj.titleRes)}")
+    devAvisarConTitulo("🧪 TP al objetivo: ", obj.titleRes, "")
 }
 
 // Prompt del TP dev con AUTO-LIMPIEZA (~4 s): antes se quedaba pegado en pantalla (y encimado
 // con el widget de objetivo). Solo se borra si sigue siendo EL MISMO texto (no pisa prompts
 // posteriores de misión).
-private fun WorldMapViewModel.devShowTpPrompt(text: String) {
+internal fun WorldMapViewModel.devShowTpPromptInterno(text: String) {
     _uiState.update { it.copy(interactionPrompt = text) }
     viewModelScope.launch {
         delay(4000L)

@@ -430,7 +430,8 @@ matrices por defecto son **border-only** hasta reemplazarse.
   JVM). ⚠️ **El mensaje va al FINAL, no al principio:** JUnit4 es `assertTrue(msg, cond)` y
   kotlin.test es `assertTrue(cond, msg)`. Al mover un test hay que **invertir ese orden** o el
   compilador se queja (o peor: en `assertEquals` de 2 args de String colaría silenciosamente).
-  Reparto actual de los **131** tests: **87 en `:app` + 44 en `:shared`** — CI corre AMBOS
+  Reparto actual de los tests (**MEDIDO en Windows el 2026-08-16**, leído de los XML de
+  `test-results`): **319 = 125 en `:app` + 194 en `:shared`** — CI corre AMBOS
   (`pr-quality-gate.yml`); si mueves más dominio, lo que importa es que la SUMA no baje.
 
 
@@ -1430,6 +1431,70 @@ escribieron en Windows, donde los targets iOS ni se configuran: nada de esto se 
 4. **Los nombres de test con backticks NO admiten `(`, `)` ni `,`** en Kotlin/Native (*"Name
    contains illegal characters"*), y en JVM sí. Al escribir tests en `commonTest`, usa ` - ` en vez
    de paréntesis y quita las comas.
+5. **🆕 Lo que viene de una CATEGORÍA de ObjC se puede LLAMAR, pero no SOBREESCRIBIR (2026-08-17).**
+   Kotlin/Native expone las categorías como **extensiones**, y las extensiones no son
+   sobreescribibles. Medido al forzar la orientación en iOS: un `UIViewController` en Kotlin con
+   `override val supportedInterfaceOrientations` (y también con `fun`) muere con
+   **`'supportedInterfaceOrientations' overrides nothing`**, porque ese miembro vive en la categoría
+   `UIViewController (UIViewControllerRotation)`. En cambio
+   `setNeedsUpdateOfSupportedInterfaceOrientations()`, de la MISMA categoría, sí se llama — solo
+   hay que **importarla explícitamente** (`import platform.UIKit.setNeedsUpdateOf…`), y sin el
+   import el error es un simple *"Unresolved reference"* que despista.
+   **Regla:** si hay que RESPONDER a UIKit (no solo pedirle algo), esa mitad va en Swift. Ver
+   `platform/orientacion/OrientacionIos.kt` + `iosApp/POW/POWApp.swift`.
+6. **🆕 Dos métodos de un PROTOCOLO ObjC pueden colapsar en la MISMA firma de Kotlin
+   (2026-08-20).** `WKURLSchemeHandler` declara `webView:startURLSchemeTask:` y
+   `webView:stopURLSchemeTask:`; en Objective-C son selectores distintos, pero Kotlin/Native los
+   ve como dos `webView(WKWebView, WKURLSchemeTaskProtocol)` y corta con **"Conflicting
+   overloads"**. La salida NO es renombrar (romperías el selector y el protocolo dejaría de
+   cumplirse): es **`@ObjCSignatureOverride`** —de `kotlinx.cinterop`, **no** de `kotlin.native`,
+   que es donde se busca primero— en **las dos** implementaciones. Medido en `AssetsWebIos.kt`.
+7. **🆕 Los delegados de UIKit son referencias DÉBILES, y en Kotlin eso se traga al recolector
+   (2026-08-20).** `webView.navigationDelegate = CargaMapaIos { … }` compila, corre y **el callback
+   no llega nunca**: nadie sostiene el objeto y se libera enseguida. En Swift el compilador y el
+   ciclo de vida de la vista lo disimulan; aquí no. El delegado tiene que vivir en un `remember`
+   (o en un campo). ⚠️ Ojo con la asimetría: `addScriptMessageHandler` **sí** retiene fuerte, así
+   que `PuenteJsIos` no necesita nada y `CargaMapaIos` sí — y no hay forma de saberlo mirando el
+   código de Kotlin. Ver `MapaMundoIos.kt`.
+
+⚠️ **En `WKWebView`, una llamada JS que se hace UNA SOLA VEZ no puede salir antes de que cargue
+el HTML — y la guarda que lo protege es justo la que lo esconde.** `PuenteMapaIos` envuelve todo en
+`if (typeof f === 'function')` porque un `ReferenceError` en `WKWebView` **no se ve en ninguna
+parte**. Correcto, pero convierte "todavía no" en "nunca" para lo que no se reintenta. Medido el
+2026-08-20: el estado inicial se empujaba justo tras `loadHTMLString`, así que se perdían
+`updatePlayerMarker` (se recuperaba al primer paso, porque cada paso lo reintenta) y
+`updateDestinationPlacingMode(true)` (**no se recuperaba nunca**: el JS solo avisa del toque si el
+modo está encendido, lo apaga tras cada toque, y quien lo volvía a encender era el manejador del
+toque, que no llegaba a correr). Resultado: el toque en el mapa muerto y la sospecha equivocada de
+que el `WKScriptMessageHandler` estaba roto, cuando **nunca llegó a armarse**. La costura es
+`CargaMapaIos` (`WKNavigationDelegate.didFinishNavigation`). **Regla: lo que se manda en bucle
+puede salir cuando sea; lo que se manda una vez, espera al `didFinish`.**
+
+⚠️ **Un reloj MONÓTONO no puede sustituir a `System.currentTimeMillis()` si la marca CRUZA de
+módulo.** Al bajar `NpcAiManager` a `commonMain` (2026-08-15) lo natural era `TimeSource.Monotonic`
+—es lo que ya usa `PoliceManager`—, pero ese manager escribe `Npc.fearUntil`/`aggroUntil` y quien
+las compara es el `WorldMapViewModel`, que sigue en `:app` con `System.currentTimeMillis()`. Dos
+orígenes distintos = un `aggroUntil` de cinco mil contra un `now` de un billón y medio: **todos los
+NPCs pierden miedo y agresión al instante**, sin error de compilación y sin test rojo. La costura es
+**`ahoraMs()`** (`platform/tiempo/PowReloj.kt`), que usa `kotlin.time.Clock` y da el MISMO valor de
+época en las dos plataformas. Regla: mientras quede una sola línea comparando esas marcas con
+`System.currentTimeMillis()`, el reloj compartido tiene que ser de época.
+
+⚠️ **`synchronized(x)` desde otro módulo NO excluye al cerrojo interno de las colecciones `Pow*`.**
+`pendingDespawns` se drenaba con `synchronized(lista) { toList(); clear() }` desde `:app`. Al pasar
+la lista a `PowListaConcurrente`, ese candado sigue COMPILANDO y ya no protege: entre el `toList()`
+y el `clear()` cabe un `add` de la IA, y **ese despawn se pierde** — lo cual no se ve en este
+cliente, se ve en los OTROS, con un NPC fantasma. Por eso las colecciones concurrentes llevan
+operaciones compuestas (`PowListaConcurrente.drenar()`, `PowMapaConcurrente.calcular`): **si
+necesitas leer-y-modificar, la operación va DENTRO de la clase**, no en el call-site.
+
+⚠️ **Buscar un símbolo en una klib NO prueba que exista API de Kotlin.** Una klib de Skiko/Compose
+lleva dentro la librería nativa entera, así que `strings` encuentra también los símbolos C++ de
+Skia. Pasó al escribir `PowImagenReducida.ios.kt` desde Windows: `getScaledDimensions` aparece en
+`skiko-iosSimulatorArm64Main-0.144.6.klib`, pero es `SkCodecImageGenerator::getScaledDimensions` en
+C++ — el `Codec` de Kotlin solo expone `readPixels`, sin sample size. **Los símbolos de Kotlin son
+los que van con firma de Kotlin** (`readPixels(org.jetbrains.skia.Bitmap){}`); los que empiezan por
+`__ZN`/`__ZNK` son C++ y no se pueden llamar. Verificado en el Mac el 2026-08-14.
 
 ⚠️ **Y la trampa que no es de código: la ABI de las klibs.** Las librerías multiplataforma publican
 klibs de Kotlin/Native con una `abi_version` fija, y **no son compatibles hacia adelante**: un
@@ -1457,7 +1522,7 @@ deja registros huérfanos en CoreSimulator.
 
 ### ⚠️ Esta lista es solo de COMPILACIÓN. La otra mitad no compila mal: se ve mal.
 
-Hay una segunda familia de fallos de iOS que **pasa los 228 tests y compila sin un warning**, y solo
+Hay una segunda familia de fallos de iOS que **pasa los 319 tests y compila sin un warning**, y solo
 aparece al abrir el simulador: el idioma que no cambia, la imagen que sale gris porque el asset no
 viajó al bundle, el botón bajo la barra de estado. Están en
 **[`11_SEPARACION_IOS_ANDROID.md`](11_SEPARACION_IOS_ANDROID.md) §8bis**, con la causa medida de

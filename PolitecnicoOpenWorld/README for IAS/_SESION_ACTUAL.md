@@ -3,22 +3,40 @@
 > Único traspaso entre IAs. Ventana de 2 días; máximo 200 líneas. Aquí va estado medido,
 > trabajo abierto y trampas caras. Diseño e historia viven en los documentos de cada área.
 
-**Última actualización:** 2026-08-01 · Sol 5.6 (Windows, escritorio) · rama `perf-gama-baja-coleccionables`
+**Última actualización:** 2026-08-16 · Opus 5 (**Windows, con emulador**) · rama `ios/verificacion-mac-1.0.0.17`
 
-> ➡️ **Release Android 1.0.0.15 listo para PR/merge a `main`.** El merge dispara
-> `.github/workflows/android-release.yml` y sube a Play `alpha` (prueba cerrada).
+> ➡️ **08-16: lo que la Mac dejó COMPILANDO ya está PROBADO EN ANDROID.** Esa rama cerró fases 3 y 4
+> y movió `NpcAiManager` + `OverpassRepository` a `commonMain`, pero en el Mac no hay AVD. Esta
+> sesión lo abrió en el emulador (`Nexus`, API 35), que es donde se ven los fallos que ningún test
+> caza. **319 tests = 125 app + 194 shared**, 0 fallos, y **detekt exit 0** (medido en Windows).
 >
-> **Android YA está verificado en emulador y arreglado.** Se probó ACTUALIZANDO encima de un build
-> de `main` con partida hecha, que es la prueba que vale: **saves, ajustes, idioma, sesión de
-> arcade y la BD sobreviven intactos**. Había **3 regresiones jugables** (música que rebobina,
-> preview borrosa, el `"?"` al elegir peleador): corregidas y medidas en `016e7406`.
+> ✅ **Títulos de misión desde `composeResources`** (fase 4): correctos en el widget de OBJETIVO y en
+> el registro, **en español Y en inglés**, misiones 1-3 + las 2 secundarias, con el idioma del texto
+> migrado y el de los `R.string` de alrededor SIEMPRE de acuerdo. El apóstrofe de EN sale bien.
+> ✅ **Mundo abierto ~35 min**, en los DOS renderers (web y **OSM nativo**): peatones, tráfico,
+> aparcar, despawn por distancia, niebla, WASTED y respawn. Cero excepciones.
+> ✅ **Calles por Ktor en RELEASE con R8**: borrada `pow_roads.db`, el APK minificado descargó
+> **2512 ways / 11 946 nodos** y los guardó. Los `-keep` del `HttpClientEngineContainer` bastan.
+> ✅ **Marcador de destino y proyectil de Prankedy** en el OSM nativo (los dos archivos del gotcha
+> de smart cast, 09 §12): waypoint colocado con ruta de 3 puntos, e impacto de la lata aplicando daño.
+> ✅ **Migración de datos**: `install -r -d` sobre una partida de 1.0.0.14 conservó los 3 slots.
 >
-> ✅ Corregidos idioma Android 13+ para `:shared`, el `"?"` del selector y la IA de SF: en IA vs IA
-> la barra llena fuerza SUPER ART; ahora impacta, daña, vacía la barra y dura ~1.8 s.
-> ✅ 142 PNG → WebP: 87.3 MB → 40.8 MB (ahorro 46.5 MB / 53.2 %); AAB local 353.15 MB.
+> ➡️ **08-17 (2): la VUELTA del puente ya existe.** `PuenteJsIos` (`WKScriptMessageHandler`) + un
+> shim que define `window.Android` en iOS, así que **el HTML del mapa no cambió**. El toque del mapa
+> ya coloca el marcador de destino, como en Android. Detalle y trampas en el doc 12 §fase 6.
 >
-> Release preparado: `versionName` **1.0.0.15**, notas ES+EN reescritas, `gh-pages` viva.
-> iOS **no bloquea**: el release es de Android. **285 tests = 119 app + 166 shared**, 0 fallos.
+> ➡️ **08-17: los controles del mundo en iOS ya son IDÉNTICOS a los de Android.** El problema no era
+> el tamaño sino que iOS no forzaba horizontal: se portó la regla de `AppNavGraph` con una costura
+> nueva (doc 11 §4quater) y el HUD volvió a `ControllerBaseSize`. **Compila en los dos targets de
+> iOS y Android sigue en 319/0.** ⚠️ **La mitad Swift (`PowAppDelegate`) NO se ha compilado nunca**:
+> desde Windows no hay Xcode. Es lo primero que hay que abrir en el Mac.
+>
+> 🔴 **ABIERTO — 2 ANR en el renderer OSM nativo** tras ~13 min. Detalle abajo en §4 P0.
+> ⚠️ **Sin verificar: API ≤32.** No hay imagen de sistema ≤32 instalada ni `cmdline-tools` en esta
+> PC (los 5 AVD son API 35/36). La costura de idioma de API 24-32 sigue SIN probar.
+>
+> Lo de iOS (Skia, `systemBarsPadding` a 54 pt, 39 NPCs en el simulador) se midió en el Mac el
+> 08-14/15 y sigue vigente; los 194 de `:shared` corren igual en JVM y en `iosSimulatorArm64`.
 
 ## 🖥️ Rutas por PC
 
@@ -28,26 +46,23 @@
 | Escritorio (MEDIDO 07-29) | `C:\Users\gabri\Documents\GitHub Desktop\PolitecnicoOpenWorld\PolitecnicoOpenWorld` |
 | Mac | `/Users/gabrielhuav/Documents/GitHub/PolitecnicoOpenWorld/PolitecnicoOpenWorld` |
 
-La carpeta es doble. Los docs usan rutas relativas a esta raíz. El GEN de sprites vive fuera,
-en `..\newSFAssets\GEN_*`. En Windows la ruta del escritorio lleva espacio: entrecomillarla.
+La carpeta es doble; los docs usan rutas relativas a esta raíz. El GEN de sprites vive fuera, en
+`..\newSFAssets\GEN_*`. En Windows la ruta del escritorio lleva espacio: entrecomillarla.
 PC nueva: `SETUP_PC_NUEVA.md`; `gradle-wrapper.jar` y `secrets.properties` no viajan por Git.
 
 ## 1. Reglas vivas
 
-- Leer `00_INDEX.md`, `09_CONVENTIONS_GOTCHAS.md` y `10_ARQUITECTURA_SEPARACION.md`.
-  **Si el cambio toca las DOS plataformas, `11_SEPARACION_IOS_ANDROID.md` es obligatorio** —
-  ahí están el árbol de decisión, las 10 costuras y las trampas que solo se ven en el simulador.
+- Leer `00_INDEX.md`, `09_CONVENTIONS_GOTCHAS.md` y `10_ARQUITECTURA_SEPARACION.md`. **Si toca las
+  DOS plataformas, `11_SEPARACION_IOS_ANDROID.md` es obligatorio** (costuras y trampas del simulador).
 - `PowJson` imita Gson a propósito. `encodeToString(Map)` compila y falla en runtime: usar
   `jsonOf`/`jsonArrayOf`. No cambiar saves ni la ruta Android de la BD.
 - `SfArcadeRepository` conserva la migración `putStringSet` → JSON `_V2`, el `"null"` literal
   de `mapFile` y el borrado de clave al escribir null. Ya no usa `org.json`; tiene tests V1.
-- Kotlin queda en **2.3.21**: KSP no existe para 2.4. AGP 9 usa
-  `android.builtInKotlin=true`; tests shared = `testAndroidHostTest`.
-- `iosX64` queda fuera: Compose MP 1.11.1 no publica ese target.
-- Los nombres de tests de `commonTest` no pueden contener `(`, `)` o `,`; ejecutar
-  `bash tools/check_kmp_test_names.sh`.
+- Kotlin queda en **2.3.21** (KSP no existe para 2.4); AGP 9 usa `android.builtInKotlin=true`;
+  tests shared = `testAndroidHostTest`. `iosX64` fuera: Compose MP 1.11.1 no publica ese target.
+- Los nombres de tests de `commonTest` no admiten `(`, `)` ni `,`: `bash tools/check_kmp_test_names.sh`.
 - En parciales, los campos viven en la clase y nunca se repite allí una función del parcial:
-  ganaría la clase en silencio. Ver `10_ARQUITECTURA_SEPARACION.md` **§4**.
+  ganaría la clase en silencio (`10_ARQUITECTURA_SEPARACION.md` §4).
 
 ## 2. iOS — estado medido
 
@@ -57,13 +72,16 @@ PC nueva: `SETUP_PC_NUEVA.md`; `gradle-wrapper.jar` y `secrets.properties` no vi
   `composeResources` de Main y la app se cierra desde una corrutina.
 - No tocar `Info.plist`, fase `rsync`, `ENABLE_USER_SCRIPT_SANDBOXING = NO` ni la ruta del bundle.
 - `CADisableMinimumFrameDurationOnPhone` debe seguir en `Info.plist`.
-- Pelea real verificada en simulador: selección, ronda completa, audio, pausa, minimizar,
-  cerrar/reabrir y reanudar snapshot de `NSUserDefaults`.
-- Offline común; BT/LAN/WebRTC siguen Android-only. iOS **JUEGA** Ajustes, Coleccionables y SF, y
-  desde el 07-30 **pinta** además los 3 modos del mundo marcados EN OBRAS. `PowModos.kt` manda:
-  `disponible()` = se juega · `sePinta()` = aparece el botón. No los confundas.
-- **Sin insignias PREALPHA/BETA**: `IosMainMenuController` devuelve `mostrarInsignias = false` y
-  `versionName = null` porque la App Store las rechaza. En Android se quedan.
+- Pelea real verificada en simulador (selección, ronda, audio, pausa, minimizar, reanudar snapshot).
+  Offline común; BT/LAN/WebRTC siguen Android-only. **Sin insignias PREALPHA/BETA ni versión** en el
+  menú: la App Store las rechaza (`IosMainMenuController`). En Android se quedan.
+- 📱 **El dueño ya tiene un iPhone físico (08-14).** `:shared:linkDebugFrameworkIosArm64` enlaza y
+  cae donde lo busca `FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]`. Falta elegir cuenta en Signing
+  (`DEVELOPMENT_TEAM` vacío); un **Apple ID gratis** sirve para el propio iPhone. Ver `iosApp/README.md`.
+  ⚠️ **Los números de memoria del simulador NO valen para el dispositivo**: ahí no hay jetsam.
+- **Decodificar imágenes en iOS = Skia** (`decodificarReducido`). ⚠️ **No es el `inSampleSize` de
+  Android y no puede serlo desde Skiko**: el pico de memoria es el mismo, lo que baja es cuánto
+  dura. Los atlas son **WebP**. Verificado en el simulador el 2026-08-14.
 
 ## 2bis. 🍏 Trampas de iOS que solo se ven en el simulador
 
@@ -71,83 +89,68 @@ Las cinco del 07-30 (idioma, assets fuera del bundle, atlas mal pintado, `\'` si
 `systemBarsPadding`) están explicadas con su causa medida en **`11_SEPARACION_IOS_ANDROID.md` §8bis**.
 El detalle de aquella sesión se purgó a `_ARCHIVO/HISTORIAL_sesiones_2026-07-30.md`.
 
-## 2ter. 🌎 Mundo abierto a iOS — fases 1, 2, 3 (parcial), 5 (parcial) y 6
+## 2ter. 🌎 Mundo abierto a iOS — fases 1, 2, 3 y 4 hechas · 5 parcial · 6 con NPCs
 
 **Plan, medidas y orden de ataque: `12_PLAN_MUNDO_ABIERTO_iOS.md`.** Aquí solo lo que hay que
 saber sin abrirlo:
 
-- ✅ **1 · Menús idénticos.** iOS pinta los 6 botones; los 3 del mundo salen **EN OBRAS**.
+- ✅ **1 · Menús** · ✅ **2 · Dominio a `commonMain`** (22 archivos, mismo paquete → 0 imports
+  tocados) · ✅ **3 · Los 6 gestores de IA** (08-15, +17 tests). Recetas y trampas, en el doc 12.
   ⚠️ **`MODOS_EN_OBRAS_VISIBLES = false` antes de firmar para la App Store.** 7 tests lo fijan.
-  ⚠️ `disponible()` NO cambió (= "¿se juega?"). Lo nuevo es `sePinta()`, **solo para pintar**.
-- ✅ **2 · Dominio puro a `commonMain`**: 22 archivos. El paquete es idéntico → ningún import cambió.
-  Patrón a repetir: `java.lang.Math` → `kotlin.math`, `Context` → `PowAssets`, `UUID` → `kotlin.uuid`.
-- 🟡 **3 · Gestores de IA: 3 de 6.** La clave fue **`PowMapaConcurrente`** (mapa + `PowCerrojo`),
-  que sustituye a `ConcurrentHashMap` **conservando la semántica**: migrar es cambiar el tipo y 4
-  nombres, no rehacer ~50 accesos donde el compilador no avisa si te dejas uno. 14 tests.
-  🐞 Al tipar la API salió un **crash latente**: `ConcurrentHashMap.get(null)` lanza NPE y se
-  buscaba con `policeCarId` (`String?`). Corregido.
-  ⚠️ Falta `NpcAiManager` (988) + 2 parciales: **van juntos** y usan `CopyOnWriteArrayList`.
-- 🟡 **5 · Solo el HUD.** `JoystickController` + `ActionButtonsController` de `commonMain`: **los
-  MISMOS controles que Android**. A/B/X/Y avisan "pendiente del ViewModel".
+  ⚠️ `disponible()` = "¿se juega?"; `sePinta()` = "¿aparece el botón?". No los confundas.
+  🔴 Las dos trampas de la fase 3, que NO dan error y están en 09: el reloj tenía que ser **de
+  época**, y el `synchronized(lista)` externo **ya no protege** → `drenar()`.
+- 🟡 **5 · Solo el HUD**, pero ya con **los MISMOS controles y el MISMO tamaño** que Android y SF
+  (`ControllerBaseSize`), desde que iOS fuerza horizontal (doc 11 §4quater). A/B/X/Y avisan
+  "pendiente del ViewModel".
   🔴 ⚠️ **`Modifier.scale()` NO encoge un control: los botones dejan de responder.** Transforma el
-  dibujo, no el área táctil. Los controles aceptan `tamano` real (iOS: 100 dp) y son proporcionales.
-  🔗 **El VM está BLOQUEADO por la fase 4**: `WorldMapState` → `CampaignObjective` →
-  `@StringRes Int` → 42 strings sin migrar. Cadena y orden de ataque en el doc 12.
-- 🟡 **6 · El mapa se ve, se camina y las bardas frenan.** `UIKitView` mete el `WKWebView` en
-  Compose; `PuenteMapaIos` (Kotlin → JS) llama a las mismas funciones que Android.
-  ⚠️ `UIKitView` exige `@OptIn(ExperimentalForeignApi)` **y** `import kotlinx.cinterop.readValue`.
+  dibujo, no el área táctil. Si hay que cambiar tamaño se pasa `tamano` real, que sí es proporcional.
+  🔗 Falta el VM entero (~9200 líneas con sus 22 parciales) y `WorldMapEnvironment`. Orden en doc 12.
+- 🟢 **6 · El mapa se ve, se CAMINA, las bardas frenan, HAY NPCs y ya avisa de los toques.**
+  `OverpassRepository` (Ktor + PowJson) baja las calles y un tick a 30 Hz mueve **39 NPCs medidos**.
+  ⚠️ Se lee `getServerNpcs().toList()`, **no el flujo `npcs`** (ese es solo de red) y **no la lista
+  viva** (Compose no recompondría). ⚠️ Zoom **17**: por debajo de 16.5 el JS no pinta NPCs.
+  ⚠️ **Falta la caché de calles**: iOS pide a Overpass en cada arranque y come 429. Es lo siguiente.
   ⚠️ Cada llamada JS va con `if (typeof f === 'function')`: si el HTML aún no cargó, `WKWebView`
   **se traga el ReferenceError sin log** y el mapa se queda quieto sin que nadie sepa por qué.
-  ⚠️ Falta la **VUELTA** del puente (JS → Kotlin): haría falta `WKScriptMessageHandler`.
 
-## 3bis. ✅ Android verificado en emulador (07-31) — MEDIDO, no estimado
+## 3bis. ✅ Android de 1.0.0.15/16: verificado y PUBLICADO — solo lo que sigue vigente
 
-Detalle completo y rutas de la máquina: **`PROMPT_SOL_release_hoy_y_webp.md`**.
+Detalle: `PROMPT_SOL_release_hoy_y_webp.md` y el commit `016e7406`.
 
-**Cómo se probó:** build de `main` instalado primero → partida hecha (idioma, Modo Dev, arcade a
-medias) → `adb install -r -d` con el de la rama **encima**. Instalar limpio no prueba migración.
-
-| Riesgo | Resultado |
-|---|---|
-| Prefs (`pow_game_settings`, `APP_LANGUAGE`, `DEVELOPER_MODE`) | ✅ mismo archivo, mismas claves |
-| Sesión de arcade `_V2` (`pow_sf_arcade.xml`) | ✅ byte a byte; sale “Continuar pelea” |
-| `files/databases/pow_roads.db` | ✅ intacta, no se rehizo |
-| Menú (6 botones, insignias, **ningún EN OBRAS**) · Ajustes (6 categorías, Modo Dev) | ✅ |
-| Minimizar/volver en pelea | ✅ vuelve en PAUSA, sin crash |
-
-**3 regresiones jugables, arregladas en `016e7406`** (el commit las explica con su medida):
-música que **rebobinaba** por el catch-up de `ON_RESUME` de `LifecycleRegistry` + `reproducir()`
-que rebobina por contrato · **preview a 1/16 de píxeles** por perder `BitmapRegionDecoder` al
-portar (ahora el muestreo depende de la gama: normal 1, baja 4) · el **`"?"`** de ~300 ms porque
-`animate` está en la clave de la caché (ahora se rellena con la otra variante).
-
-✅ **Idioma de `:shared` corregido en Android 13+:** `LocaleManager.applicationLocales` +
-`android:localeConfig` alimentan a la vez `R.string` y Compose Resources. API 24-32 conserva el
-`Context` envuelto anterior. La lógica de SF/ajustes/coleccionables sigue en `commonMain`; iOS
-mantiene su costura `AppleLanguages` y reconstrucción del árbol.
-
-**Aceptado por el dueño para release:** la validación jugable se hizo manualmente antes del último
-ajuste de SUPER ART; su impacto/daño/tiempo quedó cubierto por pruebas KMP puras y se confirmará
-visualmente en la pista cerrada. Siguen como deuda la media hora de mundo y audio/interiores.
-
-**Release preparado:** `versionName` **1.0.0.15**, notas ES+EN, `gh-pages` viva y workflow revisado.
-Los 142 PNG restantes se convirtieron y sus referencias se actualizaron: 87,279,165 → 40,806,326
-bytes. `bundleRelease` pasó; AAB local **353,150,996 bytes** (353.15 MB), bajo 450/500 MB.
-`tools/.local/` quedó ignorado: el codec `cwebp` no se versiona.
+- **Cómo se prueba un release aquí:** instalar el build de `main`, HACER partida, y encima
+  `adb install -r -d` el de la rama. **Instalar limpio no prueba migración.** (Truco medido el
+  08-16: `assembleRelease` sale sin firmar → firmarlo con la clave de DEBUG y `install -r -d`
+  conserva los datos, y así se prueba R8 de verdad.)
+- ✅ **Idioma de `:shared` en Android 13+:** `LocaleManager.applicationLocales` +
+  `android:localeConfig` alimentan a la vez `R.string` y Compose Resources; API 24-32 conserva el
+  `Context` envuelto. iOS mantiene su costura `AppleLanguages` + reconstrucción del árbol.
+- ✅ **142 PNG → WebP:** 87.3 → 40.8 MB. AAB local 353.15 MB, bajo el tope de 500.
 
 ## 4. PENDIENTE — prioridad
 
 ### 🔴 P0
 
-1. **Publicar 1.0.0.15:** crear PR `perf-gama-baja-coleccionables` → `main` y fusionarlo. Revisar
-   `play-compliance`, AAB ~353 MB y `playstore-closed-testing` en track `alpha`.
-   ✅ Lo de §2bis ya se vio en Android: los tres arreglos heredados de `commonMain` (retrato en la
-   tarjeta, `\'` en inglés y `systemBarsPadding` en la ✕) están bien en el emulador.
+1. ✅ **1.0.0.15/16 publicados** (1.0.0.16 en prueba cerrada; `main` va por 1.0.0.17).
+   ✅ **iOS de 1.0.0.16 verificado en el Mac el 08-14** (Skia + `systemBarsPadding`, ver cabecera).
 2. **Decisión del dueño — On-Demand Resources sí o no.** Bloquea la fase 4 en adelante del mundo
    abierto en iOS: con el mundo el bundle son **399 MB** contra los **200 MB por datos móviles** de
    Apple. Sin ODR, la app solo se baja por Wi-Fi. Datos en el doc 12 §0.
-3. **Fase 3 del mundo (gestores de IA).** Hacerla **en una máquina con emulador**: cambia
-   concurrencia de juego vivo, tiene 0 tests y en el Mac no hay AVD. Receta en el doc 12 §2.
+3. ✅ **Fase 3 del mundo (gestores de IA): CERRADA y jugada en el emulador el 08-16.** Detalle en
+   el doc 12 §fase 3.
+   🔴 **2 ANR ABIERTOS en el renderer OSM NATIVO** (no en el web), tras ~13 min de juego seguido en
+   el emulador. Los dos con el **mismo stack**: `NativeOsmMap` (lambda de update, ~30 Hz) →
+   `view.overlays.add` → `CopyOnWriteArrayList.copyOf` → `WaitForGcToComplete`, con el heap Java a
+   **141/163 MB (13 % libre)** y 1,05 GB de PSS. **No lo causa la migración de concurrencia**:
+   ese `CopyOnWriteArrayList` es el de **osmdroid**, no `PowListaConcurrente`, y en los dos volcados
+   de ANR **no aparece ni una** de `PowListaConcurrente`/`PowCerrojo`/`PowRef`/`NpcAiManager`; el
+   diff de esta rama en `NativeOsmMap.kt` son 3 líneas de null-check. **Falta medirlo contra `main`
+   para atribuirlo del todo.** 🐞 Sospechoso encontrado de paso, PREEXISTENTE y **también en
+   release**: `TileCache.kt` hace **5 `Log.d` por tesela sin gatear por `BuildConfig.DEBUG`**, con
+   el SHA-256 interpolado — **31 412 líneas en 13 min** (~40/s) de basura que alimenta justo al GC
+   que aparece en el stack.
+4. **NPC fantasma: NO se puede probar con un solo cliente.** `pendingDespawns.drenar()` solo corre
+   dentro de `webSocketManager?.let { … isServerDelegatedHost }` → **hace falta multijugador**.
 4. Probar multijugador en dos dispositivos: ambos deben oír lo mismo (`SF-NET`).
 5. Redeploy `MultiplayerSF/` en Render; con redes distintas buscar `SF-RTC: DataChannel → OPEN`.
 
@@ -166,9 +169,8 @@ faltan `attack`/`hurt` en 6 peleadores. Los SFX globales no se normalizan como v
 
 ### ⚪ P3 · dueño/deuda
 
-- Mapas UAM Azcapotzalco/Cuajimalpa: faltan vídeos.
-- Paparazzi 5 tiene audio de Paparazzi 1; Señor tienda contiene un tramo de Prankedy;
-  Tzitzimime requiere recorte humano. Ver prompt Gemini.
+- Mapas UAM Azcapotzalco/Cuajimalpa: faltan vídeos. Paparazzi 5 tiene audio de Paparazzi 1; Señor
+  tienda contiene un tramo de Prankedy; Tzitzimime requiere recorte humano. Ver prompt Gemini.
 - detekt mantiene 5 smells preexistentes; cualquier doc que diga 0 está desactualizado.
 
 ## 5. Verificación al cerrar
@@ -177,10 +179,16 @@ faltan `attack`/`hurt` en 6 peleadores. Los SFX globales no se normalizan como v
 ./gradlew :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest
 ```
 
-Windows: `.\gradlew.bat`. Mac: fijar el JBR de Android Studio y añadir
+🍏 **En Windows añade `.\gradlew.bat :shared:compileKotlinIosSimulatorArm64`** — MEDIDO el 08-16:
+compila de verdad (217 archivos / 7,7 MB de klib, `iosMain` incluido), **sin** el aviso de "targets
+disabled" que afirmaba `PLAN_MIGRACION_KMP.md` §12; esa contradicción ya está corregida y manda el
+11 §7. **Enlazar** sigue siendo solo del Mac. Allí: fijar el JBR de Android Studio y añadir
 `:shared:iosSimulatorArm64Test :shared:linkDebugFrameworkIosSimulatorArm64`.
-Esperado Android: **285 = 119 app + 166 shared**, 0 fallos (medido en Windows 2026-08-01).
-En Mac conservar además `:shared:iosSimulatorArm64Test`. Si se toca `commonTest`, ejecutar el guard.
+
+Esperado Android: **319 = 125 app + 194 shared**, 0 fallos (medido en **Windows** el 2026-08-16,
+leyendo los XML de `test-results`, no el log); los mismos 194 en `iosSimulatorArm64Test`. Si se toca
+`commonTest`, ejecutar el guard. Para abrir la app: `linkDebugFrameworkIosSimulatorArm64` y luego ⌘R
+— Xcode NO regenera el framework solo, y sin ese paso corres el binario viejo sin enterarte.
 
 Detekt CI desde la raíz exterior:
 

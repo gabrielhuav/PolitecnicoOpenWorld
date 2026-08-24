@@ -15,6 +15,8 @@ import ovh.gabrielhuav.pow.data.repository.CampaignRepository
 import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
 import ovh.gabrielhuav.pow.data.repository.SaveGameRepository
 import ovh.gabrielhuav.pow.data.repository.SettingsRepository
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.AndroidWorldMapEnvironment
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapEnvironment
 import javax.inject.Singleton
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -41,6 +43,15 @@ object AppModule {
     @Singleton
     fun provideRoadNetworkCache(db: PowDatabase): RoadNetworkCache =
         RoadNetworkCache(db.roadNetworkDao())
+
+    /**
+     * Lo que el mundo abierto necesita de Android, detrás de una interfaz de `commonMain`.
+     * Ver `WorldMapEnvironment`: es lo que permitió sacar el `Context` del ViewModel del mundo.
+     */
+    @Provides
+    @Singleton
+    fun provideWorldMapEnvironment(@ApplicationContext context: Context): WorldMapEnvironment =
+        AndroidWorldMapEnvironment(context)
 
     @Provides
     @Singleton

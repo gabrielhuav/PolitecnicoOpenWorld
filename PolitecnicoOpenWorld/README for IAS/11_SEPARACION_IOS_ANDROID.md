@@ -79,7 +79,7 @@ actual fun fuentePorDefecto(): PowAssetsFuente = …   // AssetManager
 actual fun fuentePorDefecto(): PowAssetsFuente = …   // NSBundle
 ```
 
-### Las 10 costuras que existen hoy — y punto
+### Las 11 costuras que existen hoy — y punto
 
 Si necesitas algo de plataforma, **mira primero si ya está aquí**. Casi siempre lo está.
 
@@ -89,6 +89,7 @@ Si necesitas algo de plataforma, **mira primero si ya está aquí**. Casi siempr
 | `PowAudio` | sonido | `SoundPool` + `MediaPlayer` | `AVAudioPlayer` |
 | `decodificarReducido` | decodificar imagen a menor resolución | `inSampleSize` | decodificar y escalar |
 | `PowCerrojo` | exclusión mutua | `synchronized` | `NSRecursiveLock` |
+| `powLog` | traza de depuración | `android.util.Log` | `println` (consola de Xcode) |
 | `PowViewModel` | clase base de ViewModel | `androidx.lifecycle.ViewModel` | clase con su scope |
 | `plataformaActual` | en qué plataforma estoy | `ANDROID` | `IOS` |
 | `crearPowDatabaseBuilder` | abrir la BD | driver del sistema | driver empaquetado |
@@ -99,7 +100,21 @@ Si necesitas algo de plataforma, **mira primero si ya está aquí**. Casi siempr
 ⚠️ **Antes de añadir la número 11, pregúntate si no es más bien una costura B.** Cada `expect`
 nuevo es un archivo más que mantener en dos sitios, para siempre.
 
-### Y una herramienta que NO es una costura: `PowMapaConcurrente`
+### Y las que NO son costuras: la familia `Pow*` de concurrencia, tiempo y color
+
+Ninguna de estas es un `expect/actual`: son clases normales de `commonMain` que sustituyen a algo
+de la JVM. **Míralas antes de abrir una costura nueva.**
+
+| En vez de | Usa | Ojo con |
+|---|---|---|
+| `ConcurrentHashMap` | `PowMapaConcurrente` | `.remove()` → `.quitar()`, etc. (abajo) |
+| `CopyOnWriteArrayList` | `PowListaConcurrente` | `iterator()` da una COPIA; para leer-y-vaciar, `drenar()` |
+| `ConcurrentHashMap.newKeySet()` | `PowConjuntoConcurrente` | — |
+| `AtomicReference` | `PowRef` | `get`/`set` igual; sin `compareAndSet` |
+| `System.currentTimeMillis()` | `ahoraMs()` | **de época a propósito** (ver 09) |
+| `android.graphics.Color.rgb` | `colorArgb` | mismos bits ARGB |
+
+#### El caso que mejor explica el patrón: `PowMapaConcurrente`
 
 `java.util.concurrent.ConcurrentHashMap` no existe en Kotlin/Native. **No lo envuelvas en un
 `expect`**: hay una clase normal en `commonMain` que hace el trabajo, `PowMapaConcurrente` (mapa
@@ -179,6 +194,121 @@ Lo usa `MapaMundoIos.kt` para el mapa Leaflet del mundo abierto.
    Sin eso, `CGRectZero.readValue()` no compila — y el error no dice que falte el import.
 2. Lo que dibuje la vista nativa **queda por debajo de los Composables** que pongas después en el
    mismo `Box`. Es lo que permite el cartel y el botón VOLVER encima del mapa.
+
+---
+
+## 4quater. 🔄🍏 Forzar la ORIENTACIÓN en iOS (y por qué media costura es Swift)
+
+Android tiene una sola regla, en `AppNavGraph.kt`: **el juego va en horizontal; solo los menús
+(`main_menu`, `story_mode`, `settings`, `collectibles`) permiten vertical**, con el interior de
+Metrobús como excepción vertical. Desde el 2026-08-17 iOS hace lo mismo en el mundo abierto.
+
+| Mitad | Dónde | Qué hace |
+|---|---|---|
+| **DECLARAR** qué orientaciones valen | `iosApp/POW/POWApp.swift` (`PowAppDelegate`) | Responde `application(_:supportedInterfaceOrientationsFor:)` leyendo `OrientacionPow.esHorizontal` |
+| **PEDIR** el giro ya | `platform/orientacion/OrientacionIos.kt` | `requestGeometryUpdate` + `setNeedsUpdateOfSupportedInterfaceOrientations()` |
+| **Usarlo** desde una pantalla | `ForzarHorizontal()` en `MapaMundoIos` | `DisposableEffect`: fija al entrar, libera al salir |
+
+⚠️ **Con una sola mitad no funciona:** sin el delegado la pantalla gira y el usuario puede volver a
+girarla; sin la parte de Kotlin no gira hasta que el usuario mueva el teléfono.
+
+⚠️ **La mitad de Swift NO es pereza, es obligación** (09 §KMP nº5): `supportedInterfaceOrientations`
+vive en una categoría de ObjC y Kotlin/Native la expone como extensión → `overrides nothing`. Y va
+en el AppDelegate y no en un `UIViewController` propio porque con SwiftUI el raíz es un
+`UIHostingController`, que **no** consulta a sus hijos.
+
+⚠️ **Va en `POWApp.swift`, un archivo que YA existía**: añadir un `.swift` nuevo obliga a tocar el
+`project.pbxproj`, que es justo lo que este proyecto evita.
+
+📐 **Lo que esto compra:** el HUD del mundo en iOS usa `ControllerBaseSize` (180 dp) igual que
+Android y que el modo pelea. **Los controles son los mismos en las dos plataformas, siempre.**
+
+---
+
+## 4quinquies. 🖼️🍏 Los SPRITES del mapa en iOS (`pow-asset://`)
+
+El HTML del mapa es **el mismo que Android**, y allí las imágenes cuelgan de
+`file:///android_asset/`, que en iOS no existe. En vez de bifurcar el HTML se parametrizó el
+prefijo (`buildHtml(assetBaseUrl:)`) y iOS pasa `pow-asset:///`, que resuelve **`AssetsWebIos`**
+(un `WKURLSchemeHandler` en Kotlin) leyendo del bundle con `PowAssets`.
+
+⚠️ **Ese manejador ya existía en Swift** (`MapaWeb.swift`) para una vista de prueba que no usa
+nadie, pero `MapaMundoIos` monta su **propia** `WKWebViewConfiguration` desde Kotlin y no
+registraba ninguno: el HTML pedía los sprites y WebKit los descartaba **sin un solo error**. Por eso
+el mapa de iOS salió meses sin una imagen. Si añades otro `WKWebView`, el manejador va en su
+configuración o vuelve a pasar.
+
+### Qué viaja al bundle y qué no
+
+| Carpeta | Tamaño | ¿Al bundle? |
+|---|---|---|
+| `SPRITES/ICONS` | 8 KB | ✅ los dos SVG de peatón y coche |
+| `SPRITES/VEHICLES` | 1,6 MB | ✅ 48 frames de rotación por modelo, ya recortados |
+| `SPRITES/NPC/npc_walk_1` | 356 KB | ✅ los 8 fotogramas de caminar |
+| `SPRITES/NPC/hair` | 68 KB | ✅ los cinco peinados |
+| El resto de `SPRITES/NPC` | ~69 MB | ❌ personajes de campaña e interiores, que en iOS aún no existen |
+
+Se copian en la fase *"Assets de SF al bundle"* del proyecto Xcode (un `rsync` por carpeta), **no**
+añadiendo carpetas al target: tocar el `project.pbxproj` es justo lo que este proyecto evita.
+
+⚠️ **Corrección de una suposición que costó tiempo:** los peatones **NO son atlas**. Se creyó que
+`SPRITES/NPC` eran rejillas que había que recortar por celda (por el `NPC_random_1_walk.webp` de
+1254×1254 que hay suelto), pero `CharacterSpriteManager.getAnimationFrames` abre
+`SPRITES/NPC/<carpeta>/<prefijo><i>.webp`: **ficheros sueltos por fotograma**, de ~193×249. Lo que
+falta en iOS no es un recortador de atlas, es el **compositor modular** (cuerpo + pelo, cada uno
+repintado con su color) — y todas sus piezas (`PowImagen`, `tintarCarroceria`) ya son
+multiplataforma.
+
+### Cómo llega el sprite al WebView: base64 en Android, URL en iOS
+
+Android **no puede servir archivos** a su `WebView`, así que compone el bitmap (rota + repinta) y lo
+manda entero como `data:` base64 dentro de una llamada JS. iOS **sí puede** (`AssetsWebIos`), así
+que mete en `imgCache` una **URL** y el trabajo se hace del otro lado. Al JS le da igual: solo hace
+`img.src = imgCache[clave]`.
+
+🎨 **Los coches van PINTADOS y con el mismo algoritmo que Android** (2026-08-20): el mapa pide
+`pow-asset:///__tinte/<rrggbb>/SPRITES/VEHICLES/…webp` y `TintadoWebIos` lo resuelve llamando a
+**`tintarCarroceria`, que vive en `commonMain`** (`TintadoVehiculo.kt`) y lo comparten las dos
+plataformas. Antes ese cálculo estaba dentro de `VehicleSpriteManager` mezclado con `Bitmap`; ahora
+Android solo pone el ir y venir de píxeles. Ocho tests de `commonTest` lo cubren.
+
+⚠️ **No se puede hacer con un `filter` de CSS**, que es la tentación obvia: el repintado es
+SELECTIVO (respeta las luces rojas y ámbar, los rines y los faros) y un filtro pinta el sprite
+entero. Y ⚠️ **el PNG se pide en `RGBA_8888` explícito, nunca en el `N32` de Skia**: en Apple `N32`
+es BGRA, así que un coche rojo saldría azul sin ningún error.
+
+🧍 **Y los PEATONES van armados** (2026-08-20): el mapa pide
+`pow-asset:///__npc/<carpeta>/<prefijo>/<fotograma>/<pelo>/<colores>` y `PersonajeWebIos` monta el
+NPC con **`tintarPersonaje` + `componerEncima`, los dos en `commonMain`** — cuerpo en gris
+repintado con la playera y el pantalón, y el pelo encima repintado aparte. Es lo mismo que hace
+`CharacterSpriteManager` en Android, que ahora llama a ese mismo cálculo en vez de tener el suyo.
+
+⚠️ **Los sprites se decodifican a 1/4 (512×512 → 128×128) y el cuerpo y el pelo con el MISMO
+divisor.** En el mapa se ven a ~12 px: generar el PNG a tamaño completo es medio megapíxel que
+nadie llega a ver, por cada fotograma y cada atuendo. Si se redujeran distinto, dejarían de encajar
+y `componerEncima` corta con su `require`.
+
+### 🗺️ Y las calles ya no se piden en cada arranque
+
+`RoadNetworkCache` bajó a **`commonMain`** el 2026-08-20 (antes solo existía en `:app`). iOS le
+pedía a Overpass la red entera cada vez que se abría el mundo y **se comía un 429**, que en pantalla
+se ve como un mundo sin un solo NPC — porque `updateNpcs` sale por `if (!networkIsReady) return`.
+Ahora la red se guarda en Room por celdas de ~2 km con TTL de 7 días, igual que Android.
+
+Medido en el simulador: primer arranque `MISS → Descarga OK: 2512 ways → GUARDADO OK (11 946
+nodos)`; segundo arranque `HIT: 2512 ways`, **sin tocar la red**.
+
+⚠️ Al bajarla hubo que cambiar exactamente las tres cosas de `09 §KMP`: `android.util.Log` →
+`powLog`, `Dispatchers.IO` → `Dispatchers.Default` (no existe en Native) y
+`System.currentTimeMillis()` → `ahoraMs()`. **Ninguna de las tres da error de compilación en
+Android**, así que si se copiara la clase en vez de moverla, el TTL de iOS se rompería en silencio.
+
+### El ajuste emoji ↔ sprites es el MISMO que Android
+
+`npcFullEmoji` ("Optimizar para gama baja", en Jugabilidad). Encendido, `PuenteMapaIos` manda
+`CAR`/`MODULAR` **sin `imageKey`** y el HTML cae en su respaldo de 🚗/🧍 — cero archivos, cero
+decodificación. Apagado, manda los sprites de arriba. **Se lee al ENTRAR al mapa**, así que un
+cambio en Ajustes se nota al volver a entrar, no en caliente.
 
 ---
 
@@ -315,15 +445,25 @@ siguiente y se olvide.
 ```bash
 .\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest
 ```
-Hoy: **228 tests** (114 `:app` + 114 `:shared`), 0 fallos.
+Hoy: **319 tests** (125 `:app` + 194 `:shared`), 0 fallos. Medido el **2026-08-16 en Windows**
+(leído de los XML de `test-results`, no del log); los 194 de `:shared` son los MISMOS en
+`testAndroidHostTest` y en `iosSimulatorArm64Test`.
 
 ```bash
 .\gradlew.bat :shared:compileKotlinIosSimulatorArm64
 ```
 Esto **sí funciona en Windows** y comprueba el código de iOS entero, cinterops de Apple incluidos.
 
+✅ **RE-MEDIDO el 2026-08-16 en Windows, porque `PLAN_MIGRACION_KMP.md` §12 decía lo contrario**
+(que Gradle desactiva los targets de Apple aquí). **Manda esta sección; aquel punto ya está
+corregido.** La prueba de que compila de verdad y no se salta el target: `BUILD SUCCESSFUL` **sin**
+el aviso `targets cannot be built on this machine`, con `kspKotlinIosSimulatorArm64` ejecutado,
+warnings de archivos de **`iosMain`** y **217 archivos / 7,7 MB de klib** en
+`shared/build/classes/kotlin/iosSimulatorArm64/`.
+
 ⚠️ **`linkDebugFrameworkIosSimulatorArm64` NO sirve de prueba fuera de un Mac**: dice
-`BUILD SUCCESSFUL` y no produce ningún archivo.
+`BUILD SUCCESSFUL` y no produce ningún archivo. **Compilar iOS: sí desde Windows. Enlazarlo y
+abrirlo: solo en el Mac.**
 
 ```bash
 bash tools/check_kmp_test_names.sh
@@ -388,6 +528,12 @@ también a Android sin que nadie lo hubiera notado.
 6. **`systemBarsPadding()` va en el WIDGET, no en la pantalla.** La pelea se dibuja a sangre a
    propósito; meter el inset arriba la encogería. Sin él, la ✕ de salir y el contador de FPS se
    colaban bajo la barra de estado en iOS.
+   🆕 **MEDIDO en el Mac (2026-08-14):** en iOS ese modificador **sí** aporta el inset del indicador
+   de inicio — la etiqueta de versión del menú cae a **54 pt del borde** en un iPhone 17 Pro (34 pt
+   de área segura + los 16 dp de `padding`), y el degradado sigue llegando al borde. ⚠️ Pero en el
+   MENÚ eso hoy **no se ve**: las dos esquinas de abajo están vacías en iOS (`versionName` es `null`
+   por §5 y nadie pasa `chipDeCuenta`). El inset de las esquinas es para Android; en iOS solo
+   importará el día que se pinte algo ahí.
 
 ---
 

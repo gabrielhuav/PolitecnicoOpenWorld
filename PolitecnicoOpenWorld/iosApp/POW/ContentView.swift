@@ -21,7 +21,13 @@ struct ContentView: View {
 /// El puente Swift ↔ Compose. Es literalmente lo único que hace SwiftUI en esta app.
 struct PowAppTab: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {
-        PowAppIosKt.crearAppIos()
+        let vc = PowAppIosKt.crearAppIos()
+        // 🔄 Se lo prestamos a Kotlin SOLO para que pueda pedir
+        // `setNeedsUpdateOfSupportedInterfaceOrientations()` al cambiar de pantalla. Quien decide
+        // la orientación es `PowAppDelegate` (POWApp.swift); esto solo hace que iOS vuelva a
+        // preguntársela en el momento, en vez de esperar a que el usuario gire el teléfono.
+        OrientacionPow.shared.contenedor = vc
+        return vc
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}

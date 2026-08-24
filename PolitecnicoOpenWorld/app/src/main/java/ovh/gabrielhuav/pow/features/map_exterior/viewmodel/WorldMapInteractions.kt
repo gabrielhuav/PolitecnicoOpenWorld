@@ -63,7 +63,7 @@ internal fun WorldMapViewModel.onInteractButtonPressed() {
                 // unos segundos para que el volcado lo ignore.
                 boardedCarTombstones[carId] = nowMs + 10_000L
                 // Y avisar a los demás clientes que ese NPC dejó de existir.
-                synchronized(npcAiManager.pendingDespawns) { npcAiManager.pendingDespawns.add(carId) }
+                npcAiManager.pendingDespawns.add(carId)
                 if (carNpc.isFirstTimeBoarded) {
                     spawnOustedDriver(carNpc.location)
                     raiseWantedLevel(1) // robar un auto ocupado es delito → +1 estrella
@@ -185,7 +185,9 @@ internal fun WorldMapViewModel.handleInteraction() {
                 // (este es el momento de "ingresar"). Marca el objetivo cumplido + jingle.
                 if (_uiState.value.currentObjective?.id == ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.INGRESAR_ESCOM.id
                     && !_uiState.value.objectiveDone) {
-                    _uiState.update { it.copy(objectiveDone = true, interactionPrompt = "✅ Objetivo cumplido: ${_uiState.value.currentObjective?.let { getLocalizedString(it.titleRes) } ?: ""}") }
+                    val objIngreso = _uiState.value.currentObjective
+                    _uiState.update { it.copy(objectiveDone = true) }
+                    objIngreso?.let { o -> avisarConTitulo("✅ Objetivo cumplido: ", o.titleRes) }
                     soundManager.playMisionCumplida()
                     // MISIÓN 1 COMPLETADA (entraste a la ESCOM): se registra en el selector.
                     markMissionCompleted(ovh.gabrielhuav.pow.domain.models.campaign.MissionCatalog.MISSION_1_ID)

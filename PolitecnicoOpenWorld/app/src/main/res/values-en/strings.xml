@@ -375,25 +375,7 @@
     <string name="zhud_inventory">INVENTORY</string>
 
     <!-- Campaign objectives (Mission 1) -->
-    <string name="obj_ir_encb_title">Go to the ENCB</string>
-    <string name="obj_ir_encb_desc">Head to the ENCB to investigate the origin of the outbreak.</string>
-    <string name="obj_escoltar_prankedy_title">Take Prankedy to the ESCOM gate</string>
-    <string name="obj_escoltar_prankedy_desc">Protect Prankedy and escort him to the ESCOM GATE.</string>
-    <string name="obj_ingresar_escom_title">Enter the ESCOM</string>
-    <string name="obj_ingresar_escom_desc">You\'re being chased! Enter through the ESCOM gate to get to safety.</string>
-    <string name="obj_buscar_pistas_escom_title">Search for clues in the ESCOM</string>
-    <string name="obj_buscar_pistas_escom_desc">Explore the ESCOM looking for clues.</string>
     <!-- Campaign objectives (Mission 2 · "The rumor") -->
-    <string name="obj_m2_esconderse_title">Lose the police</string>
-    <string name="obj_m2_esconderse_desc">The police entered the ESCOM looking for you. Hide INSIDE the lobby and keep your distance until they give up.</string>
-    <string name="obj_m2_pista_rumor_title">Search for clues in the ESCOM</string>
-    <string name="obj_m2_pista_rumor_desc">Some students are talking about something strange. Get close and listen to the WHOLE rumor.</string>
-    <string name="obj_m2_pista_brote_title">Keep looking for clues</string>
-    <string name="obj_m2_pista_brote_desc">Something is happening on the ESCOM esplanade. Go investigate.</string>
-    <string name="obj_m2_hablar_prankedy_title">Talk to Prankedy</string>
-    <string name="obj_m2_hablar_prankedy_desc">Prankedy heard everything. Get close and talk to him.</string>
-    <string name="obj_m2_recuperar_mochila_title">Recover Prankedy\'s backpack</string>
-    <string name="obj_m2_recuperar_mochila_desc">The backpack is hidden in an ESCOM classroom. Class is in session: use the STINK CAN.</string>
     <!-- Mission 2 · phase 1 "Hide" (lobby, interiors) -->
     <string name="zgame_hide_countdown">🚨 Police in the lobby: hold on %1$d s without being seen</string>
     <string name="amb_cop_search_1">Where did he go?</string>
@@ -403,12 +385,6 @@
     <string name="zgame_stink_prompt">💨 Press ACTION to throw the STINK CAN</string>
     <string name="zgame_backpack_prompt">🎒 Press ACTION to pick up Prankedy\'s backpack</string>
     <!-- Campaign objectives (Mission 3 · "Return to the ENCB") -->
-    <string name="obj_m3_ir_encb_title">Return to the ENCB</string>
-    <string name="obj_m3_ir_encb_desc">The ENCB is under quarantine. Go back and find out what they\'re hiding.</string>
-    <string name="obj_m3_infiltrarse_title">Infiltrate the ENCB</string>
-    <string name="obj_m3_infiltrarse_desc">Evade the riot-police cordon WITHOUT being seen and reach the entrance.</string>
-    <string name="obj_m3_evidencia_title">Recover the lab evidence</string>
-    <string name="obj_m3_evidencia_desc">There are infected inside. Find the 🧪 evidence in the lab and get out alive.</string>
     <string name="zgame_evidence_prompt">🧪 Press ACTION to pick up the EVIDENCE</string>
     <!-- Mission log / selector (Witcher style) -->
     <string name="wm_opt_missions">Missions</string>
@@ -425,12 +401,6 @@
     <string name="mlog_replay">REPLAY</string>
     <string name="mlog_tp_objective">TP TO OBJECTIVE</string>
     <string name="mlog_tp_exit_first">TP moves the player on the MAP: exit the interior to use it.</string>
-    <string name="mission1_title">Mission 1 · Outbreak origin</string>
-    <string name="mission1_desc">Investigate the ENCB, escort Prankedy to the ESCOM and get to safety from the police.</string>
-    <string name="mission2_title">Mission 2 · The rumor</string>
-    <string name="mission2_desc">Lose the police, listen to the zombie rumor, witness the first outbreak and recover Prankedy\'s backpack.</string>
-    <string name="mission3_title">Mission 3 · Return to the ENCB</string>
-    <string name="mission3_desc">Infiltrate the cordoned-off ENCB, survive the infected and recover the evidence. Reward: your first firearm.</string>
     <!-- University life: ambient NPC conversation phrases (speech bubbles, interiors) -->
     <string name="amb_phrase_1">Did you finish the compilers lab yet?</string>
     <string name="amb_phrase_2">The professor showed up late again…</string>
@@ -481,18 +451,6 @@
     <string name="transit_msg_exit_turnstile">You left the turnstiles. Go to the ticket booth to reload your card.</string>
     <!-- SIDE missions + economy + day/night cycle (open world) -->
     <string name="mlog_side_badge">SIDE QUEST</string>
-    <string name="side1_title">Side quest · Medical supplies</string>
-    <string name="side1_desc">With the outbreak growing, a paramedic needs supplies. Pick up the first-aid kit and deliver it. Reward: $150.</string>
-    <string name="side2_title">Side quest · Containment in Zacatenco</string>
-    <string name="side2_desc">Loose infected reported near campus. Take them out before the outbreak spreads. Reward: $250.</string>
-    <string name="obj_s1_recoger_title">Pick up the first-aid kit</string>
-    <string name="obj_s1_recoger_desc">Swing by the medical supplies kit.</string>
-    <string name="obj_s1_entregar_title">Deliver the supplies</string>
-    <string name="obj_s1_entregar_desc">Take the kit to the paramedic. You can drive there.</string>
-    <string name="obj_s2_ir_title">Go to the reported area</string>
-    <string name="obj_s2_ir_desc">Loose infected reported west of campus.</string>
-    <string name="obj_s2_eliminar_title">Take out the infected</string>
-    <string name="obj_s2_eliminar_desc">Finish off every infected in the area (hit them with B).</string>
     <string name="wm_chip_money">Money</string>
     <string name="wm_chip_clock">Time</string>
 

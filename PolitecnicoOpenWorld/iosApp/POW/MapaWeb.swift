@@ -4,14 +4,17 @@ import Shared
 
 // ⚠️ ESTE ARCHIVO NO LO USA NINGUNA PANTALLA HOY, Y ES A PROPÓSITO.
 //
-// El mundo abierto (mapa exterior e interiores) es TRABAJO FUTURO en iOS: no está en el menú,
-// `PowModo.disponible()` no lo deja aparecer y `PowAppIos.kt` no navega a él. Lo que queda aquí es
-// el puente ya verificado en el simulador: el mapa Leaflet del juego cargado en un `WKWebView`,
-// con los assets servidos desde el bundle.
+// 🆕 (2026-08-20) OJO, esto YA NO es "el mundo abierto no existe en iOS": sí existe. MUNDO LIBRE
+// abre `MapaMundoIos` (`PowAppIos.kt`, `Pantalla.MAPA`) — con NPCs, colisiones y el puente en las
+// dos direcciones. Lo que pasa es que esa pantalla es **Compose + `UIKitView`** y monta su propia
+// `WKWebViewConfiguration` desde Kotlin, así que **no pasa por este archivo**.
 //
-// Se conserva porque es la prueba de que el HTML compartido con Android funciona tal cual en iOS
-// sin escribir un renderer nativo. El día que el mundo abierto llegue a iOS, esto se engancha desde
-// `PowAppIos.kt`; hasta entonces, **no hace falta tocarlo para nada**.
+// Y por eso mismo el manejador de assets de abajo tuvo que reescribirse en Kotlin
+// (`AssetsWebIos.kt`): el de aquí nunca llegó a registrarse en el WebView del mundo, y el mapa
+// salía sin un solo sprite. **Si tocas uno, mira el otro** — hoy hay dos copias de la misma idea.
+//
+// Se conserva como la versión SwiftUI pura del mismo camino, útil para aislar si algo falla por
+// culpa de Compose. Para el juego, **no hace falta tocarlo para nada**.
 
 /// El mapa del juego a pantalla completa.
 ///

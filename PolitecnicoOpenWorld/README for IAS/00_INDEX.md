@@ -161,6 +161,7 @@ Añadir un modo a `modosDe(IOS)` **no lo porta**. Detalle en `11_SEPARACION_IOS_
 | **`SF/PROMPT_SOL56_TANDAS_NUEVAS.md`** | **⭐ Prompt de las 10 hojas NUEVAS (20–29, moveset 3rd Strike) por personaje + rutas de assets + estándar de calidad.** |
 | `MUNDO/NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |
 | **`PROMPT_WINDOWS_verificar_android_y_release.md`** | **⭐ TRASPASO VIVO (07-31): verificar que Android sigue igual tras los 80 commits de KMP, y publicar.** Lo de más riesgo (datos guardados, los 3 gestores de IA), el checklist de release y el plan de adelgazar el AAB. *(raíz)* |
+| **`PROMPT_MAC_orientacion_y_puente_js.md`** | **⭐ TRASPASO VIVO (08-17) → MAC: probar en el simulador las dos costuras nuevas de iOS** (forzar horizontal + la vuelta del puente JS → Kotlin). Se escribieron desde Windows y **la mitad de Swift nunca se ha compilado**. Qué probar, en qué orden y qué significa cada fallo. *(raíz)* |
 | `CHECKPOINT_SENIOR_refactor.md` | Receta del patrón manager/Hilt/detekt (referencia). *(raíz)* |
 | `MUNDO/CAMPAIGN/` | Guion Modo Historia (misiones 1–3 + side). |
 | `_ARCHIVO/` | **Histórico. NO son tareas.** Incluye los guiones de iOS ya ejecutados (`ARRANQUE_MAC_iOS.md`, `PLAN_SF_EN_iOS.md`, `PROMPT_MAC_navegacion_iOS.md`), `PENDIENTES_2026-07-20.md` y los prompts de traspaso a Gemini/GPT/Fable. |

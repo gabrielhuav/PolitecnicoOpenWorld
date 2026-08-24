@@ -9,6 +9,11 @@ import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import android.content.Context
 import kotlinx.coroutines.flow.update
 import ovh.gabrielhuav.pow.domain.models.map.MapWay
+import ovh.gabrielhuav.pow.platform.assets.PowAssets
+import ovh.gabrielhuav.pow.shared.recursos.Res
+import ovh.gabrielhuav.pow.shared.recursos.toast_car_injected
+import ovh.gabrielhuav.pow.shared.recursos.toast_error_escom_missing
+import ovh.gabrielhuav.pow.shared.recursos.toast_error_escom_navgraph
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Items de ESCOM + inyección de coche dinámico (Modo Diseñador) extraídos del VM.
@@ -43,17 +48,16 @@ internal fun WorldMapViewModel.collectEscomItem() {
         }
     }
 
-internal fun WorldMapViewModel.spawnDynamicCarInEscom(context: Context) {
+internal fun WorldMapViewModel.spawnDynamicCarInEscom() {
         // 1. Cargar el JSON del navgraph de ESCOM si no está en memoria
         if (escomNavGraph == null) {
             try {
-                val inputStream = context.assets.open("CONFIG/navgraphs/escom_navgraph.json")
-                val texto = inputStream.reader().use { it.readText() }
+                val texto = PowAssets.texto("CONFIG/navgraphs/escom_navgraph.json")
                 escomNavGraph = normalizeNavGraph(
                     PowJson.decodeFromString<ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph>(texto),
                 )
             } catch (e: Exception) {
-                android.widget.Toast.makeText(context, getLocalizedString(ovh.gabrielhuav.pow.R.string.toast_error_escom_navgraph), android.widget.Toast.LENGTH_SHORT).show()
+                avisarDesdeRecurso(Res.string.toast_error_escom_navgraph)
                 return
             }
         }
@@ -63,7 +67,7 @@ internal fun WorldMapViewModel.spawnDynamicCarInEscom(context: Context) {
         // 2. Buscar el edificio ESCOM en el mapa
         val escomLandmarkBase = _uiState.value.landmarks.find { it.assetPath.contains("building_escom", ignoreCase = true) }
         if (escomLandmarkBase == null) {
-            android.widget.Toast.makeText(context, getLocalizedString(ovh.gabrielhuav.pow.R.string.toast_error_escom_missing), android.widget.Toast.LENGTH_SHORT).show()
+            avisarDesdeRecurso(Res.string.toast_error_escom_missing)
             return
         }
 
@@ -103,6 +107,6 @@ internal fun WorldMapViewModel.spawnDynamicCarInEscom(context: Context) {
         // 7. Refrescar la pantalla
         updateNpcsState()
 
-        android.widget.Toast.makeText(context, getLocalizedString(ovh.gabrielhuav.pow.R.string.toast_car_injected), android.widget.Toast.LENGTH_SHORT).show()
+        avisarDesdeRecurso(Res.string.toast_car_injected)
     }
 
