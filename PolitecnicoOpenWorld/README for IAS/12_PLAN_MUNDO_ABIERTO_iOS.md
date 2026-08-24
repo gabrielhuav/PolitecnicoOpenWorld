@@ -345,10 +345,17 @@ Diseñador a `guardarTexto`/`leerTexto` (la costura ya existe, falta engancharla
 `MetroRepository`/`MetrobusRepository` (usan `R.raw` + `org.json`); y por último **mover los 43
 archivos**.
 
-⚠️ **Y el paso 6 sigue pendiente y sigue siendo el que manda: jugar el mundo en Android.** Nada de
-lo de arriba lo sustituye. En este Mac **no hay AVD** (medido), así que esa verificación tiene que
-hacerla alguien con un emulador o un teléfono delante. Lo que sí está verificado aquí: build
-completo de Android con Hilt regenerado, 338 tests, detekt 0 y el mundo de iOS corriendo.
+✅ **El paso 6 YA SE HIZO** (2026-08-21, Windows, AVD `Nexus` API 35, en español **y** en inglés).
+Salió **verde: ninguna regresión**. El informe completo, con lo que quedó sin jugar y las recetas
+para repetirlo, está en **`RESULTADO_WINDOWS_verificar_android_fase5.md`**. Titulares:
+
+- El aviso de la horda **ya se auto-limpia en inglés** (medido con 60 sondas en ~6 min).
+- Los textos con `%1$s` (metro) y la puerta ESCOM salen bien **en los dos idiomas**.
+- Coches, peatones y patrullas sin diferencias; caché `MISS → GUARDADO → HIT` con los mismos
+  **2512 ways** que iOS; población **39** como iOS; bardas y `escom_navgraph` cargando.
+- 🔴 Sin jugar: **carjack** (§2.3-8) y **Modo Historia** (§2.7-18).
+- 🔴 **`wm_press_x_(de)activate_zombie` son inalcanzables**: `spawnEscomItems` borra la mano del
+  apocalipsis a propósito. Son 2 de los 14 textos y hoy son código muerto.
 
 ### Orden correcto para quien siga, CON EMULATOR DELANTE
 >

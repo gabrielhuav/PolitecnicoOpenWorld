@@ -3,6 +3,11 @@
 **Escrito el 2026-08-20 desde el Mac (Opus 5).** Rama: `ios/verificacion-mac-1.0.0.17`.
 Commits a probar: **`bf2d6797` (QA Changes 1/9)** y **`f2f62064` (QA Changes 2/9)**.
 
+> ✅ **YA SE HIZO (2026-08-21, Windows, emulador):** el resultado está en
+> **`RESULTADO_WINDOWS_verificar_android_fase5.md`**. Salió VERDE; quedaron sin jugar el carjack
+> (§2.3-8) y el Modo Historia (§2.7-18), y la mano zombi (§2.1-3) resultó **inalcanzable** porque
+> la función se eliminó del juego. Lee ese documento antes de repetir esto.
+
 > ## ⚠️ Lee esto primero
 >
 > En el Mac se verificó **iOS**, y ahí todo lo de abajo está probado en el simulador. Lo que **NO**
@@ -38,11 +43,17 @@ fallo mío, no una mejora.**
 ```bash
 cd PolitecnicoOpenWorld
 git pull
-./gradlew :app:assembleDebug :app:testDebugUnitTest :shared:testDebugUnitTest
+./gradlew :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest
 ```
 
-Deberías ver **125 tests en `:app`** y **0 fallos**. En el Mac además salieron 213 en iOS (total
-338), pero esos no corren en Windows.
+Deberías ver **125 tests en `:app`** y **213 en `:shared`** (total 338) con **0 fallos**.
+
+⚠️ Dos correcciones medidas en Windows el 2026-08-21:
+- La tarea de `:shared` **NO** se llama `testDebugUnitTest` (eso falla a los 28 s con
+  `task 'testDebugUnitTest' not found in project ':shared'`): en el módulo KMP es
+  **`testAndroidHostTest`**, o `allTests` si quieres los tres targets.
+- Los 213 de `:shared` **sí corren en Windows** — son del target Android/JVM, no de iOS.
+- El conteo se lee de los XML (`*/build/test-results/**/*.xml`), no del log.
 
 Luego **instala en el emulador o en un teléfono y juega**. El orden de abajo va de lo más probable
 a lo menos.
