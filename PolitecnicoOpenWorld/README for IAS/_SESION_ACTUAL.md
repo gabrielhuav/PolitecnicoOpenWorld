@@ -42,6 +42,15 @@ Rename de cara al jugador. **El código NO cambia de nombre**: sigue siendo `str
   caja de 76.dp. **Los altos fijos NO se tocaron** — de ellos depende el fix del S24.
 - ⚠️ **Sin verificar en pantalla**: compila y la lógica de autoajuste impide el recorte, pero nadie
   lo ha visto todavía en un dispositivo chico real. Si a 10.sp queda muy pequeño, subir ese piso.
+  Sí está comprobado que **compila para iOS** (`:shared:compileKotlinIosSimulatorArm64` OK): el
+  `autoSize` existe en Kotlin/Native. **Traspaso para probarlo en la Mac:
+  `PROMPT_MAC_verificar_ios_titulacion.md`.**
+- ⚠️ **NOTAS DE VERSIÓN SIN ACTUALIZAR (bloquea el merge).** Mergear el PR #141 dispara
+  `android-release.yml` → AAB firmado → Play **track alpha (prueba cerrada), `status: completed`**,
+  usando `distribution/whatsnew/*`. Esas notas siguen siendo las de 1.0.0.17 y **no mencionan nada
+  de esta rama**: ni el renombrado (que el jugador VE), ni los 2 movimientos nuevos, ni los
+  arreglos de La Llorona. Lo único que se tocó ahí fue el nombre del modo en un bullet. ⚠️ El
+  español está a **489 de los 500 caracteres** que permite Play: para añadir hay que recortar.
 - **Comentarios, docs y textos de tienda** actualizados en bloque (75 archivos).
 - **NO se reescribió el historial**: `_ARCHIVO/`, el changelog del README público (62 menciones,
   todas en entradas con fecha) y `PR_lanzamiento_huelum_vs_goya.md` (PR #136, ya mergeado) se
