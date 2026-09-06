@@ -20,6 +20,12 @@ class SfDamageTest {
     }
 
     @Test
+    fun `contraataque y derribo con poder usan su dano propio - no la fuerza`() {
+        assertEquals(SfConstants.COUNTER_THROW_DAMAGE, SfDamage.forAttack(SfFighterState.COUNTER, SfAttackStrength.LIGHT))
+        assertEquals(SfConstants.POWER_THROW_DAMAGE, SfDamage.forAttack(SfFighterState.POWER_GRAB, SfAttackStrength.HEAVY))
+    }
+
+    @Test
     fun `los golpes normales usan el dano de su fuerza`() {
         val normales = listOf(
             SfFighterState.LIGHT_PUNCH, SfFighterState.MEDIUM_PUNCH, SfFighterState.HEAVY_PUNCH,
@@ -76,6 +82,14 @@ class SfDamageTest {
         listOf(
             SfFighterState.LIGHT_PUNCH, SfFighterState.HEAVY_KICK, SfFighterState.SWEEP,
             SfFighterState.OVERHEAD, SfFighterState.GRAB,
+            SfFighterState.COUNTER, SfFighterState.POWER_GRAB,
         ).forEach { assertFalse(it in SfDamage.CHIP_ATTACK_STATES, "$it NO debe hacer chip") }
+    }
+
+    @Test
+    fun `POWER_GRAB tiene ATTACK_META - COUNTER y POWER_THROW son reactivos o de remate y no tienen`() {
+        assertTrue(SfFighterState.POWER_GRAB in SfDamage.ATTACK_META)
+        assertFalse(SfFighterState.COUNTER in SfDamage.ATTACK_META)
+        assertFalse(SfFighterState.POWER_THROW in SfDamage.ATTACK_META)
     }
 }

@@ -386,6 +386,20 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
         SfFighterState.THROW -> if (isAnimationCompleted(f)) {
             changeState(sim, idx, SfFighterState.IDLE, now)
         }
+        // 🆕 (2026-08-29) CONTRAATAQUE: la ventana activa la consulta applyAttackHit
+        // (counterActiveUntilMs); aquí solo se espera a que termine la animación, igual
+        // que PARRY_HIGH (si nadie te golpeó, recuperas a IDLE sin más castigo que el propio
+        // largo de la animación).
+        SfFighterState.COUNTER -> if (isAnimationCompleted(f)) {
+            changeState(sim, idx, SfFighterState.IDLE, now)
+        }
+        // 🆕 (2026-08-29) DERRIBO CON PODER: mismo patrón que GRAB → THROW.
+        SfFighterState.POWER_GRAB -> {
+            if (isAnimationCompleted(f)) changeState(sim, idx, SfFighterState.IDLE, now)
+        }
+        SfFighterState.POWER_THROW -> if (isAnimationCompleted(f)) {
+            changeState(sim, idx, SfFighterState.IDLE, now)
+        }
         SfFighterState.TAUNT -> if (isAnimationCompleted(f)) {
             changeState(sim, idx, SfFighterState.IDLE, now)
         }
@@ -480,6 +494,9 @@ internal fun StreetFighterViewModel.tryGroundUtilityInput(
 ): Boolean {
     if (input.parry && changeState(sim, idx, SfFighterState.PARRY_HIGH, now)) return true
     if (input.grab && tryGrab(sim, idx, now)) return true
+    // 🆕 (2026-08-29) CONTRAATAQUE + DERRIBO CON PODER
+    if (input.counter && changeState(sim, idx, SfFighterState.COUNTER, now)) return true
+    if (input.powerThrow && tryPowerGrab(sim, idx, now)) return true
     if (input.dashForward && changeState(sim, idx, SfFighterState.DASH_FORWARD, now)) return true
     if (input.dashBackward && changeState(sim, idx, SfFighterState.DASH_BACKWARD, now)) return true
     return input.taunt && changeState(sim, idx, SfFighterState.TAUNT, now)
@@ -563,6 +580,21 @@ internal fun StreetFighterViewModel.tryGrab(sim: StreetFighterViewModel.Sim, idx
     // No se puede agarrar a quien está en el aire ni derribado
     if (foe.isAirborne || foe.state in SF_DOWNED_STATES) return false
     return changeState(sim, idx, SfFighterState.GRAB, now)
+}
+
+/**
+ * 🆕 (2026-08-29) DERRIBO CON PODER: mismo alcance/objetivo que [tryGrab], más el requisito de
+ * recurso (medidor parcial, como un "EX move"). El medidor NO se descuenta aquí: se gasta al
+ * conectar o fallar en `applyPowerThrow`/el whiff normal, vía `changeState` — igual que la súper
+ * y el fatality consumen su medidor al ENTRAR al estado, no al decidir el input.
+ */
+internal fun StreetFighterViewModel.tryPowerGrab(sim: StreetFighterViewModel.Sim, idx: Int, now: Long): Boolean {
+    val me = sim.fighter(idx)
+    if (me.superMeter < SfConstants.POWER_THROW_METER_COST) return false
+    val foe = sim.fighter(1 - idx)
+    if (abs(me.x - foe.x) > SfConstants.GRAB_RANGE) return false
+    if (foe.isAirborne || foe.state in SF_DOWNED_STATES) return false
+    return changeState(sim, idx, SfFighterState.POWER_GRAB, now)
 }
 
 /**

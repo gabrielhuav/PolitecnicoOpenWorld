@@ -64,6 +64,17 @@ object SfConstants {
     const val PARRY_ADVANTAGE_MS = 320L
     /** Alcance del agarre (px entre peleadores). */
     const val GRAB_RANGE = 62f
+    // ── 🆕 (2026-08-29) CONTRAATAQUE + DERRIBO CON PODER ──
+    /** Ventana ACTIVA del contraataque: más corta que la del parry (más difícil de acertar). */
+    const val COUNTER_WINDOW_MS = 200L
+    /** Daño del agarre gratis que premia un contraataque exitoso (entre THROW y SUPER_ART). */
+    const val COUNTER_THROW_DAMAGE = 34
+    /** Tramo del medidor de súper que cuesta el derribo con poder (de SUPER_METER_MAX). */
+    const val POWER_THROW_METER_COST = 40
+    /** Daño del derribo con poder (entre THROW y SUPER_ART: cuesta medidor, pero no todo). */
+    const val POWER_THROW_DAMAGE = 42
+    /** Empuje del derribo con poder: más fuerte que el del agarre normal (THROW_PUSH_VELOCITY). */
+    const val POWER_THROW_PUSH_VELOCITY = 630f
     /** Daño del FATALITY (poder súper especial). Consume el medidor entero. */
     const val FATALITY_DAMAGE = 70
     /** Distancia a la que el atacante reaparece tras CRUZAR al otro lado en el fatality. */
@@ -384,6 +395,22 @@ enum class SfFighterState(val jsKey: String) {
      * como `enum.name` con parse defensivo (un cliente viejo simplemente lo ignora).
      */
     STUN("stun"),
+
+    /**
+     * 🆕 (2026-08-29) CONTRAATAQUE: ventana activa (como el parry, pero más corta) que, si
+     * conecta un golpe rival, lo anula ENTERO y pasa DIRECTO a [THROW] contra el atacante con
+     * daño de bonus (ver [SfDamage.forAttack] y `applyCounterThrow` en StreetFighterCombate.kt).
+     * Reutiliza el arte de THROW/THROWN/GET_UP para el pago: solo necesita su PROPIA pose de
+     * "listo/guardia + recuperación" (6 cuadros).
+     */
+    COUNTER("counter"),
+    /**
+     * 🆕 (2026-08-29) DERRIBO CON PODER — intento: como [GRAB] pero telegrafiado (más cuadros)
+     * y gateado por medidor (`POWER_THROW_METER_COST`). Si conecta, pasa a [POWER_THROW].
+     */
+    POWER_GRAB("powerGrab"),
+    /** 🆕 (2026-08-29) DERRIBO CON PODER — remate: como [THROW] pero con más daño y empuje. */
+    POWER_THROW("powerThrow"),
 }
 
 /**
@@ -403,6 +430,8 @@ val SF_NEW_MOVE_STATES: Set<SfFighterState> = setOf(
     SfFighterState.SUPER_ART, SfFighterState.HURT_CROUCH,
     SfFighterState.RUN, SfFighterState.IDLE_RELAXED, SfFighterState.TALK,
     SfFighterState.FATALITY,
+    // 🆕 (2026-08-29) CONTRAATAQUE + DERRIBO CON PODER
+    SfFighterState.COUNTER, SfFighterState.POWER_GRAB, SfFighterState.POWER_THROW,
 )
 
 /** 🆕 Estados de ATAQUE nuevos (los que pueden conectar un golpe). */
@@ -413,6 +442,9 @@ val SF_NEW_ATTACK_STATES: Set<SfFighterState> = setOf(
     SfFighterState.LONG_KICK, SfFighterState.OVERHEAD,
     SfFighterState.GRAB, SfFighterState.SUPER_ART,
     SfFighterState.FATALITY,
+    // 🆕 (2026-08-29) Solo POWER_GRAB tiene hitbox propia; COUNTER es reactivo (como el parry)
+    // y POWER_THROW es el remate sin hit-check propio (como THROW).
+    SfFighterState.POWER_GRAB,
 )
 
 /** 🆕 Estados de BLOQUEO (absorben el golpe con daño reducido y sin pose de daño). */
@@ -476,6 +508,9 @@ val SF_HURT_STATES: Set<SfFighterState> = setOf(
     SfFighterState.FATALITY,
     // 🆕 (2026-07-22) El MAREADO es golpeable (así el rival lo castiga y lo saca del stun).
     SfFighterState.STUN,
+    // 🆕 (2026-08-29) CONTRAATAQUE (igual que PARRY_*: golpeable fuera de su ventana activa) +
+    // DERRIBO CON PODER (intento y remate, golpeables como GRAB/THROW).
+    SfFighterState.COUNTER, SfFighterState.POWER_GRAB, SfFighterState.POWER_THROW,
 ) + SF_BONUS_POWER_STATES
 
 /**
@@ -651,4 +686,7 @@ data class SfInput(
     val grab: Boolean = false,             // botón AGARRE
     val taunt: Boolean = false,            // botón BURLA
     val superArt: Boolean = false,         // botón SÚPER (requiere medidor lleno)
+    // ── 🆕 (2026-08-29) CONTRAATAQUE + DERRIBO CON PODER ──
+    val counter: Boolean = false,          // botón CONTRAATAQUE
+    val powerThrow: Boolean = false,       // botón DERRIBO CON PODER (exige medidor parcial)
 )

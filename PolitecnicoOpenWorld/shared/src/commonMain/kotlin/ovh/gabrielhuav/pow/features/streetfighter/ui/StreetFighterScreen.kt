@@ -448,6 +448,10 @@ fun StreetFighterScreenCommon(
     val comboHitsLabel = stringResource(Res.string.sf_combo_hits)
     // 🆕 (2026-07-21) ¿El peleador elegido tiene el moveset nuevo? (botones extra)
     val hasNewMoves = remember(state.player.id) { controller.playerHasNewMoves() }
+    // 🆕 (2026-08-29) CONTRAATAQUE/DERRIBO CON PODER: gates POR MOVIMIENTO (no todo el moveset
+    // 3rd Strike en bloque), para no mostrar un botón muerto mientras falte SU hoja en concreto.
+    val hasCounterMove = remember(state.player.id) { controller.playerHasCounterMove() }
+    val hasPowerThrowMove = remember(state.player.id) { controller.playerHasPowerThrowMove() }
     // 🆕 Ajustes → "Mostrar hitboxes" (se lee al entrar al modo)
     val showHitboxes = remember { controller.showHitboxes() }
     // 🆕 (2026-07-25) Ajustes → "Mostrar FPS (pelea)" (contador de cuadros por segundo)
@@ -553,6 +557,8 @@ fun StreetFighterScreenCommon(
                     onGrab = controller::onGrabPressed,
                     onTaunt = controller::onTauntPressed,
                     onSuper = controller::onSuperArtPressed,
+                    showCounter = hasCounterMove,
+                    onCounter = controller::onCounterPressed,
                     highlight = tutorialButton,
                 )
                 // Gatillos R (derecha, encima del diamante) = R1 Agarre · R2 Súper.
@@ -566,6 +572,8 @@ fun StreetFighterScreenCommon(
                     onGrab = controller::onGrabPressed,
                     onTaunt = controller::onTauntPressed,
                     onSuper = controller::onSuperArtPressed,
+                    showPowerThrow = hasPowerThrowMove,
+                    onPowerThrow = controller::onPowerThrowPressed,
                     highlight = tutorialButton,
                 )
             }
@@ -1633,6 +1641,8 @@ private fun sfButtonForLabel(label: String): String? = when {
     label.contains("PARRY") -> "L1"
     label.contains("AGARRE") -> "R1"
     label.contains("BURLA") -> "L2"
+    label.contains("CONTRAATAQUE") -> "L3"
+    label.contains("DERRIBO") -> "R3"
     label.contains("PUÑO LIGERO") -> "X"
     label.contains("PUÑO MEDIO") -> "Y"
     label.contains("PUÑO FUERTE") -> "B"
@@ -1724,6 +1734,14 @@ private fun FighterShoulderButtons(
     onGrab: () -> Unit,
     onTaunt: () -> Unit,
     onSuper: () -> Unit,
+    // 🆕 (2026-08-29) CONTRAATAQUE (L3) + DERRIBO CON PODER (R3): usan la paleta que ya estaba
+    // RESERVADA para esto (ver comentario "Alt 3 · Gema/Elementos" arriba). Cada uno se muestra
+    // solo si el peleador YA tiene esa hoja en concreto (showCounter/showPowerThrow), no todo el
+    // moveset 3rd Strike en bloque — así no aparece un botón muerto mientras falte SU arte.
+    showCounter: Boolean = false,
+    onCounter: () -> Unit = {},
+    showPowerThrow: Boolean = false,
+    onPowerThrow: () -> Unit = {},
     // 🆕 (2026-07-22) TUTORIAL: letra del botón que TOCA presionar (brilla/pulsa) o null.
     highlight: String? = null,
 ) {
@@ -1734,6 +1752,12 @@ private fun FighterShoulderButtons(
             Spacer(modifier = Modifier.size(6.dp))
             // L2 · Burla (rosa neón, sin efecto en combate)
             SfNeonButton("L2", Color(0xFFFF007F), Color(0xFFC5005E), highlight == "L2", onTaunt)
+            if (showCounter) {
+                Spacer(modifier = Modifier.size(6.dp))
+                // 🆕 L3 · Contraataque (esmeralda, de la reserva de paleta): ventana más corta
+                // que el parry; si conecta, agarre gratis con daño de bonus.
+                SfNeonButton("L3", Color(0xFF2D6A4F), Color(0xFF1B4332), highlight == "L3", onCounter)
+            }
         } else {
             // R1 · Agarre (violeta neón): lanza al rival pegado, atraviesa la guardia
             SfNeonButton("R1", Color(0xFF7928CA), Color(0xFF56149F), highlight == "R1", onGrab)
@@ -1746,6 +1770,12 @@ private fun FighterShoulderButtons(
                 highlighted = highlight == "R2",
                 onPress = onSuper,
             )
+            if (showPowerThrow) {
+                Spacer(modifier = Modifier.size(6.dp))
+                // 🆕 R3 · Derribo con poder (rubí, de la reserva de paleta): cuesta medidor,
+                // pega más fuerte y empuja más que el agarre normal.
+                SfNeonButton("R3", Color(0xFF9B2226), Color(0xFF641220), highlight == "R3", onPowerThrow)
+            }
         }
     }
 }

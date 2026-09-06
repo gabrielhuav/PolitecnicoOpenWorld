@@ -82,6 +82,9 @@ object SfStateMachine {
         SfFighterState.GRAB, SfFighterState.THROW, SfFighterState.TAUNT,
         SfFighterState.SUPER_ART, SfFighterState.RUN,
         SfFighterState.IDLE_RELAXED, SfFighterState.TALK,
+        // 🆕 (2026-08-29) CONTRAATAQUE + DERRIBO CON PODER: recuperan a IDLE igual que
+        // PARRY_HIGH/GRAB/THROW.
+        SfFighterState.COUNTER, SfFighterState.POWER_GRAB, SfFighterState.POWER_THROW,
     ) + SF_BONUS_POWER_STATES + CROUCH_RECOVERY_FROM + DASH_RECOVERY_FROM
 
     /** Ataques AÉREOS: solo mientras se está en el aire. */
@@ -161,6 +164,11 @@ object SfStateMachine {
         SfFighterState.OVERHEAD to ATTACK_VALID_FROM,
         SfFighterState.GRAB to NEUTRAL_GROUND,
         SfFighterState.THROW to setOf(SfFighterState.GRAB),
+        // 🆕 (2026-08-29) CONTRAATAQUE: de pie, igual que PARRY_HIGH/GRAB/TAUNT.
+        SfFighterState.COUNTER to NEUTRAL_GROUND,
+        // 🆕 (2026-08-29) DERRIBO CON PODER: mismo origen que GRAB; el remate solo sale del intento.
+        SfFighterState.POWER_GRAB to NEUTRAL_GROUND,
+        SfFighterState.POWER_THROW to setOf(SfFighterState.POWER_GRAB),
         SfFighterState.THROWN to SfFighterState.entries.toSet(),
         SfFighterState.GET_UP to setOf(SfFighterState.THROWN),
         SfFighterState.TAUNT to NEUTRAL_GROUND,

@@ -739,8 +739,14 @@ internal fun StreetFighterViewModel.smartCpuDecision(sim: StreetFighterViewModel
         }
         if (dist < 95f) {
             val parryChance = if (nightmare) 0.38f else 0.20f + 0.10f * cpuIntensity
+            // 🆕 (2026-08-29) CONTRAATAQUE: la apuesta arriesgada de la defensa (ventana más
+            // corta que el parry, pero premia con daño real) — bastante MENOS frecuente que el
+            // parry, que sigue siendo el default seguro de la IA.
+            val counterChance = parryChance * 0.4f
             return when {
                 hasAnim(me, SfFighterState.PARRY_HIGH) && roll < parryChance -> SfInput(parry = true)
+                hasAnim(me, SfFighterState.COUNTER) && roll < parryChance + counterChance ->
+                    SfInput(counter = true)
                 roll < (if (nightmare) 0.76f else 0.64f) -> cpuRetreatFlags(me, foe)
                 else -> cpuAttack(SfAttackStrength.LIGHT, punch = true)
             }
@@ -846,9 +852,19 @@ internal fun StreetFighterViewModel.cpuNewMove(
     ) {
         return SfInput(down = true, heavyKick = true)
     }
+    // 🆕 (2026-08-29) DERRIBO CON PODER: con medidor de sobra (y sin guardarlo para la
+    // súper/fatality, que ya se evaluaron antes en smartCpuDecision), prefiere el agarre CARO
+    // sobre el gratis — mismo gatillo que el AGARRE de abajo, pero con más daño y empuje.
+    val powerGrabReady = hasAnim(me, SfFighterState.POWER_GRAB) &&
+        me.superMeter >= SfConstants.POWER_THROW_METER_COST && !me.superReady
+    val foeTurtling = foe.state in SF_BLOCK_STATES || foe.state == SfFighterState.WALK_BACKWARD
+    if (dist < SfConstants.GRAB_RANGE && powerGrabReady && foeTurtling &&
+        roll < (if (aggressive) 0.6f else 0.35f)
+    ) {
+        return SfInput(powerThrow = true)
+    }
     // AGARRE a quien se cubre (el bloqueo no salva del lanzamiento)
-    if (dist < SfConstants.GRAB_RANGE && hasAnim(me, SfFighterState.GRAB) &&
-        (foe.state in SF_BLOCK_STATES || foe.state == SfFighterState.WALK_BACKWARD) &&
+    if (dist < SfConstants.GRAB_RANGE && hasAnim(me, SfFighterState.GRAB) && foeTurtling &&
         roll < (if (aggressive) 0.6f else 0.35f)
     ) {
         return SfInput(grab = true)
@@ -900,6 +916,8 @@ internal fun StreetFighterViewModel.inputForAction(action: SfComboAction): SfInp
     SfComboAction.PARRY -> SfInput(parry = true)
     SfComboAction.GRAB -> SfInput(grab = true)
     SfComboAction.TAUNT -> SfInput(taunt = true)
+    SfComboAction.COUNTER -> SfInput(counter = true)
+    SfComboAction.POWER_THROW -> SfInput(powerThrow = true)
     SfComboAction.SPECIAL -> SfInput(special = SfAttackStrength.MEDIUM)
     SfComboAction.SUPER_ART -> SfInput(superArt = true)
     SfComboAction.JUMP -> SfInput(up = true)
@@ -932,6 +950,10 @@ internal fun StreetFighterViewModel.stateForAction(action: SfComboAction): Set<S
     SfComboAction.PARRY -> SF_PARRY_STATES
     SfComboAction.GRAB -> setOf(SfFighterState.GRAB, SfFighterState.THROW)
     SfComboAction.TAUNT -> setOf(SfFighterState.TAUNT)
+    // 🆕 (2026-08-29) Igual que el parry: entrar a la ventana ya cuenta (el muñeco del tutorial
+    // nunca ataca, así que validar por un contraataque REAL nunca podría completarse).
+    SfComboAction.COUNTER -> setOf(SfFighterState.COUNTER)
+    SfComboAction.POWER_THROW -> setOf(SfFighterState.POWER_GRAB, SfFighterState.POWER_THROW)
     SfComboAction.SPECIAL -> setOf(
         SfFighterState.SPECIAL_1_LIGHT, SfFighterState.SPECIAL_1_MEDIUM,
         SfFighterState.SPECIAL_1_HEAVY,
@@ -969,6 +991,10 @@ internal fun StreetFighterViewModel.hasArtFor(f: SfFighter, action: SfComboActio
 internal fun StreetFighterViewModel.canPerform(f: SfFighter, action: SfComboAction): Boolean {
     val needsMeter = action == SfComboAction.SUPER_ART || action == SfComboAction.FATALITY
     if (needsMeter && !f.superReady) return false
+    // 🆕 (2026-08-29) DERRIBO CON PODER solo necesita un TRAMO del medidor, no lleno.
+    if (action == SfComboAction.POWER_THROW && f.superMeter < SfConstants.POWER_THROW_METER_COST) {
+        return false
+    }
     return hasArtFor(f, action)
 }
 

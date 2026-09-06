@@ -36,6 +36,10 @@ enum class SfComboAction {
     WALK_FORWARD, RUN, BLOCK_HIGH,
     /** 🆕 FATALITY / poder súper especial: súper EN CARRERA con el medidor lleno. */
     FATALITY,
+    /** 🆕 (2026-08-29) CONTRAATAQUE: ventana activa que premia con un agarre gratis. */
+    COUNTER,
+    /** 🆕 (2026-08-29) DERRIBO CON PODER: agarre especial que cuesta medidor. */
+    POWER_THROW,
     ;
 
     companion object {

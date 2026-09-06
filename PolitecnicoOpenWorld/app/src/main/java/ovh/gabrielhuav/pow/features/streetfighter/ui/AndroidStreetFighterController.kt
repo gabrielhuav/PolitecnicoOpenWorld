@@ -55,6 +55,8 @@ class AndroidStreetFighterController(
     override fun forcePause() = viewModel.forcePause()
     override fun hasArcadeSession() = viewModel.hasArcadeSession()
     override fun playerHasNewMoves() = viewModel.playerHasNewMoves()
+    override fun playerHasCounterMove() = viewModel.playerHasCounterMove()
+    override fun playerHasPowerThrowMove() = viewModel.playerHasPowerThrowMove()
     override fun showHitboxes() = viewModel.showHitboxes()
     override fun showSfFps() = viewModel.showSfFps()
     override fun isFighterActuallyUnlocked(id: SfFighterId) = viewModel.isFighterActuallyUnlocked(id)
@@ -70,6 +72,8 @@ class AndroidStreetFighterController(
     override fun onGrabPressed() = viewModel.onGrabPressed()
     override fun onTauntPressed() = viewModel.onTauntPressed()
     override fun onSuperArtPressed() = viewModel.onSuperArtPressed()
+    override fun onCounterPressed() = viewModel.onCounterPressed()
+    override fun onPowerThrowPressed() = viewModel.onPowerThrowPressed()
 
     override fun tutorialSkipLesson() = viewModel.tutorialSkipLesson()
     override fun tutorialRestartLesson() = viewModel.tutorialRestartLesson()

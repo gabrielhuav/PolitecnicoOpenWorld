@@ -96,6 +96,8 @@ internal fun StreetFighterViewModel.actionLabel(action: SfComboAction): String =
     SfComboAction.PARRY -> "PARRY (L1)"
     SfComboAction.GRAB -> "AGARRE (R1, PEGADO)"
     SfComboAction.TAUNT -> "BURLA (L2)"
+    SfComboAction.COUNTER -> "CONTRAATAQUE (L3)"
+    SfComboAction.POWER_THROW -> "DERRIBO CON PODER (R3, MEDIDOR)"
     SfComboAction.SPECIAL -> "↓ ↘ → + PUÑO"
     SfComboAction.SUPER_ART -> "SÚPER (R2, MEDIDOR LLENO)"
     SfComboAction.JUMP -> "SALTAR (JOYSTICK ↑)"

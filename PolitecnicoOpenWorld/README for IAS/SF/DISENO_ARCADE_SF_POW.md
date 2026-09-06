@@ -7,6 +7,37 @@
 > CRLF, Read para verificar). Los BUGS del modo (stun-lock, revancha, servidor LAN) viven en
 > `PENDIENTES_SF_2026-07-16.md` y NO dependen de esto.
 
+## Cambios 2026-08-29/30 (Claude Sonnet 5) — CONTRAATAQUE + DERRIBO CON PODER (motor + arte + pipeline: 18/18 completos)
+
+Dos movimientos nuevos de la familia Agarre/Parry, diseñados desde la mecánica antes de tocar
+arte (siguiendo cómo se agregó OVERHEAD en 2026-07-21). Detalle de diseño + implementación en
+`SF/PROMPT_hoja30_contraataque_derribo.md` y en el mensaje de PR/commit correspondiente.
+
+| Movimiento | Cómo se hace | Regla |
+|---|---|---|
+| **Contraataque** | botón **L3**, ventana activa 200ms (más corta que el parry) | si conecta un golpe rival, se anula ENTERO y pasa DIRECTO a un `THROW` gratis (reutiliza el arte de Agarre→Lanzamiento) con daño de bonus (34, entre agarre 26 y súper 45). Si falla, recuperación más larga que el parry. |
+| **Derribo con Poder** | botón **R3**, exige medidor ≥ 40/100 y rango de agarre | agarre especial: intento telegrafiado (4 cuadros, el doble que el agarre normal de 2) → remate propio (`POWER_THROW`, 8 cuadros) con más daño (42) y más empuje que el agarre normal. El medidor se gasta al intentarlo, conecte o falle. |
+
+- **Motor (`:shared`) TERMINADO y verificado**: `SfFighterState.COUNTER/POWER_GRAB/POWER_THROW`,
+  `SfStateMachine.VALID_FROM`, `runStateHandler`, `applyCounterThrow`/`applyPowerThrow` en
+  `StreetFighterCombate.kt`, IA en `StreetFighterCpuAi.kt` (contraataque = alternativa arriesgada
+  al parry; derribo con poder preferido sobre el agarre normal cuando sobra medidor sin competir
+  con la prioridad de la súper). Botones L3 (Esmeralda)/R3 (Rubí) en `StreetFighterScreen.kt`,
+  usando la paleta que ya estaba reservada ahí para esta expansión ("Alt 3 · Gema/Elementos").
+  Gate por movimiento (`playerHasCounterMove`/`playerHasPowerThrowMove`), no por todo el moveset
+  3rd Strike — así el botón no aparece "muerto" en un personaje sin ESA hoja en concreto.
+  `./gradlew :app:testDebugUnitTest :shared:testAndroidHostTest` en verde, detekt exit 0,
+  `check_kmp_test_names.sh` OK. Sin arte, `hasAnim` bloquea los 3 estados nuevos: cero regresión.
+- **Arte (hoja 30, 18 personajes) TERMINADO** — 4 rondas de corrección (cuadros pegados → rival
+  dibujado → agarre reinterpretado como poder a distancia → Fila 3 corta por 1 cuadro en 3
+  personajes). Detalle de las 4 en `SF/PROMPT_hoja30_contraataque_derribo.md` y en
+  `SF/00_SF_INDEX.md` §"reglas que más caro han salido" (6-8).
+- **Pipeline Python (`slice_sf_chroma_sheets.py`/`pack_sf_character.py`) TERMINADO** — 2 bugs
+  reales de fusión de filas corregidos en `merge_fragments`/`maybe_split`.
+- **Los 18 personajes están recortados + empacados** en `app/src/main/assets/STREETFIGHTER/`;
+  motor reverificado en verde (`gradle test`, detekt, nombres de test) tras el empaquetado
+  final. Nada de esto se ha commiteado. Detalle completo en `_SESION_ACTUAL.md`.
+
 ## Cambios 2026-07-25 (Opus 4.8) — súper que persiste entre rondas + GRADO de victoria
 
 > ⚠️ **SIN COMPILAR en esta sesión** (falta `gradle-wrapper.jar` y Gradle 9.5). Rebuild +

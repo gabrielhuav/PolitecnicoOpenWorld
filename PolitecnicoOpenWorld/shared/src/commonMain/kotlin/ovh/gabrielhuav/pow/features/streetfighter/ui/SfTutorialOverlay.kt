@@ -53,6 +53,10 @@ private fun chipColor(label: String): Color = when {
     label.contains("AGARRE") -> Color(0xFF7928CA)        // R1 (violeta neón)
     label.contains("SÚPER") || label.contains("FATALITY") -> Color(0xFFFF7B00) // R2 (naranja neón)
     label.contains("BURLA") -> Color(0xFFFF007F)         // L2 (rosa neón)
+    // 🆕 (2026-08-29) CONTRAATAQUE + DERRIBO CON PODER: misma paleta reservada que
+    // StreetFighterScreen.FighterShoulderButtons (Esmeralda/Rubí).
+    label.contains("CONTRAATAQUE") -> Color(0xFF2D6A4F)  // L3 (esmeralda)
+    label.contains("DERRIBO") -> Color(0xFF9B2226)       // R3 (rubí)
     else -> Color(0xFF5B6ACD)                            // joystick / direcciones
 }
 

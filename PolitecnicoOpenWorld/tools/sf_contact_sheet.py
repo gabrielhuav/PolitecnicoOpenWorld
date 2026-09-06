@@ -19,7 +19,7 @@ pick = sys.argv[2] if len(sys.argv) > 2 else "first"  # first | mid
 data = json.load(open(os.path.join(ROOT, "DATA", f"{char.lower()}.json"), encoding="utf-8"))
 img_path = None
 for f in os.listdir(os.path.join(ROOT, "IMAGES")):
-    if f.lower() == f"{char.lower()}.png":
+    if f.lower() in (f"{char.lower()}.webp", f"{char.lower()}.png"):
         img_path = os.path.join(ROOT, "IMAGES", f)
         break
 atlas = Image.open(img_path).convert("RGBA")
