@@ -3,12 +3,97 @@
 > Único traspaso entre IAs. Ventana de 2 días; máximo 200 líneas. Aquí va estado medido,
 > trabajo abierto y trampas caras. Diseño e historia viven en los documentos de cada área.
 
-**Última actualización:** 2026-08-30 · Claude Sonnet 5 (Windows, escritorio) · rama `tooling/sf-asset-pipeline` (sin push)
+**Última actualización:** 2026-09-05 · Claude Opus 5 (Mac, simulador) · rama `tooling/sf-asset-pipeline` (sin push)
 
 > ⚠️ **El trabajo de iOS/mundo abierto medido hasta el 08-17 (ANRs en `NativeOsmMap`, fases 5/6
 > del mundo, puente JS↔Swift) se purgó a `_ARCHIVO/HISTORIAL_sesiones_2026-08-17.md`** — pasaron
 > 13 días sin que nadie lo tocara. Nada de esto se tocó en esta sesión. Si retomas ese hilo,
 > verifica primero si sigue vigente antes de confiar en esas cifras.
+
+## 🍏 09-05 (Mac): VERIFICADO EN EL SIMULADOR — 1 fallo de texto, la memoria NO empeoró
+
+Ejecutado `PROMPT_MAC_verificar_ios_titulacion.md` en **iPhone SE (3ª gen), iOS 18.2, Xcode 26.6**.
+Todo lo de aquí está MEDIDO en pantalla, no deducido.
+
+### ✅ RESUELTO — el rótulo del botón destacado se cortaba con la fuente del sistema en grande
+
+- **Síntoma (iPhone SE + fuente del sistema al máximo):** el botón destacado mostraba
+  **"★ TITULACIÓN POR"** y desaparecía "COMBATE ★", **sin "…"**. Y la letra salía MÁS GRANDE que a
+  tamaño normal: el autoajuste no encogía nada. Igual en inglés (es nombre propio, mismo string).
+
+**La causa, que NO es la que parecía.** El `autoSize` solo encogía los rótulos de UNA palabra.
+Con `maxLines = 1` y `softWrap` en su valor por defecto (`true`), un rótulo CON ESPACIO se parte
+en el espacio, Compose tira lo que sobra y mide la línea que queda — **que sí cabe**. Sin
+desbordamiento que medir, `StepBased` se queda en el tamaño máximo, y como `BasicText` usa
+`TextOverflow.Clip`, lo tirado desaparece sin puntos suspensivos. Los de una palabra sí encogían
+porque no tienen dónde partirse (por eso `COLECCIONABLES` sí funcionaba y fue la pista).
+
+**Arreglo (3 líneas, todo en `commonMain`, VERIFICADO en pantalla):**
+1. `softWrap = false` en `FeaturedStreetFighterButton` y `MenuButton` (`MainMenuScreen.kt`) y en
+   el rótulo de `FeaturedArcadeButton` (`SfMenuOverlays.kt`). Es la misma bandera en la que ya se
+   apoyaba el fix del S24 en `StageBadge`.
+2. El piso del botón destacado bajó de **11 → 6.sp**. Con `softWrap = false` ya encogía, pero
+   topaba con los 11.sp y seguía comiéndose la ★ final (26 caracteres + 1.sp de `letterSpacing`
+   en cada uno piden ~10.sp). ⚠️ **6.sp no es letra diminuta**: el piso está en `sp`, así que el
+   sistema lo multiplica por la escala del usuario — a tamaño de accesibilidad acaban siendo
+   ~19 pt en pantalla. **Con la fuente normal el piso ni se toca: sigue pintando a 20.sp.**
+3. **NO se tocó** la descripción del botón ARCADE (`maxLines = 2`): ahí `softWrap = false` la
+   colapsaría a una línea y se perdería el diseño de dos.
+
+**Verificado en el iPhone SE, las 6 combinaciones:** rótulo COMPLETO con las dos estrellas en
+fuente normal / máxima de Ajustes / máxima de accesibilidad, en **español y en inglés**. A tamaño
+normal se pinta idéntico a antes (sin regresión). En el submenú, `★ ARCADE ★` y su descripción de
+2 líneas, completos.
+**Los altos fijos (56/76.dp) NO se tocaron** — el fix del S24 sigue intacto.
+Cierre en verde tras el cambio: **342 tests** (125 `:app` + 217 `:shared`) 0 fallos,
+`:shared:iosSimulatorArm64Test` OK, **detekt exit 0**, `check_kmp_test_names.sh` OK.
+
+### ⚠️ Aparte y PREEXISTENTE (no lo trajo esta rama): `PowButton` no se autoajusta
+
+`ui/components/PowButton.kt` sigue con `Text` a 13.sp FIJO, sin `maxLines` y con alto fijo de
+44.dp. Con la fuente en grande, en el submenú de pelea se lee **"COMBOS Y"** (se come
+"TUTORIAL", cae a una 2ª línea que el alto fijo recorta) y **"MULTIJUGADO"** (sin la R, recortado
+a lo ancho). La rama solo convirtió `MenuButton`, `FeaturedStreetFighterButton` y
+`FeaturedArcadeButton`; este botón se quedó fuera. **SIGUE ABIERTO a propósito**: `PowButton`
+es un componente COMPARTIDO entre modos y entre plataformas, así que convertirlo también cambia
+Android — es una decisión aparte, no parte de este arreglo.
+
+### ✅ Lo que SÍ pasó
+
+- **Fuente normal, ES y EN:** botón grande completo, **sin** la etiqueta "MODO COMBATE" (bien
+  quitada), y `AJUSTES`/`COLECCIONABLES` enteros. En inglés **sigue diciendo "TITULACIÓN POR
+  COMBATE"** (no se traduce) ✅.
+- **Submenú:** título en 2 líneas completo; `★ ARCADE ★` y su descripción largos, enteros ✅.
+- **Movimientos nuevos:** **L3 (verde) y R3 (rojo) SE PINTAN** en la pelea ✅. 60 FPS estables.
+- **La Llorona:** el atlas del bundle es **byte-idéntico** al del repo (`cb6911a3…`), o sea el
+  re-empaquetado sí viajó a iOS. Recortados del atlas del `.app`: **Especial Pesado 5/5 cuadros y
+  Especial Medio 5/5 con ella VISIBLE**, incluido el cuadro que antes solo tenía el efecto, y el
+  brillo cian del `special-medium-3`. Los dos arreglos del 08-30 están en iOS ✅.
+
+### 📏 MEMORIA — no empeoró; el número de referencia no es comparable
+
+`footprint` sobre el proceso del simulador (`phys_footprint`), iPhone SE:
+
+| Momento | Medido | Referencia `ccac1bbd` |
+|---|---|---|
+| Menú recién abierto | 53–55 MB | — |
+| En pelea con La Llorona | 370–689 MB (pico 819–822 MB) | ~612 MB |
+| De vuelta al menú | **224–229 MB** (2 corridas) | ~494 MB |
+
+⚠️ **El pico alto NO es de La Llorona.** Corrida de control con **Estudianta**: 399–684 MB, pico
+**818 MB** — prácticamente idéntico. El perfil de memoria es el mismo con cualquier peleador, así
+que **el atlas re-empaquetado no engordó nada**. La vuelta al menú es la mitad de la referencia.
+La diferencia con el ~612 MB de `ccac1bbd` es de línea base / forma de medir, no una regresión.
+
+### 🔎 Notas del entorno (por si alguien repite esto)
+
+- El roster sale bloqueado (3 peleadores). Para llegar a La Llorona: **Ajustes → Modo
+  Desarrollador ON** (`devUnlockAll()`); quedó ENCENDIDO en el simulador, junto con "Mostrar FPS".
+- Los especiales piden joystick + botón a la vez: `touch2_path` (dos dedos). Verificar la
+  animación cuadro a cuadro **desde el atlas del `.app` es más fiable** que intentar fotografiar
+  una animación de menos de un segundo.
+- La pelea en iOS va en VERTICAL con franjas negras (el forzado de orientación solo está en el
+  mundo abierto). No es de esta rama.
 
 ## ✅ 09-05: El modo pelea se llama ahora "TITULACIÓN POR COMBATE" (antes "Huelum vs. Goya")
 

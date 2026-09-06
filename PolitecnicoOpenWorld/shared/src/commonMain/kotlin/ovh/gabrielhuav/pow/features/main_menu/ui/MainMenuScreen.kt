@@ -472,8 +472,31 @@ private fun FeaturedStreetFighterButton(text: String, onClick: () -> Unit, enabl
                 textAlign = TextAlign.Center,
             ),
             maxLines = 1,
+            // ⚠️ (2026-09-05b) `softWrap = false` NO es decorativo: sin él el autoajuste NO
+            // ENCOGE los rótulos que llevan un ESPACIO. Con `softWrap` en su valor por defecto
+            // (`true`) y `maxLines = 1`, Compose parte en el espacio, tira lo que sobra y mide
+            // la línea que queda — que SÍ cabe. Al no haber desbordamiento, `StepBased` se queda
+            // en el tamaño máximo y `TextOverflow.Clip` (el de `BasicText`) borra el resto SIN
+            // puntos suspensivos. MEDIDO en un iPhone SE con la fuente del sistema al máximo:
+            // se leía "★ TITULACIÓN POR" y desaparecía "COMBATE ★". Sin partir, la línea entera
+            // se mide más ancha que el hueco, hay desbordamiento y la letra encoge, que es lo
+            // que queremos. (Los de UNA palabra ya encogían: no tienen dónde partirse.)
+            softWrap = false,
+            // ⚠️ (2026-09-05b) El piso BAJÓ de 11 a 6.sp. MEDIDO en un iPhone SE:
+            // "★ TITULACIÓN POR COMBATE ★" son 26 caracteres MÁS 1.sp de `letterSpacing` en cada
+            // uno, así que con la fuente del sistema al máximo topaba con los 11.sp y se comía la
+            // ★ del final; a tamaño de accesibilidad se comía "…BATE ★" entero.
+            //
+            // 6.sp NO significa letra diminuta: el piso está en `sp`, o sea que el sistema lo
+            // multiplica por la escala que el usuario eligió. A tamaño de accesibilidad, 6.sp
+            // acaban siendo ~19 pt en pantalla — parecido a lo que mide "COLECCIONABLES" ahí al
+            // lado. Y con la fuente en su tamaño normal el piso NO entra en juego: esto sigue
+            // pintando a 20.sp, exactamente igual que antes.
+            //
+            // El compromiso es a propósito: entre un rótulo RECORTADO EN SILENCIO y uno completo
+            // pero más chico, en un menú preferimos el completo.
             autoSize = TextAutoSize.StepBased(
-                minFontSize = 11.sp,
+                minFontSize = 6.sp,
                 maxFontSize = 20.sp,
                 stepSize = 0.5.sp,
             ),
@@ -582,6 +605,10 @@ fun MenuButton(text: String, onClick: () -> Unit, enabled: Boolean = true, color
                 textAlign = TextAlign.Center,
             ),
             maxLines = 1,
+            // ⚠️ (2026-09-05b) Igual que en el botón destacado: sin `softWrap = false` los
+            // rótulos CON ESPACIO ("MUNDO LIBRE", "MODO HISTORIA", "STORY MODE") no encogen —
+            // se quedan a tamaño máximo y se meten debajo de su etiqueta "EN OBRAS".
+            softWrap = false,
             autoSize = TextAutoSize.StepBased(
                 minFontSize = 10.sp,
                 maxFontSize = 16.sp,

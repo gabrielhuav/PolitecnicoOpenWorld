@@ -381,6 +381,10 @@ internal fun FeaturedArcadeButton(text: String, tag: String, onClick: () -> Unit
                     textAlign = TextAlign.Center,
                 ),
                 maxLines = 1,
+                // ⚠️ (2026-09-05b) "★ ARCADE ★" lleva espacios: sin `softWrap = false` el
+                // autoajuste no encoge y el rótulo se recorta en silencio. Ver el porqué
+                // completo en `MainMenuScreen.FeaturedStreetFighterButton`.
+                softWrap = false,
                 autoSize = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = 18.sp, stepSize = 0.5.sp),
                 modifier = Modifier.fillMaxWidth(),
             )
