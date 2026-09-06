@@ -69,7 +69,7 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 | Helpers de dibujo / health bar | `ui/WorldMapDrawingUtils.kt` |
 | Sprite jugador / vehículo conducido | `ui/components/PlayerCharacter.kt` |
 | Controles (D-Pad/joystick/A-B-X-Y) | `ui/components/GameControllers.kt` |
-| 🆕 Botón estilo POW compartido (esquinas cortadas + vino; lo usa HUELUM VS. GOYA) | `ui/components/PowButton.kt` |
+| 🆕 Botón estilo POW compartido (esquinas cortadas + vino; lo usa TITULACIÓN POR COMBATE) | `ui/components/PowButton.kt` |
 | Menú anidado de opciones | `ui/components/OptionsMenu.kt` |
 | Panel del modo diseñador | `ui/components/Designerpanel.kt` |
 | Sprites NPC | `ui/components/CharacterSpriteManager.kt`, `VehicleSpriteManager.kt`, `PoliceSpriteManager.kt` |

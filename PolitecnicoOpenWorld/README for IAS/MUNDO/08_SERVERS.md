@@ -212,7 +212,7 @@ el cable **no cambia**. / AI state lives in non-serialized fields; the `ZOMBIE_S
 
 ---
 
-## 3) Servidor 1v1 del modo pelea "HUELUM VS. GOYA" — `MultiplayerSF/server.js` (~340 líneas)
+## 3) Servidor 1v1 del modo pelea "TITULACIÓN POR COMBATE" — `MultiplayerSF/server.js` (~340 líneas)
 
 **ES:** **RELAY PURO** (tercer servidor; mismo patrón `Dockerfile`/`auth.js` modo suave/`GET /status`
 para warmup): NO simula la pelea — cada cliente simula a SU peleador y el DAÑO lo aplica el RECEPTOR.

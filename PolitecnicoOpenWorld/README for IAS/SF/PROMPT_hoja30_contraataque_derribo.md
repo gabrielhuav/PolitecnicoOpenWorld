@@ -85,7 +85,7 @@ necesita `--gen ../newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat
 
 ```text
 Estas imágenes y este mensaje son las referencias permanentes de esta conversación para
-AMPLIAR los sprites de mi juego de pelea 2D "Politécnico Open World: HUELUM VS. GOYA".
+AMPLIAR los sprites de mi juego de pelea 2D "Politécnico Open World: TITULACIÓN POR COMBATE".
 
 La imagen adjunta es la hoja de sprites APROBADA "Idle + Idle Turn" de [PERSONAJE]. Es la
 ÚNICA fuente de identidad y la REGLA DE ESCALA de toda esta producción.
@@ -180,7 +180,7 @@ tocan en cualquier fila, vuelve a generar esa fila con más espacio.
 ```text
 En esta conversación ya tienes establecida la identidad APROBADA (rostro, anatomía,
 proporciones, ropa, paleta, peinado, sombreado, altura de pie de referencia) de estos 18
-peleadores de mi juego de pelea 2D "Politécnico Open World: HUELUM VS. GOYA":
+peleadores de mi juego de pelea 2D "Politécnico Open World: TITULACIÓN POR COMBATE":
 
 1. Prankedy
 2. El Señor de la Tienda (SenorTienda)

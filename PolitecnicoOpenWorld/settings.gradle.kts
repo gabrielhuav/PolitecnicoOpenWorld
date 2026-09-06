@@ -25,6 +25,6 @@ dependencyResolutionManagement {
 rootProject.name = "PolitecnicoOpenWorld"
 include(":app")
 // 🍏 Módulo KMP compartido (Fase 1 de "README for IAS/PLAN_MIGRACION_KMP.md").
-// Hoy solo contiene el dominio PURO de "Huelum vs. Goya"; `:app` lo consume.
+// Hoy solo contiene el dominio PURO de "Titulación por Combate"; `:app` lo consume.
 include(":shared")
  

@@ -1,4 +1,4 @@
-# Migración de assets de "HUELUM VS. GOYA" (modo pelea 1v1: de SF clásico → assets propios de POW)
+# Migración de assets de "TITULACIÓN POR COMBATE" (modo pelea 1v1: de SF clásico → assets propios de POW)
 
 > **Objetivo:** el modo usa HOY los assets del clon Street Fighter (SOLO en Modo Desarrollador,
 > nunca en release público — riesgo de copyright). El motor ya está SEPARADO de los assets:

@@ -17,7 +17,7 @@ import ovh.gabrielhuav.pow.data.json.powJsonObjeto
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStageCatalog
 
-// Persistencia del MODO ARCADE de HUELUM VS. GOYA (SF POW). LOCAL, con SharedPreferences,
+// Persistencia del MODO ARCADE de TITULACIÓN POR COMBATE (SF POW). LOCAL, con SharedPreferences,
 // igual que CampaignRepository/SettingsRepository (no hay base de datos ni Firestore: el
 // proyecto solo tiene Firebase Auth). Guarda MÍNIMO: qué peleadores y qué mapas ha
 // desbloqueado el jugador + hasta qué escalón de la escalera llegó. Diseño DATA-DRIVEN:

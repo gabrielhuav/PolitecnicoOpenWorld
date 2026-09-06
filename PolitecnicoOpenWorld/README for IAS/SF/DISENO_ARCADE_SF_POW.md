@@ -1,8 +1,8 @@
-# DISEÑO · MODO ARCADE "HUELUM VS. GOYA" — versión POW completa (2026-07-16)
+# DISEÑO · MODO ARCADE "TITULACIÓN POR COMBATE" — versión POW completa (2026-07-16)
 
 > **Estado: release candidate 1/9 (2026-07-18).** Decisiones cerradas con el dueño; audio,
 > arte pendiente de esta pasada y auditoría completa de campaña implementados. Leer antes:
-> 07 §HUELUM VS. GOYA + `AUDIT_SF_MULTIPLAYER.md`. Convenciones: 09
+> 07 §TITULACIÓN POR COMBATE + `AUDIT_SF_MULTIPLAYER.md`. Convenciones: 09
 > (MVVM, estado inmutable con `_state.update { it.copy(...) }`, strings ES+EN con paridad,
 > CRLF, Read para verificar). Los BUGS del modo (stun-lock, revancha, servidor LAN) viven en
 > `PENDIENTES_SF_2026-07-16.md` y NO dependen de esto.
@@ -649,7 +649,7 @@ para clips largos). Naming: 1 variante = `special_<key>_<ev>.ogg`; N = `special_
   (`gauntletFightCapCurMs`), timer congelado y golpes sin daño en showcase (solo SFX/splash).
 - Auditoría ESTÁTICA: `auditFighterAssets` (anims faltantes/vacías por `SfFighterState.jsKey`,
   frames rotos, `special_<id>.ogg`) + `auditThemeSounds` (SFX del tema + música) → mismo
-  reporte .txt/overlay. Detalle en 07 §HUELUM VS. GOYA.
+  reporte .txt/overlay. Detalle en 07 §TITULACIÓN POR COMBATE.
 
 ## Fix 2026-07-18k (Fable) — showcase v2 (feedback del dueño en dispositivo)
 
@@ -949,7 +949,7 @@ agachado/aéreos, patada larga, agarres, super arts → cada uno necesitará est
 
 ## Protocolo al implementar (09)
 
-Docs 07 (§HUELUM VS. GOYA) + este doc (marcar avance / borrarlo al terminar) + README
+Docs 07 (§TITULACIÓN POR COMBATE) + este doc (marcar avance / borrarlo al terminar) + README
 público raíz (EN **y** ES). Arcade es offline → NO toca red. Verificar con Read, balance de
 llaves y CRLF. Listo para Rebuild.
 

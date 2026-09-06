@@ -334,7 +334,7 @@ plataforma navega con lo suyo, y lo que se comparte son las pantallas.
 
 En iOS el juego arranca en el **menú principal real**, igual que en Android. Desde el 07-30 ese
 menú **pinta los mismos seis botones** que Android, pero solo tres se pueden jugar: **Ajustes**,
-**Coleccionables** y **Huelum vs. Goya**.
+**Coleccionables** y **Titulación por Combate**.
 
 La lista **no se decide en la UI**: vive en `PowModos.kt` (`:shared`), y hay **tres preguntas**
 que no significan lo mismo:

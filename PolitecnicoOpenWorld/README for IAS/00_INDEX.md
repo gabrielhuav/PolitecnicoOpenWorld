@@ -47,7 +47,7 @@
 > | Carpeta | Modo |
 > |---|---|
 > | **`MUNDO/`** | 🌎 **Mundo libre POW** — open world, misiones, zombis, interiores, servidores |
-> | **`SF/`** | 🥊 **Peleas "Huelum vs. Goya"** — empieza por `SF/00_SF_INDEX.md` |
+> | **`SF/`** | 🥊 **Peleas "Titulación por Combate"** — empieza por `SF/00_SF_INDEX.md` |
 > | raíz | lo COMPARTIDO por ambos (arquitectura, datos, convenciones) |
 >
 > **➡️ Empieza SIEMPRE por [`_SESION_ACTUAL.md`](_SESION_ACTUAL.md):** estado vivo del trabajo,
@@ -101,7 +101,7 @@
 | — | `MUNDO/CAMPAIGN/` | Campaña: overview + misiones 1-3 + secundarias |
 | — | `MUNDO/NPC_SPRITES_PIPELINE.md` | Pipeline de sprites de NPC |
 
-### 🥊 `SF/` — peleas "Huelum vs. Goya"
+### 🥊 `SF/` — peleas "Titulación por Combate"
 
 Índice propio en **`SF/00_SF_INDEX.md`** (diseño, assets gráficos, audio, herramientas y las
 reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `street_fighter`/`Sf*`.
@@ -115,7 +115,7 @@ reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `stree
 > [`_ARCHIVO/HISTORIAL_changelog_00_INDEX.md`](_ARCHIVO/HISTORIAL_changelog_00_INDEX.md) para
 > no pagarlo en tokens en cada sesión. El diseño de SF está en `SF/DISENO_ARCADE_SF_POW.md`.
 
-**HUELUM VS. GOYA — lo estable:**
+**TITULACIÓN POR COMBATE — lo estable:**
 - Modos: **ARCADE** (default) / PRÁCTICA / **IA VS IA** / MULTIJUGADOR (Render / BT / LAN / P2P).
 - **Arcade:** peleador → Fácil/Medio/Difícil → escalera 15. Mapas = hogar del **rival** + luz.
   Tabla peleador→mapa: **`SF/SF_STAGES_MAPS_UNLOCK.md`**.
@@ -127,7 +127,7 @@ reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `stree
 | Modo | Android | iOS | Nota |
 |---|:---:|:---:|---|
 | Menú principal, Ajustes, Coleccionables | ✅ | ✅ | Misma pantalla de `commonMain`, distinto Controller |
-| 🥊 Huelum vs. Goya — arcade, práctica, IA vs IA | ✅ | ✅ | Verificado en simulador: pelea, audio, guardado, modo desarrollador |
+| 🥊 Titulación por Combate — arcade, práctica, IA vs IA | ✅ | ✅ | Verificado en simulador: pelea, audio, guardado, modo desarrollador |
 | 🥊 Multijugador (Render / BT / LAN / P2P) | ✅ | 🚧 | RFCOMM no existe en iOS; WebRTC y UDP multicast no se portaron |
 | 🌎 Mundo libre, interiores, zombis | ✅ | 🚧 | **En curso.** Ver `12_PLAN_MUNDO_ABIERTO_iOS.md` |
 | 📖 Modo Historia | ✅ | 🚧 | Va con el mundo abierto |
@@ -189,7 +189,7 @@ Añadir un modo a `modosDe(IOS)` **no lo porta**. Detalle en `11_SEPARACION_IOS_
   **9 archivos pasan de 1000 líneas** (tabla con módulo en `10 §8`); solo 2 están en `:shared`.
   ⚠️ **`commonMain` tiene 0 imports de `android.*`** y eso no es negociable: es lo que hace que iOS
   compile.
-- **🆕 Assets COMPARTIDOS SF⇄mundo (2026-07-15/17):** 3 de los 22 peleadores de "HUELUM VS. GOYA"
+- **🆕 Assets COMPARTIDOS SF⇄mundo (2026-07-15/17):** 3 de los 22 peleadores de "TITULACIÓN POR COMBATE"
   se arman EN RUNTIME desde los sets del mundo (`SPRITES/PLAYER|NPC/`) — sin sheets duplicados
   en el APK: Lázaro, Granadero y Paramédico. Los otros 17 POW tienen hojas croma
   dedicadas; Ryu/Ken **BORRADOS del repo (2026-07-26)** — eran huérfanos (no están en `SfFighterId`).

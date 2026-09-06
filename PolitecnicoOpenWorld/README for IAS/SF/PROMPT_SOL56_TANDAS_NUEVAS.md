@@ -39,7 +39,7 @@ de frame nuevas), definir los `jsKey` nuevos en `SfFighterState` y sus handlers 
 
 ```text
 Estas imágenes y este mensaje son las referencias permanentes de esta conversación para
-AMPLIAR los sprites de mi juego de pelea 2D "Politécnico Open World: HUELUM VS. GOYA".
+AMPLIAR los sprites de mi juego de pelea 2D "Politécnico Open World: TITULACIÓN POR COMBATE".
 
 La imagen adjunta es la hoja de sprites APROBADA "Idle + Idle Turn" de [PERSONAJE]. Es la
 ÚNICA fuente de identidad y la REGLA DE ESCALA de toda esta producción.

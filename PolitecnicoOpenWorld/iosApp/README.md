@@ -3,7 +3,7 @@
 **Actualizado:** 2026-07-30 · Todos los números están **medidos**, no estimados.
 
 **Esto ya es el juego.** Arranca en el menú principal y desde ahí se llega a **Ajustes**,
-**Coleccionables** y **Huelum vs. Goya** (el modo pelea, completo: escalera arcade, audio,
+**Coleccionables** y **Titulación por Combate** (el modo pelea, completo: escalera arcade, audio,
 guardado y modo desarrollador). Verificado en el simulador el 2026-07-30.
 
 **Lo que NO está en iOS y es a propósito:** mundo abierto, interiores, Modo Historia y todo el

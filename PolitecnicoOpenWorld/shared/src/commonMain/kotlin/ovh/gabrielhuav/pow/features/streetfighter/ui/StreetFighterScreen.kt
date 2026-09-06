@@ -1267,7 +1267,7 @@ fun StreetFighterScreenCommon(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Huelum vs. Goya",
+                        text = "Titulación por Combate",
                         color = Color.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,

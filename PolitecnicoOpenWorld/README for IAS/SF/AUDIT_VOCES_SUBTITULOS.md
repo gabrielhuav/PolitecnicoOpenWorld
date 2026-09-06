@@ -1,4 +1,4 @@
-# AUDIT de VOCES y SUBTITULOS — HUELUM VS. GOYA
+# AUDIT de VOCES y SUBTITULOS — TITULACIÓN POR COMBATE
 
 > ⚠️ **DESACTUALIZADO (2026-07-22):** este reporte lee la fuente inline vieja. La verdad
 > vigente es `assets/STREETFIGHTER/DATA/voice_phrases.json`: **64 `es` curados, track `en`

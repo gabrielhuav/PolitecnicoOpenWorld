@@ -43,7 +43,7 @@
 ## 0. Resumen ejecutivo (si solo lees una sección, lee esta)
 
 **Veredicto: SÍ vale la pena, pero NO como "migrar POW a iOS". Vale la pena como
-"sacar *Huelum vs. Goya* en iOS", y dejar el mundo abierto para una segunda ola.**
+"sacar *Titulación por Combate* en iOS", y dejar el mundo abierto para una segunda ola.**
 
 Tres hallazgos cambian el planteamiento del prompt original:
 
@@ -67,8 +67,7 @@ Tres hallazgos cambian el planteamiento del prompt original:
    protocolo de red de SF**. Gson usa reflexión de la JVM y **no existe en iOS**. Hay que pasar a
    `kotlinx.serialization`. No es difícil, pero no estaba en la tabla y es trabajo obligatorio.
 
-**La consecuencia práctica:** el camino barato a iOS **no pasa por el mapa**. El modo *Huelum vs.
-Goya* son **15,329 líneas** (14,094 de la feature + 1,235 de dominio puro), **no toca osmdroid en
+**La consecuencia práctica:** el camino barato a iOS **no pasa por el mapa**. El modo *Titulación por Combate* son **15,329 líneas** (14,094 de la feature + 1,235 de dominio puro), **no toca osmdroid en
 absoluto**, no necesita mapa, ya está aislado del resto del juego, y ya tiene la lógica pura
 extraída y con tests. Es un juego completo y publicable por sí mismo.
 

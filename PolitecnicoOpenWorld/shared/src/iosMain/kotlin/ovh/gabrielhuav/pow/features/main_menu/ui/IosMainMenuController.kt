@@ -9,7 +9,7 @@ import ovh.gabrielhuav.pow.data.repository.SettingsRepository
  * `README for IAS/10_ARQUITECTURA_SEPARACION.md` §2bis).
  *
  * Es deliberadamente **mínima**: en iOS el menú solo ofrece AJUSTES, COLECCIONABLES y
- * HUELUM VS. GOYA (ver `PowModos.kt`), así que todo lo de multijugador —diálogo de nombre,
+ * TITULACIÓN POR COMBATE (ver `PowModos.kt`), así que todo lo de multijugador —diálogo de nombre,
  * calentamiento del servidor de Render, Google Sign-In— **no tiene a quién servir**.
  *
  * Los métodos de esa rama no lanzan ni registran nada: la pantalla NUNCA los llama porque el botón

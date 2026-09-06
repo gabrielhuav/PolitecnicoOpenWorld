@@ -1,7 +1,7 @@
 package ovh.gabrielhuav.pow.domain.streetfighter
 
 /**
- * 🔊 QUÉ VOZ INTERRUMPE A CUÁL, en "Huelum vs. Goya".
+ * 🔊 QUÉ VOZ INTERRUMPE A CUÁL, en "Titulación por Combate".
  *
  * ═══════════════════════════════════════════════════════════════════════════════════════════
  * POR QUÉ ESTO ESTÁ AQUÍ Y NO DENTRO DE LA PANTALLA

@@ -3,7 +3,7 @@ package ovh.gabrielhuav.pow.domain.models.streetfighter
 import kotlin.random.Random
 
 /**
- * ESCALERA del MODO ARCADE (HUELUM VS. GOYA, versión POW). DATA-DRIVEN: dado el peleador que
+ * ESCALERA del MODO ARCADE (TITULACIÓN POR COMBATE, versión POW). DATA-DRIVEN: dado el peleador que
  * ELIGIÓ el jugador (uno de los 3 estudiantes ESCOM, que YA NO son enemigos), devuelve la
  * secuencia ORDENADA de rivales + el mapa por escalón. Aislado y puro (sin Android).
  * Ver README for IAS/DISENO_ARCADE_SF_POW.md.

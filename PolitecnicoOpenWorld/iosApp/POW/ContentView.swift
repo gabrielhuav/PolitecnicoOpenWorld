@@ -2,7 +2,7 @@ import SwiftUI
 import Shared
 
 /// EL JUEGO EN iOS, entero. Un solo `UIViewController` de Compose que trae dentro el menú
-/// principal, Ajustes, Coleccionables y Huelum vs. Goya.
+/// principal, Ajustes, Coleccionables y Titulación por Combate.
 ///
 /// ⚠️ **Toda la navegación vive en Kotlin** (`PowAppIos.kt`), no aquí. Si se repartiera entre
 /// SwiftUI y Compose habría dos árboles que mantener en sincronía, y al volver de una pantalla

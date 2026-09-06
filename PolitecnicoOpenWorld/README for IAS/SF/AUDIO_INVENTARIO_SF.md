@@ -1,4 +1,4 @@
-# Inventario de AUDIO de HUELUM VS. GOYA + reducción de tamaño AAB (2026-07-18r)
+# Inventario de AUDIO de TITULACIÓN POR COMBATE + reducción de tamaño AAB (2026-07-18r)
 
 > Referencia rápida: qué audio tiene cada peleadór, cómo se reproduce, qué es global y qué se
 > puede borrar. Script: `tools/sf_audio_review.sh` (inventario; `--mp3` convierte las voces a mp3

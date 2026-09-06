@@ -27,11 +27,14 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -54,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.BoxWithConstraints
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -96,7 +100,7 @@ fun MainMenuScreen(
     val state by controller.state.collectAsState()
 
     // Nombre de jugador recordado entre sesiones. Se prellena al abrir.
-    // (2026-07-15) "HUELUM VS. GOYA" ya es PÚBLICO: el botón se muestra siempre. Lo que ahora
+    // (2026-07-15) "TITULACIÓN POR COMBATE" ya es PÚBLICO: el botón se muestra siempre. Lo que ahora
     // gatea el Modo Desarrollador son RYU y KEN dentro del selector (ver StreetFighterViewModel).
     LaunchedEffect(Unit) {
         if (state.playerName.isBlank()) {
@@ -381,13 +385,12 @@ fun MenuButtonsList(
         color = Color(0xFF6B1C3A)
     )
 
-    // 🆕 HUELUM VS. GOYA — MODO PRINCIPAL: botón DESTACADO y ANIMADO (pulso + brillo dorado que
+    // 🆕 TITULACIÓN POR COMBATE — MODO PRINCIPAL: botón DESTACADO y ANIMADO (pulso + brillo dorado que
     // barre + borde y sombra que laten) para que resalte enormemente sobre los demás modos.
     Spacer(Modifier.height(20.dp))
     WithCornerBadge(stringResource(Res.string.badge_beta), Color(0xFF1C6B4A), controller.mostrarInsignias) {
         FeaturedStreetFighterButton(
             text = stringResource(Res.string.menu_street_fighter),
-            tag = stringResource(Res.string.menu_featured_tag),
             onClick = onNavigateToStreetFighter,
             enabled = !state.isWarmingUp,
         )
@@ -399,7 +402,7 @@ fun MenuButtonsList(
  * doradas que laten. Diseñado para gritar "esta es la modalidad principal".
  */
 @Composable
-private fun FeaturedStreetFighterButton(text: String, tag: String, onClick: () -> Unit, enabled: Boolean) {
+private fun FeaturedStreetFighterButton(text: String, onClick: () -> Unit, enabled: Boolean) {
     val shape = CutCornerShape(topStart = 20.dp, bottomEnd = 20.dp)
     val gold = Color(0xFFFFD54A)
     val tr = rememberInfiniteTransition(label = "sfFeatured")
@@ -448,32 +451,34 @@ private fun FeaturedStreetFighterButton(text: String, tag: String, onClick: () -
                     )
                 },
         )
-        // 🆕 (2026-07-21) FIX S24: el botón tiene alto FIJO (76.dp); si el rótulo o el tag se
-        // parten en dos líneas con la fuente del sistema grande, el contenido se recorta y la
-        // etiqueta de estado parece descolgada. Una línea cada uno, siempre.
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "★ $text ★",
+        // 🆕 (2026-07-21) FIX S24: el botón tiene alto FIJO (76.dp); si el rótulo se parte en dos
+        // líneas con la fuente del sistema grande, el contenido se recorta. Una sola línea, siempre.
+        //
+        // 🆕 (2026-09-05) El rótulo ahora se AUTOAJUSTA. Antes iba a 20.sp FIJO: con
+        // "HUELUM VS. GOYA" (15 caracteres) entraba justo, pero al renombrar el modo a
+        // "TITULACIÓN POR COMBATE" (22) se salía y `TextOverflow.Ellipsis` lo cortaba. `autoSize`
+        // encoge la letra SOLO lo necesario, así que aguanta el nombre largo, el inglés (que usa
+        // el mismo nombre propio) y la fuente grande del sistema sin recortar nada.
+        //
+        // ⚠️ Se quitó la etiqueta "◆ MODO COMBATE ◆" (`menu_featured_tag`): con el nombre nuevo
+        // decía dos veces lo mismo, y su espacio es justo el que necesita el rótulo para respirar.
+        BasicText(
+            text = "★ $text ★",
+            style = TextStyle(
                 color = Color.White,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 1.sp,
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = tag,
-                color = gold,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp,
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+                textAlign = TextAlign.Center,
+            ),
+            maxLines = 1,
+            autoSize = TextAutoSize.StepBased(
+                minFontSize = 11.sp,
+                maxFontSize = 20.sp,
+                stepSize = 0.5.sp,
+            ),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+        )
     }
 }
 
@@ -559,14 +564,30 @@ fun MenuButton(text: String, onClick: () -> Unit, enabled: Boolean = true, color
         // 🆕 (2026-07-21) FIX S24: el rótulo NO debe partirse en dos líneas con la fuente del
         // sistema en grande (el botón tiene alto fijo de 56.dp y la 2ª línea se recortaba).
     ) {
-        Text(
-            text,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp,
+        // 🆕 (2026-09-05) Se AUTOAJUSTA, igual que el botón destacado. Antes era 16.sp FIJO con
+        // `Ellipsis`: en una pantalla chica (o con la fuente del sistema en grande) los rótulos
+        // largos —"COLECCIONABLES", "MULTIJUGADOR", "COLLECTIBLES"— se cortaban con "…" en vez de
+        // leerse enteros. Encoger la letra es preferible a recortar la palabra: el alto sigue
+        // FIJO en 56.dp, así que seguimos sin permitir una 2ª línea (de eso depende el fix del S24).
+        //
+        // El color sale de `LocalContentColor`, que es el que pone el propio Button: así se
+        // respeta solo el gris de deshabilitado sin duplicar aquí la lógica de colores.
+        BasicText(
+            text = text,
+            style = TextStyle(
+                color = LocalContentColor.current,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+                textAlign = TextAlign.Center,
+            ),
             maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Ellipsis,
+            autoSize = TextAutoSize.StepBased(
+                minFontSize = 10.sp,
+                maxFontSize = 16.sp,
+                stepSize = 0.5.sp,
+            ),
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }

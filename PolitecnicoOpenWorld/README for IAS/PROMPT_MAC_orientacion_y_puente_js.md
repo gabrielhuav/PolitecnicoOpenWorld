@@ -74,7 +74,7 @@ el framework solo y correrás el binario viejo sin enterarte.
 3. **Gira el iPhone a vertical estando en el mapa: NO debe girar.** Si gira, el `PowAppDelegate` no
    se está consultando (mitad B) aunque la pantalla haya girado al entrar (mitad A).
 4. Mira los controles: el joystick y el diamante A/B/X/Y tienen que verse **del mismo tamaño que en
-   el modo pelea**. Compáralos abriendo HUELUM VS. GOYA justo después.
+   el modo pelea**. Compáralos abriendo TITULACIÓN POR COMBATE justo después.
 5. **VOLVER al menú → debe poder girar a vertical otra vez.** Si se queda clavado en horizontal, el
    `onDispose` de `ForzarHorizontal` no corrió.
 6. **Pulsa los botones donde SE VEN.** Si responden en otro sitio, alguien reintrodujo un
@@ -95,7 +95,7 @@ el framework solo y correrás el binario viejo sin enterarte.
 ### 2.3 Que no se rompió lo de antes
 
 10. El mundo sigue: mapa, caminar, bardas, **39 NPCs** moviéndose, niebla.
-11. HUELUM VS. GOYA: pelea completa, sin cambios.
+11. TITULACIÓN POR COMBATE: pelea completa, sin cambios.
 
 ---
 

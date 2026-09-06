@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.sp
 
 // Botón con el ESTILO POW (mismo lenguaje visual que MenuButton del menú principal:
 // esquinas cortadas topStart/bottomEnd + vino #6B1C3A + texto bold espaciado), tamaño
-// compacto. COMPARTIDO entre modos (nació en el modo pelea "HUELUM VS. GOYA"; se movió
+// compacto. COMPARTIDO entre modos (nació en el modo pelea "TITULACIÓN POR COMBATE"; se movió
 // aquí para que cualquier feature lo use — pendiente 4 de AUDIT_SF_MULTIPLAYER.md).
 
 @Composable

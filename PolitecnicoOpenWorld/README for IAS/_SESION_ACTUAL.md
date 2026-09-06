@@ -10,6 +10,44 @@
 > 13 días sin que nadie lo tocara. Nada de esto se tocó en esta sesión. Si retomas ese hilo,
 > verifica primero si sigue vigente antes de confiar en esas cifras.
 
+## ✅ 09-05: El modo pelea se llama ahora "TITULACIÓN POR COMBATE" (antes "Huelum vs. Goya")
+
+Rename de cara al jugador. **El código NO cambia de nombre**: sigue siendo `street_fighter`/`Sf*`
+(regla de siempre, ver `SF/00_SF_INDEX.md`).
+
+- **Lo que ve el jugador**: string `menu_street_fighter` en los 4 archivos (ES/EN × `:app`/
+  `:shared`) + la frase dentro de `wip_message`. El nombre es propio: **idéntico en inglés**, igual
+  que lo era "Huelum vs. Goya".
+- **Único identificador de código tocado**: `PowModo.HUELUM_VS_GOYA` → `PowModo.STREET_FIGHTER`.
+  Se comprobó primero que NO se persiste por nombre (no hay `valueOf`/`.name`: es un catálogo en
+  memoria para decidir qué botones se pintan), así que no rompe saves. Se renombró a la convención
+  del código para que el próximo cambio comercial no vuelva a tocar Kotlin.
+- **El botón destacado del menú no daba el ancho** con el nombre nuevo (22 caracteres contra los 15
+  de antes): iba a 20.sp FIJO con `maxLines = 1` + `softWrap = false`, así que se cortaba con
+  puntos suspensivos. Ahora usa `BasicText` con `autoSize = TextAutoSize.StepBased(11.sp…20.sp)`:
+  encoge solo lo necesario, así que aguanta el nombre largo, el inglés y la fuente grande del
+  sistema. **El alto sigue FIJO en 76.dp** — de eso depende el fix del S24 (2026-07-21).
+- **Se quitó la etiqueta "◆ MODO COMBATE ◆"** (`menu_featured_tag`): con el nombre nuevo repetía lo
+  mismo y su espacio es el que necesitaba el rótulo. No la usaba nadie más, así que se borró de los
+  4 archivos de strings en vez de dejarla colgando.
+- El título del submenú de pelea (`SfMenuOverlays.kt`) muestra el mismo string a 24.sp: lleva
+  padding lateral y centrado para que parta en dos líneas en vez de irse de borde a borde (ahí SÍ
+  puede, la columna hace scroll y no tiene alto fijo).
+- **Los DEMÁS botones del menú también se autoajustan ahora** (el problema no era solo del renombrado):
+  `MenuButton` —por el que pasan TODOS los botones del menú principal, incluidos los modos vía
+  `BotonDeModo`— pintaba a 16.sp FIJO dentro de 56.dp de alto fijo y con `Ellipsis`. En pantalla
+  chica o con fuente grande, los rótulos largos ("COLECCIONABLES", "MULTIJUGADOR", "COLLECTIBLES")
+  salían cortados con "…". Ahora bajan hasta 10.sp antes de recortar nada. El botón ARCADE del
+  submenú de pelea recibió lo mismo para su rótulo y su descripción larga, que podía desbordar su
+  caja de 76.dp. **Los altos fijos NO se tocaron** — de ellos depende el fix del S24.
+- ⚠️ **Sin verificar en pantalla**: compila y la lógica de autoajuste impide el recorte, pero nadie
+  lo ha visto todavía en un dispositivo chico real. Si a 10.sp queda muy pequeño, subir ese piso.
+- **Comentarios, docs y textos de tienda** actualizados en bloque (75 archivos).
+- **NO se reescribió el historial**: `_ARCHIVO/`, el changelog del README público (62 menciones,
+  todas en entradas con fecha) y `PR_lanzamiento_huelum_vs_goya.md` (PR #136, ya mergeado) se
+  dejaron con el nombre viejo a propósito.
+- Verificado: 342 tests (125 `:app` + 217 `:shared`) 0 fallos, detekt exit 0, nombres KMP OK.
+
 ## ✅ 08-30: "La Llorona se ve como una bola negra" — RESUELTO en 2 movimientos, auditados los 18
 
 Reporte del dueño sobre su Especial Pesado. Resultaron ser DOS problemas separados, encontrados
@@ -56,7 +94,7 @@ uno tras otro — el primero no era "el" bug, solo lo tapaba parcialmente:
 
 ## ✅ 08-29/30: CONTRAATAQUE + DERRIBO CON PODER — motor, arte y pipeline TERMINADOS (18/18)
 
-Dos movimientos nuevos de la familia Agarre/Parry para "Huelum vs. Goya". Diseño completo en
+Dos movimientos nuevos de la familia Agarre/Parry para "Titulación por Combate". Diseño completo en
 `SF/DISENO_ARCADE_SF_POW.md` (registro por fecha); prompt de arte y su historial de correcciones
 en `SF/PROMPT_hoja30_contraataque_derribo.md`.
 

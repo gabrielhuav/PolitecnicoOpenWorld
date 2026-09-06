@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Ciclo COMPLETO de un peleador de HUELUM VS. GOYA, en un solo comando.
+"""Ciclo COMPLETO de un peleador de TITULACIÓN POR COMBATE, en un solo comando.
 
 Encadena lo que hasta ahora habia que invocar a mano ~32 veces por personaje:
 

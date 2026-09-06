@@ -465,7 +465,7 @@ matrices por defecto son **border-only** hasta reemplazarse.
   build release** (o bundle) para verificar que el modo abre sin ellos. (d) Si se añade otro
   asset con riesgo de copyright, va al source set debug con el mismo patrón.
 - **🆕 ASSETS COMPARTIDOS SF⇄MUNDO (2026-07-15/17) — reglas:** 3 de los 22 peleadores de
-  "HUELUM VS. GOYA" se arman EN RUNTIME (`SfSharedSheets`) desde los sets del mundo
+  "TITULACIÓN POR COMBATE" se arman EN RUNTIME (`SfSharedSheets`) desde los sets del mundo
   (`SPRITES/PLAYER|NPC/`, convención de `PlayerSkin`). (a) **NO regenerar/committear sheets
   empaquetados** para personajes que tengan set en el mundo, salvo cuando ya exista un set croma
   completo con poses reales. Compartidos actuales: **Lázaro, Granadero y Paramédico**;

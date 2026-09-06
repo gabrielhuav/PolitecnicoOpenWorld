@@ -12,7 +12,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.platform.assets.PowAssets
 
 /**
- * 🆕 (2026-07-21) CATÁLOGO DE COMBOS de HUELUM VS. GOYA.
+ * 🆕 (2026-07-21) CATÁLOGO DE COMBOS de TITULACIÓN POR COMBATE.
  *
  * Fuente: `assets/STREETFIGHTER/DATA/combos.json` (data-driven: ampliar combos NO exige
  * tocar código). Lo consumen dos sitios:

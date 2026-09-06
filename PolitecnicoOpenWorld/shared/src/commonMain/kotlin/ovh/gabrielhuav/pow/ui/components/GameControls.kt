@@ -38,7 +38,7 @@ import kotlin.math.sqrt
 // CONTROLES DE JUEGO COMPARTIDOS — no pertenecen a NINGUN modo.
 //
 // 🆕 (2026-07-26) Extraidos de features/map_exterior/ui/components/GameControllers.kt. Vivian
-// dentro del MUNDO ABIERTO, asi que el modo pelea "Huelum vs. Goya" y los INTERIORES (zombis,
+// dentro del MUNDO ABIERTO, asi que el modo pelea "Titulación por Combate" y los INTERIORES (zombis,
 // ESCOM, metro, ShineCTO) tenian que importar de una feature ajena solo para dibujar un joystick.
 //
 // REGLA: aqui SOLO va lo GENERICO de verdad. Estos composables no conocen `Direction` ni

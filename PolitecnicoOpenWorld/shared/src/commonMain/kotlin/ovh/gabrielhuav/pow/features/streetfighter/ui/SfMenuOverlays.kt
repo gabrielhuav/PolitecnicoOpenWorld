@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.BorderStroke
@@ -44,6 +46,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -169,12 +172,19 @@ fun SfModeMenuOverlay(
             modifier = Modifier.verticalScroll(rememberScrollState()).padding(vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            // 🆕 (2026-09-05) Con el nombre nuevo ("TITULACIÓN POR COMBATE", 22 caracteres) este
+            // título ya no cabe en una línea a 24.sp con 3.sp de espaciado: se iba de borde a
+            // borde. Padding lateral + centrado para que parta limpio en dos líneas en vez de
+            // pegarse a los bordes. Aquí SÍ puede ocupar dos líneas: la columna hace scroll y no
+            // tiene alto fijo (a diferencia del botón del menú principal).
             Text(
                 text = stringResource(Res.string.menu_street_fighter),
                 color = Color(0xFFD4AF37),
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Black,
-                letterSpacing = 3.sp,
+                letterSpacing = 2.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 24.dp),
             )
             Spacer(modifier = Modifier.height(20.dp))
             // ARCADE — modalidad PRINCIPAL (grande y destacada, ahora ANIMADO como en el menú principal)
@@ -353,22 +363,40 @@ internal fun FeaturedArcadeButton(text: String, tag: String, onClick: () -> Unit
                     )
                 },
         )
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
+        // 🆕 (2026-09-05) Rótulo y descripción se AUTOAJUSTAN. Este botón tiene alto FIJO (76.dp) y
+        // la descripción es larga ("Campaña: derrota a todos y desbloquea peleadores"): en una
+        // pantalla chica, o con la fuente del sistema en grande, se partía en más líneas de las que
+        // caben y el contenido se salía. Encogiendo la letra entra siempre, sin recortar palabras.
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+        ) {
+            BasicText(
                 text = "★ $text ★",
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 2.sp,
+                style = TextStyle(
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 2.sp,
+                    textAlign = TextAlign.Center,
+                ),
+                maxLines = 1,
+                autoSize = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = 18.sp, stepSize = 0.5.sp),
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(2.dp))
-            Text(
+            BasicText(
                 text = tag,
-                color = gold,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp,
-                textAlign = TextAlign.Center,
+                style = TextStyle(
+                    color = gold,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
+                    textAlign = TextAlign.Center,
+                ),
+                maxLines = 2,
+                autoSize = TextAutoSize.StepBased(minFontSize = 7.sp, maxFontSize = 9.sp, stepSize = 0.5.sp),
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }

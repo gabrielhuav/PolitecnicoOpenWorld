@@ -33,7 +33,7 @@ interface MainMenuController {
      *
      * ⚠️ `false` en iOS, por lo mismo que [etiquetaVersion]. Los modos que hoy llevan insignia
      * ALPHA (Mundo Libre, Historia, Multijugador) ya se esconden solos en iOS vía
-     * `PowModo.disponible()`; esto apaga además la **BETA** de "Huelum vs. Goya".
+     * `PowModo.disponible()`; esto apaga además la **BETA** de "Titulación por Combate".
      */
     val mostrarInsignias: Boolean
 

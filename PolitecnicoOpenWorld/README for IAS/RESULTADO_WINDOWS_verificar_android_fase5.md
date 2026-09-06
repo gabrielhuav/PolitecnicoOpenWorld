@@ -105,7 +105,7 @@ Los mismos 2512 ways que se midieron en el simulador.
 ## 6. Que no se rompió lo de antes (§2.7)
 
 - **Población de NPCs**: `maxTotalNpcs=39`, el mismo número que iOS. ✅
-- **HUELUM VS. GOYA**: pelea completa (selección de luchador → dificultad → combate con barras,
+- **TITULACIÓN POR COMBATE**: pelea completa (selección de luchador → dificultad → combate con barras,
   contador de combos y temporizador → pantalla de fin). ✅
 
 ---

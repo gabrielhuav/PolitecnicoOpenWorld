@@ -1,4 +1,4 @@
-# ROADMAP · "HUELUM VS. GOYA" hacia SF III: 3rd Strike (2026-07-25)
+# ROADMAP · "TITULACIÓN POR COMBATE" hacia SF III: 3rd Strike (2026-07-25)
 
 > Ideas del dueño para acercar el modo pelea a 3rd Strike. Este archivo es la LISTA VIVA de lo
 > pendiente por implementar (con notas de diseño para que una IA lo continúe). Lo YA hecho vive en

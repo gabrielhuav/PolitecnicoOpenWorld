@@ -46,7 +46,7 @@ class ModelosToleranJsonIncompletoTest {
     }
 
     @Test
-    fun `modelos de RED de Huelum vs Goya`() {
+    fun `modelos de RED de Titulación por Combate`() {
         soportaVacio<SfNetMsg>()
         soportaVacio<SfNetFireball>()
         soportaVacio<SfRoomSummary>()

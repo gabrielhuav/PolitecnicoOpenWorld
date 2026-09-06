@@ -21,7 +21,7 @@ import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 
 // GATILLOS "NEÓN ARCADE" COMPARTIDOS (2026-07-26).
 //
-// El estilo nació en el modo pelea "Huelum vs. Goya" (rediseño del dueño): relleno neón + aro de
+// El estilo nació en el modo pelea "Titulación por Combate" (rediseño del dueño): relleno neón + aro de
 // borde, reutilizando ActionButton para el hold y la retroalimentación háptica/sonora. Se movió
 // aquí para que el MUNDO ABIERTO pueda usar el MISMO lenguaje visual sin depender del modo pelea.
 //

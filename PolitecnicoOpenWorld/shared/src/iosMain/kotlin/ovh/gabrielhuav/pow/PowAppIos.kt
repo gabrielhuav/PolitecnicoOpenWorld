@@ -43,7 +43,7 @@ import platform.UIKit.UIViewController
  * ## Qué modos aparecen
  *
  * Los decide **`PowModos.kt`**, no este archivo. En iOS eso deja AJUSTES, COLECCIONABLES y
- * HUELUM VS. GOYA; Mundo Libre, Modo Historia y Multijugador ni se pintan. Si algún día uno de esos
+ * TITULACIÓN POR COMBATE; Mundo Libre, Modo Historia y Multijugador ni se pintan. Si algún día uno de esos
  * modos llega a iOS, se cambia el catálogo (y su test), no esta navegación.
  */
 fun crearAppIos(): UIViewController = ComposeUIViewController { PowAppIos() }

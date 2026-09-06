@@ -9,7 +9,7 @@ import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
 
-// 🆕 SERVIDOR LOCAL (LAN/Wi-Fi) del modo pelea "HUELUM VS. GOYA" (2026-07-16): el JUGADOR
+// 🆕 SERVIDOR LOCAL (LAN/Wi-Fi) del modo pelea "TITULACIÓN POR COMBATE" (2026-07-16): el JUGADOR
 // hostea su propia "sala" estilo LAN party — un teléfono abre un ServerSocket TCP en la red
 // local (Wi-Fi u hotspot de uno de los dos) y el rival se une tecleando su IP (se muestra en
 // la pantalla del host). SIN servidor de Render de por medio.

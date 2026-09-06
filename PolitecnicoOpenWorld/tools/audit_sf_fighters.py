@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Auditoria de los atlas de peleador de HUELUM VS. GOYA (DATA/*.json + IMAGES/*.webp).
+"""Auditoria de los atlas de peleador de TITULACIÓN POR COMBATE (DATA/*.json + IMAGES/*.webp).
 
 Comprueba lo que ninguna prueba manual ve: rects que se salen de la hoja, animaciones que
 citan cuadros inexistentes, cuadros 100 % transparentes, cuadros repetidos pixel a pixel

@@ -129,7 +129,7 @@ Cuatro lecturas pasaron de `context.assets` a `PowAssets`. Si `PowAssets` no est
 ### 2.7 Que no se rompió lo de antes
 
 16. Población de NPCs parecida a la de siempre (la medida de gama del aparato se mudó de sitio).
-17. HUELUM VS. GOYA: pelea completa.
+17. TITULACIÓN POR COMBATE: pelea completa.
 18. Modo Historia y las misiones, por encima.
 
 ---

@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 /*
  * 🍏 MÓDULO COMPARTIDO KMP — Fases 1 a 5 de "README for IAS/PLAN_MIGRACION_KMP.md".
  *
- * QUÉ VIVE AQUÍ: el dominio PURO de "Huelum vs. Goya", el punto lat/lon (`GeoPoint`), el JSON
+ * QUÉ VIVE AQUÍ: el dominio PURO de "Titulación por Combate", el punto lat/lon (`GeoPoint`), el JSON
  * (`PowJson`/`jsonOf`), la BASE DE DATOS (Room), los ajustes (multiplatform-settings), el cliente
  * WebSocket (Ktor) y el generador del mapa Leaflet.
  *

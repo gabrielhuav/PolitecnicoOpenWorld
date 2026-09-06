@@ -16,7 +16,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.NpcWebPayload
  * (heterogéneo) y con cualquier `data class` a la que se le olvidó el `@Serializable`.
  *
  * La auditoría encontró **9 sitios así** tras migrar de Gson:
- *  - los 3 transportes de "Huelum vs. Goya" (online / LAN+BT / WebRTC) → habría reventado
+ *  - los 3 transportes de "Titulación por Combate" (online / LAN+BT / WebRTC) → habría reventado
  *    **todo el multijugador** en el primer mensaje enviado;
  *  - 6 payloads del **mapa WEB**, que es el renderer POR DEFECTO del juego (`CARTO_VOYAGER`) →
  *    NPCs, metro, metrobús, policía, zombis y calles.

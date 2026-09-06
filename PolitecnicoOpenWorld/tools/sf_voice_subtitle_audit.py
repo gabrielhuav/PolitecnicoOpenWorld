@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""AUDIT DE SUBTITULOS DE VOZ de HUELUM VS. GOYA (2026-07-21).
+"""AUDIT DE SUBTITULOS DE VOZ de TITULACIÓN POR COMBATE (2026-07-21).
 
 SOLO LECTURA sobre los datos curados: NO reescribe voice_phrases.json,
 special_phrases.json ni tools/sf_audio_audit_report.md.
@@ -146,7 +146,7 @@ def write_markdown(path: str, rows: list, findings: list) -> None:
         por_peleador.setdefault(r["peleador"], []).append(r)
 
     out = []
-    out.append("# AUDIT de VOCES y SUBTITULOS — HUELUM VS. GOYA\n")
+    out.append("# AUDIT de VOCES y SUBTITULOS — TITULACIÓN POR COMBATE\n")
     out.append("> Generado por `tools/sf_voice_subtitle_audit.py`. **No editar a mano:** "
                "se regenera. Las correcciones se escriben en "
                "`tools/_audio_review/_SUBTITULOS_AUDIT.csv` (columnas `ES_CORREGIDO` / "

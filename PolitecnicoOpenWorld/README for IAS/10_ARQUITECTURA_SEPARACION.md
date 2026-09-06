@@ -167,7 +167,7 @@ Kotlin no admite eso fuera de la clase. **Se queda como miembro.** Está avisado
 
 ## 5. Mapa: ¿dónde toco X?
 
-### 🥊 Modo pelea — "Huelum vs. Goya" (`features/streetfighter/`)
+### 🥊 Modo pelea — "Titulación por Combate" (`features/streetfighter/`)
 
 | Quiero cambiar… | Archivo |
 |---|---|

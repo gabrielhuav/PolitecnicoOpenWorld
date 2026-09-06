@@ -23,7 +23,7 @@
 
 ## 1. El problema
 
-El multijugador **online** de "HUELUM VS. GOYA" usa `MultiplayerSF/` (Node + `ws`) desplegado en
+El multijugador **online** de "TITULACIÓN POR COMBATE" usa `MultiplayerSF/` (Node + `ws`) desplegado en
 **Render, plan Free**. Arquitectura actual = **relay puro** (el server NO simula la pelea; solo
 reenvía `SfNetMsg` entre los 2 clientes; autoridad del receptor sobre su HP — ver
 `AUDIT_SF_MULTIPLAYER.md §3`).

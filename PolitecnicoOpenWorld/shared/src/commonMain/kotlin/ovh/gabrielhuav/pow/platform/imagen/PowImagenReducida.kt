@@ -7,7 +7,7 @@ import androidx.compose.ui.graphics.ImageBitmap
  *
  * POR QUÉ ESTO SÍ NECESITA `expect/actual` (y el resto de [PowImagen] no): el decodificador común
  * de Compose no deja pedir una resolución menor, y aquí eso NO es un lujo. Los atlas croma de
- * "Huelum vs. Goya" llegan a **2560×7168** — unos **73 MB en ARGB_8888 por peleador**, ×2 en
+ * "Titulación por Combate" llegan a **2560×7168** — unos **73 MB en ARGB_8888 por peleador**, ×2 en
  * pantalla. En Android de gama baja eso era OOM directo (y muchas GPU viejas ni aceptan texturas
  * de ese tamaño). Por eso el juego ya decodificaba con `inSampleSize`, y perder eso al portar
  * sería una REGRESIÓN de memoria en la app que hoy está en producción.

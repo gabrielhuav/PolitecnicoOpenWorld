@@ -91,7 +91,7 @@ android {
 
 dependencies {
     // 🍏 Módulo KMP compartido (Fase 1 de "README for IAS/PLAN_MIGRACION_KMP.md"). Contiene el
-    // dominio PURO de "Huelum vs. Goya" (SfStateMachine/SfDamage/SfPhysics/SfAnimation/SfModels…).
+    // dominio PURO de "Titulación por Combate" (SfStateMachine/SfDamage/SfPhysics/SfAnimation/SfModels…).
     // Mantiene el MISMO paquete que tenía en `:app` a propósito → cero imports que cambiar aquí.
     implementation(project(":shared"))
     implementation(libs.androidx.core.ktx)

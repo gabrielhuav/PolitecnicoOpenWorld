@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AUDIT MP3->OGG de las voces de HUELUM VS. GOYA (2026-07-20).
+"""AUDIT MP3->OGG de las voces de TITULACIÓN POR COMBATE (2026-07-20).
 
 Retoma el audit de audio: por cada `special_*.ogg` (y globales) de
 `app/src/main/assets/STREETFIGHTER/SOUNDS/`:

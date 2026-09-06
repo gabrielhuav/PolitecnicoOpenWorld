@@ -15,13 +15,12 @@
     <string name="badge_beta">BETA</string>
     <string name="badge_wip">WIP</string>
     <string name="wip_title">Still under construction</string>
-    <string name="wip_message">This mode is not available on iPhone yet. The open world is being ported; for now you can play Huelum vs. Goya.</string>
+    <string name="wip_message">This mode is not available on iPhone yet. The open world is being ported; for now you can play Titulación por Combate.</string>
     <string name="wip_ok">Got it</string>
     <string name="menu_cancel">Cancel</string>
     <string name="menu_cancel_caps">CANCEL</string>
     <string name="menu_close">Close</string>
     <string name="menu_collectibles">COLLECTIBLES</string>
-    <string name="menu_featured_tag">◆ COMBAT MODE ◆</string>
     <string name="menu_load_game">STORY MODE</string>
     <string name="menu_local_mode">Local mode (no account)</string>
     <string name="menu_mp_connect">Connect</string>
@@ -32,7 +31,7 @@
     <string name="menu_settings">SETTINGS</string>
     <string name="menu_signed_in_as">Signed in: %1$s</string>
     <string name="menu_start_game">FREE ROAM</string>
-    <string name="menu_street_fighter">HUELUM VS. GOYA</string>
+    <string name="menu_street_fighter">TITULACIÓN POR COMBATE</string>
     <string name="menu_version">PRE-ALPHA - v%1$s</string>
     <string name="menu_warmup_fail_text">The multiplayer server is taking too long to respond. Try again in a few seconds.</string>
     <string name="menu_warmup_fail_title">Server unavailable</string>

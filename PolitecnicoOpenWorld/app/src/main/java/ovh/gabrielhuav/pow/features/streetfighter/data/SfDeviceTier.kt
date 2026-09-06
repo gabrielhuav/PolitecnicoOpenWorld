@@ -4,7 +4,7 @@ import android.app.ActivityManager
 import android.content.Context
 
 /**
- * Tier de dispositivo para HUELUM VS. GOYA. Las optimizaciones de RAM/CPU se aplican
+ * Tier de dispositivo para TITULACIÓN POR COMBATE. Las optimizaciones de RAM/CPU se aplican
  * en GAMA BAJA; en media/alta se prioriza calidad (pero el selector sigue animando
  * solo el focused: es gratis y más limpio en todos los equipos).
  *

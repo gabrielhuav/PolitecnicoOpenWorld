@@ -1,11 +1,19 @@
-# 🥊 MODO PELEAS — "HUELUM VS. GOYA" · Índice
+# 🥊 MODO PELEAS — "TITULACIÓN POR COMBATE" · Índice
 
 > Este es el índice del **modo de peleas**. El otro modo del juego (mundo libre POW) vive
 > en `../MUNDO/`. Lo compartido por ambos (arquitectura, capa de datos, convenciones) está
 > en la raíz de `README for IAS/`.
 >
 > ⚠️ **En el CÓDIGO el modo se sigue llamando `street_fighter` / `Sf*`** (ids, paquetes,
-> clases). "Huelum vs. Goya" es solo el nombre de cara al jugador. No renombres.
+> clases). "Titulación por Combate" es solo el nombre de cara al jugador. No renombres.
+>
+> 🆕 **(2026-09-05) El modo se llamaba "Huelum vs. Goya".** El nombre de cara al jugador vive en
+> el string `menu_street_fighter` (los 4 archivos: ES/EN × `:app`/`:shared`), NO en el código.
+> Si encuentras "Huelum vs. Goya" en `_ARCHIVO/`, en el changelog del README público o en el PR
+> #136, **está bien así**: son registros históricos de cuando el modo se llamaba de esa forma y
+> no se reescriben. El único identificador de código que llevaba el nombre comercial era
+> `PowModo.HUELUM_VS_GOYA`, ahora `PowModo.STREET_FIGHTER` — se renombró precisamente para que el
+> siguiente cambio de nombre no toque código.
 
 ## Por dónde empezar
 

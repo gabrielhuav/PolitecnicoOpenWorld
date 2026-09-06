@@ -13,7 +13,7 @@ import java.util.TimerTask
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-// BASE COMÚN de los transportes LOCALES "de stream" del modo pelea "HUELUM VS. GOYA":
+// BASE COMÚN de los transportes LOCALES "de stream" del modo pelea "TITULACIÓN POR COMBATE":
 // Bluetooth RFCOMM (SfBtClient) y Servidor LAN por Wi-Fi (SfLanClient). Extraída el
 // 2026-07-16 para no duplicar la lógica (regla anti-gemelos del 09): las subclases solo
 // saben CONECTAR (accept/connect de su tipo de socket) y cerrar; todo lo demás vive aquí.

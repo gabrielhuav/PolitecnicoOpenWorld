@@ -15,13 +15,12 @@
     <string name="badge_beta">BETA</string>
     <string name="badge_wip">EN OBRAS</string>
     <string name="wip_title">Todavía en obras</string>
-    <string name="wip_message">Este modo aún no está disponible en iPhone. El mundo abierto se está portando; por ahora puedes jugar Huelum vs. Goya.</string>
+    <string name="wip_message">Este modo aún no está disponible en iPhone. El mundo abierto se está portando; por ahora puedes jugar Titulación por Combate.</string>
     <string name="wip_ok">Entendido</string>
     <string name="menu_cancel">Cancelar</string>
     <string name="menu_cancel_caps">CANCELAR</string>
     <string name="menu_close">Cerrar</string>
     <string name="menu_collectibles">COLECCIONABLES</string>
-    <string name="menu_featured_tag">◆ MODO COMBATE ◆</string>
     <string name="menu_load_game">MODO HISTORIA</string>
     <string name="menu_local_mode">Modo local (sin sesión)</string>
     <string name="menu_mp_connect">Conectar</string>
@@ -32,7 +31,7 @@
     <string name="menu_settings">AJUSTES</string>
     <string name="menu_signed_in_as">Conectado: %1$s</string>
     <string name="menu_start_game">MUNDO LIBRE</string>
-    <string name="menu_street_fighter">HUELUM VS. GOYA</string>
+    <string name="menu_street_fighter">TITULACIÓN POR COMBATE</string>
     <string name="menu_version">PRE-ALPHA - v%1$s</string>
     <string name="menu_warmup_fail_text">El servidor multijugador tarda demasiado en responder. Intenta de nuevo en unos segundos.</string>
     <string name="menu_warmup_fail_title">Servidor no disponible</string>

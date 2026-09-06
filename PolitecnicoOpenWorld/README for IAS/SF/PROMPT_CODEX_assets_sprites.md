@@ -1,4 +1,4 @@
-# Orden de trabajo · Auditar y regenerar sprites de HUELUM VS. GOYA
+# Orden de trabajo · Auditar y regenerar sprites de TITULACIÓN POR COMBATE
 
 > **Para quién es:** para un agente con acceso al repo y capacidad de generar imágenes.
 > No hay que subirle nada a mano: todo lo que necesita ya está en estas carpetas.
