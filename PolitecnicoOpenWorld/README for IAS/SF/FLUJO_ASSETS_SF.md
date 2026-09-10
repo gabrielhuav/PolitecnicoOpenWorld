@@ -1,4 +1,4 @@
-# FLUJO DE TRABAJO · Assets de pelea de HUELUM VS. GOYA (2026-07-21)
+# FLUJO DE TRABAJO · Assets de pelea de TITULACIÓN POR COMBATE (2026-07-21)
 
 > Receta COMPLETA y repetible: de las imágenes que entrega ChatGPT/Sol 5.6 hasta el
 > personaje jugando en el APK. Sustituye a improvisar rutas y comandos cada vez.

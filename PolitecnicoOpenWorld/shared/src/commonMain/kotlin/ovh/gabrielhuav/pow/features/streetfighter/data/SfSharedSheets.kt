@@ -12,7 +12,7 @@ import ovh.gabrielhuav.pow.platform.imagen.decodificarReducido
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-// ASSETS COMPARTIDOS entre el mundo abierto y "HUELUM VS. GOYA" (2026-07-15).
+// ASSETS COMPARTIDOS entre el mundo abierto y "TITULACIÓN POR COMBATE" (2026-07-15).
 //
 // Los peleadores con `SfFighterId.sharedSet != null` NO tienen sprite sheet propio en el APK:
 // su hoja de pelea se ARMA AQUÍ EN RUNTIME desde el MISMO set de sprites que usa el mundo

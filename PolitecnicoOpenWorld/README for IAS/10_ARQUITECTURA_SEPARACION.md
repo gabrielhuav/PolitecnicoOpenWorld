@@ -167,7 +167,7 @@ Kotlin no admite eso fuera de la clase. **Se queda como miembro.** Está avisado
 
 ## 5. Mapa: ¿dónde toco X?
 
-### 🥊 Modo pelea — "Huelum vs. Goya" (`features/streetfighter/`)
+### 🥊 Modo pelea — "Titulación por Combate" (`features/streetfighter/`)
 
 | Quiero cambiar… | Archivo |
 |---|---|
@@ -223,7 +223,7 @@ El `WorldMapViewModel` ya estaba partido en parciales (`WorldMapCombat.kt`, `Wor
 ./gradlew :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest
 ```
 
-**Debe salir: `BUILD SUCCESSFUL` y 228 tests (114 en `:app` + 114 en `:shared`), 0 fallos.**
+**Debe salir: `BUILD SUCCESSFUL` y 319 tests (125 en `:app` + 194 en `:shared`), 0 fallos.**
 En Windows es `.\gradlew.bat`. ⚠️ La tarea de `:shared` se llama **`testAndroidHostTest`**, no
 `testDebugUnitTest`.
 

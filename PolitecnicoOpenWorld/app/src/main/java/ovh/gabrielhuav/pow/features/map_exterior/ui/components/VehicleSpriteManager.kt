@@ -64,69 +64,17 @@ object VehicleSpriteManager {
             return result
         }
 
-        // --- MAGIA A NIVEL DE PÍXEL (solo modelos de base BLANCA repintable) ---
+        // --- REPINTADO DE CARROCERÍA (solo modelos de base BLANCA repintable) ---
+        // ⚠️ El algoritmo VIVE EN `commonMain` (`TintadoVehiculo.kt`) y lo comparte iOS. Aquí solo
+        // queda el ir y venir de píxeles con `Bitmap`, que sí es de Android. Si hay que tocar los
+        // umbrales, se tocan allá: si se duplican, los coches acaban de distinto color en cada
+        // plataforma y no lo caza ningún test de aquí.
         val resultBitmap = Bitmap.createBitmap(finalWidth, finalHeight, Bitmap.Config.ARGB_8888)
         val pixels = IntArray(finalWidth * finalHeight)
         scaledBitmap.getPixels(pixels, 0, finalWidth, 0, 0, finalWidth, finalHeight)
 
-        val targetR = (colorInt ushr 16) and 0xFF
-        val targetG = (colorInt ushr 8) and 0xFF
-        val targetB = colorInt and 0xFF
+        tintarCarroceria(pixels, colorInt)
 
-        for (i in pixels.indices) {
-            val p = pixels[i]
-            val a = p ushr 24
-            if (a == 0) continue // Ignorar pixeles transparentes
-
-            val r = (p ushr 16) and 0xFF
-            val g = (p ushr 8) and 0xFF
-            val b = p and 0xFF
-
-            // 1. SATURACIÓN: Si el pixel ya tiene un color fuerte (luces rojas/intermitentes), lo conservamos
-            val maxColor = maxOf(r, g, b)
-            val minColor = minOf(r, g, b)
-            val sat = if (maxColor == 0) 0f else (maxColor - minColor) / maxColor.toFloat()
-
-            if (sat > 0.15f) {
-                pixels[i] = p
-                continue
-            }
-
-            // 2. LUMINOSIDAD
-            val lum = 0.299f * r + 0.587f * g + 0.114f * b
-
-            // 3. UMBRALES
-            var factor = 0f
-            if (lum in 80f..245f) {
-                factor = if (lum < 130f) {
-                    (lum - 80f) / 50f // Transición rines
-                } else if (lum > 235f) {
-                    (245f - lum) / 10f // Transición faros
-                } else {
-                    1f // Carrocería plena
-                }
-            }
-
-            if (factor > 0f) {
-                // --- TRUCO DE VIVACIDAD (NUEVO) ---
-                // Forzamos al color a brillar con intensidad pura
-                val baseLum = 165f
-                val colorMultiplier = (lum / baseLum)
-
-                val multR = (targetR * colorMultiplier).toInt().coerceIn(0, 255)
-                val multG = (targetG * colorMultiplier).toInt().coerceIn(0, 255)
-                val multB = (targetB * colorMultiplier).toInt().coerceIn(0, 255)
-
-                // Mezclamos respetando el factor de interpolación
-                val finalR = (r + factor * (multR - r)).toInt()
-                val finalG = (g + factor * (multG - g)).toInt()
-                val finalB = (b + factor * (multB - b)).toInt()
-
-                pixels[i] = (a shl 24) or (finalR shl 16) or (finalG shl 8) or finalB
-            } else {
-                pixels[i] = p
-            }
-        }
         resultBitmap.setPixels(pixels, 0, finalWidth, 0, 0, finalWidth, finalHeight)
 
         val result = BitmapDrawable(context.resources, resultBitmap)

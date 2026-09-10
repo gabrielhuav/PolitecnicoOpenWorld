@@ -60,7 +60,8 @@ internal fun WorldMapViewModel.handleCarjack(driving: Boolean, aggressorAdjacent
         wantedManager.clearCarjack()
         return
     }
-    val warning = getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_carjack_warning)
+    // Precargado en el `init` del VM: aquí se necesita SÍNCRONO, en cada tick del game loop.
+    val warning = textoCarjack
     if (wantedManager.armCarjack(now, warning)) {
         viewModelScope.launch(Dispatchers.Main) { forceExitVehicle() }
     }

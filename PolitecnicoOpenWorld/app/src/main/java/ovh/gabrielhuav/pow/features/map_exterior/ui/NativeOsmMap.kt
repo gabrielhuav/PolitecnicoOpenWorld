@@ -231,8 +231,9 @@ internal fun NativeOsmMap(
                     view.overlays.add(this)
                 }
 
-            if (uiState.destinationMarker != null) {
-                destMarker.position = uiState.destinationMarker.toOsm()
+            val destino = uiState.destinationMarker   // val local: WorldMapState ya es de :shared (09 §12)
+            if (destino != null) {
+                destMarker.position = destino.toOsm()
                 destMarker.isEnabled = true
                 destMarker.isDraggable = false
                 destMarker.setAlpha(1f)

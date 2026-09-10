@@ -26,7 +26,7 @@ class PowModosTest {
     @Test
     fun `en iOS SOLO ajustes - coleccionables - y el modo pelea`() {
         assertEquals(
-            setOf(PowModo.AJUSTES, PowModo.COLECCIONABLES, PowModo.HUELUM_VS_GOYA),
+            setOf(PowModo.AJUSTES, PowModo.COLECCIONABLES, PowModo.STREET_FIGHTER),
             modosDe(PowPlataforma.IOS),
         )
     }
@@ -43,9 +43,9 @@ class PowModosTest {
 
     @Test
     fun `el modo pelea esta en LAS DOS plataformas`() {
-        // Es el objetivo de esta fase: que Huelum vs. Goya sea el primero en cruzar.
+        // Es el objetivo de esta fase: que Titulación por Combate sea el primero en cruzar.
         for (p in PowPlataforma.entries) {
-            assertTrue(PowModo.HUELUM_VS_GOYA in modosDe(p), "falta en $p")
+            assertTrue(PowModo.STREET_FIGHTER in modosDe(p), "falta en $p")
         }
     }
 

@@ -1,6 +1,6 @@
 POW 1.0.0.17
 
-• Huelum vs. Goya: the CPU froze once its power bar filled and the fight won itself. It now throws its super and keeps fighting.
+• Titulación por Combate: the CPU froze once its power bar filled and the fight won itself. It now throws its super and keeps fighting.
 • The status bar and navigation buttons are now legible with a light system theme, and no longer overlap the menu text.
 • Smaller download and lower memory use: icons are loaded at the size they are shown.
 • Stability and performance improvements on low-end devices.

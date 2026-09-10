@@ -91,6 +91,22 @@ class SfStateMachineTest {
     }
 
     @Test
+    fun `CONTRAATAQUE y el intento del DERRIBO CON PODER salen solo de neutro de pie`() {
+        assertTrue(SfStateMachine.canEnter(SfFighterState.IDLE, SfFighterState.COUNTER))
+        assertFalse(SfStateMachine.canEnter(SfFighterState.CROUCH, SfFighterState.COUNTER))
+        assertFalse(SfStateMachine.canEnter(SfFighterState.JUMP_UP, SfFighterState.COUNTER))
+        assertTrue(SfStateMachine.canEnter(SfFighterState.IDLE, SfFighterState.POWER_GRAB))
+        assertFalse(SfStateMachine.canEnter(SfFighterState.CROUCH, SfFighterState.POWER_GRAB))
+    }
+
+    @Test
+    fun `el remate del DERRIBO CON PODER solo sale de su propio intento - como THROW de GRAB`() {
+        assertTrue(SfStateMachine.canEnter(SfFighterState.POWER_GRAB, SfFighterState.POWER_THROW))
+        assertFalse(SfStateMachine.canEnter(SfFighterState.GRAB, SfFighterState.POWER_THROW))
+        assertFalse(SfStateMachine.canEnter(SfFighterState.IDLE, SfFighterState.POWER_THROW))
+    }
+
+    @Test
     fun `los ataques aereos solo salen en el aire`() {
         assertTrue(SfStateMachine.canEnter(SfFighterState.JUMP_UP, SfFighterState.AIR_PUNCH))
         assertFalse(SfStateMachine.canEnter(SfFighterState.IDLE, SfFighterState.AIR_PUNCH))
@@ -136,6 +152,8 @@ class SfStateMachineTest {
             SfFighterState.GRAB, SfFighterState.THROW, SfFighterState.TAUNT,
             SfFighterState.SUPER_ART, SfFighterState.RUN,
             SfFighterState.IDLE_RELAXED, SfFighterState.TALK,
+            // 🆕 (2026-08-29) CONTRAATAQUE + DERRIBO CON PODER también recuperan a IDLE.
+            SfFighterState.COUNTER, SfFighterState.POWER_GRAB, SfFighterState.POWER_THROW,
         ) + SF_BONUS_POWER_STATES + SfStateMachine.CROUCH_RECOVERY_FROM +
             SfStateMachine.DASH_RECOVERY_FROM
 

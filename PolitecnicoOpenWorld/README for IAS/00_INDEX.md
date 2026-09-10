@@ -47,7 +47,7 @@
 > | Carpeta | Modo |
 > |---|---|
 > | **`MUNDO/`** | 🌎 **Mundo libre POW** — open world, misiones, zombis, interiores, servidores |
-> | **`SF/`** | 🥊 **Peleas "Huelum vs. Goya"** — empieza por `SF/00_SF_INDEX.md` |
+> | **`SF/`** | 🥊 **Peleas "Titulación por Combate"** — empieza por `SF/00_SF_INDEX.md` |
 > | raíz | lo COMPARTIDO por ambos (arquitectura, datos, convenciones) |
 >
 > **➡️ Empieza SIEMPRE por [`_SESION_ACTUAL.md`](_SESION_ACTUAL.md):** estado vivo del trabajo,
@@ -101,7 +101,7 @@
 | — | `MUNDO/CAMPAIGN/` | Campaña: overview + misiones 1-3 + secundarias |
 | — | `MUNDO/NPC_SPRITES_PIPELINE.md` | Pipeline de sprites de NPC |
 
-### 🥊 `SF/` — peleas "Huelum vs. Goya"
+### 🥊 `SF/` — peleas "Titulación por Combate"
 
 Índice propio en **`SF/00_SF_INDEX.md`** (diseño, assets gráficos, audio, herramientas y las
 reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `street_fighter`/`Sf*`.
@@ -115,7 +115,7 @@ reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `stree
 > [`_ARCHIVO/HISTORIAL_changelog_00_INDEX.md`](_ARCHIVO/HISTORIAL_changelog_00_INDEX.md) para
 > no pagarlo en tokens en cada sesión. El diseño de SF está en `SF/DISENO_ARCADE_SF_POW.md`.
 
-**HUELUM VS. GOYA — lo estable:**
+**TITULACIÓN POR COMBATE — lo estable:**
 - Modos: **ARCADE** (default) / PRÁCTICA / **IA VS IA** / MULTIJUGADOR (Render / BT / LAN / P2P).
 - **Arcade:** peleador → Fácil/Medio/Difícil → escalera 15. Mapas = hogar del **rival** + luz.
   Tabla peleador→mapa: **`SF/SF_STAGES_MAPS_UNLOCK.md`**.
@@ -127,7 +127,7 @@ reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `stree
 | Modo | Android | iOS | Nota |
 |---|:---:|:---:|---|
 | Menú principal, Ajustes, Coleccionables | ✅ | ✅ | Misma pantalla de `commonMain`, distinto Controller |
-| 🥊 Huelum vs. Goya — arcade, práctica, IA vs IA | ✅ | ✅ | Verificado en simulador: pelea, audio, guardado, modo desarrollador |
+| 🥊 Titulación por Combate — arcade, práctica, IA vs IA | ✅ | ✅ | Verificado en simulador: pelea, audio, guardado, modo desarrollador |
 | 🥊 Multijugador (Render / BT / LAN / P2P) | ✅ | 🚧 | RFCOMM no existe en iOS; WebRTC y UDP multicast no se portaron |
 | 🌎 Mundo libre, interiores, zombis | ✅ | 🚧 | **En curso.** Ver `12_PLAN_MUNDO_ABIERTO_iOS.md` |
 | 📖 Modo Historia | ✅ | 🚧 | Va con el mundo abierto |
@@ -159,8 +159,12 @@ Añadir un modo a `modosDe(IOS)` **no lo porta**. Detalle en `11_SEPARACION_IOS_
 | **`SF/SF_SPECIAL_VOICES_SFX.md`** | Voces/SFX v3: 21/21 español, cortes locales, Whisper, hashes, `MediaPlayer`; v1/v2 queda histórico. ✅ **2026-07-22: subtítulos de frases ACTIVOS** (`voiceSubtitlesEnabled=true`; frases curadas en `voice_phrases.json`, 64 `es` + `en` completo). |
 | `SF/GUIA_regeneracion_sprites_croma.md` | Regenerar sprites croma pelea+mundo (proceso VIGENTE de recorte). |
 | **`SF/PROMPT_SOL56_TANDAS_NUEVAS.md`** | **⭐ Prompt de las 10 hojas NUEVAS (20–29, moveset 3rd Strike) por personaje + rutas de assets + estándar de calidad.** |
+| **`SF/PIPELINE_agregar_movimientos_y_personajes.md`** | **⭐ (2026-08-30) Receta reutilizable para agregar un movimiento nuevo (18 peleadores) o un peleador nuevo (19º): fases de diseño→motor→arte→pipeline→verificación, y quién hace qué (Claude/IA de imagen/dueño).** |
+| **`SF/PROMPT_hoja30_contraataque_derribo.md`** | **⭐ (2026-08-29/30) Prompt de la hoja 30 (Contraataque + Derribo con Poder), 18/18 completos: layout de 3 filas y el historial de las 4 rondas de corrección (espaciado, rival dibujado, agarre reinterpretado a distancia, Fila 3 corta por 1 cuadro).** |
 | `MUNDO/NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |
 | **`PROMPT_WINDOWS_verificar_android_y_release.md`** | **⭐ TRASPASO VIVO (07-31): verificar que Android sigue igual tras los 80 commits de KMP, y publicar.** Lo de más riesgo (datos guardados, los 3 gestores de IA), el checklist de release y el plan de adelgazar el AAB. *(raíz)* |
+| **`PROMPT_MAC_orientacion_y_puente_js.md`** | **⭐ TRASPASO VIVO (08-17) → MAC: probar en el simulador las dos costuras nuevas de iOS** (forzar horizontal + la vuelta del puente JS → Kotlin). Se escribieron desde Windows y **la mitad de Swift nunca se ha compilado**. Qué probar, en qué orden y qué significa cada fallo. *(raíz)* |
+| **`PROMPT_MAC_verificar_ios_titulacion.md`** | **⭐ TRASPASO VIVO (09-05) → MAC: verificar iOS con el modo renombrado a "Titulación por Combate"** (PR #141). Todos los botones del menú cambiaron a texto autoajustable y los 18 peleadores se re-empaquetaron. Ya verificado desde Windows que compila para `iosSimulatorArm64`; falta VER que se lee bien (pantalla chica + fuente grande) y medir la memoria con La Llorona. *(raíz)* |
 | `CHECKPOINT_SENIOR_refactor.md` | Receta del patrón manager/Hilt/detekt (referencia). *(raíz)* |
 | `MUNDO/CAMPAIGN/` | Guion Modo Historia (misiones 1–3 + side). |
 | `_ARCHIVO/` | **Histórico. NO son tareas.** Incluye los guiones de iOS ya ejecutados (`ARRANQUE_MAC_iOS.md`, `PLAN_SF_EN_iOS.md`, `PROMPT_MAC_navegacion_iOS.md`), `PENDIENTES_2026-07-20.md` y los prompts de traspaso a Gemini/GPT/Fable. |
@@ -186,7 +190,7 @@ Añadir un modo a `modosDe(IOS)` **no lo porta**. Detalle en `11_SEPARACION_IOS_
   **9 archivos pasan de 1000 líneas** (tabla con módulo en `10 §8`); solo 2 están en `:shared`.
   ⚠️ **`commonMain` tiene 0 imports de `android.*`** y eso no es negociable: es lo que hace que iOS
   compile.
-- **🆕 Assets COMPARTIDOS SF⇄mundo (2026-07-15/17):** 3 de los 22 peleadores de "HUELUM VS. GOYA"
+- **🆕 Assets COMPARTIDOS SF⇄mundo (2026-07-15/17):** 3 de los 22 peleadores de "TITULACIÓN POR COMBATE"
   se arman EN RUNTIME desde los sets del mundo (`SPRITES/PLAYER|NPC/`) — sin sheets duplicados
   en el APK: Lázaro, Granadero y Paramédico. Los otros 17 POW tienen hojas croma
   dedicadas; Ryu/Ken **BORRADOS del repo (2026-07-26)** — eran huérfanos (no están en `SfFighterId`).

@@ -52,7 +52,7 @@ def main() -> None:
 
     payload = {
         "_readme": (
-            "FRASES por clip de voz de HUELUM VS. GOYA. Escribe/valida 'es' (y 'en' para "
+            "FRASES por clip de voz de TITULACIÓN POR COMBATE. Escribe/valida 'es' (y 'en' para "
             "paridad) escuchando tools/_audio_review/<clip>.mp3; 'draft' es Whisper (solo "
             "referencia). 'es' vacia = sin subtitulo. Al terminar de curar: poner "
             "voiceSubtitlesEnabled = true en StreetFighterViewModel. Regenerable con "

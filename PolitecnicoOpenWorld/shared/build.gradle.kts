@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 /*
  * 🍏 MÓDULO COMPARTIDO KMP — Fases 1 a 5 de "README for IAS/PLAN_MIGRACION_KMP.md".
  *
- * QUÉ VIVE AQUÍ: el dominio PURO de "Huelum vs. Goya", el punto lat/lon (`GeoPoint`), el JSON
+ * QUÉ VIVE AQUÍ: el dominio PURO de "Titulación por Combate", el punto lat/lon (`GeoPoint`), el JSON
  * (`PowJson`/`jsonOf`), la BASE DE DATOS (Room), los ajustes (multiplatform-settings), el cliente
  * WebSocket (Ktor) y el generador del mapa Leaflet.
  *
@@ -38,7 +38,19 @@ kotlin {
         androidResources.enable = true
 
         // Los tests de `commonTest` que corren en la JVM del host (los 49 de siempre).
-        withHostTestBuilder {}.configure {}
+        withHostTestBuilder {}.configure {
+            // ⚠️ En la JVM del host, `android.util.Log` es un stub que LANZA
+            // ("Method d in android.util.Log not mocked"). Lo toca el `actual` de `powLog` en
+            // cuanto un test hace un tick de `NpcAiManager`. Esto lo hace devolver el valor por
+            // defecto en vez de reventar; en iOS no aplica (allí `powLog` es un `println`).
+            //
+            // ⚠️ Efecto secundario que conviene conocer: con esto, CUALQUIER API de `android.*`
+            // sin mockear devuelve 0/null EN SILENCIO en vez de fallar. En `commonMain` no debería
+            // haber ninguna —esa es justo la regla del doc 11— así que el alcance real es este
+            // único `Log`. Si algún día un test da un valor absurdo sin explicación, sospecha de
+            // aquí antes que del código.
+            isReturnDefaultValues = true
+        }
 
         compilerOptions {
             // Mismo jvmTarget que `:app` (11). Si divergen, el consumo desde app falla.

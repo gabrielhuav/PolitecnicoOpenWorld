@@ -21,6 +21,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.data.repository.MetroRepository
 import ovh.gabrielhuav.pow.data.repository.MetrobusRepository
+import org.jetbrains.compose.resources.getString
+import ovh.gabrielhuav.pow.shared.recursos.Res
+import ovh.gabrielhuav.pow.shared.recursos.wm_wait_loading
 
 fun WorldMapViewModel.teleportToMetroStation(stationName: String) {
     val station = transitTeleportManager.state.value.metroStations.find { it.name.equals(stationName, ignoreCase = true) }
@@ -57,10 +60,14 @@ fun WorldMapViewModel.teleportTo(lat: Double, lon: Double) {
     val st0 = _uiState.value
     if (!st0.isLoadingLocation && (!st0.isMapReady || !st0.isRoadNetworkReady)) {
         transitTeleportManager.setTeleportMenu(false)
-        _uiState.update { it.copy(interactionPrompt = getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_wait_loading)) }
+        // ⚠️ El texto sale de `composeResources`, que solo resuelve en `suspend`, así que entra
+        // un frame después. Aquí da igual: es un aviso para el jugador, no una bandera de juego
+        // (ver la nota de `WorldMapAvisos.kt` — **no metas banderas en un launch**).
         viewModelScope.launch {
+            val aviso = getString(Res.string.wm_wait_loading)
+            _uiState.update { it.copy(interactionPrompt = aviso) }
             delay(2500)
-            _uiState.update { if (it.interactionPrompt?.startsWith("⏳") == true) it.copy(interactionPrompt = null) else it }
+            _uiState.update { if (it.interactionPrompt == aviso) it.copy(interactionPrompt = null) else it }
         }
         return
     }

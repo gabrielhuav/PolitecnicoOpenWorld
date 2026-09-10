@@ -1,4 +1,4 @@
-# TRASPASO · Audio y subtítulos de HUELUM VS. GOYA (2026-07-21)
+# TRASPASO · Audio y subtítulos de TITULACIÓN POR COMBATE (2026-07-21)
 
 > ⚠️ **PARCIALMENTE SUPERADO (2026-07-22):** la parte de SUBTÍTULOS ya se hizo (64 `es`
 > curados + `en` traducido + `voiceSubtitlesEnabled=true` + render por tramos `|`). Sigue

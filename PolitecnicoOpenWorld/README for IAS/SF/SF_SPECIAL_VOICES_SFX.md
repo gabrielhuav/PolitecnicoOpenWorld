@@ -1,4 +1,4 @@
-# SFX de especiales por personaje (voces) — HUELUM VS. GOYA
+# SFX de especiales por personaje (voces) — TITULACIÓN POR COMBATE
 
 > ## ⚠️ TRABAJO FUTURO (requiere INTERVENCIÓN HUMANA) — Subtítulos de frases DESACTIVADOS
 >

@@ -1,4 +1,4 @@
-# QA · Fondos/escenarios de "HUELUM VS. GOYA" (feedback del dueño, 2026-07-18)
+# QA · Fondos/escenarios de "TITULACIÓN POR COMBATE" (feedback del dueño, 2026-07-18)
 
 > Revisión del dueño en dispositivo de los fondos de pelea (atlas `_anim` + estáticos).
 > Cada peleadór ya tiene su mapa hogar y funciona (ver `SF_STAGES_MAPS_UNLOCK.md` +

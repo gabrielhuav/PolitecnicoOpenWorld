@@ -1,4 +1,4 @@
-# PROMPT — Afinar el encuadre panorámico + salto en TODOS los mapas de HUELUM VS. GOYA
+# PROMPT — Afinar el encuadre panorámico + salto en TODOS los mapas de TITULACIÓN POR COMBATE
 
 > **⚠️ ESTADO 2026-07-18ñ: el panorámico YA se aplicó a los 16 mapas** en `SF_BG_FRAMING`
 > (FacMed 1.35; los otros 15 a 1.30). Este prompt pasa de "aplicarlo" a **AFINARLO por mapa**

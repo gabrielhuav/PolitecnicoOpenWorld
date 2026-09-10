@@ -469,6 +469,8 @@ open class StreetFighterViewModel(
     // control del "un ataque aéreo por salto" y detección del doble toque para el dash.
     internal val parryActiveUntilMs = LongArray(2)
     internal val parryStunUntilMs = LongArray(2)
+    // 🆕 (2026-08-29) CONTRAATAQUE: ventana activa propia (molde de parryActiveUntilMs).
+    internal val counterActiveUntilMs = LongArray(2)
     // 🆕 (2026-07-22) MAREO/STUN + decaimientos de medidores (molde de parryStunUntilMs):
     // fin del aturdimiento, último golpe CONECTADO (gracia del decaimiento del súper) y
     // acumuladores fraccionales del decaimiento por tick (los medidores son Int).
@@ -1172,10 +1174,16 @@ open class StreetFighterViewModel(
             SfFighterState.CROUCH_PUNCH, SfFighterState.CROUCH_KICK,
             SfFighterState.CROUCH_HEAVY_PUNCH, SfFighterState.SWEEP,
             SfFighterState.LONG_KICK, SfFighterState.OVERHEAD, SfFighterState.GRAB,
+            SfFighterState.POWER_GRAB,
             -> {
                 nf = nf.copy(velocityX = 0f, velocityY = 0f, attackStruck = false)
                 _soundEvents.tryEmit("${attackMeta.getValue(newState).strength.name.lowercase()}-attack")
                 withNetAudioCapture(idx) { emitAttackVoice(nf.id, idx, now) }
+                // 🆕 (2026-08-29) DERRIBO CON PODER: el medidor se gasta al EJECUTARLO (conecte
+                // o falle), como un "EX move" — igual que la súper/fatality lo gastan al ENTRAR.
+                if (newState == SfFighterState.POWER_GRAB) {
+                    nf = nf.copy(superMeter = nf.superMeter - SfConstants.POWER_THROW_METER_COST)
+                }
             }
             // Los aéreos NO ponen la velocidad a cero: conservan el arco del salto.
             SfFighterState.AIR_PUNCH, SfFighterState.AIR_KICK -> {
@@ -1191,12 +1199,13 @@ open class StreetFighterViewModel(
                 }
                 withNetAudioCapture(idx) { emitSpecialVoice(nf.id, now) }
             }
-            SfFighterState.THROW -> nf = nf.copy(velocityX = 0f, velocityY = 0f)
+            SfFighterState.THROW, SfFighterState.POWER_THROW -> nf = nf.copy(velocityX = 0f, velocityY = 0f)
             SfFighterState.THROWN -> nf = nf.copy(velocityX = 0f, velocityY = 0f, downed = true)
             SfFighterState.GET_UP -> nf = nf.copy(velocityX = 0f, velocityY = 0f)
             SfFighterState.BLOCK_HIGH, SfFighterState.BLOCK_LOW,
             SfFighterState.PARRY_HIGH, SfFighterState.PARRY_LOW,
             SfFighterState.TAUNT, SfFighterState.HURT_CROUCH,
+            SfFighterState.COUNTER,
             -> nf = nf.copy(velocityX = 0f, velocityY = 0f)
             // 🆕 (2026-07-22) MAREO: congelado ~2 s y el medidor de mareo se VACÍA al entrar
             // (si no, otro golpe lo re-aturdía en bucle). Sale a IDLE en runStateHandler.
@@ -1210,6 +1219,10 @@ open class StreetFighterViewModel(
         // 🆕 El parry abre su ventana ACTIVA al entrar (fuera de ella no protege).
         if (newState in SF_PARRY_STATES) parryActiveUntilMs[idx.coerceIn(0, 1)] =
             now + SfConstants.PARRY_WINDOW_MS
+        // 🆕 (2026-08-29) El contraataque abre su propia ventana ACTIVA (más corta que la del
+        // parry) al entrar.
+        if (newState == SfFighterState.COUNTER) counterActiveUntilMs[idx.coerceIn(0, 1)] =
+            now + SfConstants.COUNTER_WINDOW_MS
         // 🆕 Cada salto NUEVO devuelve el derecho a un ataque aéreo.
         if (newState == SfFighterState.JUMP_START || newState == SfFighterState.JUMP_LAND) {
             airAttackUsed[idx.coerceIn(0, 1)] = false
@@ -1616,6 +1629,8 @@ open class StreetFighterViewModel(
         val grab = pendingGrab; pendingGrab = false
         val taunt = pendingTaunt; pendingTaunt = false
         val superArt = pendingSuperArt; pendingSuperArt = false
+        val counter = pendingCounter; pendingCounter = false
+        val powerThrow = pendingPowerThrow; pendingPowerThrow = false
 
         return SfInput(
             up = up, down = down, forward = forward, backward = backward,
@@ -1625,6 +1640,7 @@ open class StreetFighterViewModel(
             bonusPower = bonusPower,
             dashForward = dashF, dashBackward = dashB,
             parry = parry, grab = grab, taunt = taunt, superArt = superArt,
+            counter = counter, powerThrow = powerThrow,
         )
     }
 
@@ -1633,6 +1649,9 @@ open class StreetFighterViewModel(
     private var pendingGrab = false
     private var pendingTaunt = false
     private var pendingSuperArt = false
+    // 🆕 (2026-08-29) CONTRAATAQUE + DERRIBO CON PODER
+    private var pendingCounter = false
+    private var pendingPowerThrow = false
 
     /** Botón PARRY: desvía el golpe si se aprieta a tiempo (alto de pie, bajo agachado). */
     fun onParryPressed() { pendingParry = true }
@@ -1643,6 +1662,12 @@ open class StreetFighterViewModel(
     /** Botón BURLA. */
     fun onTauntPressed() { pendingTaunt = true }
 
+    /** Botón CONTRAATAQUE: ventana activa que, si conecta, premia con un agarre gratis. */
+    fun onCounterPressed() { pendingCounter = true }
+
+    /** Botón DERRIBO CON PODER: agarre especial que cuesta un tramo del medidor de súper. */
+    fun onPowerThrowPressed() { pendingPowerThrow = true }
+
     /** Botón SÚPER: solo sale con el medidor lleno. */
     fun onSuperArtPressed() { pendingSuperArt = true }
 
@@ -1650,6 +1675,18 @@ open class StreetFighterViewModel(
     fun playerHasNewMoves(): Boolean {
         val f = _state.value.player
         return !dataFor(f).animations[SfFighterState.PARRY_HIGH.jsKey].isNullOrEmpty()
+    }
+
+    /** 🆕 (2026-08-29) ¿Tiene la hoja de CONTRAATAQUE? (gate por movimiento, no todo el moveset). */
+    fun playerHasCounterMove(): Boolean {
+        val f = _state.value.player
+        return !dataFor(f).animations[SfFighterState.COUNTER.jsKey].isNullOrEmpty()
+    }
+
+    /** 🆕 (2026-08-29) ¿Tiene la hoja de DERRIBO CON PODER? (gate por movimiento). */
+    fun playerHasPowerThrowMove(): Boolean {
+        val f = _state.value.player
+        return !dataFor(f).animations[SfFighterState.POWER_GRAB.jsKey].isNullOrEmpty()
     }
 
     /**
@@ -1978,6 +2015,7 @@ open class StreetFighterViewModel(
         // 🆕 (2026-07-21) moveset nuevo
         parryActiveUntilMs.fill(0L)
         parryStunUntilMs.fill(0L)
+        counterActiveUntilMs.fill(0L)
         // 🆕 (2026-07-22) mareo/stun + decaimientos
         stunUntilMs.fill(0L)
         superKeepMs.fill(0L)
@@ -1993,6 +2031,8 @@ open class StreetFighterViewModel(
         pendingGrab = false
         pendingTaunt = false
         pendingSuperArt = false
+        pendingCounter = false
+        pendingPowerThrow = false
         cpuIntensity = 0f // VS: sin escalado; arcade/IA-vs-IA la suben después
         pendingAttacks.clear()
         pendingBonusPower = null
@@ -2224,6 +2264,7 @@ open class StreetFighterViewModel(
         // 🆕 (2026-07-21) moveset nuevo (la ronda nueva arranca sin ventanas abiertas)
         parryActiveUntilMs.fill(0L)
         parryStunUntilMs.fill(0L)
+        counterActiveUntilMs.fill(0L)
         // 🆕 (2026-07-22) mareo/stun + decaimientos
         stunUntilMs.fill(0L)
         superKeepMs.fill(0L)

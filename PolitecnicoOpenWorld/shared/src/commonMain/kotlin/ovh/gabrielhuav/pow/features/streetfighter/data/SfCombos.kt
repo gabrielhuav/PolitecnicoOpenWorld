@@ -12,7 +12,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.platform.assets.PowAssets
 
 /**
- * 🆕 (2026-07-21) CATÁLOGO DE COMBOS de HUELUM VS. GOYA.
+ * 🆕 (2026-07-21) CATÁLOGO DE COMBOS de TITULACIÓN POR COMBATE.
  *
  * Fuente: `assets/STREETFIGHTER/DATA/combos.json` (data-driven: ampliar combos NO exige
  * tocar código). Lo consumen dos sitios:
@@ -36,6 +36,10 @@ enum class SfComboAction {
     WALK_FORWARD, RUN, BLOCK_HIGH,
     /** 🆕 FATALITY / poder súper especial: súper EN CARRERA con el medidor lleno. */
     FATALITY,
+    /** 🆕 (2026-08-29) CONTRAATAQUE: ventana activa que premia con un agarre gratis. */
+    COUNTER,
+    /** 🆕 (2026-08-29) DERRIBO CON PODER: agarre especial que cuesta medidor. */
+    POWER_THROW,
     ;
 
     companion object {

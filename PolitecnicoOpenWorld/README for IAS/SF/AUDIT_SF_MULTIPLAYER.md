@@ -1,4 +1,4 @@
-# AUDIT · Multijugador 1v1 del modo pelea "HUELUM VS. GOYA" (2026-07-11)
+# AUDIT · Multijugador 1v1 del modo pelea "TITULACIÓN POR COMBATE" (2026-07-11)
 
 > **🆕 2026-07-26d (Opus 4.8) — LAN funciona ✅ + AUTODESCUBRIMIENTO (punto ④, dueño):** con el fix
 > del hilo (26c) el Wi-Fi 1v1 ya conecta y arranca. Nuevo: **`SfLanDiscovery`** — el ANFITRIÓN emite
@@ -128,7 +128,7 @@
 > **🆕 SESIÓN 2 (mismo día) — mejoras hechas y PENDIENTES para QWEN/CODEX:**
 >
 > **HECHO:**
-> - **Renombre user-facing:** el modo se llama **"HUELUM VS. GOYA"** (`menu_street_fighter`
+> - **Renombre user-facing:** el modo se llama **"TITULACIÓN POR COMBATE"** (`menu_street_fighter`
 >   ES+EN). Los ids internos (`street_fighter`, `features/streetfighter/`, `SfFighterId`…)
 >   NO cambian — solo strings visibles. Si tocas más pantallas, usa el nombre nuevo.
 > - **SALA PÚBLICA (quick match):** server: `publicQueue` + mensajes `QUICK_MATCH` (empareja

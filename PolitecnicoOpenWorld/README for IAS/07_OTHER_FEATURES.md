@@ -12,7 +12,7 @@
 > - Lo que sigue (warm-up de servidores, multijugador, `BuildConfig.VERSION_NAME`) es **el lado
 >   Android**. En iOS esos métodos del controller no hacen nada, a propósito.
 > - **Los botones que se pintan los decide `PowModo.disponible()`**, no la pantalla: en iOS solo
->   salen AJUSTES, COLECCIONABLES y HUELUM VS. GOYA.
+>   salen AJUSTES, COLECCIONABLES y TITULACIÓN POR COMBATE.
 > - **La insignia PREALPHA/BETA y el número de versión NO se pintan en iOS** (`mostrarInsignias =
 >   false`, `versionName = null`): la App Store rechaza apps anunciadas como beta. No lo "arregles".
 >
@@ -38,16 +38,16 @@ Menú principal; título ligado a `BuildConfig.VERSION_NAME` con auto-shrink que
 **Botones (renombrados):** `menu_start_game` ahora es **"MUNDO LIBRE"** (open world sin campaña, spawn por
 defecto) y `menu_load_game` es **"MODO HISTORIA"** (antes deshabilitado; ahora navega a `story_mode` vía
 `onNavigateToStory`).
-**🆕 Botón "HUELUM VS. GOYA" (`menu_street_fighter`, 2026-07-09 · PÚBLICO desde 2026-07-15):**
+**🆕 Botón "TITULACIÓN POR COMBATE" (`menu_street_fighter`, 2026-07-09 · PÚBLICO desde 2026-07-15):**
 SIEMPRE visible (el gate por Modo Desarrollador se INVIRTIÓ: ahora el dev mode solo desbloquea a
 RYU/KEN dentro del selector, ver §GATE INVERTIDO abajo); navega a la ruta `street_fighter`
 (callback `onNavigateToStreetFighter` con default `{}`).
 
 ---
 
-## 🥊 HUELUM VS. GOYA — modo de pelea 1v1 (`features/streetfighter/`) — 🆕 2026-07-09 · PÚBLICO desde 2026-07-15 (RYU/KEN dev-only)
+## 🥊 TITULACIÓN POR COMBATE — modo de pelea 1v1 (`features/streetfighter/`) — 🆕 2026-07-09 · PÚBLICO desde 2026-07-15 (RYU/KEN dev-only)
 
-> **NOMBRES:** en UI/UX el modo se llama **"HUELUM VS. GOYA"** (strings `menu_street_fighter`
+> **NOMBRES:** en UI/UX el modo se llama **"TITULACIÓN POR COMBATE"** (strings `menu_street_fighter`
 > ES+EN); en CÓDIGO se conserva el nombre técnico (paquete `features/streetfighter/`, ruta
 > `street_fighter`, clases `Sf*`/`StreetFighter*`) — NO renombrar el código. Los docs usan el
 > nombre de UI; "Street Fighter" a secas se refiere al CLON original del que se portó el motor.
@@ -123,7 +123,7 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   y filtro de cuadros corruptos — `rg_w_4.webp` era 4×13 px) + `pack_sf_character.py` (parcheado:
   ya NO empaqueta `proj-*` inexistentes → esos personajes usan el fireball del tema). Prankedy,
   Tienda, ambos Paparazzi y Rey ya sustituyeron esas aproximaciones por sus hojas croma dedicadas.
-- **🆕 RENOMBRE + MEJORAS ONLINE (2026-07-11b):** el modo se llama **"HUELUM VS. GOYA"**
+- **🆕 RENOMBRE + MEJORAS ONLINE (2026-07-11b):** el modo se llama **"TITULACIÓN POR COMBATE"**
   (solo strings user-facing; los ids internos siguen siendo street_fighter/Sf*). Online ganó
   **SALA PÚBLICA** (lista de espera; el server empareja con `QUICK_MATCH`) y **resumen de
   partidas activas**. Botones con estilo POW (`PowButton`, esquinas cortadas + vino).
@@ -975,7 +975,7 @@ enum class ShineCTOInteractable(val label: String) { ... }
 ## Tema / Theme (`ui/theme/`)
 `Color.kt`, `Theme.kt`, `Type.kt` — Material 3. Sin lógica de negocio.
 
-### HUELUM VS. GOYA — Fix IA 18l (2026-07-18)
+### TITULACIÓN POR COMBATE — Fix IA 18l (2026-07-18)
 
 El motor CPU es compartido por práctica, Arcade, IA vs IA y Autoplay. Se corrigió el bloqueo
 permanente de `JUMP_*` al tocar exactamente `STAGE_FLOOR`, el giro al intercambiar lados y la
@@ -984,7 +984,7 @@ ligeros por peleador sesgan presión o poderes sin duplicar la IA. Hay memoria d
 cooldowns separados para especiales/poderes, defensa reactiva y escape anti-hit-stun. El auditor
 considera fallo cualquier estancamiento o ronda por tiempo y reporta los totales KO/timeout.
 
-### HUELUM VS. GOYA — 👻 La Llorona: cerrados los 3 recortes malos (2026-07-21f)
+### TITULACIÓN POR COMBATE — 👻 La Llorona: cerrados los 3 recortes malos (2026-07-21f)
 
 Últimos defectos de arte que quedaban del roster, los tres de La Llorona. **Solo se
 re-recortaron las hojas 09 y 29**; los otros 17 peleadores no se tocaron.
@@ -1019,7 +1019,7 @@ caso que los `bonusPower` de La Presidenta: un cuadro de efecto puro es arte vá
 
 Detalle completo: `DISENO_ARCADE_SF_POW.md` §2026-07-21f.
 
-### HUELUM VS. GOYA — 🎓 COMBOS data-driven + TUTORIAL interactivo (2026-07-21b)
+### TITULACIÓN POR COMBATE — 🎓 COMBOS data-driven + TUTORIAL interactivo (2026-07-21b)
 
 Catálogo en `assets/STREETFIGHTER/DATA/combos.json` (**23 básicos + 12 universales**
 — incluye `fatality`, `b_meter` (medidor) y `b_crouchchain` (cadena baja), 2026-07-22 —
@@ -1033,7 +1033,7 @@ desbloqueado → `SfComboSheetOverlay` (controles + recetas) → **PROBAR** →
 `SfTutorialOverlay` + campos `tutorial*` de `StreetFighterState`. Muñeco inerte, sin reloj
 y sin daño al muñeco. Detalle: `DISENO_ARCADE_SF_POW.md` §2026-07-21b.
 
-### HUELUM VS. GOYA — 🥊 MOVESET completo estilo 3rd Strike (2026-07-21)
+### TITULACIÓN POR COMBATE — 🥊 MOVESET completo estilo 3rd Strike (2026-07-21)
 
 21 estados nuevos en `SfFighterState` (hojas 20-29), todos con guarda `hasAnim`: dash y
 backdash (doble toque), bloqueo alto/bajo con pose propia, **parry** alto/bajo (ventana
@@ -1050,7 +1050,7 @@ igual se juega con **placeholder ALPHA** (silueta del estudiante de su género +
 Detalle y tabla de controles: `DISENO_ARCADE_SF_POW.md` §2026-07-21. Pipeline de los
 assets: `FLUJO_ASSETS_SF.md`.
 
-### HUELUM VS. GOYA — 🥊 COMBOS estilo 3rd Strike (2026-07-20)
+### TITULACIÓN POR COMBATE — 🥊 COMBOS estilo 3rd Strike (2026-07-20)
 
 Primer corte del combate "SF original" (P1): **chain cancel** (golpe normal que CONECTA se
 cancela en el de mayor fuerza: ligero→medio→fuerte, puño o patada) y **special cancel**

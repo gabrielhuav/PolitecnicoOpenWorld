@@ -1,4 +1,4 @@
-# Mapas, peleadór hogar y desbloqueos (HUELUM VS. GOYA)
+# Mapas, peleadór hogar y desbloqueos (TITULACIÓN POR COMBATE)
 
 > **Estado 2026-07-18h.** Fuente de verdad del código:
 > - Escenarios: `domain/models/streetfighter/SfStageCatalog.kt`

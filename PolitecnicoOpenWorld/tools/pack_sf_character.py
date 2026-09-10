@@ -81,6 +81,15 @@ NEW_MOVE_ANIMATIONS = {
     "run":              ("run", 8, [3, 3, 3, 3, 3, 3, 3, 3]),
     "idleRelaxed":      ("idle-relaxed", 6, [8, 8, 8, 8, 8, 8]),
     "talk":             ("talk", 4, [7, 7, 7, 7]),
+    # 🆕 (2026-08-29) CONTRAATAQUE + DERRIBO CON PODER (diseño en
+    # SF/PROMPT_hoja30_contraataque_derribo.md). Delays de partida, tuneables sin tocar
+    # Kotlin: counter = 2 cuadros de guardia rapidos + 4 de recuperacion mas lenta (el
+    # riesgo que lo distingue del parry, que solo pesa 3 cuadros); powerGrab = intento MAS
+    # LENTO que el grab normal (2 cuadros); powerThrow = remate mas grande que throw (6),
+    # a la altura de superArt (8).
+    "counter":          ("counter", 6, [4, 5, 7, 8, 8, 10]),
+    "powerGrab":        ("power-grab", 4, [5, 6, 7, 6]),
+    "powerThrow":       ("power-throw", 8, [4, 5, 6, 6, 6, 6, 8, 10]),
 }
 NEW_MOVE_KEYS = [f"{prefix}-{i}"
                  for prefix, count, _ in NEW_MOVE_ANIMATIONS.values()
@@ -441,7 +450,7 @@ def reference_frame_key(key):
     new_move = re.match(
         r"(dash|backdash|block-high|block-low|parry-high|parry-low|crouch-punch|crouch-kick|"
         r"crouch-hp|sweep|air-punch|air-kick|long-kick|overhead|grab|throw|taunt|thrown|"
-        r"getup|super|hurt-crouch|run|idle-relaxed)-(\d+)$", key)
+        r"getup|super|hurt-crouch|run|idle-relaxed|counter|power-grab|power-throw)-(\d+)$", key)
     if new_move:
         prefix, idx = new_move.group(1), int(new_move.group(2))
         # Defensivas / movilidad / reacciones: hurtbox prestada, nunca hitbox.
@@ -449,7 +458,9 @@ def reference_frame_key(key):
             return "forwards-3", False
         if prefix == "backdash":
             return "backwards-3", False
-        if prefix in ("block-high", "parry-high", "taunt", "idle-relaxed"):
+        if prefix in ("block-high", "parry-high", "taunt", "idle-relaxed", "counter"):
+            # Contraataque: puramente reactivo, sin hitbox propia (igual que el parry) —
+            # el pago (agarre gratis) lo resuelve la logica, reutilizando la caja de THROW.
             return "idle-1", False
         # Correr comparte la caja de caminar (mismo cuerpo, más rápido)
         if prefix == "run":
@@ -461,7 +472,7 @@ def reference_frame_key(key):
         if prefix == "getup":
             # Se levanta: del suelo (fall) a la guardia (idle)
             return ("fall-4", False) if idx <= 2 else (("crouch-3", False) if idx <= 4 else ("idle-1", False))
-        if prefix == "throw":
+        if prefix in ("throw", "power-throw"):
             # El daño del lanzamiento lo aplica la logica, no una hitbox por cuadro
             return "idle-1", False
         # Ofensivas: hitbox SOLO en los cuadros activos (contacto), como en las clasicas.
@@ -483,6 +494,10 @@ def reference_frame_key(key):
             return "heavy-punch-1", idx in (3, 4)
         if prefix == "grab":
             return "light-punch-2", idx == 2
+        if prefix == "power-grab":
+            # Intento MAS LENTO y telegrafiado que el grab normal (4 cuadros, no 2):
+            # el contacto solo esta activo en el ultimo cuadro.
+            return "light-punch-2", idx == 4
         if prefix == "super":
             return "special-3", idx in (4, 5, 6)
     return key, True
@@ -626,9 +641,6 @@ def pack_character(char_name, char_title, gen_root=GEN_DIR):
             file_path = derived_path
         elif key == "jump-start/land":
             filename = "jump-start-land-1.png"
-            file_path = os.path.join(char_gen_dir, filename)
-        elif key in ("stun-1", "stun-2"):
-            filename = "stun-3.png"
             file_path = os.path.join(char_gen_dir, filename)
         elif light_punch_fallback and key.startswith("light-punch-"):
             filename = key.replace("light-punch", "med-punch") + ".png"

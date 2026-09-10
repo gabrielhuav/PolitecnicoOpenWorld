@@ -94,10 +94,8 @@ internal fun WorldMapViewModel.runMission2StoryTick(playerLoc: GeoPoint) {
 // Marca el objetivo de la fase actual como CUMPLIDO (jingle + aviso) y programa la transición.
 private fun WorldMapViewModel.m2MarkObjectiveDone(now: Long) {
     val obj = _uiState.value.currentObjective ?: return
-    _uiState.update { it.copy(
-        objectiveDone = true,
-        interactionPrompt = "✅ Objetivo cumplido: ${getLocalizedString(obj.titleRes)}"
-    ) }
+    _uiState.update { it.copy(objectiveDone = true) }
+    avisarConTitulo("✅ Objetivo cumplido: ", obj.titleRes)
     soundManager.playMisionCumplida()
     mission2PhaseTransitionMs = now
 }

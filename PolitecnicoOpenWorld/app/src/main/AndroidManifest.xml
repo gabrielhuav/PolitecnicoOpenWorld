@@ -5,8 +5,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <!-- 🆕 (2026-07-26) Necesario para el WifiLock del multijugador Wi-Fi (LAN) de "HUELUM VS.
-         GOYA": mantiene el Wi-Fi despierto durante la sesión para que el power-save NO mate el
+    <!-- 🆕 (2026-07-26) Necesario para el WifiLock del multijugador Wi-Fi (LAN) de "TITULACIÓN POR COMBATE": mantiene el Wi-Fi despierto durante la sesión para que el power-save NO mate el
          socket TCP mientras se elige peleador (síntoma: "SELECT_CHARACTER → enlace muerto").
          WAKE_LOCK es permiso NORMAL (install-time, sin prompt de runtime, sin impacto en Data
          Safety de Play). Lo pide WifiManager.WifiLock.acquire(). -->
@@ -17,7 +16,7 @@
          Safety de Play). El tráfico es efímero dispositivo-a-dispositivo en la LAN. -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
-    <!-- BLUETOOTH (multijugador local de "HUELUM VS. GOYA", sin internet).
+    <!-- BLUETOOTH (multijugador local de "TITULACIÓN POR COMBATE", sin internet).
          Legacy (≤ Android 11): permisos normales, sin runtime.
          Android 12+: CONNECT/ADVERTISE/SCAN en runtime; neverForLocation es CRÍTICO:
          sin ese flag el escaneo contaría como acceso a UBICACIÓN (el FINE_LOCATION de

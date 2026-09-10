@@ -1,11 +1,42 @@
-# DISEÑO · MODO ARCADE "HUELUM VS. GOYA" — versión POW completa (2026-07-16)
+# DISEÑO · MODO ARCADE "TITULACIÓN POR COMBATE" — versión POW completa (2026-07-16)
 
 > **Estado: release candidate 1/9 (2026-07-18).** Decisiones cerradas con el dueño; audio,
 > arte pendiente de esta pasada y auditoría completa de campaña implementados. Leer antes:
-> 07 §HUELUM VS. GOYA + `AUDIT_SF_MULTIPLAYER.md`. Convenciones: 09
+> 07 §TITULACIÓN POR COMBATE + `AUDIT_SF_MULTIPLAYER.md`. Convenciones: 09
 > (MVVM, estado inmutable con `_state.update { it.copy(...) }`, strings ES+EN con paridad,
 > CRLF, Read para verificar). Los BUGS del modo (stun-lock, revancha, servidor LAN) viven en
 > `PENDIENTES_SF_2026-07-16.md` y NO dependen de esto.
+
+## Cambios 2026-08-29/30 (Claude Sonnet 5) — CONTRAATAQUE + DERRIBO CON PODER (motor + arte + pipeline: 18/18 completos)
+
+Dos movimientos nuevos de la familia Agarre/Parry, diseñados desde la mecánica antes de tocar
+arte (siguiendo cómo se agregó OVERHEAD en 2026-07-21). Detalle de diseño + implementación en
+`SF/PROMPT_hoja30_contraataque_derribo.md` y en el mensaje de PR/commit correspondiente.
+
+| Movimiento | Cómo se hace | Regla |
+|---|---|---|
+| **Contraataque** | botón **L3**, ventana activa 200ms (más corta que el parry) | si conecta un golpe rival, se anula ENTERO y pasa DIRECTO a un `THROW` gratis (reutiliza el arte de Agarre→Lanzamiento) con daño de bonus (34, entre agarre 26 y súper 45). Si falla, recuperación más larga que el parry. |
+| **Derribo con Poder** | botón **R3**, exige medidor ≥ 40/100 y rango de agarre | agarre especial: intento telegrafiado (4 cuadros, el doble que el agarre normal de 2) → remate propio (`POWER_THROW`, 8 cuadros) con más daño (42) y más empuje que el agarre normal. El medidor se gasta al intentarlo, conecte o falle. |
+
+- **Motor (`:shared`) TERMINADO y verificado**: `SfFighterState.COUNTER/POWER_GRAB/POWER_THROW`,
+  `SfStateMachine.VALID_FROM`, `runStateHandler`, `applyCounterThrow`/`applyPowerThrow` en
+  `StreetFighterCombate.kt`, IA en `StreetFighterCpuAi.kt` (contraataque = alternativa arriesgada
+  al parry; derribo con poder preferido sobre el agarre normal cuando sobra medidor sin competir
+  con la prioridad de la súper). Botones L3 (Esmeralda)/R3 (Rubí) en `StreetFighterScreen.kt`,
+  usando la paleta que ya estaba reservada ahí para esta expansión ("Alt 3 · Gema/Elementos").
+  Gate por movimiento (`playerHasCounterMove`/`playerHasPowerThrowMove`), no por todo el moveset
+  3rd Strike — así el botón no aparece "muerto" en un personaje sin ESA hoja en concreto.
+  `./gradlew :app:testDebugUnitTest :shared:testAndroidHostTest` en verde, detekt exit 0,
+  `check_kmp_test_names.sh` OK. Sin arte, `hasAnim` bloquea los 3 estados nuevos: cero regresión.
+- **Arte (hoja 30, 18 personajes) TERMINADO** — 4 rondas de corrección (cuadros pegados → rival
+  dibujado → agarre reinterpretado como poder a distancia → Fila 3 corta por 1 cuadro en 3
+  personajes). Detalle de las 4 en `SF/PROMPT_hoja30_contraataque_derribo.md` y en
+  `SF/00_SF_INDEX.md` §"reglas que más caro han salido" (6-8).
+- **Pipeline Python (`slice_sf_chroma_sheets.py`/`pack_sf_character.py`) TERMINADO** — 2 bugs
+  reales de fusión de filas corregidos en `merge_fragments`/`maybe_split`.
+- **Los 18 personajes están recortados + empacados** en `app/src/main/assets/STREETFIGHTER/`;
+  motor reverificado en verde (`gradle test`, detekt, nombres de test) tras el empaquetado
+  final. Nada de esto se ha commiteado. Detalle completo en `_SESION_ACTUAL.md`.
 
 ## Cambios 2026-07-25 (Opus 4.8) — súper que persiste entre rondas + GRADO de victoria
 
@@ -618,7 +649,7 @@ para clips largos). Naming: 1 variante = `special_<key>_<ev>.ogg`; N = `special_
   (`gauntletFightCapCurMs`), timer congelado y golpes sin daño en showcase (solo SFX/splash).
 - Auditoría ESTÁTICA: `auditFighterAssets` (anims faltantes/vacías por `SfFighterState.jsKey`,
   frames rotos, `special_<id>.ogg`) + `auditThemeSounds` (SFX del tema + música) → mismo
-  reporte .txt/overlay. Detalle en 07 §HUELUM VS. GOYA.
+  reporte .txt/overlay. Detalle en 07 §TITULACIÓN POR COMBATE.
 
 ## Fix 2026-07-18k (Fable) — showcase v2 (feedback del dueño en dispositivo)
 
@@ -918,7 +949,7 @@ agachado/aéreos, patada larga, agarres, super arts → cada uno necesitará est
 
 ## Protocolo al implementar (09)
 
-Docs 07 (§HUELUM VS. GOYA) + este doc (marcar avance / borrarlo al terminar) + README
+Docs 07 (§TITULACIÓN POR COMBATE) + este doc (marcar avance / borrarlo al terminar) + README
 público raíz (EN **y** ES). Arcade es offline → NO toca red. Verificar con Read, balance de
 llaves y CRLF. Listo para Rebuild.
 

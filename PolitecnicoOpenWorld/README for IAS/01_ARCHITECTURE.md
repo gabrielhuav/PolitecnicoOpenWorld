@@ -6,13 +6,13 @@
 camina/conduce por calles reales (foco: ESCOM / Zacatenco, CDMX), comparte el mundo con NPCs
 procedurales (peatones + vehículos) y con otros jugadores vía servidor en tiempo real. El campus
 de ESCOM aloja un **minijuego de supervivencia zombi** con interiores y combate melee/ranged.
-Además trae **"Huelum vs. Goya"**, un modo de pelea 1v1 estilo arcade.
+Además trae **"Titulación por Combate"**, un modo de pelea 1v1 estilo arcade.
 
 **EN:** POW is a 2D top-down game over **real-world maps** (OpenStreetMap). The player
 walks/drives real streets (focus: ESCOM / Zacatenco, Mexico City), shares the world with
 procedural NPCs (pedestrians + vehicles) and other players over a real-time server. The ESCOM
 campus hosts a **zombie survival minigame** with interiors and melee/ranged combat. It also ships
-**"Huelum vs. Goya"**, an arcade-style 1v1 fighting mode.
+**"Titulación por Combate"**, an arcade-style 1v1 fighting mode.
 
 > 🍏 **Ya no es "un juego Android".** Desde 2026-07-30 el modo pelea (con menú, Ajustes y
 > Coleccionables) **corre también en iOS**, desde el mismo código Kotlin. El mundo abierto sigue
@@ -45,6 +45,8 @@ Cada *feature* se divide en 3 capas / Every feature splits into 3 layers:
 
 - **Model** (`domain/models/`): `data class` inmutables + lógica pura (`NpcAiManager`,
   `PoliceManager`). **Sin imports de Android, sin UI.** / Immutable data classes + pure logic. No Android, no UI.
+  🍏 **Los 6 gestores de IA, los catálogos de campaña y `WorldMapState` viven en `:shared/commonMain`**
+  (2026-08-15) conservando el paquete, así que los imports de `:app` no cambiaron. Ver 12 §fase 3.
 - **ViewModel** (`features/<name>/viewmodel/`): UN `MutableStateFlow<State>` expuesto como
   `StateFlow` de solo lectura; corre los game loops con coroutines; orquesta repositorios. El
   estado es un `data class` inmutable actualizado con `_state.update { it.copy(...) }`. / ONE

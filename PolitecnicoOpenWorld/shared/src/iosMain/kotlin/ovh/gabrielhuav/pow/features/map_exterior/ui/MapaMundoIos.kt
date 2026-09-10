@@ -19,16 +19,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
-import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlinx.coroutines.delay
+import ovh.gabrielhuav.pow.data.cache.RoadNetworkCache
+import ovh.gabrielhuav.pow.data.repository.OverpassRepository
+import ovh.gabrielhuav.pow.data.repository.iosSettingsRepository
+import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.cargarColisionesExteriores
 import ovh.gabrielhuav.pow.domain.models.map.chocaAlMoverse
 import androidx.compose.ui.Alignment
@@ -43,7 +47,10 @@ import androidx.compose.ui.viewinterop.UIKitView
 // que uses sea correcta. Ver `09_CONVENTIONS_GOTCHAS.md` §KMP/iOS punto 3.
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readValue
+import ovh.gabrielhuav.pow.platform.orientacion.ForzarHorizontal
 import platform.CoreGraphics.CGRectZero
+import platform.WebKit.WKUserScript
+import platform.WebKit.WKUserScriptInjectionTime
 import platform.WebKit.WKWebView
 import platform.WebKit.WKWebViewConfiguration
 
@@ -66,8 +73,9 @@ import platform.WebKit.WKWebViewConfiguration
  * - **NPCs, policía, coleccionables y landmarks** — hay funciones JS para todos (`updateNpcs`,
  *   `updatePolice`, `updateCollectibles`, `updateLandmarks`), pero quien las alimenta es el
  *   `WorldMapViewModel`, que sigue en `:app` (fase 5).
- * - **La vuelta del puente (JS → Kotlin)**: en Android es `@JavascriptInterface`; en iOS haría falta
- *   `WKScriptMessageHandler`. Sin ella el mapa no puede avisar de toques ni de arrastres.
+ * ✅ **La vuelta del puente (JS → Kotlin) ya está** (2026-08-17): `PuenteJsIos` con
+ * `WKScriptMessageHandler`, y un shim que define `window.Android` para que **el HTML compartido no
+ * cambie**. Hoy la usa el toque del mapa, que coloca el marcador de destino igual que en Android.
  *
  * ## Lo importante: el HTML NO está duplicado
  *
@@ -77,7 +85,12 @@ import platform.WebKit.WKWebViewConfiguration
  */
 @OptIn(ExperimentalForeignApi::class)
 @Composable
-fun MapaMundoIos(alVolver: () -> Unit) {
+fun MapaMundoIos(cacheCalles: RoadNetworkCache?, alVolver: () -> Unit) {
+    // 🔄 HORIZONTAL, igual que Android. Es lo que permite que el HUD use el MISMO tamaño de
+    // controles que Android y que el modo pelea; en vertical no caben dos de 180 dp. Se libera
+    // solo al salir de esta pantalla (ver `OrientacionIos.kt`).
+    ForzarHorizontal()
+
     // Dónde está el jugador. Es el ÚNICO estado de esta pantalla: el mapa es un WebView, no
     // recompone, y lo que se le manda va por el puente.
     var jugador by remember { mutableStateOf(GeoPoint(ESCOM_LAT, ESCOM_LON)) }
@@ -85,10 +98,86 @@ fun MapaMundoIos(alVolver: () -> Unit) {
     // Texto del aviso de "esta función todavía no está". `null` = no hay nada que decir.
     var aviso by remember { mutableStateOf<String?>(null) }
 
+    // ⏳ `true` en cuanto el HTML del mapa terminó de cargar y ya acepta llamadas.
+    var htmlListo by remember { mutableStateOf(false) }
+
+    // ⚠️ El `remember` NO es por rendimiento: `navigationDelegate` es una referencia DÉBIL y sin
+    // alguien que lo sostenga se libera y el aviso de carga no llega nunca (ver `CargaMapaIos`).
+    val carga = remember { CargaMapaIos { htmlListo = true } }
+
+    // 🧍/🚗 ¿Emoji o sprites de verdad? Es el ajuste "Optimizar para gama baja"
+    // (`npcFullEmoji`) de Jugabilidad, el MISMO que ya usaba Android en su mapa web. Se lee una
+    // vez al entrar: cambiarlo a media partida no es un caso que exista (se cambia en Ajustes,
+    // que es otra pantalla).
+    val usarEmoji = remember { iosSettingsRepository().getNpcFullEmoji() }
+
     // 🧱 Los muros del campus. Se leen UNA vez del bundle (`assets/CONFIG/`) y no cambian.
     // ⚠️ Si el archivo faltara, `cargarColisionesExteriores` devuelve vacío y se puede atravesar
     // todo: es su modo degradado a propósito — mejor un mundo sin bardas que un crash al entrar.
     val colisiones = remember { cargarColisionesExteriores() }
+
+    // 🧠 EL CEREBRO DE LOS NPCs, el MISMO que Android (`:shared` desde el 2026-08-15).
+    val cerebro = remember { NpcAiManager() }
+    var npcs by remember { mutableStateOf<List<Npc>>(emptyList()) }
+    var estadoCalles by remember { mutableStateOf(EstadoCalles.DESCARGANDO) }
+
+    // 1️⃣ Las calles. Sin red, `updateNpcs` sale por `if (!networkIsReady) return` y NO hay NPCs:
+    // no es un detalle de arranque, es el contrato del manager.
+    LaunchedEffect(Unit) {
+        // ⚠️ **Overpass limita por IP y devuelve 429 en cuanto pides seguido.** Por eso la red se
+        // guarda en Room (celdas de ~2 km, TTL 7 días) con la MISMA clase que Android
+        // (`RoadNetworkCache`, en `commonMain` desde el 2026-08-20). Solo se baja en el primer
+        // arranque de cada celda; a partir de ahí el mundo abre sin tocar la red.
+        // 1) Room primero. Si la celda está guardada y no ha caducado, el mundo arranca SIN red
+        //    y sin gastar una petición a Overpass — que es justo lo que evita el 429.
+        val guardadas = cacheCalles?.get(ESCOM_LAT, ESCOM_LON)
+        if (!guardadas.isNullOrEmpty()) {
+            cerebro.updateRoadNetwork(guardadas)
+            estadoCalles = EstadoCalles.LISTO
+            return@LaunchedEffect
+        }
+
+        // 2) Y si no, se baja y SE GUARDA para la próxima.
+        repeat(INTENTOS_CALLES) { intento ->
+            val calles = OverpassRepository().fetchRoadNetwork(ESCOM_LAT, ESCOM_LON)
+            if (calles.isNotEmpty()) {
+                cacheCalles?.put(ESCOM_LAT, ESCOM_LON, calles)
+                cerebro.updateRoadNetwork(calles)
+                estadoCalles = EstadoCalles.LISTO
+                return@LaunchedEffect
+            }
+            estadoCalles = EstadoCalles.REINTENTANDO
+            delay(4000L * (intento + 1))
+        }
+
+        // Se dice en pantalla: sin esto, "Overpass me limitó" y "el código no funciona" se ven igual.
+        estadoCalles = EstadoCalles.SIN_RED
+    }
+
+    // 2️⃣ El tick. 33 ms = ~30 Hz, el mismo ritmo que el game loop de Android.
+    // ⚠️ `amIHost = true` porque en iOS no hay multijugador: este cliente es la autoridad de su
+    // propio mundo. Con `false` el manager no simula nada (y es correcto que así sea).
+    LaunchedEffect(estadoCalles) {
+        if (estadoCalles != EstadoCalles.LISTO) return@LaunchedEffect
+        while (true) {
+            cerebro.updateNpcs(jugador, amIHost = true)
+            // ⚠️ **`getServerNpcs()`, NO el flujo `npcs`.** Son dos cosas distintas y el nombre
+            // engaña: `npcs` (`StateFlow`) solo lo escribe `setRemoteNpcs`, o sea los NPCs que
+            // llegan por RED. Los que simula la IA de este cliente viven en `serverNpcs`. Leyendo
+            // el flujo se ve un mundo vacío para siempre, sin ningún error: el tick corre, spawnea
+            // y mueve, y la pantalla recibe una lista vacía. Android lo hace bien porque el VM
+            // llama a `getServerNpcs()`.
+            // ⚠️ **`.toList()` NO sobra.** `getServerNpcs()` devuelve la lista VIVA (el propio
+            // `PowListaConcurrente`), no una foto. Asignarla tal cual a un estado de Compose es
+            // asignar SIEMPRE la misma referencia: Compose no ve cambio, no recompone, y el
+            // contador se queda clavado en el primer número mientras el mapa se llena de NPCs
+            // (pasó: decía "2" con 25 en pantalla). Además evita leer la lista desde la UI
+            // mientras la IA la muta.
+            npcs = cerebro.getServerNpcs().toList()
+            puente?.actualizarNpcs(npcs, usarEmoji = usarEmoji)
+            delay(33)
+        }
+    }
 
     // El aviso se va solo: un cartel fijo estorba más que informa. 4 s es lo que tarda en leerse
     // una frase corta sin prisa — el mismo orden que un Snackbar largo de Material.
@@ -103,19 +192,49 @@ fun MapaMundoIos(alVolver: () -> Unit) {
                 val config = WKWebViewConfiguration().apply {
                     // El mapa ES Leaflet entero: sin JS no hay nada que ver.
                     defaultWebpagePreferences.allowsContentJavaScript = true
+                    // 🖼️ LOS ASSETS DEL MUNDO. Sin este manejador el HTML pide
+                    // `pow-asset:///SPRITES/…` y WebKit lo descarta sin decir nada: es lo que
+                    // dejaba el mapa sin un solo sprite. Ver `AssetsWebIos`.
+                    setURLSchemeHandler(AssetsWebIos(), forURLScheme = ESQUEMA_ASSETS_POW)
+                    // 🌉 LA VUELTA DEL PUENTE (JS → Kotlin). El shim define `window.Android`, que es
+                    // lo que llama el HTML COMPARTIDO, así que el mapa no sabe en qué plataforma
+                    // corre. Ver `PuenteJsIos`.
+                    userContentController.addUserScript(
+                        WKUserScript(
+                            source = PUENTE_JS_SHIM,
+                            // Al PRINCIPIO del documento: si entrara después, el mapa ya habría
+                            // intentado usar `window.Android` y no existiría.
+                            injectionTime = WKUserScriptInjectionTime.WKUserScriptInjectionTimeAtDocumentStart,
+                            forMainFrameOnly = true,
+                        ),
+                    )
+                    userContentController.addScriptMessageHandler(
+                        scriptMessageHandler = PuenteJsIos(
+                            alTocarMapa = { lat, lon ->
+                                // Mismo gesto que Android: el toque coloca el destino. Se vuelve a
+                                // encender el modo porque el JS lo apaga tras cada toque.
+                                val destino = GeoPoint(lat, lon)
+                                puente?.marcarDestino(destino)
+                                puente?.modoColocarDestino(true)
+                            },
+                        ),
+                        name = PUENTE_JS_CANAL,
+                    )
                 }
                 WKWebView(frame = CGRectZero.readValue(), configuration = config).apply {
                     // Sin esto el mapa "rebota" al llegar al borde y se siente roto para un juego.
                     scrollView.bounces = false
+                    // ⏳ Quien avisa de que el HTML ya existe. Sin esto, el estado inicial se
+                    // empujaba antes de tiempo y la guarda del puente se lo tragaba (ver
+                    // `CargaMapaIos`: es lo que dejaba el toque del mapa muerto para siempre).
+                    navigationDelegate = carga
                     val html = buildHtml(
                         lat = ESCOM_LAT,
                         lng = ESCOM_LON,
                         zoom = ZOOM_JUEGO,
-                        // ⚠️ Los assets del mundo NO están en el bundle de iOS (solo los de SF y los
-                        // coleccionables). Da igual el prefijo que se pase: sin inyección de datos
-                        // el HTML no pide ni una imagen. Cuando llegue el puente JS, esto tendrá que
-                        // apuntar a un manejador de esquema de verdad.
-                        assetBaseUrl = PREFIJO_ASSETS_PENDIENTE,
+                        // 🖼️ Los sprites del mundo salen del bundle por `pow-asset://`, que resuelve
+                        // `AssetsWebIos` (registrado arriba en la configuración).
+                        assetBaseUrl = PREFIJO_ASSETS_POW,
                     )
                     // baseURL nula: Leaflet y las teselas de OSM son URLs absolutas HTTPS, así que
                     // no hay nada relativo que resolver.
@@ -126,14 +245,20 @@ fun MapaMundoIos(alVolver: () -> Unit) {
             modifier = Modifier.fillMaxSize(),
         )
 
-        // ⚠️ El primer empujón NO puede salir en cuanto se crea la vista: el HTML todavía se está
-        // cargando y las funciones JS aún no existen (la guarda del puente lo tragaría en silencio
-        // y el jugador no aparecería). `DisposableEffect` corre tras la primera composición, que
-        // en la práctica ya llega tarde para el `loadHTMLString`. Aun así el puente reintenta en
-        // cada movimiento, así que el marcador aparece al primer toque de los controles.
-        DisposableEffect(puente) {
-            puente?.moverJugador(jugador)
-            onDispose { }
+        // 🌉 EL ESTADO INICIAL, cuando el HTML ya puede recibirlo.
+        //
+        // ⚠️ Antes esto era un `DisposableEffect` que corría justo tras crear la vista, o sea con
+        // la página todavía cargando: las dos llamadas se perdían en silencio (la guarda
+        // `typeof f === 'function'` del puente). El marcador del jugador se recuperaba al primer
+        // paso, pero `modoColocarDestino` **no se recuperaba nunca** y el toque en el mapa quedaba
+        // muerto. Ahora lo dispara `CargaMapaIos` desde `didFinishNavigation`.
+        LaunchedEffect(puente, htmlListo) {
+            if (!htmlListo) return@LaunchedEffect
+            val p = puente ?: return@LaunchedEffect
+            p.moverJugador(jugador)
+            // El JS solo avisa de los toques si el modo "colocar destino" está encendido, y lo
+            // apaga tras cada uno. Se enciende aquí para que el PRIMER toque ya funcione.
+            p.modoColocarDestino(true)
         }
 
         // El cartel de honestidad. Va ARRIBA y con `systemBarsPadding` porque el mapa se dibuja a
@@ -155,7 +280,7 @@ fun MapaMundoIos(alVolver: () -> Unit) {
                     .padding(horizontal = 12.dp, vertical = 6.dp),
             )
             Text(
-                "Caminas y las bardas frenan · Faltan NPCs y coleccionables",
+                textoEstado(estadoCalles, npcs.size),
                 color = Color.White.copy(alpha = 0.85f),
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
@@ -229,8 +354,17 @@ private const val PASO_METROS = 1.2
 private const val ESCOM_LAT = 19.504603
 private const val ESCOM_LON = -99.145985
 
-/** Zoom 16: la escala a la que se juega el mundo abierto. */
-private const val ZOOM_JUEGO = 16
+/**
+ * Zoom 17.
+ *
+ * ⚠️ **No es un gusto, es un requisito:** `updateNpcs` del HTML no dibuja NI UN NPC por debajo de
+ * **16.5** (`isZoomedIn`). A 16 el puente manda los datos, el JS los recibe y no aparece nada, sin
+ * error por ningún lado. Si algún día se baja el zoom, hay que tocar también esa guarda del HTML.
+ */
+private const val ZOOM_JUEGO = 17
+
+/** Cuántas veces se le insiste a Overpass antes de rendirse y decirlo en pantalla. */
+private const val INTENTOS_CALLES = 4
 
 /**
  * ⚠️ Marcador de sitio. Hoy no se usa ni una imagen porque no hay inyección de datos; el día que la
@@ -238,3 +372,17 @@ private const val ZOOM_JUEGO = 16
  * que ya tiene ese manejador escrito y verificado).
  */
 private const val PREFIJO_ASSETS_PENDIENTE = "pow-asset:///"
+
+/** En qué punto está la descarga de calles, que es de lo que dependen los NPCs. */
+private enum class EstadoCalles { DESCARGANDO, REINTENTANDO, LISTO, SIN_RED }
+
+/**
+ * El texto del cartel. Dice la VERDAD de lo que está pasando: sin esto, "Overpass me limitó por
+ * IP" y "el código no funciona" se ven exactamente igual en pantalla.
+ */
+private fun textoEstado(estado: EstadoCalles, cuantos: Int): String = when (estado) {
+    EstadoCalles.DESCARGANDO -> "Descargando las calles de Overpass…"
+    EstadoCalles.REINTENTANDO -> "Overpass limitó la petición (429). Reintentando…"
+    EstadoCalles.SIN_RED -> "Sin calles: Overpass no respondió (suele ser el límite por IP). Se camina, sin NPCs."
+    EstadoCalles.LISTO -> "Caminas, las bardas frenan y la IA mueve $cuantos NPCs"
+}

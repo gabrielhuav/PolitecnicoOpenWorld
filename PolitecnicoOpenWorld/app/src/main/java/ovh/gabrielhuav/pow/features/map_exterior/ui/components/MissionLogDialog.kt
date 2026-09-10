@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import org.jetbrains.compose.resources.stringResource as stringResourceComun
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -142,7 +143,7 @@ fun MissionLogDialog(uiState: WorldMapState, viewModel: WorldMapViewModel) {
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = stringResource(mission.titleRes),
+                                text = stringResourceComun(mission.titleRes),
                                 color = if (status == MissionLogStatus.LOCKED) Color(0xFF9E9E9E) else Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp,
@@ -174,7 +175,7 @@ fun MissionLogDialog(uiState: WorldMapState, viewModel: WorldMapViewModel) {
                         Text(
                             text = if (status == MissionLogStatus.LOCKED)
                                 stringResource(R.string.mlog_locked_hint)
-                            else stringResource(mission.descriptionRes),
+                            else stringResourceComun(mission.descriptionRes),
                             color = Color(0xFFB0BEC5),
                             fontSize = 12.sp
                         )

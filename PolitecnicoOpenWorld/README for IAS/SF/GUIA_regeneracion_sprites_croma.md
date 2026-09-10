@@ -1,7 +1,7 @@
 # GUÍA · Regeneración de sprites por HOJAS CROMA (SF + mundo, un solo arte) — 2026-07-16
 
 > **Qué es:** el procedimiento VIGENTE para regenerar el arte de un peleador de
-> "HUELUM VS. GOYA" **y** su set del mundo abierto desde CERO con ChatGPT Images,
+> "TITULACIÓN POR COMBATE" **y** su set del mundo abierto desde CERO con ChatGPT Images,
 > usando hojas con **fondo croma verde #00FF00** y 2 grupos de animación por hoja.
 > Sustituye al "modo simple" de `_ARCHIVO/GUIA_generacion_assets_SF.md` (fondo negro; archivada 2026-07-20) para
 > personajes nuevos. **Prankedy, Señor de la Tienda, Rey Grupero, ambos Paparazzi, las policías CDMX,
@@ -489,7 +489,7 @@ característico). Para personajes SIN armas, omitir hojas 16/17/19B y ajustar el
 
 ```text
 Estas nueve imágenes son referencias permanentes durante toda esta conversación para
-regenerar sprites originales de mi juego de pelea 2D "Politécnico Open World: HUELUM VS. GOYA".
+regenerar sprites originales de mi juego de pelea 2D "Politécnico Open World: TITULACIÓN POR COMBATE".
 
 ROLES DE LAS REFERENCIAS
 - prankedy.png, senorTienda.png, paparazzi1.png, paparazzi5.png y grupero.png: referencias de

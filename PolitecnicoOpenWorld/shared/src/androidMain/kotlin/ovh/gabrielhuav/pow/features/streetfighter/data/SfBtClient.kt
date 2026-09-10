@@ -12,7 +12,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import java.util.UUID
 
-// MULTIJUGADOR LOCAL por BLUETOOTH del modo pelea "HUELUM VS. GOYA" (sin internet).
+// MULTIJUGADOR LOCAL por BLUETOOTH del modo pelea "TITULACIÓN POR COMBATE" (sin internet).
 //
 // La lógica de sesión (relay puro con autoridad del receptor, handshake HELLO/WELCOME,
 // heartbeat, "server" local del host) vive en la BASE COMÚN SfStreamPeer (compartida con

@@ -24,9 +24,10 @@ import ovh.gabrielhuav.pow.data.local.room.entity.LandmarkEntity
 import ovh.gabrielhuav.pow.domain.models.map.Landmark
 import ovh.gabrielhuav.pow.domain.models.map.LandmarkAssetTemplate
 import ovh.gabrielhuav.pow.domain.models.map.LandmarkCatalogManager
+import ovh.gabrielhuav.pow.platform.assets.PowAssets
 
 fun WorldMapViewModel.loadLandmarks(context: Context) {
-    loadExteriorCollisions(context) // ESTO CARGA EL JSON DE MUROS
+    loadExteriorCollisions() // ESTO CARGA EL JSON DE MUROS
     loadMetroStations(context)
     loadMetrobusStations(context)
     viewModelScope.launch(Dispatchers.IO) {
@@ -38,7 +39,7 @@ fun WorldMapViewModel.loadLandmarks(context: Context) {
 
             if (entities.isEmpty()) {
                 try {
-                    val jsonString = context.assets.open("CONFIG/default_landmarks.json").bufferedReader().use { it.readText() }
+                    val jsonString = PowAssets.texto("CONFIG/default_landmarks.json")
                     val defaultEntities: List<LandmarkEntity> = PowJson.decodeFromString<List<LandmarkEntity>>(jsonString)
                     dao.insertLandmarks(defaultEntities)
                     entities = dao.getAllLandmarks()
@@ -135,8 +136,7 @@ fun WorldMapViewModel.loadLandmarks(context: Context) {
             // Lo hacemos una sola vez para no abrir el archivo por cada edificio.
             if (escomNavGraph == null) {
                 try {
-                    val inputStream = context.assets.open("CONFIG/navgraphs/escom_navgraph.json")
-                    val texto = inputStream.reader().use { it.readText() }
+                    val texto = PowAssets.texto("CONFIG/navgraphs/escom_navgraph.json")
                     escomNavGraph = normalizeNavGraph(
                         PowJson.decodeFromString<ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph>(texto),
                     )

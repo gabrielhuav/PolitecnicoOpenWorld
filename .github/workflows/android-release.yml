@@ -154,9 +154,9 @@ jobs:
           tag_name: debug-latest
           name: "Latest Debug APK"
           body: |
-            POW ${{ env.VERSION_NAME }} — Huelum vs. Goya
+            POW ${{ env.VERSION_NAME }} — Titulación por Combate
 
-            - Lanzamiento del modo Huelum vs. Goya.
+            - Lanzamiento del modo Titulación por Combate.
             - Mejoras de jugabilidad y estabilidad en la campaña principal de POW.
             - Voces y efectos especiales renovados para Street Fighter POW.
 
@@ -317,7 +317,7 @@ jobs:
           # propio en Play Console, pon aquí ese nombre exacto.
           tracks: alpha
           status: completed
-          releaseName: "POW ${{ env.VERSION_NAME }} — Huelum vs. Goya"
+          releaseName: "POW ${{ env.VERSION_NAME }} — Titulación por Combate"
           whatsNewDirectory: distribution/whatsnew
       - name: Confirmar entrega manual solicitada
         if: ${{ contains(github.event.pull_request.labels.*.name, 'manual-play-upload') }}

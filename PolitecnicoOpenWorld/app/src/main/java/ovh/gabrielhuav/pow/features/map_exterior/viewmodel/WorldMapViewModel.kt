@@ -44,6 +44,11 @@ import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.pow
 import kotlin.math.sqrt
+import org.jetbrains.compose.resources.getString
+import ovh.gabrielhuav.pow.shared.recursos.Res
+import ovh.gabrielhuav.pow.shared.recursos.wm_horde_approaching
+import ovh.gabrielhuav.pow.shared.recursos.wm_carjack_warning
+import ovh.gabrielhuav.pow.platform.assets.PowAssets
 
 // ETAPA 4 (Hilt): @HiltViewModel + @Inject. Es AndroidViewModel (necesita Application) y se
 // scopea a la ACTIVITY desde MainActivity (by viewModels()) para SOBREVIVIR a la navegación
@@ -54,7 +59,12 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     internal val roadNetworkCache: RoadNetworkCache,
     val tileCache: TileCache,
     internal val settingsRepository: SettingsRepository,
-    internal val collectibleRepository: CollectibleRepository
+    internal val collectibleRepository: CollectibleRepository,
+    /**
+     * Lo que el mundo necesita de la plataforma. Ver [WorldMapEnvironment]: es el patrón que
+     * sustituye a pasear un `Context` por los 43 archivos del mundo abierto.
+     */
+    internal val entorno: WorldMapEnvironment
 ) : androidx.lifecycle.AndroidViewModel(application) {
 
     internal val soundManager = ovh.gabrielhuav.pow.features.audio.SoundManager.getInstance(application)
@@ -103,18 +113,8 @@ class WorldMapViewModel @javax.inject.Inject constructor(
 
     // RAM total (y isLowRamDevice) → factor de población. No persiste; se calcula al crear el VM.
     // (ANTES vivía en el Factory manual; con Hilt el VM lo aplica en su init, ver abajo.)
-    private fun computeDeviceTierFactor(ctx: Context): Float = try {
-        val am = ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-        val mi = android.app.ActivityManager.MemoryInfo()
-        am.getMemoryInfo(mi)
-        val gb = mi.totalMem / (1024.0 * 1024.0 * 1024.0)
-        when {
-            am.isLowRamDevice || gb <= 2.2 -> 0.6f   // gama baja (≤2 GB / Android Go)
-            gb <= 4.2 -> 1.0f                         // gama media (≤4 GB)
-            gb <= 6.2 -> 1.3f                         // gama alta (≤6 GB)
-            else       -> 1.5f                        // tope (no saturar gama alta)
-        }
-    } catch (e: Exception) { 1.0f }
+    // 🪦 `computeDeviceTierFactor` se mudó a `AndroidWorldMapEnvironment`: medir la RAM es de
+    // Android, y el mundo solo necesita el número. Ver `WorldMapEnvironment.factorDeGama()`.
 
     internal val _uiState = MutableStateFlow(
         WorldMapState(
@@ -213,9 +213,23 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     // DESPUÉS de declarar npcAiManager (orden de inicialización de Kotlin). GAMA DEL TELÉFONO:
     // escala la población de NPCs; se combina con urbanFactor (densidad urbana) y el ajuste del usuario.
     init {
-        npcAiManager.deviceTierFactor = computeDeviceTierFactor(getApplication<android.app.Application>())
+        npcAiManager.deviceTierFactor = entorno.factorDeGama()
         npcAiManager.userPopulationFactor = settingsRepository.getNpcDensity()
+        // ⚠️ **Este texto se PRECARGA y los demás no.** `composeResources` solo resuelve en
+        // `suspend`, y el aviso de carjack lo pide `armCarjack` en CADA tick del game loop: un
+        // `launch` por tick para resolver la misma cadena sería absurdo. Los avisos que se
+        // publican una vez (horda, Prankedy, teletransporte) sí se resuelven en el momento.
+        viewModelScope.launch { textoCarjack = getString(Res.string.wm_carjack_warning) }
     }
+
+    /**
+     * Aviso de "te van a bajar del coche", ya resuelto.
+     *
+     * Vacío hasta que termina la carga inicial. No es un problema real: para que haga falta, el
+     * jugador tiene que estar dentro de un coche y casi parado con la policía encima, y eso no
+     * puede pasar en el primer frame de la partida.
+     */
+    internal var textoCarjack: String = ""
 
     // ─── Red de calles expuesta a la UI ──────────────────────────────────────
     // La WorldMapScreen consume este Flow para pintar las Polylines de los
@@ -904,9 +918,9 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                         // de abajo las expira a 450 ms, igual que las de la policía normal).
                         if (npcAiManager.pendingPoliceShots.isNotEmpty()) {
                             val nowS = System.currentTimeMillis()
-                            val shots = synchronized(npcAiManager.pendingPoliceShots) {
-                                val l = npcAiManager.pendingPoliceShots.toList(); npcAiManager.pendingPoliceShots.clear(); l
-                            }
+                            // ⚠️ `drenar()` y no `toList()+clear()`: el `synchronized` de antes ya
+                            // no excluye al cerrojo interno de PowListaConcurrente (09 §KMP).
+                            val shots = npcAiManager.pendingPoliceShots.drenar()
                             if (shots.isNotEmpty()) {
                                 wantedManager.addPoliceShots(shots.map { PoliceShot(it.first, it.second, nowS) })
                             }
@@ -1011,9 +1025,13 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                 if (npcAiManager.hordeIncomingAt != 0L && npcAiManager.hordeIncomingAt != lastHordeSeenMs) {
                                     lastHordeSeenMs = npcAiManager.hordeIncomingAt
                                     launch(kotlinx.coroutines.Dispatchers.Main) {
-                                        _uiState.update { it.copy(interactionPrompt = getLocalizedString(ovh.gabrielhuav.pow.R.string.wm_horde_approaching)) }
+                                        // ⚠️ El texto se guarda para compararlo luego. Antes se
+                                        // comparaba contra el literal EN ESPAÑOL, así que en
+                                        // inglés el aviso no se auto-limpiaba nunca.
+                                        val aviso = getString(Res.string.wm_horde_approaching)
+                                        _uiState.update { it.copy(interactionPrompt = aviso) }
                                         kotlinx.coroutines.delay(3500)
-                                        _uiState.update { if (it.interactionPrompt == "🧟 ¡UNA HORDA SE ACERCA!") it.copy(interactionPrompt = null) else it }
+                                        _uiState.update { if (it.interactionPrompt == aviso) it.copy(interactionPrompt = null) else it }
                                     }
                                 }
 
@@ -1024,9 +1042,7 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                 }
 
                                 if (isServerDelegatedHost) {
-                                    synchronized(npcAiManager.pendingDespawns) {
-                                        npcAiManager.pendingDespawns.forEach { remoteEntities.remove(it) }
-                                    }
+                                    npcAiManager.pendingDespawns.copia().forEach { remoteEntities.remove(it) }
                                     // No re-insertar coches recién abordados (snapshot viejo de la IA).
                                     processedNpcs.forEach { if (!isCarTombstoned(it.id)) remoteEntities[it.id] = it }
                                 }
@@ -1062,11 +1078,7 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                             ws.sendMessage(PowJson.encodeToString(myData))
 
                                             if (isServerDelegatedHost) {
-                                                val despawnsToSend = synchronized(npcAiManager.pendingDespawns) {
-                                                    val list = npcAiManager.pendingDespawns.toList()
-                                                    npcAiManager.pendingDespawns.clear()
-                                                    list
-                                                }
+                                                val despawnsToSend = npcAiManager.pendingDespawns.drenar()
 
                                                 despawnsToSend.forEach { idToRemove ->
                                                     ws.sendMessage(jsonOf(mapOf("type" to "NPC_DESTROY", "npcId" to idToRemove)))
@@ -1097,7 +1109,7 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                                     ws.sendMessage(jsonOf(mapOf("type" to "NPC_BATCH_UPDATE", "npcs" to npcBatch)))
                                                 }
                                             } else {
-                                                synchronized(npcAiManager.pendingDespawns) { npcAiManager.pendingDespawns.clear() }
+                                                npcAiManager.pendingDespawns.clear()
                                             }
                                         } catch (e: Exception) {
                                             Log.e("Network", "Error al enviar datos: ${e.message}")
@@ -1119,28 +1131,23 @@ class WorldMapViewModel @javax.inject.Inject constructor(
 
     fun stopGameLoop() { gameLoopJob?.cancel(); gameLoopJob = null }
 
-    fun getLocalizedString(resId: Int, vararg args: Any): String {
-        val lang = settingsRepository.getLanguage()
-        val baseContext = getApplication<android.app.Application>()
-        val contextToUse = if (lang.isNotEmpty()) {
-            val locale = java.util.Locale(lang)
-            val config = android.content.res.Configuration(baseContext.resources.configuration)
-            config.setLocale(locale)
-            baseContext.createConfigurationContext(config)
-        } else {
-            baseContext
-        }
-        return contextToUse.getString(resId, *args)
-    }
+    // 🪦 TOMBSTONE (2026-08-20): aquí vivía `getLocalizedString(resId: Int, ...)`, que resolvía
+    // los textos del mundo con `R.string` + `Context`. **No lo recrees.** Era el último eslabón
+    // que ataba el ViewModel del mundo abierto a Android: `R.string` no existe en `commonMain`.
+    //
+    // Los 14 textos del mundo están ahora en `composeResources` y se resuelven con `getString`,
+    // que es **suspend** — de ahí el patrón de `WorldMapAvisos.kt`: en el `launch` viaja SOLO el
+    // texto, nunca una bandera de juego. El único que se precarga es el aviso de carjack
+    // (`textoCarjack`), porque lo pide el game loop en cada tick.
 
 
     internal var exteriorCollisions: ExteriorCollisionsConfig? = null
 
     // Llama esta función en el init{} de tu ViewModel
-    internal fun loadExteriorCollisions(context: Context) { // llamado desde WorldMapDesigner.kt
+    internal fun loadExteriorCollisions() { // llamado desde WorldMapDesigner.kt
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val jsonString = context.assets.open("CONFIG/exterior_collisions.json").bufferedReader().use { it.readText() }
+                val jsonString = PowAssets.texto("CONFIG/exterior_collisions.json")
                 exteriorCollisions = PowJson.decodeFromString<ExteriorCollisionsConfig>(jsonString)
 
                 npcAiManager.setExteriorCollisions(exteriorCollisions)

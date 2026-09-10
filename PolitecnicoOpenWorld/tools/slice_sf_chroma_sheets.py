@@ -69,6 +69,12 @@ SF_POSE_TARGET_H = {
     "LEVANTARSE": None,
     "SUPER ART": None,
     "DANO AGACHADO": 70.0,
+    # 🆕 (2026-08-29) Hoja 30: CONTRAATAQUE + DERRIBO CON PODER. El contraataque es una
+    # guardia de pie (misma altura que PARRY ALTO/BLOCK ALTO); el derribo con poder es un
+    # agarre — como AGARRE Y LANZAMIENTO, conserva la escala fisica del Idle (None) porque
+    # el cuerpo se inclina/extiende al agarrar y forzarlo a una altura fija lo deformaria.
+    "CONTRAATAQUE": 100.0,
+    "DERRIBO CON PODER": None,
 }
 
 def nums(p, n): return ["%s-%d" % (p, i) for i in range(1, n + 1)]
@@ -141,6 +147,13 @@ SHEETS = {
          ("LEVANTARSE",     6, (nums("getup", 6), "even"),       None)],
     29: [("SUPER ART",      8, (nums("super", 8), "even"),       None),
          ("DANO AGACHADO",  4, (nums("hurt-crouch", 4), "even"), None)],
+    # 🆕 (2026-08-29) Hoja 30: CONTRAATAQUE + DERRIBO CON PODER (diseño en
+    # SF/PROMPT_hoja30_contraataque_derribo.md). Igual que la hoja 27, "DERRIBO CON PODER"
+    # trae DOS sub-partes en un solo grupo continuo: 4 cuadros de intento + 8 del remate
+    # conectado, repartidos en 2 FILAS de imagen (el slicer no distingue filas dentro de
+    # un grupo, solo el orden izquierda-a-derecha/arriba-a-abajo).
+    30: [("CONTRAATAQUE",      6, (nums("counter", 6), "even"), None),
+         ("DERRIBO CON PODER", 12, (nums("power-grab", 4) + nums("power-throw", 8), "even"), None)],
 }
 # Grupos con targets SF None se guardan en GEN/<char>/_extra/ (capas de armas,
 # jump land, specials L/M, talk...): nada se tira.
@@ -166,6 +179,18 @@ SHEET_OVERRIDES = {
     ("policiacdmxhombre", 29): {"SUPER ART": 7},
     # ⚠️ paparazzi5 NO lleva override: se probo con 7 y sale PEOR (junta dos poses
     # distintas y el cuadro queda con DOS personajes). Su fila si trae las 8 poses.
+}
+
+# 🆕 (2026-08-30) (personaje, hoja) -> forzar que merge_fragments() fusione el par de blobs
+# mas cercano hasta llegar EXACTO al conteo esperado, en vez de dejar un blob de mas para que
+# pick() lo descarte en silencio mas adelante. Caso real: special-medium-3 de La Llorona
+# (hoja 11) detecta 6 blobs para 5 cuadros porque su efecto (146px) mide apenas MAS que el
+# 60% del ancho tipico de la fila (umbral de "fragmento angosto" de merge_fragments) -- no
+# se fusiona con su cuerpo por muy poco, y pick() tira el efecto (o el cuerpo) para cumplir 5.
+# Deliberadamente un SET vacio salvo casos confirmados: forzar esto en una fila que de verdad
+# tiene 6 poses reales fundiria a DOS personajes distintos en un solo cuadro Frankenstein.
+FORCE_EXACT_MERGE = {
+    ("lallorona", 11),
 }
 
 def detect(path, close=5):
@@ -230,7 +255,7 @@ def _rows_of(grp, gap=90):
     return [sorted(r[1], key=lambda b: b[0]) for r in rows]
 
 
-def merge_fragments(grp, n_expected=0, split_rows=True):
+def merge_fragments(grp, n_expected=0, split_rows=True, force_exact=False):
     """Fusiona blobs que pertenecen a UNA MISMA pose (2026-07-21).
 
     Dos poses distintas de una hoja NUNCA se solapan horizontalmente: hay un hueco real
@@ -258,10 +283,44 @@ def merge_fragments(grp, n_expected=0, split_rows=True):
     # EFECTOS (hoja 12: proyectil) tambien quedan dispersas en vertical, pero en grupitos
     # de uno o dos trozos; partirlas ahi impedia fusionar el efecto y rompia la hoja 12.
     rows = _rows_of(grp) if split_rows else []
-    if len(rows) > 1 and min(len(r) for r in rows) >= 3:
+    # 🆕 (2026-08-29) Hoja 30 "DERRIBO CON PODER": 2 filas de poses (4 y 8) mas un trozo
+    # SUELTO de efecto de impacto (su propia banda de 1). Ese trozo de 1 hacia caer el
+    # min(len(r) for r in rows) a 1 y tumbaba TODO el split por fila -> filas 2 y 3 se
+    # fusionaban entre si por solapamiento horizontal. Contar solo las filas "reales"
+    # (>=3) para decidir si hay de verdad 2+ filas de poses, pero seguir procesando TODAS
+    # las filas (incluida la sueltita) por separado: una fila de 1 blob no tiene con que
+    # fusionarse (early return de arriba), asi que pasa intacta.
+    real_rows = [r for r in rows if len(r) >= 3]
+    if len(real_rows) > 1:
+        stray_rows = [r for r in rows if len(r) < 3]
+
+        def _row_cy(r):
+            return sum((b[1] + b[3]) / 2 for b in r) / len(r)
+
+        processed = [merge_fragments(row, n_expected, split_rows=False, force_exact=force_exact)
+                     for row in real_rows]
+        # 🆕 (2026-08-29) Un trozo suelto (p. ej. el efecto de impacto de la Fila 3 en la
+        # hoja 30 -- el prompt permite explicitamente "un cuadro de impacto en el punto de
+        # caida... SI esta permitido") no es su propia pose: no toca al cuerpo, asi que
+        # forma su propia banda de 1-2 blobs y el merge plano de mas abajo no lo absorbe
+        # (no cumple el umbral de solapamiento/ancho). Se pega a la pose mas cercana en X
+        # DENTRO de la fila real mas cercana en Y -- nunca cruza de fila, para no fundir el
+        # efecto de una fila con la pose de otra.
+        for stray in stray_rows:
+            scy = _row_cy(stray)
+            nearest_row_i = min(range(len(real_rows)), key=lambda i: abs(_row_cy(real_rows[i]) - scy))
+            target = processed[nearest_row_i]
+            for bl in stray:
+                cx = (bl[0] + bl[2]) / 2
+                j = min(range(len(target)), key=lambda k: abs((target[k][0] + target[k][2]) / 2 - cx))
+                ox = target[j]
+                # bid=None: convencion ya usada por maybe_split para "blob fusionado, no
+                # partir de nuevo" -- sin esto, cand[4] revienta con IndexError si mas
+                # adelante maybe_split necesita partir OTRO blob de este mismo grupo.
+                target[j] = (min(ox[0], bl[0]), min(ox[1], bl[1]), max(ox[2], bl[2]), max(ox[3], bl[3]), None)
         out = []
-        for row in rows:
-            out += merge_fragments(row, n_expected, split_rows=False)
+        for row in processed:
+            out += row
         return out
     grp = sorted(grp, key=lambda bl: bl[0])
     widths = sorted(bl[2] - bl[0] for bl in grp)
@@ -286,6 +345,25 @@ def merge_fragments(grp, n_expected=0, split_rows=True):
         else:
             out.append(list(bl))
             merged.append(False)
+    # 🆕 (2026-08-30) FORCE_EXACT_MERGE: si tras el merge normal sigue sobrando UN blob (p.
+    # ej. un efecto que mide apenas mas del 60% del ancho tipico, ver special-medium-3 de La
+    # Llorona), fusiona el par ADYACENTE con el hueco mas chico (mayor solapamiento primero)
+    # hasta llegar exacto a n_expected -- en vez de dejar que pick() lo descarte en silencio
+    # mas adelante. Solo corre si el llamador lo pide explicitamente (`force_exact=True`,
+    # via FORCE_EXACT_MERGE en main()): dos poses REALES de sobra en una fila que no está en
+    # esa lista se quedan sin fusionar, como siempre.
+    if force_exact and n_expected:
+        while len(out) > n_expected:
+            gaps = [(out[i + 1][0] - out[i][2], i) for i in range(len(out) - 1)]
+            gaps.sort(key=lambda t: t[0])
+            _, i = gaps[0]
+            prev, nxt = out[i], out[i + 1]
+            prev[0] = min(prev[0], nxt[0])
+            prev[1] = min(prev[1], nxt[1])
+            prev[2] = max(prev[2], nxt[2])
+            prev[3] = max(prev[3], nxt[3])
+            prev[4] = None
+            del out[i + 1]
     return [tuple(b) for b in out]
 
 
@@ -320,9 +398,18 @@ def best_cut(cols, lo, hi, ideal):
 def maybe_split(grp, lbl, raw, n_expected):
     """Si el grupo trae MENOS blobs de los esperados y hay uno anormalmente ancho
     (cuadros fusionados por confeti/efectos), lo parte en el valle de densidad."""
-    grp = sorted(grp, key=lambda bl: bl[0])
     if not grp:
         return grp
+    # 🆕 (2026-08-29) Si ya trae los cuadros esperados no hace falta partir nada: se
+    # conserva el orden de entrada tal cual. Reordenar aqui por X puro intercalaria FILAS
+    # (hoja 30 "DERRIBO CON PODER": power-grab-1..4 en la fila de arriba y power-throw-1..8
+    # en la de abajo, con rangos de X que se solapan entre si) y los nombres de salida
+    # saldrian mezclados entre las 2 subanimaciones. `merge_fragments` ya entrega cada fila
+    # en su propio bloque ordenado de izquierda a derecha; para las hojas de una sola fila
+    # (las otras 29) ese orden YA es el X-ascendente de siempre, asi que esto no las toca.
+    if len(grp) >= n_expected:
+        return grp
+    grp = sorted(grp, key=lambda bl: bl[0])
     # No uses la mediana de los blobs detectados como ancho de referencia: cuando
     # casi toda una fila viene solapada (La Llorona HURT HEAD: 7 componentes para
     # 14 poses), esa mediana ya representa dos o tres personajes y el algoritmo se
@@ -535,11 +622,33 @@ def dense_body_center_x(img):
     xs = np.arange(start, end, dtype=float)
     return float((xs * weights).sum() / weights.sum()) if weights.sum() > 0 else (start + end) / 2.0
 
+def resize_premultiplied(img, w, h):
+    """Reescala una RGBA premultiplicando color por alfa antes, despremultiplicando
+    despues. LANCZOS interpola R/G/B y A por separado: en el borde semitransparente de
+    un cuadro, el RGB de los pixeles totalmente transparentes es basura sin limpiar
+    (croma verde de origen, `cut()` solo pone alfa=0 y no toca el color) y se mezcla
+    hacia DENTRO del borde. Para efectos claros no se nota; para un efecto OSCURO y poco
+    saturado (p. ej. el especial pesado de La Llorona) el borde sale mas oscuro/desaturado
+    de lo que el arte de origen tenia -- se lee como un bulto negro plano en vez del brillo
+    real de su borde. Premultiplicar fuerza ese RGB "basura" a (0,0,0) antes de
+    interpolar, asi el borde se mezcla hacia negro TRANSPARENTE (invisible) en vez de
+    hacia un color de fondo que nunca debio influir.
+    """
+    arr = np.asarray(img).astype(np.float32)
+    alpha = arr[..., 3:4] / 255.0
+    premult = np.dstack([arr[..., :3] * alpha, arr[..., 3:4]]).astype(np.uint8)
+    resized = Image.fromarray(premult, "RGBA").resize((w, h), Image.Resampling.LANCZOS)
+    r = np.asarray(resized).astype(np.float32)
+    a = r[..., 3:4]
+    safe_a = np.where(a > 0, a, 1)
+    rgb = np.where(a > 0, np.clip(r[..., :3] * 255.0 / safe_a, 0, 255), 0)
+    return Image.fromarray(np.dstack([rgb, a]).astype(np.uint8), "RGBA")
+
 def place_sf(img, scale, center=False, anchor_body=False):
     w = max(1, int(round(img.width * scale)))
     h = max(1, int(round(img.height * scale)))
     body_cx = dense_body_center_x(img) * scale if anchor_body else None
-    img = img.resize((w, h), Image.Resampling.LANCZOS)
+    img = resize_premultiplied(img, w, h)
     cv = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
     y = (CANVAS // 2 - h // 2) if center else (FEET_Y - h)   # proyectiles: origen (128,128)
     x = int(round(CX - body_cx)) if body_cx is not None else (CX - w // 2)
@@ -550,7 +659,7 @@ def place_world(img, scale, feet_y, anchor_body=False):
     w = max(1, int(round(img.width * scale)))
     h = max(1, int(round(img.height * scale)))
     body_cx = dense_body_center_x(img) * scale if anchor_body else None
-    img = img.resize((w, h), Image.Resampling.LANCZOS)
+    img = resize_premultiplied(img, w, h)
     # LANCZOS puede dejar 1-3 filas/columnas totalmente transparentes aunque la entrada
     # estuviera ajustada al bbox. Recorta DESPUES de escalar para que el ultimo pixel alfa,
     # no la altura nominal, quede exactamente en feet_y. Conserva el ancla corporal X.
@@ -600,7 +709,7 @@ def main():
     m = re.search(r"_(\d{1,2})_", os.path.basename(args.sheet))
     num = args.sheet_num or (int(m.group(1)) if m else None)
     if num not in SHEETS:
-        sys.exit("No se qué hoja es (usa --sheet-num 1..29). Detectado: %s" % num)
+        sys.exit("No se qué hoja es (usa --sheet-num 1..30). Detectado: %s" % num)
     override = SHEET_OVERRIDES.get((args.char, num), {})
     sheet_spec = [(label, override.get(label, count), sf, world)
                   for label, count, sf, world in SHEETS[num]]
@@ -624,8 +733,9 @@ def main():
     # en vez de fusionarlos. Se queda con el comportamiento historico; si se toca, hay
     # que re-aplicar tools/fix_llorona_projectile.py.
     rows_ok = num != 12
-    A = merge_fragments(A, nA, split_rows=rows_ok)
-    B = merge_fragments(B, nB, split_rows=rows_ok)
+    force_exact = (args.char, num) in FORCE_EXACT_MERGE
+    A = merge_fragments(A, nA, split_rows=rows_ok, force_exact=force_exact)
+    B = merge_fragments(B, nB, split_rows=rows_ok, force_exact=force_exact)
     A = maybe_split(A, lbl, raw, nA)
     B = maybe_split(B, lbl, raw, nB)
     if num == 12 and len(B) != nB:

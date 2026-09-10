@@ -3,7 +3,7 @@ package ovh.gabrielhuav.pow.platform.concurrencia
 /**
  * 🍏 CERROJO REENTRANTE MULTIPLATAFORMA.
  *
- * POR QUÉ EXISTE: varios cachés de "Huelum vs. Goya" (hojas de sprites, frame data) usaban
+ * POR QUÉ EXISTE: varios cachés de "Titulación por Combate" (hojas de sprites, frame data) usaban
  * `@Synchronized`, que **solo existe en la JVM** — en `commonMain` ni siquiera compila. Y no son
  * cachés de un solo hilo: armar una hoja compartida cuesta decenas de ms y el propio código dice
  * "llamar fuera del hilo de dibujo si se puede".

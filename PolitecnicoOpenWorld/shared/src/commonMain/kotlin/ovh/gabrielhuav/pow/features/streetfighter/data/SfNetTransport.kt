@@ -1,6 +1,6 @@
 package ovh.gabrielhuav.pow.features.streetfighter.data
 
-// Transporte común del MULTIJUGADOR 1v1 del modo pelea "HUELUM VS. GOYA".
+// Transporte común del MULTIJUGADOR 1v1 del modo pelea "TITULACIÓN POR COMBATE".
 // La arquitectura (relay puro + autoridad del RECEPTOR sobre su propio HP, ver
 // AUDIT_SF_MULTIPLAYER.md §3) NO cambia entre transportes: viajan los MISMOS
 // mensajes JSON (SfNetMsg) y el VM habla solo con esta interfaz.

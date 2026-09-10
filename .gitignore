@@ -95,3 +95,6 @@ PolitecnicoOpenWorld/tools/sf_voice_scrape/**/*.mp3
 # Entornos y modelos temporales usados por las auditorías locales de Codex.
 .codex-tmp/
 PolitecnicoOpenWorld/tools/sf_voice_scrape/out_v3/
+# Entorno de Python que instalan las herramientas de sprites (numpy/scipy, ~188 MB).
+# Se regenera solo; nunca debe entrar al repo.
+.sf-python-deps/

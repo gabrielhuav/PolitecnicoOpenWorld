@@ -29,8 +29,14 @@ enum class PowModo {
     /** Coleccionables. Solo lee la base de datos: multiplataforma desde la Fase 4. */
     COLECCIONABLES,
 
-    /** "Huelum vs. Goya", el modo pelea. El PRIMERO que llega a iOS. */
-    HUELUM_VS_GOYA,
+    /**
+     * "Titulación por Combate", el modo pelea. El PRIMERO que llega a iOS.
+     *
+     * ⚠️ El nombre de CARA AL JUGADOR vive en `menu_street_fighter` (strings), no aquí: ya cambió
+     * una vez ("Huelum vs. Goya" → "Titulación por Combate") y esta constante se llama como el
+     * código (`street_fighter`/`Sf*`) justamente para no tener que renombrarla en la siguiente.
+     */
+    STREET_FIGHTER,
 }
 
 /** Plataformas en las que corre POW. */
@@ -49,7 +55,7 @@ fun modosDe(plataforma: PowPlataforma): Set<PowModo> = when (plataforma) {
     PowPlataforma.IOS -> setOf(
         PowModo.AJUSTES,
         PowModo.COLECCIONABLES,
-        PowModo.HUELUM_VS_GOYA,
+        PowModo.STREET_FIGHTER,
     )
 }
 

@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.ComposeUIViewController
 import ovh.gabrielhuav.pow.data.repository.CollectibleRepository
 import ovh.gabrielhuav.pow.data.repository.iosSettingsRepository
+import ovh.gabrielhuav.pow.data.cache.RoadNetworkCache
 import ovh.gabrielhuav.pow.data.local.room.crearPowDatabase
 import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.IosMainMenuController
@@ -42,7 +43,7 @@ import platform.UIKit.UIViewController
  * ## Qué modos aparecen
  *
  * Los decide **`PowModos.kt`**, no este archivo. En iOS eso deja AJUSTES, COLECCIONABLES y
- * HUELUM VS. GOYA; Mundo Libre, Modo Historia y Multijugador ni se pintan. Si algún día uno de esos
+ * TITULACIÓN POR COMBATE; Mundo Libre, Modo Historia y Multijugador ni se pintan. Si algún día uno de esos
  * modos llega a iOS, se cambia el catálogo (y su test), no esta navegación.
  */
 fun crearAppIos(): UIViewController = ComposeUIViewController { PowAppIos() }
@@ -74,6 +75,9 @@ private fun ContenidoApp(alCambiarIdioma: () -> Unit) {
     val coleccionables = remember {
         CollectiblesViewModel(CollectibleRepository(baseDatos.collectibleDao()))
     }
+    // 🗺️ La caché de la red de calles (celdas de ~2 km, TTL 7 días). La MISMA clase que Android:
+    // sin ella iOS le pedía la red entera a Overpass en cada arranque y se comía un 429.
+    val cacheCalles = remember { RoadNetworkCache(baseDatos.roadNetworkDao()) }
 
     when (pantalla) {
         Pantalla.MENU -> MainMenuScreen(
@@ -106,7 +110,12 @@ private fun ContenidoApp(alCambiarIdioma: () -> Unit) {
 
         // 🌎 Vista previa del mapa. NO es el mundo jugable: sin jugador, NPCs ni landmarks,
         // porque el puente JS ↔ nativo todavía no existe en iOS.
-        Pantalla.MAPA -> MapaMundoIos(alVolver = { pantalla = Pantalla.MENU })
+        // 🗺️ La caché de calles se le PASA, no la crea el mapa: así vive lo que vive la sesión y
+        // no se vuelve a consultar Room en cada entrada al mundo.
+        Pantalla.MAPA -> MapaMundoIos(
+            cacheCalles = cacheCalles,
+            alVolver = { pantalla = Pantalla.MENU },
+        )
 
         Pantalla.COLECCIONABLES -> CollectiblesScreen(
             controller = coleccionables,

@@ -25,6 +25,9 @@ object SfDamage {
         SfFighterState.SUPER_ART -> SfConstants.SUPER_ART_DAMAGE
         SfFighterState.FATALITY -> SfConstants.FATALITY_DAMAGE
         SfFighterState.GRAB -> SfConstants.THROW_DAMAGE
+        // 🆕 (2026-08-29) CONTRAATAQUE + DERRIBO CON PODER: daño propio, no el de la fuerza.
+        SfFighterState.COUNTER -> SfConstants.COUNTER_THROW_DAMAGE
+        SfFighterState.POWER_GRAB -> SfConstants.POWER_THROW_DAMAGE
         else -> strength.damage
     }
 
@@ -65,5 +68,9 @@ object SfDamage {
         SfFighterState.GRAB to SfAttackMeta(SfAttackStrength.LIGHT, SfAttackType.PUNCH),
         SfFighterState.SUPER_ART to SfAttackMeta(SfAttackStrength.HEAVY, SfAttackType.PUNCH),
         SfFighterState.FATALITY to SfAttackMeta(SfAttackStrength.HEAVY, SfAttackType.PUNCH),
+        // 🆕 (2026-08-29) POWER_GRAB SÍ tiene hitbox propia (como GRAB); el daño real lo fija
+        // forAttack(), esto solo alimenta el sonido de ataque en changeState(). COUNTER y
+        // POWER_THROW no van aquí: son reactivos/de remate, sin hit-check propio (como PARRY_*/THROW).
+        SfFighterState.POWER_GRAB to SfAttackMeta(SfAttackStrength.MEDIUM, SfAttackType.PUNCH),
     )
 }

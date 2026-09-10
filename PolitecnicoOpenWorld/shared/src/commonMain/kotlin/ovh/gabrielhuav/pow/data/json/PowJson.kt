@@ -6,7 +6,7 @@ import kotlinx.serialization.json.Json
  * 🍏 EL parser JSON del proyecto — sustituye a `Gson()` (Fase 3 de `PLAN_MIGRACION_KMP.md`).
  *
  * POR QUÉ: Gson usa reflexión de la JVM y **no existe en iOS**. Estaba en 20 archivos, 5 de ellos
- * el protocolo de red de "Huelum vs. Goya".
+ * el protocolo de red de "Titulación por Combate".
  *
  * ⚠️⚠️ **CADA OPCIÓN DE AQUÍ ESTÁ PUESTA PARA IMITAR A GSON, NO POR GUSTO.** Este JSON lee
  * **partidas guardadas de jugadores REALES** y habla con **clientes viejos** (los que ya tienen la

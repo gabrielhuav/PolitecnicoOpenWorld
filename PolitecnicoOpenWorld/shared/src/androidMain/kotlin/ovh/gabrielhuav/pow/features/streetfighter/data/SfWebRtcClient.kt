@@ -18,7 +18,7 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-// Transporte P2P del MULTIJUGADOR 1v1 de "HUELUM VS. GOYA" (2026-07-26).
+// Transporte P2P del MULTIJUGADOR 1v1 de "TITULACIÓN POR COMBATE" (2026-07-26).
 //
 // LA IDEA (modelo "GameRanger"): el servidor de Render deja de reenviar la pelea y solo hace de
 // CUPIDO — empareja a los 2 jugadores e intercambia sus datos de conexión (SDP + candidatos ICE).

@@ -23,6 +23,10 @@ interface StreetFighterController {
     fun forcePause()
     fun hasArcadeSession(): Boolean
     fun playerHasNewMoves(): Boolean
+    // 🆕 (2026-08-29) CONTRAATAQUE + DERRIBO CON PODER: gates POR MOVIMIENTO (mirror de
+    // playerHasNewMoves, pero por hoja concreta) para no mostrar un botón muerto.
+    fun playerHasCounterMove(): Boolean
+    fun playerHasPowerThrowMove(): Boolean
     fun showHitboxes(): Boolean
     fun showSfFps(): Boolean
     fun isFighterActuallyUnlocked(id: SfFighterId): Boolean
@@ -37,6 +41,8 @@ interface StreetFighterController {
     fun onGrabPressed()
     fun onTauntPressed()
     fun onSuperArtPressed()
+    fun onCounterPressed()
+    fun onPowerThrowPressed()
 
     fun tutorialSkipLesson()
     fun tutorialRestartLesson()

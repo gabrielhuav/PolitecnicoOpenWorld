@@ -159,6 +159,85 @@ internal fun StreetFighterViewModel.applyThrow(sim: StreetFighterViewModel.Sim, 
         now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong()
 }
 
+/**
+ * 🆕 (2026-08-29) CONTRAATAQUE exitoso: el defensor que contraatacó ([counterIdx]) pasa a
+ * ejecutar un [SfFighterState.THROW] gratis sobre quien lo atacó ([victimIdx]), con daño de
+ * bonus (COUNTER_THROW_DAMAGE, entre el agarre normal y la súper). Reutiliza el arte de
+ * THROW/THROWN/GET_UP: es un mirror de [applyThrow] con el rol invertido (el que se defendía
+ * es quien "agarra") y su propio monto de daño.
+ */
+internal fun StreetFighterViewModel.applyCounterThrow(
+    sim: StreetFighterViewModel.Sim,
+    counterIdx: Int,
+    victimIdx: Int,
+    now: Long,
+) {
+    var counter = sim.fighter(counterIdx)
+    var victim = sim.fighter(victimIdx)
+    _soundEvents.tryEmit("heavy-punch-hit")
+    victim = victim.copy(
+        hitPoints = (victim.hitPoints - SfConstants.COUNTER_THROW_DAMAGE).coerceAtLeast(0),
+        slideVelocity = SfConstants.THROW_PUSH_VELOCITY,
+        slideFriction = SfAttackStrength.HEAVY.slideFriction,
+        direction = counter.direction.opposite(),
+        superMeter = chargeSuper(victim, SfConstants.SUPER_METER_ON_TAKE),
+    )
+    sim.setFighter(victimIdx, victim)
+    sim.setFighter(
+        counterIdx,
+        counter.copy(superMeter = chargeSuper(counter, SfConstants.SUPER_METER_ON_HIT)),
+    )
+    superKeepMs[counterIdx] = now
+    if (counterIdx == 0) sim.score0 += SfAttackStrength.HEAVY.score else sim.score1 += SfAttackStrength.HEAVY.score
+    changeState(sim, counterIdx, SfFighterState.THROW, now)
+    if (victim.hitPoints <= 0) {
+        changeState(sim, victimIdx, SfFighterState.KO, now)
+        sim.setFighter(counterIdx, sim.fighter(counterIdx).copy(victory = true))
+        if (gauntletActive && !showcaseMode) gauntletKoRounds++
+        endRound(sim, counterIdx, now, computeRoundOutcome(sim, counterIdx, SfFighterState.THROW, byTime = false))
+    } else if (!forceState(sim, victimIdx, SfFighterState.THROWN, now)) {
+        changeState(sim, victimIdx, SfFighterState.HURT_BODY_HEAVY, now)
+    }
+    withNetAudioCapture(victimIdx) { emitHurtVoice(victim.id, victimIdx, victim.hitPoints, now) }
+    hurtFreezeUntilMs = now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong()
+}
+
+/**
+ * 🆕 (2026-08-29) DERRIBO CON PODER: el agarre especial conectó. Mismo flujo que [applyThrow]
+ * pero con más daño y empuje (POWER_THROW_DAMAGE/POWER_THROW_PUSH_VELOCITY) y su propio remate
+ * ([SfFighterState.POWER_THROW]) en vez de THROW.
+ */
+internal fun StreetFighterViewModel.applyPowerThrow(sim: StreetFighterViewModel.Sim, attackerIdx: Int, defenderIdx: Int, now: Long) {
+    val attacker = sim.fighter(attackerIdx)
+    var defender = sim.fighter(defenderIdx)
+    _soundEvents.tryEmit("heavy-punch-hit")
+    defender = defender.copy(
+        hitPoints = (defender.hitPoints - SfConstants.POWER_THROW_DAMAGE).coerceAtLeast(0),
+        slideVelocity = SfConstants.POWER_THROW_PUSH_VELOCITY,
+        slideFriction = SfAttackStrength.HEAVY.slideFriction,
+        direction = attacker.direction.opposite(),
+        superMeter = chargeSuper(defender, SfConstants.SUPER_METER_ON_TAKE),
+    )
+    sim.setFighter(defenderIdx, defender)
+    sim.setFighter(
+        attackerIdx,
+        attacker.copy(superMeter = chargeSuper(attacker, SfConstants.SUPER_METER_ON_HIT)),
+    )
+    superKeepMs[attackerIdx] = now
+    if (attackerIdx == 0) sim.score0 += SfAttackStrength.HEAVY.score else sim.score1 += SfAttackStrength.HEAVY.score
+    changeState(sim, attackerIdx, SfFighterState.POWER_THROW, now)
+    if (defender.hitPoints <= 0) {
+        changeState(sim, defenderIdx, SfFighterState.KO, now)
+        sim.setFighter(attackerIdx, sim.fighter(attackerIdx).copy(victory = true))
+        if (gauntletActive && !showcaseMode) gauntletKoRounds++
+        endRound(sim, attackerIdx, now, computeRoundOutcome(sim, attackerIdx, SfFighterState.POWER_THROW, byTime = false))
+    } else if (!forceState(sim, defenderIdx, SfFighterState.THROWN, now)) {
+        changeState(sim, defenderIdx, SfFighterState.HURT_BODY_HEAVY, now)
+    }
+    withNetAudioCapture(defenderIdx) { emitHurtVoice(defender.id, defenderIdx, defender.hitPoints, now) }
+    hurtFreezeUntilMs = now + (SfConstants.FIGHTER_STRUCK_DELAY * SfConstants.FRAME_TIME_MS).toLong()
+}
+
 /** handleAttackHit del JS + BattleScene.handleAttackHit (daño, score, KO, splash, hit-freeze). */
 internal fun StreetFighterViewModel.applyAttackHit(
     sim: StreetFighterViewModel.Sim,
@@ -244,6 +323,19 @@ internal fun StreetFighterViewModel.applyAttackHit(
         return
     }
 
+    // 🆕 (2026-08-29) CONTRAATAQUE: dentro de su ventana ACTIVA (más corta que la del parry),
+    // el golpe se anula ENTERO y el contraatacante pasa DIRECTO a un agarre/lanzamiento
+    // gratis contra el atacante (sin comprobar rango: ya está pegado, es quien conectaba el
+    // golpe). Se resuelve ANTES que el parry, en la misma posición relativa: ambos son
+    // reactivos y no compiten entre sí (un peleador solo puede estar en uno de los dos estados).
+    if (defender.state == SfFighterState.COUNTER && now < counterActiveUntilMs[defenderIdx]) {
+        _soundEvents.tryEmit("land") // chasquido seco, igual que el parry
+        if (defenderIdx == 0 && inOnlineFight) queueNetAudio("land")
+        sim.setFighter(attackerIdx, attacker.copy(attackStruck = true))
+        applyCounterThrow(sim, counterIdx = defenderIdx, victimIdx = attackerIdx, now = now)
+        return
+    }
+
     // 🆕 (2026-07-21) PARRY (la firma de 3rd Strike): dentro de su ventana ACTIVA el
     // golpe se anula ENTERO — cero daño, sin pose de daño — y el ATACANTE se queda
     // vendido un momento (castigo). Es la recompensa por leer el golpe.
@@ -270,6 +362,15 @@ internal fun StreetFighterViewModel.applyAttackHit(
     if (attacker.state == SfFighterState.GRAB) {
         sim.setFighter(attackerIdx, attacker.copy(attackStruck = true))
         applyThrow(sim, attackerIdx, defenderIdx, now)
+        return
+    }
+
+    // 🆕 (2026-08-29) DERRIBO CON PODER: mismo gancho que el agarre normal, pero con su propio
+    // remate (POWER_THROW) y más daño/empuje. El medidor ya se gastó al ENTRAR a POWER_GRAB
+    // (ver StreetFighterViewModel.changeState), conecte o falle.
+    if (attacker.state == SfFighterState.POWER_GRAB) {
+        sim.setFighter(attackerIdx, attacker.copy(attackStruck = true))
+        applyPowerThrow(sim, attackerIdx, defenderIdx, now)
         return
     }
 

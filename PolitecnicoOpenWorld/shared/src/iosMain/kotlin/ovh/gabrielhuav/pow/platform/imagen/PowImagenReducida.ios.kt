@@ -11,10 +11,13 @@ import kotlin.math.max
  * En iOS decodifica y escala en UN paso de Skia, y el buffer grande queda del lado NATIVO.
  *
  * ⚠️ SIGUE SIN SER EL `inSampleSize` DE ANDROID, y conviene no venderlo como tal. Skiko no expone
- * decodificación submuestreada (su `Codec` no tiene `getScaledDimensions` ni sample size), y para PNG
- * —que es lo que son los atlas, porque los sprites necesitan alfa— Skia tampoco podría hacerla. O
- * sea: el mapa de bits completo SE MATERIALIZA igual. Lo que cambia respecto a la versión anterior
- * (`decodificar()` + [PowImagen.escalar]) es DE QUIÉN es ese buffer y CUÁNTO vive:
+ * decodificación submuestreada: su `Codec` de Kotlin solo tiene `readPixels`, sin sample size.
+ * (`getScaledDimensions` SÍ aparece al buscar cadenas en el klib, pero es el símbolo C++ de
+ * `SkCodecImageGenerator` dentro de Skia, no API que se pueda llamar desde Kotlin.) Así que el mapa
+ * de bits completo SE MATERIALIZA igual — y sí sería evitable en teoría, porque los atlas son WebP
+ * (no PNG) y el códec WebP de Skia sí sabe escalar al decodificar; lo que falta es la costura de
+ * Skiko. Lo que cambia respecto a la versión anterior (`decodificar()` + [PowImagen.escalar]) es
+ * DE QUIÉN es ese buffer y CUÁNTO vive:
  *
  * - Antes: el atlas completo se convertía en un `ImageBitmap` administrado por el GC de
  *   Kotlin/Native. Se volvía basura enseguida, pero su liberación esperaba a una pasada del
@@ -23,8 +26,8 @@ import kotlin.math.max
  * - Ahora: el buffer completo lo posee la [Image] de Skia y se libera en su `close()`, de forma
  *   DETERMINISTA, apenas termina el escalado. Solo queda retenido el bitmap ya reducido.
  *
- * Si algún día hace falta bajar también el PICO (no solo su duración), la única salida real es
- * generar los atlas ya mipmapeados o en un formato con submuestreo nativo — no otra llamada de Skia.
+ * Si algún día hace falta bajar también el PICO (no solo su duración), no hay otra llamada de Skiko
+ * que lo consiga: o se generan los atlas ya mipmapeados, o se baja a la API C de Skia por cinterop.
  */
 actual fun decodificarReducido(bytes: ByteArray, reduccion: Int): ImageBitmap {
     val factor = reduccion.coerceAtLeast(1)

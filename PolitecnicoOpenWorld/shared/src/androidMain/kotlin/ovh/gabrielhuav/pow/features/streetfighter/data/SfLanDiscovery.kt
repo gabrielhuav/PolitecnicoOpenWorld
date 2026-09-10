@@ -12,7 +12,7 @@ import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.InetSocketAddress
 
-// 🆕 (2026-07-26) AUTODESCUBRIMIENTO LAN del modo pelea "HUELUM VS. GOYA": en vez de teclear la IP,
+// 🆕 (2026-07-26) AUTODESCUBRIMIENTO LAN del modo pelea "TITULACIÓN POR COMBATE": en vez de teclear la IP,
 // el ANFITRIÓN emite una BALIZA por UDP broadcast en la red Wi-Fi y el INVITADO la escucha y ve la
 // partida como una tarjeta tocable. Al tocar, se une por la IP que trae el paquete (origen).
 //
