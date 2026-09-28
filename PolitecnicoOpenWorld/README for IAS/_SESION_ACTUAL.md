@@ -3,12 +3,19 @@
 > Único traspaso entre IAs. Ventana de 2 días; máximo 200 líneas. Aquí va estado medido,
 > trabajo abierto y trampas caras. Diseño e historia viven en los documentos de cada área.
 
-**Última actualización:** 2026-09-05 · Claude Opus 5 (Mac, simulador) · rama `tooling/sf-asset-pipeline` (sin push)
+**Última actualización:** 2026-09-28 · Botón de Pausa HUD y Menú de Pausa Mejorado en Titulación por Combate · rama `new-feature`
 
-> ⚠️ **El trabajo de iOS/mundo abierto medido hasta el 08-17 (ANRs en `NativeOsmMap`, fases 5/6
-> del mundo, puente JS↔Swift) se purgó a `_ARCHIVO/HISTORIAL_sesiones_2026-08-17.md`** — pasaron
-> 13 días sin que nadie lo tocara. Nada de esto se tocó en esta sesión. Si retomas ese hilo,
-> verifica primero si sigue vigente antes de confiar en esas cifras.
+## ✅ 09-28: BOTÓN DE PAUSA HUD + MENÚ DE PAUSA MEJORADO (Titulación por Combate)
+
+- **Problema previo:** En plena pelea, el botón superior derecho era únicamente una "✕" que abría directamente el diálogo de abandonar la pelea hacia el mapa exterior ("Salir de la pelea"). La pausa solo se activaba de forma pasiva al bloquear o minimizar la pantalla, y el overlay de pausa solo ofrecía "Continuar". No había forma de pausar manualmente para revisar combos o reiniciar la ronda.
+- **Implementación (todo en Compose Multiplatform / `commonMain`):**
+  1. `StreetFighterScreen.kt`: En la esquina superior derecha (`Alignment.TopEnd` con `systemBarsPadding()`), se integró una fila con el botón de pausa (**`⏸`**) junto a la **`✕`** de salida.
+  2. Menú de pausa enriquecido con opciones completas:
+     - **Continuar** (`sf_continue`)
+     - **Lista de movimientos** (`sf_pause_moves`): Invoca la `SfComboSheetOverlay` del peleador actual en plena pausa para consultar comandos sin abandonar el combate.
+     - **Reiniciar combate** (`sf_pause_restart`): Despausa y reinicia la pelea de inmediato vía `controller.restartBattle()`.
+     - **Salir al menú** (`sf_pause_exit`): Abre la confirmación estándar para salir.
+  3. Strings localizados con paridad completa en español e inglés en `composeResources/values/strings.xml` y `values-en/strings.xml`.
 
 ## 🍏 09-05 (Mac): VERIFICADO EN EL SIMULADOR — 1 fallo de texto, la memoria NO empeoró
 

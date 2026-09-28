@@ -187,6 +187,9 @@
     <string name="sf_mp_waiting_sub">Comparte el código con tu rival; esperando a que se una…</string>
     <string name="sf_other_modes">↕ Otros modos</string>
     <string name="sf_paused">PAUSA</string>
+    <string name="sf_pause_moves">Lista de movimientos</string>
+    <string name="sf_pause_restart">Reiniciar combate</string>
+    <string name="sf_pause_exit">Salir al menú</string>
     <string name="sf_random">Al azar</string>
     <string name="sf_rematch">Revancha</string>
     <string name="sf_resume_message">Hay una pelea de arcade a medias. ¿Quieres retomar donde la dejaste?</string>

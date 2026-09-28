@@ -1182,17 +1182,32 @@ fun StreetFighterScreenCommon(
             }
         }
 
-        // Botón de salida.
+        // Botones superiores: Pausa (⏸) y Salida (✕).
         //
-        // ⚠️ `systemBarsPadding()` va SOLO en este botón, no en la pantalla: el combate se dibuja a
+        // ⚠️ `systemBarsPadding()` va SOLO en esta fila, no en la pantalla: el combate se dibuja a
         // sangre hasta los bordes a propósito, y meter el padding arriba lo encogería. Sin esto, en
-        // iOS la ✕ se cuela DEBAJO de la barra de estado (medido en el simulador: quedaba encima
-        // del icono de batería y era casi imposible de pulsar).
-        TextButton(
-            onClick = controller::requestExit,
-            modifier = Modifier.align(Alignment.TopEnd).systemBarsPadding().padding(2.dp),
-        ) {
-            Text("✕", color = Color.White, fontSize = 18.sp)
+        // iOS los botones se cuelan DEBAJO de la barra de estado (medido en el simulador).
+        if (!state.inCharacterSelect) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .systemBarsPadding()
+                    .padding(end = 4.dp, top = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(
+                    onClick = controller::togglePause,
+                    modifier = Modifier.padding(horizontal = 2.dp),
+                ) {
+                    Text("⏸", color = Color.White, fontSize = 18.sp)
+                }
+                TextButton(
+                    onClick = controller::requestExit,
+                    modifier = Modifier.padding(horizontal = 2.dp),
+                ) {
+                    Text("✕", color = Color.White, fontSize = 18.sp)
+                }
+            }
         }
 
         // 🆕 Fin de pelea en ARCADE: ganar (CONTINUAR) / perder (REINTENTAR) / campeón. Reemplaza
@@ -1279,9 +1294,57 @@ fun StreetFighterScreenCommon(
                         letterSpacing = 2.sp,
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    PowButton(text = stringResource(Res.string.sf_continue), onClick = controller::togglePause)
+                    PowButton(
+                        text = stringResource(Res.string.sf_continue),
+                        onClick = controller::togglePause,
+                        color = Color(0xFF1C6B4A),
+                        modifier = Modifier.fillMaxWidth(0.55f),
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    PowButton(
+                        text = stringResource(Res.string.sf_pause_moves),
+                        onClick = {
+                            comboFighter = state.player.id
+                            showComboSheet = true
+                        },
+                        color = Color(0xFF1565C0),
+                        modifier = Modifier.fillMaxWidth(0.55f),
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    PowButton(
+                        text = stringResource(Res.string.sf_pause_restart),
+                        onClick = {
+                            controller.togglePause()
+                            controller.restartBattle()
+                        },
+                        color = Color(0xFF7B3F00),
+                        modifier = Modifier.fillMaxWidth(0.55f),
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    PowButton(
+                        text = stringResource(Res.string.sf_pause_exit),
+                        onClick = controller::requestExit,
+                        color = Color(0xFF8B1538),
+                        modifier = Modifier.fillMaxWidth(0.55f),
+                    )
                 }
             }
+        }
+
+        // Hoja de combos invocada desde la pausa en plena pelea
+        if (showComboSheet && !state.inCharacterSelect && comboFighter != null) {
+            SfComboSheetOverlay(
+                fighterId = comboFighter!!,
+                combos = remember(comboFighter) { controller.comboSheet(comboFighter!!) },
+                onTry = {
+                    showComboSheet = false
+                    if (state.isPaused) controller.togglePause()
+                    lastLaunchedMode = "combos"
+                    controller.startTutorial(comboFighter!!)
+                },
+                onChangeFighter = { showComboSheet = false },
+                onBack = { showComboSheet = false },
+            )
         }
 
         // 🆕 Retomar pelea arcade guardada (tras minimizar / salir a medias)
