@@ -1,0 +1,15 @@
+{
+  "frameWidth": 480,
+  "frameHeight": 270,
+  "cols": 4,
+  "rows": 7,
+  "frameCount": 28,
+  "fps": 6.0,
+  "loop": true,
+  "pingPong": true,
+  "slug": "cet1_noche",
+  "source": "fondo_cet1_noche_anim.webp",
+  "maxAtlasSide": 2048,
+  "kenBurns": true,
+  "logoApplied": true
+}

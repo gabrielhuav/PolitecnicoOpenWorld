@@ -119,3 +119,20 @@ Flujo UI: **peleador → Fácil/Medio/Difícil** (`ArcadeDifficultyOverlay`) →
 ---
 
 *Actualizado 2026-07-18h — asignación dueño + REY_GRUPERO → FES Aragón.*
+
+## 5. Escenarios extras fuera del catálogo de arcade
+
+🆕 (2026-09-30) Se agregaron escenarios que **no** forman parte de la lista de 16 mapas base ni de la asignación peleador -> mapa hogar de la sección 2, y por lo tanto **no** entran a la escalera del arcade (ni al azar de Práctica/IA vs IA/host multijugador cuando se filtra por desbloqueados).
+
+| Nombre | Archivo | Disponible en | Arcade |
+|--------|---------|---------------|--------|
+| CET 1 | `fondo_cet1_anim.webp` | Práctica, con Modo Desarrollador activo | No |
+| CET 1 (Noche) | `fondo_cet1_noche_anim.webp` | Práctica, con Modo Desarrollador activo | No |
+
+- Registrados como entradas sueltas en `SfTheme.kt` -> `fullBackgrounds`, no en `SfStageCatalog.kt` (por eso no forman parte del flujo de peleadores hogar).
+- **No** están en `SfArcadeRepository.unlockedMaps()`: un jugador normal (sin Modo Desarrollador) los verá en el selector con candado 🔒, como cualquier mapa de arcade aún no desbloqueado.
+- Con **Modo Desarrollador** activo, `StreetFighterScreen` manda `unlockedMaps = null` al selector (“todos disponibles”), así que ahí sí aparecen jugables sin candado. Si en el futuro se quiere que cualquier jugador los tenga desbloqueados de inicio, hay que agregarlos a `unlockedMaps()` en `SfArcadeRepository.kt` (por ejemplo, con una lista de “mapas extra siempre desbloqueados”).
+
+---
+
+*Actualizado 2026-09-30 — se agregaron los escenarios extras CET 1 y CET 1 (Noche) fuera del arcade.*
