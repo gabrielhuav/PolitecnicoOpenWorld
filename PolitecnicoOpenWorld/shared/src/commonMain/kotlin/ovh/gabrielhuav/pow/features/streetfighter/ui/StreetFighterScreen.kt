@@ -1182,7 +1182,7 @@ fun StreetFighterScreenCommon(
             }
         }
 
-        // Botones superiores: Pausa (⏸) y Salida (✕).
+        // Botones superiores: Pausa (asset Button Pause) y Salida (✕).
         //
         // ⚠️ `systemBarsPadding()` va SOLO en esta fila, no en la pantalla: el combate se dibuja a
         // sangre hasta los bordes a propósito, y meter el padding arriba lo encogería. Sin esto, en
@@ -1195,15 +1195,17 @@ fun StreetFighterScreenCommon(
                     .padding(end = 4.dp, top = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(
-                    onClick = controller::togglePause,
-                    modifier = Modifier.padding(horizontal = 2.dp),
-                ) {
-                    Text("⏸", color = Color.White, fontSize = 18.sp)
-                }
+                Image(
+                    painter = painterResource(Res.drawable.ic_button_pause),
+                    contentDescription = stringResource(Res.string.sf_paused),
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .clickable(onClick = controller::togglePause),
+                )
                 TextButton(
                     onClick = controller::requestExit,
-                    modifier = Modifier.padding(horizontal = 2.dp),
+                    modifier = Modifier.padding(start = 2.dp),
                 ) {
                     Text("✕", color = Color.White, fontSize = 18.sp)
                 }

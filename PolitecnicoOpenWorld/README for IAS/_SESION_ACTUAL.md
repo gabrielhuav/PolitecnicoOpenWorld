@@ -5,17 +5,20 @@
 
 **Última actualización:** 2026-09-28 · Botón de Pausa HUD y Menú de Pausa Mejorado en Titulación por Combate · rama `new-feature`
 
-## ✅ 09-28: BOTÓN DE PAUSA HUD + MENÚ DE PAUSA MEJORADO (Titulación por Combate)
+## ✅ 09-28 / 09-30: BOTÓN DE PAUSA HUD (CON ASSET) + MENÚ DE PAUSA MEJORADO (Titulación por Combate)
 
 - **Problema previo:** En plena pelea, el botón superior derecho era únicamente una "✕" que abría directamente el diálogo de abandonar la pelea hacia el mapa exterior ("Salir de la pelea"). La pausa solo se activaba de forma pasiva al bloquear o minimizar la pantalla, y el overlay de pausa solo ofrecía "Continuar". No había forma de pausar manualmente para revisar combos o reiniciar la ronda.
 - **Implementación (todo en Compose Multiplatform / `commonMain`):**
-  1. `StreetFighterScreen.kt`: En la esquina superior derecha (`Alignment.TopEnd` con `systemBarsPadding()`), se integró una fila con el botón de pausa (**`⏸`**) junto a la **`✕`** de salida.
-  2. Menú de pausa enriquecido con opciones completas:
+  1. `StreetFighterScreen.kt`:
+     - **Botones en HUD superior:** En la esquina superior derecha (`Alignment.TopEnd` con `systemBarsPadding()`), se ubica el botón de pausa con el asset gráfico pixel-art oficial (`ic_button_pause.png`, `size(24.dp)`) a la izquierda del botón de salida (**`✕`**). Con esto no interfiere con el cronómetro ni el cartel de KO central.
+     - Preserva `systemBarsPadding()` defensivo para evitar solapamientos con la barra de estado en iOS y Android.
+  2. Asset gráfico añadido: `shared/src/commonMain/composeResources/drawable/ic_button_pause.png` (extraído y optimizado con fondo transparente a partir de `Button Pause.jpg`).
+  3. Menú de pausa enriquecido con opciones completas:
      - **Continuar** (`sf_continue`)
      - **Lista de movimientos** (`sf_pause_moves`): Invoca la `SfComboSheetOverlay` del peleador actual en plena pausa para consultar comandos sin abandonar el combate.
      - **Reiniciar combate** (`sf_pause_restart`): Despausa y reinicia la pelea de inmediato vía `controller.restartBattle()`.
      - **Salir al menú** (`sf_pause_exit`): Abre la confirmación estándar para salir.
-  3. Strings localizados con paridad completa en español e inglés en `composeResources/values/strings.xml` y `values-en/strings.xml`.
+  4. Strings localizados con paridad completa en español e inglés en `composeResources/values/strings.xml` y `values-en/strings.xml`.
 
 ## 🍏 09-05 (Mac): VERIFICADO EN EL SIMULADOR — 1 fallo de texto, la memoria NO empeoró
 
