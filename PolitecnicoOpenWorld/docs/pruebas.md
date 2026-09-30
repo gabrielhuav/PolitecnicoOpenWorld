@@ -17,6 +17,19 @@
 - **Resultado esperado:** Se abre el diálogo modal de confirmación y, al pulsar "Salir", la aplicación finaliza la sesión del mapa y regresa limpiamente al menú principal.
 - **Resultado real:** El cuadro de diálogo se muestra correctamente y la app redirige de forma fluida al menú principal.
 - **Estado:** ✅ Aprobado
+- **Evidencias del recorrido:**
+
+1. **Estado Anterior (Sin opción de salida en Mundo Libre):**
+   ![Antes](images/01_antes_sin_boton.png)
+
+2. **Estado Actual (Con el botón de salida implementado arriba de Ajustes):**
+   ![Después](images/02_despues_con_boton.png)
+
+3. **Cuadro de diálogo de confirmación ("Salir del juego"):**
+   ![Aviso](images/03_aviso_dialogo.png)
+
+4. **Retorno exitoso al Menú Principal:**
+   ![Menú](images/04_menu_principal.png)
 
 ---
 
