@@ -1321,12 +1321,23 @@ fun StreetFighterScreenCommon(
                 textContentColor = Color.White.copy(alpha = 0.8f),
                 title = { Text(stringResource(Res.string.sf_exit_title)) },
                 text = { Text(stringResource(Res.string.sf_exit_message)) },
+                // Implementación del dialogo de salida cuando el botón de "Back" nativo de Android es pulsado
                 confirmButton = {
-                    // Al salir a menú con arcade activo, forcePause ya guardó; aquí re-guarda por si acaso
-                    TextButton(onClick = {
-                        controller.forcePause()
-                        onExitToMap()
-                    }) { Text(stringResource(Res.string.sf_exit_confirm), color = Color(0xFFD4AF37)) }
+                    Row {
+                        // Tercera opción: volver al selector de personaje sin salir del modo (solo offline)
+                        if (sfCanChangeCharacterFromExit(state.onlineStatus)) {
+                            TextButton(onClick = {
+                                controller.forcePause() // guarda la sesión arcade igual que "Salir"
+                                controller.dismissExitDialog()
+                                controller.backToCharacterSelect()
+                            }) { Text(stringResource(Res.string.sf_change_character), color = Color.White) }
+                        }
+                        // Al salir a menú con arcade activo, se re-guarda por si acaso despues de forcePause
+                        TextButton(onClick = {
+                            controller.forcePause()
+                            onExitToMap()
+                        }) { Text(stringResource(Res.string.sf_exit_confirm), color = Color(0xFFD4AF37)) }
+                    }
                 },
                 dismissButton = { TextButton(onClick = controller::dismissExitDialog) { Text(stringResource(Res.string.sf_keep_fighting), color = Color.White.copy(alpha = 0.7f)) } },
             )
