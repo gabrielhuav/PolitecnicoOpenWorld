@@ -78,7 +78,7 @@
     <string name="zhud_zone">ZONA: %1$s</string>
     <string name="zhud_zombies">ZOMBIS: %1$d/%2$d</string>
     <string name="zhud_players">JUGADORES: %1$d</string>
-    <string name="zhud_mode">MODO: %1$s  (mantén Y)</string>
+    <string name="zhud_mode">MODO: %1$s  (pulsa B para atacar)</string>
     <string name="zhud_mode_melee">GOLPE</string>
     <string name="zhud_mode_ranged">ARMA</string>
     <string name="zhud_combat_mode">MODO DE COMBATE</string>
