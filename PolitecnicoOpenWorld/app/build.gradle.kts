@@ -78,6 +78,7 @@ android {
     }
     // 🍏 Fase 5: `kotlinOptions` quedo deprecado en Kotlin 2.3 -> DSL de `compilerOptions`.
     // Sigue siendo JVM 11, el MISMO que `:shared`: si divergen, el consumo entre modulos falla.
+    //noinspection WrongGradleMethod
     kotlin {
         compilerOptions {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
