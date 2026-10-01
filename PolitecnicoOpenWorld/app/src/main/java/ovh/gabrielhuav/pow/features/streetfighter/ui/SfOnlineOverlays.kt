@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import ovh.gabrielhuav.pow.R
+import ovh.gabrielhuav.pow.domain.streetfighter.SfLanIp
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfOnlineStatus
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterState
@@ -421,7 +422,7 @@ internal fun OnlineMenuOverlay(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = lanIp,
-                    onValueChange = { lanIp = it.trim() },
+                    onValueChange = { lanIp = SfLanIp.filtrarEntrada(it) },
                     label = { Text(stringResource(R.string.sf_lan_ip_label)) },
                     singleLine = true,
                     modifier = Modifier.width(180.dp),
@@ -437,8 +438,8 @@ internal fun OnlineMenuOverlay(
                 )
                 PowButton(
                     text = stringResource(R.string.sf_mp_join),
-                    onClick = { if (lanIp.contains('.')) onLanJoin(lanIp) },
-                    enabled = lanIp.count { it == '.' } == 3, // IPv4 completa
+                    onClick = { if (SfLanIp.esIpv4Valida(lanIp)) onLanJoin(lanIp) },
+                    enabled = SfLanIp.esIpv4Valida(lanIp), // IPv4 completa: 4 octetos 0..255
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
