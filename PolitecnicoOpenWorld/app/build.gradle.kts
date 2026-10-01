@@ -45,20 +45,14 @@ android {
 
     buildTypes {
         debug {
-            // Servidor del mundo abierto (open world)
-            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
-            // Servidor del minijuego de INTERIORES (lobby + edificios ESCOM; instancia separada en Render)
-            buildConfigField("String", "INTERIORS_SERVER_URL", "\"wss://politecnicoopenworld-1.onrender.com\"")
-            // Servidor del modo PELEA 1v1 (MultiplayerSF/; 3a instancia GRATIS en Render —
-            // ajusta la URL al nombre real del servicio tras el primer deploy)
-            buildConfigField("String", "SF_SERVER_URL", "\"wss://politecnicoopenworld-2.onrender.com\"")
+            // Se usan comillas triples """ "URL" """ para asegurar que en Java se genere: String URL = "URL";
+            buildConfigField("String", "MULTIPLAYER_SERVER_URL", """ "wss://politecnicoopenworld.onrender.com" """)
+            buildConfigField("String", "INTERIORS_SERVER_URL", """ "wss://politecnicoopenworld-1.onrender.com" """)
+            buildConfigField("String", "SF_SERVER_URL", """ "wss://politecnicoopenworld-2.onrender.com" """)
         }
         release {
-            // Play Console: habilita R8 para eliminar y optimizar codigo no usado en el AAB.
             isMinifyEnabled = true
-            // AGP 9 integra la reduccion optimizada de recursos con el grafo de R8.
             isShrinkResources = true
-            // Solo firma si CI proporcionó la keystore (env); local sin env → release sin firmar.
             if (!System.getenv("RELEASE_KEYSTORE_PATH").isNullOrEmpty()) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -66,9 +60,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
-            buildConfigField("String", "INTERIORS_SERVER_URL", "\"wss://politecnicoopenworld-1.onrender.com\"")
-            buildConfigField("String", "SF_SERVER_URL", "\"wss://politecnicoopenworld-2.onrender.com\"")
+            buildConfigField("String", "MULTIPLAYER_SERVER_URL", """ "wss://politecnicoopenworld.onrender.com" """)
+            buildConfigField("String", "INTERIORS_SERVER_URL", """ "wss://politecnicoopenworld-1.onrender.com" """)
+            buildConfigField("String", "SF_SERVER_URL", """ "wss://politecnicoopenworld-2.onrender.com" """)
         }
     }
 
