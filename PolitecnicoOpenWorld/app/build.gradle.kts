@@ -45,10 +45,12 @@ android {
 
     buildTypes {
         debug {
-            // Se usan comillas triples """ "URL" """ para asegurar que en Java se genere: String URL = "URL";
-            buildConfigField("String", "MULTIPLAYER_SERVER_URL", """ "wss://politecnicoopenworld.onrender.com" """)
-            buildConfigField("String", "INTERIORS_SERVER_URL", """ "wss://politecnicoopenworld-1.onrender.com" """)
-            buildConfigField("String", "SF_SERVER_URL", """ "wss://politecnicoopenworld-2.onrender.com" """)
+            // Servidor del mundo abierto (open world)
+            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
+            // Servidor del minijuego de INTERIORES
+            buildConfigField("String", "INTERIORS_SERVER_URL", "\"wss://politecnicoopenworld-1.onrender.com\"")
+            // Servidor del modo PELEA 1v1
+            buildConfigField("String", "SF_SERVER_URL", "\"wss://politecnicoopenworld-2.onrender.com\"")
         }
         release {
             isMinifyEnabled = true
@@ -60,9 +62,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "MULTIPLAYER_SERVER_URL", """ "wss://politecnicoopenworld.onrender.com" """)
-            buildConfigField("String", "INTERIORS_SERVER_URL", """ "wss://politecnicoopenworld-1.onrender.com" """)
-            buildConfigField("String", "SF_SERVER_URL", """ "wss://politecnicoopenworld-2.onrender.com" """)
+            buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
+            buildConfigField("String", "INTERIORS_SERVER_URL", "\"wss://politecnicoopenworld-1.onrender.com\"")
+            buildConfigField("String", "SF_SERVER_URL", "\"wss://politecnicoopenworld-2.onrender.com\"")
         }
     }
 
