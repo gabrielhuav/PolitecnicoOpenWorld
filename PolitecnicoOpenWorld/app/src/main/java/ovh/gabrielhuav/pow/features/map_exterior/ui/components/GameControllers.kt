@@ -248,7 +248,8 @@ fun VehicleActionButtonsController(
     onAccelerate: (Boolean) -> Unit,  // A (abajo) — gas
     onBrake: (Boolean) -> Unit,       // B (derecha) — freno
     onHandbrake: (Boolean) -> Unit,   // X (izquierda) — freno de mano
-    onExit: (Boolean) -> Unit         // Y (arriba) — salir (mantener → menú teletransporte)
+    onExit: (Boolean) -> Unit,        // Y (arriba) — salir (mantener → menú teletransporte)
+    onHorn: () -> Unit = {}           // Centro — claxon / bocina
 ) {
     Box(
         modifier = modifier
@@ -267,7 +268,14 @@ fun VehicleActionButtonsController(
                 // X izquierda — FRENO DE MANO (azul, igual que a pie)
                 ActionButton(text = "X", color = Color(0xFF3498DB), onHoldEvent = onHandbrake)
 
-                Spacer(modifier = Modifier.size(48.dp))
+                // Centro — CLAXON (naranja, con icono 📢)
+                ActionButton(
+                    text = "📢",
+                    color = Color(0xFFE67E22),
+                    onHoldEvent = { isPressed ->
+                        if (isPressed) onHorn()
+                    }
+                )
 
                 // B derecha — FRENO (rojo, igual que a pie)
                 ActionButton(text = "B", color = Color(0xFFE74C3C), onHoldEvent = onBrake)
