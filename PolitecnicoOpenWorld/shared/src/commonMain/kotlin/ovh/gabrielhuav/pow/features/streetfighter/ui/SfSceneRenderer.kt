@@ -56,6 +56,7 @@ import ovh.gabrielhuav.pow.data.json.getInt
 import ovh.gabrielhuav.pow.data.json.powJsonObjeto
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFrameDef
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfSharedSheets
 import ovh.gabrielhuav.pow.platform.assets.PowAssets
 import ovh.gabrielhuav.pow.platform.imagen.PowImagen
 import ovh.gabrielhuav.pow.platform.imagen.decodificarReducido
@@ -208,7 +209,8 @@ fun DrawScope.drawScene(
             drawFighter(
                 ctx, images, data, fighter, t, showHitboxes, contentH,
                 silhouette = side == 0 && playerSilhouette,
-                sheetScale = sheetScale,
+                // Las hojas COMPARTIDAS nunca se submuestrean (ver SfSharedSheets.sheetScaleFor).
+                sheetScale = SfSharedSheets.sheetScaleFor(fighter.id, sheetScale),
             )
         }
     }
