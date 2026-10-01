@@ -3,7 +3,28 @@
 > Único traspaso entre IAs. Ventana de 2 días; máximo 200 líneas. Aquí va estado medido,
 > trabajo abierto y trampas caras. Diseño e historia viven en los documentos de cada área.
 
-**Última actualización:** 2026-09-05 · Claude Opus 5 (Mac, simulador) · rama `tooling/sf-asset-pipeline` (sin push)
+**Última actualización:** 2026-09-30 · Gemini 3.8 Flash (High) · rama `feature-update-asset-tutorialmundoabierto`
+
+## 🎮 09-30: TUTORIAL DE CONTROLES (Mundo Abierto e Interiores) — adaptabilidad y gestos resueltos
+
+Refactorización de `ControlsTutorialOverlay` en `features/settings/ui/ControlsTutorial.kt` (`:shared` / `commonMain`).
+
+### ✅ RESUELTO — desbordamiento vertical, recorte de botones y falta de gestos deslizantes
+- **Síntoma:** En orientación horizontal (pantallas de ~360-400dp de alto) o con fuentes ampliadas de accesibilidad, el diálogo del tutorial se desbordaba por debajo de la pantalla: el texto explicativo de controles ("Conducir", "Interactuar") se cortaba a la mitad, y los botones de acción ("Anterior", "Siguiente", "¡Entendido!") y los puntos indicadores desaparecían fuera del área visible. Además, no se podía cambiar de página deslizando con el dedo ni hacer scroll en textos largos.
+- **Solución implementada:**
+  1. **HorizontalPager:** Se migró el estado de página estático a `HorizontalPager(state = pagerState)` de Compose Foundation con `rememberPagerState`. Soporta gestos táctiles naturales de deslizamiento horizontal (swipe izquierda/derecha) para navegar entre instrucciones.
+  2. **Contenedor adaptativo con anclaje Header/Footer:** La cabecera (Título + "✕") y el pie (puntos indicadores + botones "Anterior" y "Siguiente") se fijaron dentro de la tarjeta con padding seguro (`padding(vertical = 12.dp)` y `widthIn(max = 440.dp)`), impidiendo que queden fuera de la pantalla sin importar el tamaño del dispositivo.
+  3. **Scroll vertical interno por página:** El área central de contenido se ubicó en un contenedor con `Modifier.weight(1f, fill = false)`, y cada página cuenta con `Modifier.verticalScroll(rememberScrollState())`. Si la pantalla es corta o el texto es largo, se puede desplazar hacia arriba para leer el contenido completo con fluidez.
+  4. **Navegación interactiva por indicadores:** Los puntos indicadores inferiores ahora son clicables para saltar directamente a cualquier página mediante `animateScrollToPage()`.
+  5. **Pruebas unitarias KMP:** Se crearon pruebas automatizadas en `shared/src/commonTest/kotlin/ovh/gabrielhuav/pow/features/settings/ui/ControlsTutorialTest.kt` validando el catálogo de páginas, la presencia de botones A/B/X/Y y la integridad de recursos.
+
+**Verificación:**
+- `./gradlew :app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest` -> BUILD SUCCESSFUL (0 fallos).
+- `./gradlew :shared:compileKotlinIosSimulatorArm64` -> BUILD SUCCESSFUL (0 fallos).
+- `detekt` exit 0 (0 errores de análisis estático).
+- `bash tools/check_kmp_test_names.sh` -> OK.
+
+---
 
 > ⚠️ **El trabajo de iOS/mundo abierto medido hasta el 08-17 (ANRs en `NativeOsmMap`, fases 5/6
 > del mundo, puente JS↔Swift) se purgó a `_ARCHIVO/HISTORIAL_sesiones_2026-08-17.md`** — pasaron
