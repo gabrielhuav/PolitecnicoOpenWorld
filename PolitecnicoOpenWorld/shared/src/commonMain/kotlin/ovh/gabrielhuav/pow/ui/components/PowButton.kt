@@ -22,16 +22,10 @@ import androidx.compose.ui.unit.sp
 // compacto. COMPARTIDO entre modos (nació en el modo pelea "TITULACIÓN POR COMBATE"; se movió
 // aquí para que cualquier feature lo use — pendiente 4 de AUDIT_SF_MULTIPLAYER.md).
 //
-// 🩹 (examen QA) FIX accesibilidad: antes el rótulo iba en `Text` a 13.sp FIJO, sin `maxLines`
-// y con alto FIJO de 44.dp. Documentado como PREEXISTENTE y "SIGUE ABIERTO a propósito" en
-// `README for IAS/_SESION_ACTUAL.md` (sección "PowButton no se autoajusta"): con la fuente del
-// sistema en grande, en el submenú de pelea (`SfMenuOverlays.kt`) el rótulo "COMBOS Y TUTORIAL"
-// perdía "TUTORIAL" (caía a una 2ª línea que el alto fijo recortaba) y "MULTIJUGADOR" perdía la
-// última letra (se recortaba a lo ancho). Mismo síntoma, misma causa y mismo arreglo que ya se
-// aplicó a `MenuButton` y `FeaturedStreetFighterButton` en `MainMenuScreen.kt`: `BasicText` con
-// `TextAutoSize.StepBased` + `softWrap = false` (sin esta bandera los rótulos CON ESPACIO, como
-// "COMBOS Y TUTORIAL", no encogen: Compose parte en el espacio, mide la línea que ya cabe y el
-// autoajuste nunca detecta desbordamiento). El alto fijo (44.dp) NO se tocó.
+// 🛠️ FIX (accesibilidad / recorte de texto): con fuente del sistema grande (accesibilidad)
+// o etiquetas largas en pantallas angostas, el Text() de ancho fijo recortaba el label
+// (ej. "COMBOS & TUTORIAL"). Se reemplaza por BasicText + TextAutoSize.StepBased para que
+// el texto reduzca su tamaño automáticamente hasta caber en una sola línea, en vez de cortarse.
 @Composable
 fun PowButton(
     text: String,
