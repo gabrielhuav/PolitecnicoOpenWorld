@@ -61,8 +61,13 @@ class SoundManager private constructor(context: Context) {
     private var storyStreamIds = mutableListOf<Int>()
     private var storyRunningStreamId = -1
     private var police2StreamId = -1
+    
+    private var startRoundSoundId = -1
+    private var victorySoundId = -1
+    private var loseSoundId = -1
 
     init {
+        
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_GAME)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -108,6 +113,10 @@ class SoundManager private constructor(context: Context) {
             puerquitoSoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/Puerquito.mp3"), 1) ?: -1
             misionCumplidaSoundId = soundPool?.load(assetManager.openFd("AUDIO/MisionCumplida.mp3"), 1) ?: -1
             zombiesAreComingSoundId = soundPool?.load(assetManager.openFd("AUDIO/zombiesAreComing.mp3"), 1) ?: -1
+
+            startRoundSoundId = soundPool?.load(assetManager.openFd("AUDIO/start_round_effect.mp3"), 1) ?: -1
+            victorySoundId = soundPool?.load(assetManager.openFd("AUDIO/victory_effect.mp3"), 1) ?: -1
+            loseSoundId = soundPool?.load(assetManager.openFd("AUDIO/lose_effect.mp3"), 1) ?: -1
         } catch (e: Exception) {
             Log.e("SoundManager", "Error loading sounds", e)
         }
@@ -457,6 +466,24 @@ class SoundManager private constructor(context: Context) {
             try { mp.start() } catch (e: Exception) { Log.e("SoundManager", "Error resuming music", e) }
         }
         pausedForBackground.clear()
+    }
+    
+    fun playStartRound(){
+        if(startRoundSoundId > 0  ) {
+            soundPool?.play(startRoundSoundId, sfxVolume, sfxVolume, 1, 0, 1f)
+        }
+    }
+
+    fun playVictory(){
+        if (victorySoundId > 0 ) {
+            soundPool?.play(victorySoundId, sfxVolume, sfxVolume, 1, 0, 1f)
+        }
+    }
+
+    fun playLose(){
+        if(loseSoundId > 0 ) {
+            soundPool?.play(loseSoundId, sfxVolume, sfxVolume, 1, 0, 1f)
+        }
     }
 
     fun release() {
