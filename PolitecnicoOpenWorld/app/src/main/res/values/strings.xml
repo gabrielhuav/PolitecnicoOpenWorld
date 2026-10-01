@@ -556,6 +556,7 @@
     <string name="sf_lan_section">SERVIDOR LOCAL (misma red Wi-Fi)</string>
     <string name="sf_lan_host">CREAR SERVIDOR</string>
     <string name="sf_lan_ip_label">IP del anfitrión</string>
+    <string name="sf_lan_ip_invalid">IP no válida. Ejemplo: 192.168.1.5</string>
     <string name="sf_lan_host_title">SERVIDOR LOCAL</string>
     <string name="sf_lan_host_sub">Tu sala está abierta. Comparte esta dirección con tu rival (misma red Wi-Fi o tu hotspot):\n\n%1$s</string>
     <string name="sf_lan_no_ip">No se detectó red local: conéctate a una red Wi-Fi o enciende tu hotspot y reintenta.</string>
