@@ -9,22 +9,43 @@ low-end performance) or doc drift.
 
 ## 0. Archivos GRANDES (>1000 líneas) — plan de separación
 
-> ## ✅ ESTADO REAL (2026-07-27, tras el refactor de la Fase 5) — esto MANDA
+> ## ✅ ESTADO REAL (2026-09-23, re-medido) — esto MANDA
 >
 > Los dos monstruos del modo pelea se partieron por DOMINIO. `StreetFighterViewModel` pasó de
-> **6220 a 2299** líneas y `StreetFighterScreen` de **4029 a 1902**.
+> **6220 a 2299** líneas y `StreetFighterScreen` de **4029 a 1902** (cifras de la Fase 5; los
+> tamaños VIGENTES son los de la tabla).
 >
-> | Archivo | Líneas |
-> |---|---:|
-> | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` | 2299 |
-> | `features/streetfighter/ui/StreetFighterScreen.kt` | 1902 |
-> | `features/map_exterior/viewmodel/WorldMapViewModel.kt` | 1596 |
-> | `features/map_exterior/ui/WorldMapScreen.kt` | 1463 |
-> | `features/map_exterior/ui/NativeOsmMap.kt` | 1458 |
-> | `features/interiores/zombies/ui/ZombieGameScreen.kt` | 1343 |
-> | `features/streetfighter/ui/SfSceneRenderer.kt` | 1225 |
-> | `AppNavGraph.kt` | 1175 |
-> | `features/interiores/zombies/viewmodel/ZombieInteriorViewModel.kt` | 1165 |
+> ⚠️ **Las cifras de abajo se re-midieron con `wc -l` el 2026-09-23.** Las anteriores eran de
+> 2026-07-27 y **siete de las nueve filas habían quedado desfasadas** (hasta 136 líneas de
+> diferencia), lo que hacía tomar decisiones de "¿hay que partir esto?" con datos falsos. Si
+> tocas uno de estos archivos, vuelve a medir y actualiza aquí: es la regla de "MEDIR, no
+> suponer".
+>
+> | Archivo | Líneas | Antes decía |
+> |---|---:|---:|
+> | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` | 2422 | 2299 |
+> | `features/streetfighter/ui/StreetFighterScreen.kt` | 1801 | 1902 |
+> | `features/map_exterior/viewmodel/WorldMapViewModel.kt` | 1603 | 1596 |
+> | `features/map_exterior/ui/WorldMapScreen.kt` | 1463 | 1463 |
+> | `features/map_exterior/ui/NativeOsmMap.kt` | 1472 | 1458 |
+> | `features/interiores/zombies/ui/ZombieGameScreen.kt` | 1350 | 1343 |
+> | `AppNavGraph.kt` | 1173 | 1175 |
+> | `features/interiores/zombies/viewmodel/ZombieInteriorViewModel.kt` | 1165 | 1165 |
+> | `features/streetfighter/ui/SfSceneRenderer.kt` | 1089 | 1225 |
+>
+> **🆕 (2026-09-23) `StreetFighterCpuAi.kt` se partió en cuatro.** Había llegado a **1094 líneas**
+> sin estar en esta tabla — o sea, cruzó el umbral sin que nadie lo evaluara. Se cortó por dominio,
+> moviendo líneas sin tocar ni una función, y ninguno de los cuatro llega ya a 1000:
+>
+> | Archivo | Líneas | Qué vive ahí |
+> |---|---:|---|
+> | `features/streetfighter/viewmodel/StreetFighterCpuAi.kt` | 200 | el orquestador `buildCpuInput` |
+> | `features/streetfighter/viewmodel/StreetFighterCpuAiDecision.kt` | 593 | decisión por tick, espaciado, perfil por personaje |
+> | `features/streetfighter/viewmodel/StreetFighterCpuAiCombos.kt` | 229 | acción→input del catálogo, validación, cola de rutas |
+> | `features/streetfighter/viewmodel/StreetFighterCpuAiPolitica.kt` | 148 | reglas puras de dificultad y defensa contra la súper |
+>
+> Los cuatro están en el MISMO paquete, así que `buildCpuInput` sigue viendo a sus ayudantes sin
+> un solo import nuevo y `StreetFighterViewModel.kt` no se tocó.
 >
 > **➡️ El mapa de qué hay en cada archivo está en `10_ARQUITECTURA_SEPARACION.md`**, con la receta
 > de extracción y las 3 trampas que costaron tiempo (finales de línea LF/CRLF, KDoc partido por

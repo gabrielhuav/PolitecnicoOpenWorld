@@ -129,10 +129,15 @@ open class StreetFighterViewModel(
             win = listOf(SfVoiceLine("special_pol_h_win", "¿Se cree más chingón que nosotros o qué joven?")),
             power = listOf(SfVoiceLine("special_policia_cdmx_hombre_power"))
         )
+        // 🆕 (2026-09-24) PODER ESPECIAL de policía mujer y granaderos: antes no tenían `power` ni
+        // special_<id>.m4a, así que su proyectil sonaba con el hadouken genérico. Comparten una
+        // sirena (SFX sintetizado original, sin audio de terceros), igual que Escomboy/Escomgirl
+        // comparten special_power_electricity. El policía hombre ya tenía el suyo.
+        val sirenPower = listOf(SfVoiceLine("special_power_siren"))
         // WIN de granadero (H y M) = "3 de diana" (bugle). Usa special_granadero_win (special_gr_win se
         // eliminó por pedido del dueño 2026-07-18s).
         val grWin = SfVoiceLine("special_granadero_win")
-        val grH = SfVoicePack(intro = listOf(hIntro), attack = listOf(hAttack), win = listOf(grWin))
+        val grH = SfVoicePack(intro = listOf(hIntro), attack = listOf(hAttack), win = listOf(grWin), power = sirenPower)
         // MUJER: policía + granadera comparten ATTACK y HURT; el WIN difiere.
         // (2026-07-19) special_pol_m_attack se divide en attack_1 (primer segundo) y attack_2 (segundo 1 al 3).
         val mAttack = listOf(
@@ -144,8 +149,9 @@ open class StreetFighterViewModel(
             attack = mAttack,
             hurt = mHurt,
             win = listOf(SfVoiceLine("special_policia_cdmx_mujer_win", "Si dices policía, me comprometí como mujer a que la ciudadanía sintiera una mejor seguridad")),
+            power = sirenPower,
         )
-        val grM = SfVoicePack(attack = mAttack, hurt = mHurt, win = listOf(grWin))
+        val grM = SfVoicePack(attack = mAttack, hurt = mHurt, win = listOf(grWin), power = sirenPower)
         // 🆕 (2026-07-18s) Paparazzi 1: su ataque ESPECIAL (poder) = special_paparazzi_5 (el audio
         // correcto; special_paparazzi_1 era duplicado y se borró). DAÑO = 3 variantes.
         val papz1 = SfVoicePack(
@@ -175,6 +181,7 @@ open class StreetFighterViewModel(
                 attack = listOf(SfVoiceLine("special_llorona_attack")),
                 hurt = listOf(SfVoiceLine("special_llorona_hurt")),
                 power = listOf(SfVoiceLine("special_llorona_power")),
+                win = listOf(SfVoiceLine("special_llorona_win")),
             ),
             SfFighterId.LA_TZITZIMIME to SfVoicePack(
                 attack = listOf(SfVoiceLine("special_la_tzitzimime_attack")),
@@ -547,6 +554,9 @@ open class StreetFighterViewModel(
 
     // ---- batalla ----
     internal var hurtFreezeUntilMs = 0L  // hit-freeze (FighterStruckDelay)
+    // 🆕 REMATE FINAL estilo MK ("ACABALO"): estado de la ventana/cinemática. La lógica vive en
+    // StreetFighterRemate.kt; el dominio (comandos, guion, curvas) en SfFinisher.kt.
+    internal val remate = SfRemateRuntime()
     internal var time = SfConstants.BATTLE_TIME
     internal var timeTimerMs = 0L
     private var timeFlashTimerMs = 0L
@@ -894,11 +904,16 @@ open class StreetFighterViewModel(
             score0 = s.playerScore, score1 = s.cpuScore,
             winner = s.winnerIndex, battleEnded = s.battleEnded,
         )
+        // 🆕 EXAMEN EXTRAORDINARIO: abre/reinicia el intento (el rival siempre "reprobado").
+        tickExtraordinario(sim, now)
 
         // El timer NO corre durante el banner "RONDA N / PELEA".
         // 🆕 (2026-07-18j) Tampoco en SHOWCASE: el guion completo (~68 s con la metamorfosis de
         // La Presidenta) supera los ~66 s reales del timer → TIME OVER cortaba los pasos finales.
-        if (!sim.battleEnded && !showcaseMode && now >= roundIntroUntilMs) updateTimer(sim, now)
+        // 🆕 REMATE: el reloj tampoco corre durante "ACABALO" ni la cinemática.
+        if (!sim.battleEnded && !showcaseMode && now >= roundIntroUntilMs && !remate.isActive && !s.extraordinarioActive) {
+            updateTimer(sim, now)
+        }
 
         if (online) {
             platformApplyRemoteSnapshot(sim, now, dt)
@@ -909,6 +924,8 @@ open class StreetFighterViewModel(
         // personajes ya no parecen estampas congeladas antes de "PELEA". Hit-freeze si
         // conserva el congelado total porque forma parte de la respuesta visual del golpe.
         when {
+            // 🆕 REMATE: durante la cinemática el guion manda (sin input, física ni colisiones).
+            remate.phase == SfRematePhase.CINEMATIC -> tickRemateCinematic(sim, now)
             now < hurtFreezeUntilMs -> Unit
             now < roundIntroUntilMs -> {
                 sim.setFighter(0, updateRoundIntroAnimation(sim.fighter(0), now))
@@ -944,16 +961,26 @@ open class StreetFighterViewModel(
                     updateFighter(sim, 1, inp, now, dt)
                 } else if (s.aiVsAi) {
                     // IA vs IA: ambos peleadores bajo CPU (PESADILLA); sin input humano
-                    updateFighter(sim, 0, buildCpuInput(now, sim, 0), now, dt)
-                    updateFighter(sim, 1, buildCpuInput(now, sim, 1), now, dt)
+                    // 🆕 REMATE: remateGateInput devuelve el input TAL CUAL fuera de "ACABALO".
+                    val in0 = remateGateInput(sim, 0, buildCpuInput(now, sim, 0), now, humanControlled = false)
+                    if (remate.phase != SfRematePhase.CINEMATIC) updateFighter(sim, 0, in0, now, dt)
+                    if (remate.phase != SfRematePhase.CINEMATIC) {
+                        val in1 = remateGateInput(sim, 1, buildCpuInput(now, sim, 1), now, humanControlled = false)
+                        if (remate.phase != SfRematePhase.CINEMATIC) updateFighter(sim, 1, in1, now, dt)
+                    }
                 } else {
-                    updateFighter(sim, 0, buildPlayerInput(now, sim), now, dt)
+                    val in0 = remateGateInput(sim, 0, buildPlayerInput(now, sim), now, humanControlled = true)
+                    if (remate.phase != SfRematePhase.CINEMATIC) updateFighter(sim, 0, in0, now, dt)
                     // El rival: CPU offline (índice 1); por RED online (no se simula localmente)
-                    if (!online) updateFighter(sim, 1, buildCpuInput(now, sim, 1), now, dt)
+                    if (!online && remate.phase != SfRematePhase.CINEMATIC) {
+                        val in1 = remateGateInput(sim, 1, buildCpuInput(now, sim, 1), now, humanControlled = false)
+                        if (remate.phase != SfRematePhase.CINEMATIC) updateFighter(sim, 1, in1, now, dt)
+                    }
                 }
             }
         }
         watchStalemate(sim, now) // 🆕 diagnóstico de estancamiento (sin daño) + empujón a la IA
+        tickRemateWindow(sim, now) // 🆕 REMATE: si "ACABALO" venció sin comando → KO clásico
         updateFireballs(sim, now, dt)
         // 🆕 FIREBALL-VS-FIREBALL offline: ambos dueños viven en sim.fireballs
         if (!online) collideFireballPairsCommon(sim, now)
@@ -1024,6 +1051,9 @@ open class StreetFighterViewModel(
             specialSubtitleHud = if (subActive) value.specialSubtitleHud else null,
             specialSubtitleUntilMs = if (subActive) value.specialSubtitleUntilMs else 0L,
             specialSubtitleStartMs = if (subActive) value.specialSubtitleStartMs else 0L,
+            // 🆕 REMATE: velo/tinte/partículas/rótulos del "ACABALO" y de la cinemática.
+            finisherVisual = this@StreetFighterViewModel.remateVisual(sim, now),
+            extraordinarioHud = this@StreetFighterViewModel.extraordinarioHud(sim, now),
         )
     }
 
@@ -1055,7 +1085,7 @@ open class StreetFighterViewModel(
         )
     }
 
-    private fun updateAnimation(f: SfFighter, now: Long): SfFighter {
+    internal fun updateAnimation(f: SfFighter, now: Long): SfFighter {
         if (!SfAnimation.shouldAdvance(animOf(f), f.animationFrame, f.animationTimerMs, now)) {
             return f // FREEZE/TRANSITION o aún no toca
         }
@@ -1371,7 +1401,7 @@ open class StreetFighterViewModel(
     private fun watchStalemate(sim: Sim, now: Long) {
         // 🆕 En showcase NO aplica: es un guion de animaciones, no una pelea (evita
         // "ESTANCAMIENTO" falso en el reporte).
-        if (sim.battleEnded || showcaseMode || now < roundIntroUntilMs) return
+        if (sim.battleEnded || showcaseMode || now < roundIntroUntilMs || remate.isActive) return
         val hp0 = sim.p0.hitPoints
         val hp1 = sim.p1.hitPoints
         if (lastHpSeen[0] < 0) { lastHpSeen[0] = hp0; lastHpSeen[1] = hp1; lastDamageMs = now; return }
@@ -1963,6 +1993,7 @@ open class StreetFighterViewModel(
     )
     internal fun resetInternals() {
         gameNow = 0L
+        remate.resetAll() // 🆕 REMATE: combate nuevo / revancha / salir del Examen Extraordinario
         lastRealMs = sfElapsedRealtime()
         lastHpSeen.fill(-1)
         lastDamageMs = 0L
@@ -2108,6 +2139,9 @@ open class StreetFighterViewModel(
         outcome: SfRoundOutcome = SfRoundOutcome.NORMAL,
     ) {
         if (sim.battleEnded) return
+        // 🆕 REMATE: en la ronda que decide el combate, el rival queda de pie ("ACABALO") y la
+        // ronda NO se cierra todavía. Se cerrará al terminar la cinemática o vencer la ventana.
+        if (remateOnRoundEnd(sim, winnerIdx, now, outcome)) return
         sim.winner = winnerIdx
         sim.battleEnded = true
         // 🆕 (2026-07-25) Grado de la ronda (PERFECT/COMBO/SUPER/TIME): resetRound lo pinta bajo
@@ -2229,6 +2263,7 @@ open class StreetFighterViewModel(
         koFrame = 0
         hurtFreezeUntilMs = 0L
         endMenuAtMs = 0L
+        remate.reset() // 🆕 REMATE: la ronda nueva arranca sin velo ni ventana "ACABALO"
         introVoiceSent = false // 🆕 la intro del policía vuelve a sonar en la ronda nueva
         cpuNextDecisionMs[0] = 0L
         cpuNextDecisionMs[1] = 0L

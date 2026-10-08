@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.FilterQuality
@@ -49,6 +50,8 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighter
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterData
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterState
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFinisherFx
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFinisherVisual
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireballState
 // 🍏 Accesores compatibles de `:shared` en vez de `org.json` (de la JVM, no existe en iOS).
 import ovh.gabrielhuav.pow.data.json.getDouble
@@ -131,9 +134,11 @@ fun DrawScope.drawScene(
 ) {
     val framing = framingForBg(bgFile) // 🆕 zoom/anclaje por escenario (Facultad de Medicina…)
     val scale = minOf(size.width / SfConstants.SCENE_WIDTH, size.height / SfConstants.SCENE_HEIGHT)
+    // 🆕 REMATE: la sacudida de la cinemática desplaza TODA la escena unos px.
+    val finisherFx = state.finisherVisual
     val ctx = SceneCtx(
         scale = scale,
-        ox = (size.width - SfConstants.SCENE_WIDTH * scale) / 2f,
+        ox = (size.width - SfConstants.SCENE_WIDTH * scale) / 2f + (finisherFx?.shakePx ?: 0f) * scale,
         oy = (size.height - SfConstants.SCENE_HEIGHT * scale) / 2f,
         camX = state.cameraX,
         camY = state.cameraY,
@@ -178,9 +183,23 @@ fun DrawScope.drawScene(
         )
     }
 
+    // ---- 🆕 REMATE: velo oscuro sobre el FONDO (los peleadores quedan por encima, estilo MK) ----
+    if (finisherFx != null && finisherFx.darkness > 0f) {
+        drawRect(
+            color = Color(finisherFx.darkColor).copy(alpha = finisherFx.darkness.coerceIn(0f, 1f)),
+            topLeft = Offset(ctx.ox, ctx.oy),
+            size = Size(SfConstants.SCENE_WIDTH * scale, SfConstants.SCENE_HEIGHT * scale),
+        )
+    }
+
     // ---- Sombras ----
-    drawShadow(ctx, theme, images.getValue(theme.shadowImage), state.player, bgFile)
-    drawShadow(ctx, theme, images.getValue(theme.shadowImage), state.cpu, bgFile)
+    // 🆕 REMATE: la víctima que levita, se hunde o desaparece ya no deja sombra en el piso.
+    val hideShadow = finisherFx?.takeIf { it.victimAlpha < 1f || it.victimLiftPx != 0f }?.victimIdx ?: -1
+    if (hideShadow != 0) drawShadow(ctx, theme, images.getValue(theme.shadowImage), state.player, bgFile)
+    if (hideShadow != 1) drawShadow(ctx, theme, images.getValue(theme.shadowImage), state.cpu, bgFile)
+
+    // ---- 🆕 EXAMEN EXTRAORDINARIO: jerga en el piso = dónde pararse (roja fuera, verde dentro) ----
+    state.extraordinarioHud?.takeIf { it.showZone }?.let { hud -> drawJerga(ctx, hud.zone, hud.inRange) }
 
     // ---- Peleadores (sheet según el personaje del snapshot) ----
     // 🆕 (2026-07-21) PLACEHOLDER ALPHA: si al peleador le falta la hoja del movimiento en
@@ -205,10 +224,19 @@ fun DrawScope.drawScene(
                 fighter.x - ctx.camX - w / 2f, fighter.y - ctx.camY - 118f, 0.7f,
             )
         } else {
+            // 🆕 REMATE: la víctima se tiñe, levita/se hunde, se encoge y se desvanece.
+            val victimFx = finisherFx?.takeIf { it.victimIdx == side }
+            if (victimFx != null && victimFx.victimAlpha <= 0.01f) return@forEachIndexed
             drawFighter(
-                ctx, images, data, fighter, t, showHitboxes, contentH,
+                ctx, images, data,
+                if (victimFx != null) fighter.copy(y = fighter.y - victimFx.victimLiftPx) else fighter,
+                t, showHitboxes, contentH,
                 silhouette = side == 0 && playerSilhouette,
                 sheetScale = sheetScale,
+                tint = victimFx?.takeIf { it.victimTintAmount > 0f }
+                    ?.let { Color(it.victimTint).copy(alpha = it.victimTintAmount.coerceIn(0f, 1f)) },
+                alpha = victimFx?.victimAlpha?.coerceIn(0f, 1f) ?: 1f,
+                extraScale = victimFx?.victimScale?.coerceIn(0f, 2f) ?: 1f,
             )
         }
     }
@@ -419,6 +447,100 @@ fun DrawScope.drawScene(
                 drawFontText(ctx, theme, hud, ln, x, y, sizeMul)
             }
         }
+    }
+
+    // ---- 🆕 REMATE FINAL: partículas procedurales + "ACABALO" / nombre del remate ----
+    if (finisherFx != null) {
+        val victim = if (finisherFx.victimIdx == 0) state.player else state.cpu
+        drawFinisherParticles(ctx, finisherFx, victim.x, victim.y - finisherFx.victimLiftPx, t)
+        drawFinisherBanners(ctx, theme, images.getValue(theme.hudImage), finisherFx, t, state.battleEnded)
+    }
+}
+
+/**
+ * 🆕 REMATE: partículas dibujadas en Canvas (no hay sprites para esto). Deterministas: cada
+ * partícula sale de su índice (pseudoaleatorio con sin) y del tiempo de juego.
+ */
+private fun DrawScope.drawFinisherParticles(
+    ctx: SceneCtx,
+    fx: SfFinisherVisual,
+    victimX: Float,
+    victimY: Float,
+    t: Long,
+) {
+    val kind = fx.particles ?: return
+    val p = fx.particleProgress
+    if (p <= 0f) return
+    fun rnd(i: Int, salt: Float): Float {
+        val v = kotlin.math.sin(i * 12.9898f + salt * 78.233f) * 43758.547f
+        return v - kotlin.math.floor(v) // 0..1
+    }
+    fun dot(wx: Float, wy: Float, radius: Float, color: Color) {
+        drawCircle(
+            color = color,
+            radius = radius * ctx.scale,
+            center = Offset(ctx.ox + (wx - ctx.camX) * ctx.scale, ctx.oy + (wy - ctx.camY) * ctx.scale),
+        )
+    }
+    val chestY = victimY - 55f
+    when (kind) {
+        // Estrellas que bajan en espiral y se "comen" a la víctima.
+        SfFinisherFx.NOCHE_SIN_SOL -> for (i in 0 until 18) {
+            val ang = rnd(i, 1f) * 6.2832f + t / 700f
+            val dist = (1f - p) * (60f + rnd(i, 2f) * 120f) + 4f
+            val x = victimX + kotlin.math.cos(ang) * dist
+            val y = chestY + kotlin.math.sin(ang) * dist * 0.6f
+            val twinkle = if (((t / 90L) + i) % 3L == 0L) 1.6f else 1f
+            dot(x, y, 1.6f * twinkle, Color(0xFFFFE082))
+            dot(x, y, 0.7f, Color.White)
+        }
+        // Burbujas/gotas que suben desde el piso alrededor de la víctima.
+        SfFinisherFx.RIO -> for (i in 0 until 16) {
+            val speed = 30f + rnd(i, 3f) * 50f
+            val rise = ((t / 1000f) * speed + rnd(i, 4f) * 90f) % 90f
+            val x = victimX + (rnd(i, 5f) - 0.5f) * 70f + kotlin.math.sin(t / 300f + i) * 3f
+            val y = SfConstants.STAGE_FLOOR - rise
+            val a = (1f - rise / 90f) * p
+            dot(x, y, 1.2f + rnd(i, 6f) * 1.6f, Color(0xFF8BE3FF).copy(alpha = a.coerceIn(0f, 1f)))
+        }
+        // Brasas que suben y se apagan (naranja → rojo).
+        SfFinisherFx.PACTO -> for (i in 0 until 20) {
+            val speed = 40f + rnd(i, 7f) * 60f
+            val rise = ((t / 1000f) * speed + rnd(i, 8f) * 110f) % 110f
+            val x = victimX + (rnd(i, 9f) - 0.5f) * 50f + kotlin.math.sin(t / 180f + i * 2f) * 4f
+            val y = victimY - 10f - rise
+            val life = 1f - rise / 110f
+            val color = if (life > 0.5f) Color(0xFFFFB300) else Color(0xFFE53935)
+            dot(x, y, 0.8f + life * 1.4f, color.copy(alpha = (life * p).coerceIn(0f, 1f)))
+        }
+    }
+}
+
+/** 🆕 REMATE: "ACABALO" parpadeante + pista del comando, o "MOVIMIENTO FINAL" + nombre. */
+private fun DrawScope.drawFinisherBanners(
+    ctx: SceneCtx,
+    theme: SfTheme,
+    hud: ImageBitmap,
+    fx: SfFinisherVisual,
+    t: Long,
+    battleEnded: Boolean,
+) {
+    // Con la ronda cerrada ya se pinta "<X> WINS" en y=58: los rótulos bajan para no encimarse.
+    val baseY = if (battleEnded) 96f else 60f
+    if (fx.headline.isNotEmpty() && !(fx.headlineBlink && (t / 250L) % 2L == 1L)) {
+        val size = if (fx.headlineBlink) 2.6f else 1.6f
+        val w = fx.headline.length * 12f * size
+        val x = (SfConstants.SCENE_WIDTH - w) / 2f
+        drawFontText(ctx, theme, hud, fx.headline, x + 1.5f, baseY + 1.5f, size) // sombra
+        drawFontText(ctx, theme, hud, fx.headline, x, baseY, size)
+    }
+    if (fx.subline.isNotEmpty()) {
+        val size = if (fx.headlineBlink) 0.8f else 1.3f
+        val w = fx.subline.length * 12f * size
+        val x = (SfConstants.SCENE_WIDTH - w) / 2f
+        val y = baseY + (if (fx.headlineBlink) 40f else 26f)
+        drawFontText(ctx, theme, hud, fx.subline, x + 1f, y + 1f, size)
+        drawFontText(ctx, theme, hud, fx.subline, x, y, size)
     }
 }
 
@@ -719,6 +841,9 @@ internal fun DrawScope.drawSpriteAnchored(
     // baja. SOLO afecta al RECORTE (las coordenadas del JSON son de la hoja original); el
     // tamaño de DESTINO no cambia, así que el sprite se ve igual de grande, solo más suave.
     sheetScale: Float = 1f,
+    // 🆕 REMATE: tinte parcial (el alfa del color = cuánto tiñe) y transparencia del sprite.
+    tint: Color? = null,
+    alpha: Float = 1f,
 ) {
     val anchorSx = ctx.ox + (worldX - ctx.camX) * ctx.scale
     val anchorSy = ctx.oy + (worldY - ctx.camY) * ctx.scale
@@ -737,8 +862,13 @@ internal fun DrawScope.drawSpriteAnchored(
             ),
             dstOffset = IntOffset(dstX.toInt(), dstY.toInt()),
             dstSize = IntSize((src[2] * s).toInt(), (src[3] * s).toInt()),
+            alpha = alpha,
             filterQuality = FilterQuality.None,
-            colorFilter = if (silhouette) ColorFilter.tint(Color(0xFF15151F)) else null,
+            colorFilter = when {
+                silhouette -> ColorFilter.tint(Color(0xFF15151F))
+                tint != null -> ColorFilter.tint(tint, BlendMode.SrcAtop)
+                else -> null
+            },
         )
     }
     if (direction == SfDirection.LEFT) {
@@ -757,11 +887,14 @@ internal fun DrawScope.drawSpriteAnchored(
  */
 internal const val TARGET_BODY_CONTENT_H = 100f
 
-/** Estados donde el cuerpo DEBE verse más bajo/tumbado: no forzar a 100 px. */
+/** Estados donde el cuerpo DEBE verse más bajo/tumbado o encogido: no forzar a 100 px. */
 internal fun SfFighterState.keepsNaturalHeight(): Boolean = when (this) {
     SfFighterState.CROUCH, SfFighterState.CROUCH_DOWN, SfFighterState.CROUCH_UP,
     SfFighterState.CROUCH_TURN,
     SfFighterState.KO,
+    SfFighterState.JUMP_START, SfFighterState.JUMP_UP,
+    SfFighterState.JUMP_FORWARD, SfFighterState.JUMP_BACKWARD,
+    SfFighterState.JUMP_LAND,
     -> true
     else -> name.startsWith("HURT_") // hurt puede aplastar; hurtScale aparte
 }
@@ -826,6 +959,10 @@ internal fun DrawScope.drawFighter(
     sheetKeyOverride: String? = null,
     // 🆕 (2026-07-21) Submuestreo del atlas en gama baja (1f = completo, 0.5f = mitad).
     sheetScale: Float = 1f,
+    // 🆕 REMATE: efectos sobre la víctima (tinte, transparencia y encogimiento).
+    tint: Color? = null,
+    alpha: Float = 1f,
+    extraScale: Float = 1f,
 ) {
     // 🆕 Nunca “desaparecer”: si falta hoja/anim/frame, cae a IDLE-1 o al primer frame disponible.
     val sheetKey = sheetKeyOverride ?: f.id.spriteAsset.substringAfterLast('/')
@@ -867,8 +1004,8 @@ internal fun DrawScope.drawFighter(
     }
     drawSpriteAnchored(
         ctx, sheet, frame.src, origin, f.x, f.y, drawDirection,
-        shakeX = shake, spriteScale = spriteScale, silhouette = silhouette,
-        sheetScale = sheetScale,
+        shakeX = shake, spriteScale = spriteScale * extraScale, silhouette = silhouette,
+        sheetScale = sheetScale, tint = tint, alpha = alpha,
     )
 
     // 🆕 HITBOXES (Ajustes → "Mostrar hitboxes"): push/hurt/hit. También se reescalan

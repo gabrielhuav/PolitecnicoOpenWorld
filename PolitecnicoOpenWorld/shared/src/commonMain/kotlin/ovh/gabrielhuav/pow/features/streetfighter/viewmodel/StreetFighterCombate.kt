@@ -569,6 +569,8 @@ internal fun StreetFighterViewModel.tryBossMetamorphosis(
     attackerIdx: Int,
     now: Long,
 ): Boolean {
+    // 🆕 REMATE: con 0 de vida esperando el "ACABALO" ya no hay metamorfosis que valga.
+    if (remate.isActive) return false
     val d = sim.fighter(defenderIdx)
     val plan = SfMetamorphosis.planFor(d, _state.value.roundNumber) ?: return false
     val maxHp = SfConstants.HEALTH_MAX_HIT_POINTS

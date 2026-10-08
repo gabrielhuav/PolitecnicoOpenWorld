@@ -158,6 +158,15 @@
     <string name="sf_mode_arcade_desc">Campaign: beat everyone and unlock fighters</string>
     <string name="sf_mode_combos">COMBOS &amp; TUTORIAL</string>
     <string name="sf_mode_combos_desc">Learn every control and combo, then practise them</string>
+    <!-- 🆕 RESIT EXAM: practice for the Extraordinary moves (end-of-match finishers) -->
+    <string name="sf_mode_extraordinario">RESIT EXAM</string>
+    <string name="sf_mode_extraordinario_desc">Practise the Extraordinary moves: the rival already failed and there is no time limit</string>
+    <string name="sf_extra_pick_fighter">Who takes the resit exam?</string>
+    <string name="sf_extra_steps">STEPS</string>
+    <string name="sf_extra_hide_steps">HIDE</string>
+    <string name="sf_extra_range">Range: %1$s</string>
+    <string name="sf_extra_aprobado">PASSED!</string>
+    <string name="sf_extra_reprobado">FAILED! Try again…</string>
     <string name="sf_mode_multiplayer">MULTIPLAYER</string>
     <string name="sf_mode_practice">PRACTICE</string>
     <string name="sf_mp_accept">ACCEPT</string>

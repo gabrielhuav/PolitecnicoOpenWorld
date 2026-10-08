@@ -5,6 +5,8 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCpuDifficulty
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfDirection
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighter
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfExtraordinarioHud
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFinisherVisual
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireball
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHitSplash
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtDevice
@@ -157,6 +159,15 @@ data class StreetFighterState(
     override val specialSubtitleUntilMs: Long = 0L,             // gameTimeMs límite (0 = oculto)
     override val specialSubtitleStartMs: Long = 0L,             // 🆕 (2026-07-22) inicio: reparte los tramos '|' en [start,until]
 
+    // ─── 🆕 REMATE FINAL estilo MK ("ACABALO" + cinemática; ver StreetFighterRemate.kt) ───
+    // null = no hay remate en curso. Lo llena el VM cada tick; el renderer solo lo pinta.
+    override val finisherVisual: SfFinisherVisual? = null,
+
+    // ─── 🆕 EXAMEN EXTRAORDINARIO (práctica de Extraordinarios; ver StreetFighterExtraordinario.kt) ───
+    val extraordinarioActive: Boolean = false,
+    /** Pasos, progreso, jerga y mensaje del intento. null fuera del modo. */
+    override val extraordinarioHud: SfExtraordinarioHud? = null,
+
     // ─── 🆕 MULTIJUGADOR 1v1 (servidor MultiplayerSF/ en Render, relay puro) ───
     val onlineStatus: SfOnlineStatus = SfOnlineStatus.OFF,
     val roomCode: String? = null,
@@ -216,6 +227,8 @@ enum class SfRoundOutcome(val label: String) {
     COMBO("COMBO"),    // el golpe de KO formó parte de un combo
     SUPER("SUPER"),    // el KO vino de un Super Art / Fatality
     TIME("TIME"),      // victoria por tiempo (más vida al agotarse el reloj)
+    // 🆕 REMATE FINAL (va AL FINAL: viaja por red como enum.name con parse defensivo)
+    REMATE("REMATE"),
 }
 
 /** Fase del flujo online (OFF = jugando offline contra la CPU). */
