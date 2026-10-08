@@ -214,6 +214,7 @@
     <!-- Ajustes compartidos (2026-07-29) -->
     <string name="menu_back">VOLVER</string>
     <string name="settings_back">Volver</string>
+    <string name="settings_exit_to_menu">SALIR AL MENÚ</string>
     <string name="settings_cache_widget">Widget de caché</string>
     <string name="settings_cache_widget_desc">Muestra fuente de datos</string>
     <string name="settings_cat_account">Cuenta</string>
