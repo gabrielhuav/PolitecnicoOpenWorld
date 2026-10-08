@@ -196,6 +196,9 @@
     <string name="sf_mp_waiting_sub">Share the code with your rival; waiting for them to join…</string>
     <string name="sf_other_modes">↕ Other modes</string>
     <string name="sf_paused">PAUSED</string>
+    <string name="sf_pause_moves">Move List</string>
+    <string name="sf_pause_restart">Restart Fight</string>
+    <string name="sf_pause_exit">Exit to Menu</string>
     <string name="sf_random">Random</string>
     <string name="sf_rematch">Rematch</string>
     <string name="sf_resume_message">You have an unfinished arcade fight. Resume where you left off?</string>
