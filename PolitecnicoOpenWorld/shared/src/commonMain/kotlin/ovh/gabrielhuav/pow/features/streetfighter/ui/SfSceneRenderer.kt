@@ -757,11 +757,14 @@ internal fun DrawScope.drawSpriteAnchored(
  */
 internal const val TARGET_BODY_CONTENT_H = 100f
 
-/** Estados donde el cuerpo DEBE verse más bajo/tumbado: no forzar a 100 px. */
+/** Estados donde el cuerpo DEBE verse más bajo/tumbado o encogido: no forzar a 100 px. */
 internal fun SfFighterState.keepsNaturalHeight(): Boolean = when (this) {
     SfFighterState.CROUCH, SfFighterState.CROUCH_DOWN, SfFighterState.CROUCH_UP,
     SfFighterState.CROUCH_TURN,
     SfFighterState.KO,
+    SfFighterState.JUMP_START, SfFighterState.JUMP_UP,
+    SfFighterState.JUMP_FORWARD, SfFighterState.JUMP_BACKWARD,
+    SfFighterState.JUMP_LAND,
     -> true
     else -> name.startsWith("HURT_") // hurt puede aplastar; hurtScale aparte
 }
