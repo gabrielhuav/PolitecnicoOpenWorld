@@ -39,7 +39,7 @@ object SfStageCatalog {
         }
     }
 
-    // ---- Catálogo de mapas implementados (16 bases × 3 iluminaciones = 48) ----
+    // ---- Catálogo de mapas implementados (17 bases × 3 iluminaciones = 51) ----
     val ESCOM = Stage("escom", "ESCOM", "fondo_escom_anim.webp")
     val QUESO_IPN = Stage("queso_ipn", "Queso IPN", "fondo_queso_ipn_anim.webp")
     val ESIME_AZC = Stage("esime_azc", "ESIME Azcapotzalco", "fondo_esime_azc_anim.webp")
@@ -56,11 +56,13 @@ object SfStageCatalog {
     val PIRAMIDE = Stage("piramidesol", "Pirámide del Sol", "fondo_piramidesol_anim.webp")
     val UAM_CUAJI = Stage("uam_cuajimalpa", "UAM Cuajimalpa", "fondo_uam_cuajimalpa_anim.webp")
     val ZOCALO = Stage("zocalo", "Zócalo", "fondo_zocalo_anim.webp")
+    val BIBLIOTECA_IPN = Stage("biblioteca_ipn", "Biblioteca Nacional IPN", "fondo_biblioteca_ipn_anim.webp")
 
     val ALL_STAGES: List<Stage> = listOf(
         ESCOM, QUESO_IPN, ESIME_AZC, CECYT_9, CECYT_2,
         UNAM_CU, FES_ACATLAN, UAM_AZCAPO, ISLA_MUNECAS, MICTLÁN,
         AGAVE, FAC_MED, FES_ARAGON, PIRAMIDE, UAM_CUAJI, ZOCALO,
+        BIBLIOTECA_IPN,
     )
 
     /**
@@ -70,10 +72,9 @@ object SfStageCatalog {
      * (`SfArcadeLadder.ALL_PARTICIPANTS`) son formales.
      *
      * Compartidos:
-     * - CU UNAM: PAPARAZZI_1 + POLICIA_GRANADERO_MUJER
      * - Zócalo: POLICIA_GRANADERO_HOMBRE + LA_PRESIDENTA
      *
-     * Los 16 mapas base tienen al menos un peleadór hogar.
+     * Los 17 mapas base tienen al menos un peleadór hogar.
      * Alpha/shared (LÁZARO, etc.): fallback solo para Modo Dev.
      */
     fun homeStage(id: SfFighterId): Stage = when (id) {
@@ -93,7 +94,7 @@ object SfStageCatalog {
         SfFighterId.POLICIA_CDMX_HOMBRE -> FES_ACATLAN
         SfFighterId.POLICIA_CDMX -> UAM_CUAJI
         SfFighterId.POLICIA_GRANADERO_HOMBRE -> ZOCALO
-        SfFighterId.POLICIA_GRANADERO_MUJER -> UNAM_CU // comparte con Paparazzi 1
+        SfFighterId.POLICIA_GRANADERO_MUJER -> BIBLIOTECA_IPN
         // ── Leyenda / jefes ──
         SfFighterId.CHARRO_NEGRO -> AGAVE
         SfFighterId.LA_LLORONA -> ISLA_MUNECAS
@@ -144,7 +145,7 @@ object SfStageCatalog {
         return ALL_STAGES.find { it.dayFile == base }
     }
 
-    /** Lista plana de los 48 fondos (día+noche+apocalipsis) para el selector de práctica. */
+    /** Lista plana de los 51 fondos (día+noche+apocalipsis) para el selector de práctica. */
     fun allBackgroundFiles(): List<String> = ALL_STAGES.flatMap { s ->
         listOf(s.file(Lighting.DAY), s.file(Lighting.NIGHT), s.file(Lighting.APOCALYPSE))
     }

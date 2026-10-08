@@ -154,6 +154,9 @@ val SF_CLASSIC_THEME = SfTheme(
         SfStageBg("fondo_cecyt_2_anim.webp", "CECyT 2"),
         SfStageBg("fondo_cecyt_2_noche_1_anim.webp", "CECyT 2 (Noche)"),
         SfStageBg("fondo_cecyt_2_noche_2_anim.webp", "CECyT 2 (Noche 2)"),
+        SfStageBg("fondo_biblioteca_ipn_anim.webp", "Biblioteca Nacional IPN"),
+        SfStageBg("fondo_biblioteca_ipn_noche_1_anim.webp", "Biblioteca Nacional IPN (Noche)"),
+        SfStageBg("fondo_biblioteca_ipn_noche_2_anim.webp", "Biblioteca Nacional IPN (Noche 2)"),
         // ---- UNAM (animados) ----
         SfStageBg("fondo_unam_biblioteca_cu_anim.webp", "Ciudad Universitaria UNAM"),
         SfStageBg("fondo_unam_biblioteca_cu_noche_1_anim.webp", "CU UNAM (Noche)"),
