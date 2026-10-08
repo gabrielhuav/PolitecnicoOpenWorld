@@ -180,6 +180,7 @@ private fun releaseSfSpecials(activePlayers: MutableMap<String, PowClip>) {
 fun StreetFighterScreenCommon(
     onExitToMap: () -> Unit,
     controller: StreetFighterController,
+    controlsScale: Float = 1f,
     onlineStatusContent: @Composable (
         StreetFighterState,
         SfTheme,
@@ -525,6 +526,7 @@ fun StreetFighterScreenCommon(
                 ?: extraNext?.takeIf { !extraIsButton }
             JoystickController(
                 modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+                tamano = 180.dp * controlsScale.coerceIn(0.6f, 1.4f),
                 onRelease = controller::onJoystickRelease,
                 // 🆕 (2026-07-25) Respuesta INMEDIATA al toque: en la pelea los controles deben
                 // responder al instante (agacharse/caminar). Con el arrastre de siempre un tap se
@@ -538,7 +540,10 @@ fun StreetFighterScreenCommon(
             if (tutorialJoystick != null) {
                 SfJoystickHint(
                     text = tutorialJoystick,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(start = 30.dp, bottom = 150.dp),
+                    modifier = Modifier.align(Alignment.BottomStart).padding(
+                        start = 30.dp,
+                        bottom = 12.dp + 138.dp * controlsScale.coerceIn(0.6f, 1.4f),
+                    )
                 )
             }
             // OJO: padding-end grande a propósito — en landscape la barra de navegación/gestos
@@ -547,6 +552,7 @@ fun StreetFighterScreenCommon(
             // los toques caen dentro del juego.
             FighterXboxButtons(
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 64.dp, bottom = 16.dp),
+                controlsScale = controlsScale,
                 onPunch = { strength -> controller.onAttackPressed(strength, SfAttackType.PUNCH) },
                 onKick = controller::onKickPressed,
                 bonusPowerCount = state.player.id.bonusPowerCount,
@@ -559,9 +565,13 @@ fun StreetFighterScreenCommon(
                 // 🆕 (2026-07-22) Rediseño "Neón Arcade": gatillos L (izquierda, encima del
                 // joystick) = L1 Parry · L2 Burla.
                 FighterShoulderButtons(
+                    controlsScale = controlsScale,
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .padding(start = 16.dp, bottom = 185.dp),
+                        .padding(
+                            start = 16.dp,
+                            bottom = 12.dp + 173.dp * controlsScale.coerceIn(0.6f, 1.4f),
+                        ),
                     isLeft = true,
                     superReady = state.player.superReady,
                     onParry = controller::onParryPressed,
@@ -574,9 +584,13 @@ fun StreetFighterScreenCommon(
                 )
                 // Gatillos R (derecha, encima del diamante) = R1 Agarre · R2 Súper.
                 FighterShoulderButtons(
+                    controlsScale = controlsScale,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = 190.dp),
+                        .padding(
+                            end = 16.dp,
+                            bottom = 16.dp + 174.dp * controlsScale.coerceIn(0.6f, 1.4f),
+                        ),
                     isLeft = false,
                     superReady = state.player.superReady,
                     onParry = controller::onParryPressed,
@@ -1615,6 +1629,7 @@ private fun trimTransparent(bmp: Bitmap): Bitmap {
 @Composable
 private fun FighterXboxButtons(
     modifier: Modifier = Modifier,
+    controlsScale: Float = 1f,
     onPunch: (SfAttackStrength) -> Unit,
     onKick: () -> Unit,
     bonusPowerCount: Int,
@@ -1622,9 +1637,10 @@ private fun FighterXboxButtons(
     // 🆕 (2026-07-22) TUTORIAL: letra del botón que TOCA presionar (brilla/pulsa) o null.
     highlight: String? = null,
 ) {
+    val scale = controlsScale.coerceIn(0.6f, 1.4f)
     Box(
         modifier = modifier
-            .size(180.dp)
+            .size(180.dp * scale)
             .clip(CircleShape)
             .background(Color.Black.copy(alpha = 0.4f)),
         contentAlignment = Alignment.Center,
@@ -1632,28 +1648,28 @@ private fun FighterXboxButtons(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             // Y arriba — PUÑO MEDIO (amarillo)
             SfTutorialButtonGlow(active = highlight == "Y") {
-                ActionButton(text = "Y", color = Color(0xFFF1C40F), onHoldEvent = { pressed ->
+                ActionButton(text = "Y", color = Color(0xFFF1C40F),tamano = 48.dp * scale, onHoldEvent = { pressed ->
                     if (pressed) onPunch(SfAttackStrength.MEDIUM)
                 })
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // X izquierda — PUÑO LIGERO (azul)
                 SfTutorialButtonGlow(active = highlight == "X") {
-                    ActionButton(text = "X", color = Color(0xFF3498DB), onHoldEvent = { pressed ->
+                    ActionButton(text = "X", color = Color(0xFF3498DB),tamano = 48.dp * scale, onHoldEvent = { pressed ->
                         if (pressed) onPunch(SfAttackStrength.LIGHT)
                     })
                 }
-                Spacer(modifier = Modifier.size(48.dp))
+                Spacer(modifier = Modifier.size(48.dp * scale))
                 // B derecha — PUÑO FUERTE (rojo)
                 SfTutorialButtonGlow(active = highlight == "B") {
-                    ActionButton(text = "B", color = Color(0xFFE74C3C), onHoldEvent = { pressed ->
+                    ActionButton(text = "B", color = Color(0xFFE74C3C),tamano = 48.dp * scale, onHoldEvent = { pressed ->
                         if (pressed) onPunch(SfAttackStrength.HEAVY)
                     })
                 }
             }
             // A abajo — PATADA (verde; fuerza según joystick: neutro/adelante/atrás)
             SfTutorialButtonGlow(active = highlight == "A") {
-                ActionButton(text = "A", color = Color(0xFF2ECC71), onHoldEvent = { pressed ->
+                ActionButton(text = "A", color = Color(0xFF2ECC71),tamano = 48.dp * scale, onHoldEvent = { pressed ->
                     if (pressed) onKick()
                 })
             }
@@ -1661,7 +1677,7 @@ private fun FighterXboxButtons(
         if (bonusPowerCount > 0) {
             // Centro del diamante: recorre P1..PN. El siguiente toque avanza al poder
             // siguiente; Yoalli tiene 9 y La Tzitzimime 5.
-            ActionButton(text = "P", color = Color(0xFF8E44AD), onHoldEvent = { pressed ->
+            ActionButton(text = "P", color = Color(0xFF8E44AD),tamano = 48.dp * scale, onHoldEvent = { pressed ->
                 if (pressed) onBonusPower()
             })
         }
@@ -1788,6 +1804,7 @@ private fun SfJoystickHint(text: String, modifier: Modifier = Modifier) {
 @Composable
 private fun FighterShoulderButtons(
     modifier: Modifier = Modifier,
+    controlsScale: Float = 1f,
     isLeft: Boolean,
     superReady: Boolean,
     onParry: () -> Unit,
@@ -1805,23 +1822,24 @@ private fun FighterShoulderButtons(
     // 🆕 (2026-07-22) TUTORIAL: letra del botón que TOCA presionar (brilla/pulsa) o null.
     highlight: String? = null,
 ) {
+    val scale = controlsScale.coerceIn(0.6f, 1.4f)
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         if (isLeft) {
             // L1 · Parry (cian neón): desvía el golpe si se aprieta a tiempo
-            SfNeonButton("L1", Color(0xFF00F2FE), Color(0xFF00ADB5), highlight == "L1", onParry)
-            Spacer(modifier = Modifier.size(6.dp))
+            SfNeonButton("L1", Color(0xFF00F2FE), Color(0xFF00ADB5), highlight == "L1", onParry, controlsScale = scale,)
+            Spacer(modifier = Modifier.size(6.dp * scale))
             // L2 · Burla (rosa neón, sin efecto en combate)
-            SfNeonButton("L2", Color(0xFFFF007F), Color(0xFFC5005E), highlight == "L2", onTaunt)
+            SfNeonButton("L2", Color(0xFFFF007F), Color(0xFFC5005E), highlight == "L2", onTaunt, controlsScale = scale,)
             if (showCounter) {
-                Spacer(modifier = Modifier.size(6.dp))
+                Spacer(modifier = Modifier.size(6.dp * scale))
                 // 🆕 L3 · Contraataque (esmeralda, de la reserva de paleta): ventana más corta
                 // que el parry; si conecta, agarre gratis con daño de bonus.
-                SfNeonButton("L3", Color(0xFF2D6A4F), Color(0xFF1B4332), highlight == "L3", onCounter)
+                SfNeonButton("L3", Color(0xFF2D6A4F), Color(0xFF1B4332), highlight == "L3", onCounter, controlsScale = scale,)
             }
         } else {
             // R1 · Agarre (violeta neón): lanza al rival pegado, atraviesa la guardia
-            SfNeonButton("R1", Color(0xFF7928CA), Color(0xFF56149F), highlight == "R1", onGrab)
-            Spacer(modifier = Modifier.size(6.dp))
+            SfNeonButton("R1", Color(0xFF7928CA), Color(0xFF56149F), highlight == "R1", onGrab, controlsScale = scale,)
+            Spacer(modifier = Modifier.size(6.dp * scale))
             // R2 · Súper (naranja neón; apagado si el medidor no está lleno)
             SfNeonButton(
                 label = "R2",
@@ -1829,12 +1847,13 @@ private fun FighterShoulderButtons(
                 border = if (superReady) Color(0xFFC85A00) else Color(0xFF3A3A3A),
                 highlighted = highlight == "R2",
                 onPress = onSuper,
+                controlsScale = scale,
             )
             if (showPowerThrow) {
-                Spacer(modifier = Modifier.size(6.dp))
+                Spacer(modifier = Modifier.size(6.dp * scale))
                 // 🆕 R3 · Derribo con poder (rubí, de la reserva de paleta): cuesta medidor,
                 // pega más fuerte y empuja más que el agarre normal.
-                SfNeonButton("R3", Color(0xFF9B2226), Color(0xFF641220), highlight == "R3", onPowerThrow)
+                SfNeonButton("R3", Color(0xFF9B2226), Color(0xFF641220), highlight == "R3", onPowerThrow, controlsScale = scale,)
             }
         }
     }
@@ -1848,13 +1867,14 @@ private fun SfNeonButton(
     border: Color,
     highlighted: Boolean,
     onPress: () -> Unit,
+    controlsScale: Float = 1f,
 ) {
     SfTutorialButtonGlow(active = highlighted) {
         Box(
             modifier = Modifier.border(2.dp, border, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            ActionButton(text = label, color = fill, onHoldEvent = { pressed -> if (pressed) onPress() })
+            ActionButton(text = label, color = fill, tamano = 48.dp * controlsScale, onHoldEvent = { pressed -> if (pressed) onPress() })
         }
     }
 }
