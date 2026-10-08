@@ -262,6 +262,10 @@ enum class SfFighterId(
         "Paramédico", "PARAMEDICO", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Paramedico.png",
         isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "Paramedico/", "pmd_"),
     ),
+    CALVO_CON_CAPA(
+        "El Calvo con Capa", "CALVO", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/CalvoConCapa.png",
+        isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "CalvoConCapa/", "ccc_"),
+    ),
 }
 
 /** Fuerza del ataque (fighter.js FighterAttackBaseData; slide ya en px/s). */

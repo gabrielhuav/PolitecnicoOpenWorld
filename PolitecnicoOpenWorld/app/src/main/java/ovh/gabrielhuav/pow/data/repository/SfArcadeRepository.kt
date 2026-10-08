@@ -47,8 +47,8 @@ class SfArcadeRepository(context: Context) {
         private const val KEY_FIGHTERS_V2 = "UNLOCKED_FIGHTERS_V2"
         private const val KEY_MAPS_V2 = "UNLOCKED_MAPS_V2"
 
-        /** Peleadores desbloqueados de arranque: los 3 estudiantes (el jugador elige uno). */
-        val DEFAULT_FIGHTERS = setOf("ESCOMBOY", "ESCOMGIRL", "ROBOT")
+        /** Peleadores desbloqueados de arranque: estudiantes y personajes jugables. */
+        val DEFAULT_FIGHTERS = setOf("ESCOMBOY", "ESCOMGIRL", "ROBOT", "CALVO_CON_CAPA")
         /** Mapa desbloqueado de arranque (hogar de los starters = ESCOM día). */
         const val DEFAULT_MAP = "fondo_escom_anim.webp"
 

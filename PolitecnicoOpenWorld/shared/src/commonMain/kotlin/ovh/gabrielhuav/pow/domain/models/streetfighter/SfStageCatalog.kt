@@ -104,6 +104,7 @@ object SfStageCatalog {
         SfFighterId.LAZARO -> ESCOM
         SfFighterId.GRANADERO -> ZOCALO
         SfFighterId.PARAMEDICO -> FAC_MED
+        SfFighterId.CALVO_CON_CAPA -> ESCOM
     }
 
     /** Iluminación del arcade según dificultad elegida (Fácil/Medio/Difícil). */
