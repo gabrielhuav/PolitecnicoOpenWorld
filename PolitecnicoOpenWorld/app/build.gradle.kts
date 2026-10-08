@@ -47,18 +47,14 @@ android {
         debug {
             // Servidor del mundo abierto (open world)
             buildConfigField("String", "MULTIPLAYER_SERVER_URL", "\"wss://politecnicoopenworld.onrender.com\"")
-            // Servidor del minijuego de INTERIORES (lobby + edificios ESCOM; instancia separada en Render)
+            // Servidor del minijuego de INTERIORES
             buildConfigField("String", "INTERIORS_SERVER_URL", "\"wss://politecnicoopenworld-1.onrender.com\"")
-            // Servidor del modo PELEA 1v1 (MultiplayerSF/; 3a instancia GRATIS en Render —
-            // ajusta la URL al nombre real del servicio tras el primer deploy)
+            // Servidor del modo PELEA 1v1
             buildConfigField("String", "SF_SERVER_URL", "\"wss://politecnicoopenworld-2.onrender.com\"")
         }
         release {
-            // Play Console: habilita R8 para eliminar y optimizar codigo no usado en el AAB.
             isMinifyEnabled = true
-            // AGP 9 integra la reduccion optimizada de recursos con el grafo de R8.
             isShrinkResources = true
-            // Solo firma si CI proporcionó la keystore (env); local sin env → release sin firmar.
             if (!System.getenv("RELEASE_KEYSTORE_PATH").isNullOrEmpty()) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -78,6 +74,7 @@ android {
     }
     // 🍏 Fase 5: `kotlinOptions` quedo deprecado en Kotlin 2.3 -> DSL de `compilerOptions`.
     // Sigue siendo JVM 11, el MISMO que `:shared`: si divergen, el consumo entre modulos falla.
+    //noinspection WrongGradleMethod
     kotlin {
         compilerOptions {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
