@@ -277,9 +277,9 @@
       "draft": "Estos son los de la verga, güey, son los de la verga, güey."
     },
     "special_robot": {
-      "es": "Sistema activado, objetivo localizado.",
-      "en": "System activated, target located.",
-      "draft": "Sistema activado. Objetivo localizado."
+      "es": "Calculando Impacto.",
+      "en": "Calculating Impact.",
+      "draft": "Calculando Impacto"
     },
     "special_robot_attack": {
       "es": "",
@@ -287,9 +287,9 @@
       "draft": ""
     },
     "special_robot_hurt": {
-      "es": "",
-      "en": "",
-      "draft": "Eeeeeeeeeeeeeeeeeee"
+      "es": "Procesando Dolor",
+      "en": "Processing Pain",
+      "draft": "Procesando Dolor"
     },
     "special_robot_win": {
       "es": "La base de datos de virus... |  ha sido actualizada.",
