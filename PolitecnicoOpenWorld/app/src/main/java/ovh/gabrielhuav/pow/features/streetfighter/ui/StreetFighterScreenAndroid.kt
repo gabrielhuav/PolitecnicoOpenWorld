@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.AndroidStreetFighterViewModel
+import androidx.compose.ui.platform.LocalContext
+import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 
 /* Importaciones para la implementación botón "Back" nativo de Android */
 import androidx.activity.compose.BackHandler
@@ -17,6 +19,9 @@ fun StreetFighterScreen(
     viewModel: AndroidStreetFighterViewModel = hiltViewModel(),
 ) {
     val controller = remember(viewModel) { AndroidStreetFighterController(viewModel) }
+    val context = LocalContext.current
+    val settings = remember(context) { SettingsRepository(context) }
+    val controlsScale = settings.getControlsScale()
 
     /* Implementación de ir atrás del sistema, implemntando el dialogo de salida para confirmación,
     * en vez de sacar al jugador al menu principal por defecto. Fuera del combate se deja el Atrás normal*/
@@ -33,6 +38,7 @@ fun StreetFighterScreen(
     StreetFighterScreenCommon(
         onExitToMap = onExitToMap,
         controller = controller,
+        controlsScale = controlsScale,
         onlineStatusContent = { state, theme, lowEnd, uiController ->
             AndroidSfOnlineStatusContent(state, theme, lowEnd, uiController)
         },
