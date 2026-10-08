@@ -418,12 +418,22 @@ internal fun OnlineMenuOverlay(
                 color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp,
             )
             Spacer(modifier = Modifier.height(4.dp))
+            // Validación IPv4 real (SfLanAddress): antes sólo se contaban puntos y "..." o "a.b.c.d"
+            // habilitaban UNIRSE y lanzaban una conexión condenada a fallar.
+            val lanIpValid = SfLanAddress.isValidIpv4(lanIp)
+            val lanIpShowError = SfLanAddress.shouldShowError(lanIp)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = lanIp,
-                    onValueChange = { lanIp = it.trim() },
+                    onValueChange = { lanIp = SfLanAddress.sanitize(it) },
                     label = { Text(stringResource(R.string.sf_lan_ip_label)) },
                     singleLine = true,
+                    isError = lanIpShowError,
+                    supportingText = if (lanIpShowError) {
+                        { Text(stringResource(R.string.sf_lan_ip_invalid)) }
+                    } else {
+                        null
+                    },
                     modifier = Modifier.width(180.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color(0xFFD4AF37),
@@ -433,12 +443,18 @@ internal fun OnlineMenuOverlay(
                         cursorColor = Color(0xFFD4AF37),
                         focusedLabelColor = Color(0xFFD4AF37),
                         unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                        // Contraste legible sobre el fondo oscuro del menú (el rojo M3 por defecto no lo es).
+                        errorBorderColor = Color(0xFFFF6B6B),
+                        errorTextColor = Color.White,
+                        errorLabelColor = Color(0xFFFF6B6B),
+                        errorSupportingTextColor = Color(0xFFFF6B6B),
+                        errorCursorColor = Color(0xFFFF6B6B),
                     ),
                 )
                 PowButton(
                     text = stringResource(R.string.sf_mp_join),
-                    onClick = { if (lanIp.contains('.')) onLanJoin(lanIp) },
-                    enabled = lanIp.count { it == '.' } == 3, // IPv4 completa
+                    onClick = { if (lanIpValid) onLanJoin(lanIp) },
+                    enabled = lanIpValid,
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
