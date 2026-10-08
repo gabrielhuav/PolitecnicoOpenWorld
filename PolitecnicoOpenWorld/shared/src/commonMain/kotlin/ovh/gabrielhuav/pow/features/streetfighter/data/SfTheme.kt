@@ -190,6 +190,9 @@ val SF_CLASSIC_THEME = SfTheme(
         SfStageBg("fondo_zocalo_anim.webp", "Zócalo"),
         SfStageBg("fondo_zocalo_noche_1_anim.webp", "Zócalo (Noche)"),
         SfStageBg("fondo_zocalo_noche_2_anim.webp", "Zócalo (Noche 2)"),
+        SfStageBg("fondo_planetario_anim.webp", "Planetario IPN"),
+        SfStageBg("fondo_planetario_noche_1_anim.webp","Planetario (Noche)"),
+        SfStageBg("fondo_planetario_noche_2_anim.webp","Planetario (Noche 2)")
     ),
     stageImage = "kenstage.png",
     stageBackground = listOf(72, 208, 768, 176),
