@@ -511,8 +511,19 @@ fun StreetFighterScreenCommon(
             } else {
                 null
             }
-            val tutorialButton = tutorialStepLabel?.let(::sfButtonForLabel)
+            // 🆕 EXAMEN EXTRAORDINARIO: con el panel de PASOS abierto, el siguiente paso se
+            // resalta igual que en el tutorial (flecha sobre el joystick o botón que brilla).
+            var extraShowSteps by remember { mutableStateOf(false) }
+            val extraHud = state.extraordinarioHud
+            val extraNext = if (extraShowSteps && extraHud != null && extraHud.flash.isEmpty()) {
+                extraHud.steps.getOrNull(extraHud.stepIndex)
+            } else {
+                null
+            }
+            val extraIsButton = extraNext != null && extraNext.length == 1 && extraNext[0].isLetter()
+            val tutorialButton = tutorialStepLabel?.let(::sfButtonForLabel) ?: extraNext?.takeIf { extraIsButton }
             val tutorialJoystick = tutorialStepLabel?.let(::sfJoystickHintForLabel)
+                ?: extraNext?.takeIf { !extraIsButton }
             JoystickController(
                 modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
                 tamano = 180.dp * controlsScale.coerceIn(0.6f, 1.4f),
@@ -609,6 +620,15 @@ fun StreetFighterScreenCommon(
                     // `exitTutorial` devuelve el estado a selección de personaje; el
                     // LaunchedEffect(inCharacterSelect) reabre el flujo normal del modo.
                     onExit = controller::exitTutorial,
+                )
+            }
+            // 🆕 EXAMEN EXTRAORDINARIO: botones PASOS/SALIR, panel del comando y ¡APROBADO!
+            if (state.extraordinarioActive && extraHud != null) {
+                SfExtraordinarioOverlay(
+                    hud = extraHud,
+                    showSteps = extraShowSteps,
+                    onToggleSteps = { extraShowSteps = !extraShowSteps },
+                    onExit = controller::backToCharacterSelect,
                 )
             }
             // 🆕 (2026-07-22) El hint de controles al fondo se QUITÓ (pedido del dueño): estorbaba
@@ -727,6 +747,8 @@ fun StreetFighterScreenCommon(
         // 🆕 (2026-07-21) HOJA DE COMBOS: lista de controles y combos + "PROBAR" (tutorial).
         var showComboSheet by remember { mutableStateOf(false) }
         var comboFighter by remember { mutableStateOf<SfFighterId?>(null) }
+        // 🆕 EXAMEN EXTRAORDINARIO: selector propio (solo peleadores con Extraordinario).
+        var extraSetup by remember { mutableStateOf(false) }
         // 🆕 (2026-07-22) MEMORIA DEL MODO: al salir de una pelea se vuelve al selector DEL
         // MISMO modo (antes SIEMPRE forzaba el selector de Arcade). Se registra al LANZAR
         // cada modo; "menu" = gauntlet/showcase (no tienen selector propio) → menú de modos.
@@ -736,9 +758,11 @@ fun StreetFighterScreenCommon(
                 arcadeSetup = false
                 sfMenu = false
                 aiVsAiSetup = false
+                extraSetup = false
                 when (lastLaunchedMode) {
                     "arcade" -> arcadeSetup = true
                     "aivsai" -> aiVsAiSetup = true
+                    "extra" -> extraSetup = true // 🆕 volver = selector del examen
                     "practice" -> Unit // el selector de práctica es la rama default
                     "combos" -> showComboSheet = true // vuelve a la hoja del peleador probado
                     else -> sfMenu = true
@@ -900,6 +924,16 @@ fun StreetFighterScreenCommon(
                                 controller.stopAudioShowcase()
                                 showComboSheet = true
                             },
+                            onExtraordinario = {
+                                controller.stopAudioShowcase()
+                                sfMenu = false
+                                arcadeSetup = false
+                                aiVsAiSetup = false
+                                extraSetup = true
+                                pendingFighter = null
+                                pendingRival = null
+                                pendingDifficulty = null
+                            },
                             onMultiplayer = {
                                 controller.stopAudioShowcase()
                                 showOnlineMenu = true
@@ -987,6 +1021,32 @@ fun StreetFighterScreenCommon(
                             lowEnd = lowEnd,
                             isActuallyUnlocked = { controller.isFighterActuallyUnlocked(it) },
                         )
+                        // 🆕 EXAMEN EXTRAORDINARIO: solo peleadores con Extraordinario; rival y
+                        // escenario AL AZAR (entre desbloqueados, o todos en Modo Dev).
+                        extraSetup -> {
+                            val conExtra = remember { controller.extraordinarioFighters().toSet() }
+                            CharacterSelectOverlay(
+                                fighters = controller.selectableFighters().filter { it in conExtra },
+                                lockedFighters = controller.lockedFighters().filter { it in conExtra },
+                                subtitle = stringResource(Res.string.sf_extra_pick_fighter),
+                                onSelect = { f ->
+                                    val rival = controller.selectableFighters().filter { it != f }.randomOrNull() ?: f
+                                    val unlocked = controller.unlockedMaps()
+                                    val pool = if (controller.devUnlockAll()) {
+                                        theme.fullBackgrounds.map { it.file }
+                                    } else {
+                                        theme.fullBackgrounds.map { it.file }.filter { it in unlocked }
+                                    }
+                                    chosenBgFile = pool.randomOrNull() ?: theme.fullBackgrounds.firstOrNull()?.file
+                                    lastLaunchedMode = "extra"
+                                    extraSetup = false
+                                    controller.startExtraordinario(f, rival)
+                                },
+                                onBack = { extraSetup = false; sfMenu = true },
+                                lowEnd = lowEnd,
+                                isActuallyUnlocked = { controller.isFighterActuallyUnlocked(it) },
+                            )
+                        }
                         // PRÁCTICA (versus): peleador → RIVAL → DIFICULTAD → mapa
                         fighter == null -> CharacterSelectOverlay(
                             fighters = controller.selectableFighters(),
