@@ -240,6 +240,10 @@ open class StreetFighterViewModel(
                 // audio: la frase real ya no es "Sí. Siempre…" sino esta (verificada con Whisper).
                 win = listOf(SfVoiceLine("special_la_presidenta_win", "Porque patria se escribe con A de mujer"))
             ),
+            // 🆕 (2026-09-30) Aleks Syntek: audio del dueño al GANAR (special_aleks_syntek_win.m4a).
+            SfFighterId.ALEKS_SYNTEK to SfVoicePack(
+                win = listOf(SfVoiceLine("special_aleks_syntek_win"))
+            ),
             // 🆕 (2026-07-19) Escomboy / Escomgirl: mapeo de su poder especial de electricidad (compartido)
             // 🆕 (2026-07-19) Escomboy / Escomgirl: mapeo de sus audios de voz e impactos
             SfFighterId.ESCOMBOY to SfVoicePack(
@@ -298,13 +302,13 @@ open class StreetFighterViewModel(
         SfFighterId.PRANKEDY, SfFighterId.SENOR_TIENDA, SfFighterId.PAPARAZZI_1, SfFighterId.PAPARAZZI_5,
         SfFighterId.REY_GRUPERO, SfFighterId.ESCOMBOY, SfFighterId.CHARRO_NEGRO, SfFighterId.LAZARO,
         SfFighterId.POLICIA_CDMX_HOMBRE, SfFighterId.POLICIA_GRANADERO_HOMBRE, SfFighterId.GRANADERO,
-        SfFighterId.PARAMEDICO_CRUZ_ROJA, SfFighterId.PARAMEDICO,
+        SfFighterId.PARAMEDICO_CRUZ_ROJA, SfFighterId.PARAMEDICO, SfFighterId.ALEKS_SYNTEK,
     )
 
     // 🆕 (2026-07-18s) Peleadores SIN voz a propósito (special_<id>.m4a borrado por el dueño):
     // su poder especial suena con el hadouken genérico. La auditoría NO los marca como faltantes.
     internal val sfVoicelessFighters = setOf(
-        SfFighterId.LAZARO, SfFighterId.PARAMEDICO, SfFighterId.PRANKEDY,
+        SfFighterId.LAZARO, SfFighterId.PARAMEDICO, SfFighterId.PRANKEDY, SfFighterId.ALEKS_SYNTEK,
     )
 
     /** Emite un clip de voz `special_<name>.m4a` si el asset existe. true = se emitió. */

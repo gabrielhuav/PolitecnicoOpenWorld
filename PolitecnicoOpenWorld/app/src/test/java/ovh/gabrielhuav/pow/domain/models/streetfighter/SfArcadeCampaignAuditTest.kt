@@ -165,6 +165,7 @@ class SfArcadeCampaignAuditTest {
                 "special_pol_h_intro.ogg", "special_pol_h_attack.ogg", "special_granadero_win.ogg"
             )
             SfFighterId.PARAMEDICO -> emptyList()
+            SfFighterId.ALEKS_SYNTEK -> listOf("special_aleks_syntek_win.ogg")
         }.map { it.removeSuffix(".ogg") + ".m4a" }
     }
 

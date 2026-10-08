@@ -44,7 +44,7 @@ data class SfArcadeSession(
 )
 
 private object EmptySfArcadeStore : SfArcadeStore {
-    override fun unlockedFighters() = setOf("ESCOMBOY", "ESCOMGIRL", "ROBOT")
+    override fun unlockedFighters() = setOf("ESCOMBOY", "ESCOMGIRL", "ROBOT", "ALEKS_SYNTEK")
     override fun unlockFighter(id: String) = false
     override fun unlockedMaps() = setOf("fondo_escom_anim.webp")
     override fun unlockMap(file: String) = false
