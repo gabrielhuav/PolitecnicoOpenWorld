@@ -181,6 +181,7 @@ open class StreetFighterViewModel(
                 attack = listOf(SfVoiceLine("special_llorona_attack")),
                 hurt = listOf(SfVoiceLine("special_llorona_hurt")),
                 power = listOf(SfVoiceLine("special_llorona_power")),
+                win = listOf(SfVoiceLine("special_llorona_win")),
             ),
             SfFighterId.LA_TZITZIMIME to SfVoicePack(
                 attack = listOf(SfVoiceLine("special_la_tzitzimime_attack")),
