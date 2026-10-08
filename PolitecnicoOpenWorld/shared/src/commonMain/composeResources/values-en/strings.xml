@@ -364,4 +364,15 @@
     <string name="wm_prompt_metro">PRESS X TO ENTER STATION %1$s</string>
     <string name="wm_prompt_metrobus">PRESS X TO ENTER METROBÚS STATION %1$s</string>
     <string name="wm_wait_loading">⏳ Wait: the world is still loading…</string>
+    <!-- Fighter records (issue #150) -->
+    <string name="sf_mode_records">RECORDS</string>
+    <string name="sf_mode_records_desc">Wins and losses for each fighter</string>
+    <string name="sf_records_title">FIGHTER RECORDS</string>
+    <string name="sf_records_empty">No fights recorded yet. Win or lose an Arcade fight to get started.</string>
+    <string name="sf_records_corrupt">Saved records are corrupted and could not be read.</string>
+    <string name="sf_records_reset">RESET RECORDS</string>
+    <string name="sf_records_col_fighter">Fighter</string>
+    <string name="sf_records_col_wins">W</string>
+    <string name="sf_records_col_losses">L</string>
+    <string name="sf_records_col_rate">Rate</string>
 </resources>

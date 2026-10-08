@@ -364,4 +364,15 @@
     <string name="wm_prompt_metro">PRESIONA X PARA ENTRAR A ESTACIÓN %1$s</string>
     <string name="wm_prompt_metrobus">PRESIONA X PARA ENTRAR A ESTACIÓN METROBÚS %1$s</string>
     <string name="wm_wait_loading">⏳ Espera: el mundo aún está cargando…</string>
+    <!-- Fighter records (issue #150) -->
+    <string name="sf_mode_records">RÉCORDS</string>
+    <string name="sf_mode_records_desc">Victorias y derrotas de cada peleador</string>
+    <string name="sf_records_title">RÉCORDS DE PELEADORES</string>
+    <string name="sf_records_empty">Aún no hay combates registrados. Gana o pierde una pelea en Arcade para empezar.</string>
+    <string name="sf_records_corrupt">Los récords guardados están dañados y no se pudieron leer.</string>
+    <string name="sf_records_reset">REINICIAR RÉCORDS</string>
+    <string name="sf_records_col_fighter">Peleador</string>
+    <string name="sf_records_col_wins">V</string>
+    <string name="sf_records_col_losses">D</string>
+    <string name="sf_records_col_rate">Efect.</string>
 </resources>

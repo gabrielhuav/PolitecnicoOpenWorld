@@ -102,11 +102,15 @@ import ovh.gabrielhuav.pow.platform.assets.PowAssets
 import ovh.gabrielhuav.pow.platform.imagen.PowImagen
 import ovh.gabrielhuav.pow.platform.imagen.decodificarReducido
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfArcadeOutcome
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfOnlineStatus
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SF_STOP_SPECIALS_EVENT
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterState
 import ovh.gabrielhuav.pow.shared.recursos.*
+import ovh.gabrielhuav.pow.features.streetfighter.records.RecordsLoadResult
+import ovh.gabrielhuav.pow.features.streetfighter.records.FighterRecordsStore
+import ovh.gabrielhuav.pow.features.streetfighter.records.rememberFighterRecordsSettings
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfArcadeOutcome
+import androidx.compose.runtime.saveable.rememberSaveable
 
 // View Compose PURA del modo de pelea 1v1: observa el estado con collectAsState() y solo
 // emite intenciones al VM (contrato MVVM, README for IAS 01/09).
@@ -176,7 +180,7 @@ private fun releaseSfSpecials(activePlayers: MutableMap<String, PowClip>) {
     }
 }
 
-@Composable
+@Composable 
 fun StreetFighterScreenCommon(
     onExitToMap: () -> Unit,
     controller: StreetFighterController,
@@ -712,6 +716,10 @@ fun StreetFighterScreenCommon(
         var aiVsAiSetup by remember { mutableStateOf(false) }
         // 🆕 (2026-07-21) HOJA DE COMBOS: lista de controles y combos + "PROBAR" (tutorial).
         var showComboSheet by remember { mutableStateOf(false) }
+        // 🆕 (issue #150) Pantalla de récords por peleador
+        var showRecords by remember { mutableStateOf(false) }
+        val recordsSettings = rememberFighterRecordsSettings()
+        var recordsResult by remember { mutableStateOf(FighterRecordsStore.load(recordsSettings)) }
         var comboFighter by remember { mutableStateOf<SfFighterId?>(null) }
         // 🆕 (2026-07-22) MEMORIA DEL MODO: al salir de una pelea se vuelve al selector DEL
         // MISMO modo (antes SIEMPRE forzaba el selector de Arcade). Se registra al LANZAR
@@ -847,8 +855,24 @@ fun StreetFighterScreenCommon(
                                 sfMenu = true
                             },
                         )
+                        // 🆕 (issue #150) RÉCORDS por peleador
+                        showRecords -> FighterRecordsOverlay(
+                            result = recordsResult,
+                            onReset = {
+                                FighterRecordsStore.reset(recordsSettings)
+                                recordsResult = RecordsLoadResult.Empty
+                            },
+                            onBack = {
+                                showRecords = false
+                                sfMenu = true
+                            },
+                        )
                         // 🆕 MENÚ DE MODOS (estilo POW): ARCADE principal, PRÁCTICA, IA VS IA, MULTIJUGADOR
                         sfMenu -> SfModeMenuOverlay(
+                            onRecords = {
+                                sfMenu = false
+                                showRecords = true
+                            },
                             devMode = controller.devUnlockAll(),
                             audioShowcaseRunning = state.audioShowcaseRunning,
                             audioShowcaseIndex = state.audioShowcaseIndex,
@@ -1194,7 +1218,25 @@ fun StreetFighterScreenCommon(
         ) {
             Text("✕", color = Color.White, fontSize = 18.sp)
         }
-
+        // 🆕 (issue #150) Anota el resultado en los récords UNA sola vez por pelea de Arcade.
+// rememberSaveable evita contarla doble si la pantalla se recrea (rotación, etc.).
+// Práctica, IA vs IA, tutorial y online no pasan por aquí (arcadeActive = false).
+        var recordedThisEnd by rememberSaveable { mutableStateOf(false) }
+        val arcadeEndShown = state.showEndMenu && state.arcadeActive
+        LaunchedEffect(arcadeEndShown) {
+            if (!arcadeEndShown) {
+                recordedThisEnd = false
+                return@LaunchedEffect
+            }
+            if (recordedThisEnd) return@LaunchedEffect
+            val playerWon = when (state.arcadeOutcome) {
+                SfArcadeOutcome.WON, SfArcadeOutcome.COMPLETED -> true
+                SfArcadeOutcome.LOST -> false
+                else -> null
+            } ?: return@LaunchedEffect
+            recordsResult = FighterRecordsStore.register(recordsSettings, state.player.id.name, playerWon)
+            recordedThisEnd = true
+        }
         // 🆕 Fin de pelea en ARCADE: ganar (CONTINUAR) / perder (REINTENTAR) / campeón. Reemplaza
         // el menú normal mientras haya una escalera en curso.
         if (state.showEndMenu && state.arcadeActive) {

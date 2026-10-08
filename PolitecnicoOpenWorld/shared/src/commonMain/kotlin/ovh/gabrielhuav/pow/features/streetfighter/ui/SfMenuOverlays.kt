@@ -1,5 +1,6 @@
 package ovh.gabrielhuav.pow.features.streetfighter.ui
 
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -56,6 +57,7 @@ import org.jetbrains.compose.resources.stringResource
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCpuDifficulty
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfArcadeOutcome
+import ovh.gabrielhuav.pow.features.streetfighter.records.RecordsLoadResult
 import ovh.gabrielhuav.pow.shared.recursos.*
 import ovh.gabrielhuav.pow.ui.components.PowButton
 
@@ -161,6 +163,7 @@ fun SfModeMenuOverlay(
     onGauntletArcade: () -> Unit,
     onGauntletShowcase: () -> Unit,
     onAudioShowcaseStop: () -> Unit,
+    onRecords: (() -> Unit)? = null, // 🆕 (issue #150) récords por peleador
     onBack: () -> Unit,
 ) {
     val powMenuBg = remember { Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11))) }
@@ -233,6 +236,23 @@ fun SfModeMenuOverlay(
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
             )
+            // 🆕 (issue #150) RÉCORDS por peleador. Solo aparece si la pantalla pasa onRecords.
+            onRecords?.let { openRecords ->
+                Spacer(modifier = Modifier.height(10.dp))
+                PowButton(
+                    text = stringResource(Res.string.sf_mode_records),
+                    onClick = openRecords,
+                    color = Color(0xFF1C4A6B),
+                    modifier = Modifier.fillMaxWidth(0.68f),
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(Res.string.sf_mode_records_desc),
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
             // 🆕 AUTOJUEGO / SHOWCASE: QA interno, SOLO con Modo Desarrollador (Ajustes).
             if (devMode) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -786,3 +806,112 @@ internal fun DifficultyOption(title: String, desc: String, onClick: () -> Unit) 
 
 /** Permisos runtime del ANFITRIÓN BT (Android 12+): aceptar conexiones + ser visible. */
 
+
+
+// ------------------------------------------------------------------
+// 🆕 (issue #150) Pantalla de RÉCORDS por peleador.
+// Tres estados: vacío (sin peleas), dañado (dato inválido → reiniciar) y con datos.
+// La pantalla solo MUESTRA; guardar y leer los récords lo hace el ViewModel.
+// ------------------------------------------------------------------
+
+@Composable
+fun FighterRecordsOverlay(
+    result: RecordsLoadResult,
+    onReset: () -> Unit,
+    onBack: () -> Unit,
+) {
+    val powMenuBg = remember { Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11))) }
+    Box(
+        modifier = Modifier.fillMaxSize().background(powMenuBg),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = stringResource(Res.string.sf_records_title),
+                color = Color(0xFFD4AF37),
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 2.sp,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            when (result) {
+                RecordsLoadResult.Empty -> RecordsMessage(stringResource(Res.string.sf_records_empty))
+                RecordsLoadResult.Corrupt -> {
+                    RecordsMessage(stringResource(Res.string.sf_records_corrupt), Color(0xFFFF8A80))
+                    Spacer(modifier = Modifier.height(12.dp))
+                    PowButton(
+                        text = stringResource(Res.string.sf_records_reset),
+                        onClick = onReset,
+                        color = Color(0xFF8B1538),
+                        modifier = Modifier.fillMaxWidth(0.6f),
+                    )
+                }
+                is RecordsLoadResult.Loaded -> {
+                    if (result.records.isEmpty()) {
+                        RecordsMessage(stringResource(Res.string.sf_records_empty))
+                    } else {
+                        RecordsRow(
+                            fighter = stringResource(Res.string.sf_records_col_fighter),
+                            wins = stringResource(Res.string.sf_records_col_wins),
+                            losses = stringResource(Res.string.sf_records_col_losses),
+                            rate = stringResource(Res.string.sf_records_col_rate),
+                            isHeader = true,
+                        )
+                        result.records.entries
+                            .sortedByDescending { it.value.wins }
+                            .forEach { (id, record) ->
+                                RecordsRow(
+                                    fighter = fighterDisplayName(id),
+                                    wins = record.wins.toString(),
+                                    losses = record.losses.toString(),
+                                    rate = "${record.winRatePercent}%",
+                                    isHeader = false,
+                                )
+                            }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            TextButton(onClick = onBack) {
+                Text(stringResource(Res.string.sf_back), color = Color(0xFFD4AF37))
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecordsMessage(text: String, color: Color = Color.White) {
+    Text(
+        text = text,
+        color = color,
+        fontSize = 14.sp,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
+}
+
+@Composable
+private fun RecordsRow(fighter: String, wins: String, losses: String, rate: String, isHeader: Boolean) {
+    val color = if (isHeader) Color(0xFFD4AF37) else Color.White
+    val weight = if (isHeader) FontWeight.Bold else FontWeight.Normal
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp, horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(fighter, color = color, fontWeight = weight, fontSize = 14.sp, modifier = Modifier.weight(1f))
+        Text(wins, color = color, fontWeight = weight, fontSize = 14.sp, textAlign = TextAlign.End, modifier = Modifier.width(48.dp))
+        Text(losses, color = color, fontWeight = weight, fontSize = 14.sp, textAlign = TextAlign.End, modifier = Modifier.width(48.dp))
+        Text(rate, color = color, fontWeight = weight, fontSize = 14.sp, textAlign = TextAlign.End, modifier = Modifier.width(64.dp))
+    }
+}
+
+/** Convierte el id guardado (nombre del enum) al nombre corto visible del peleador. */
+private fun fighterDisplayName(id: String): String =
+    SfFighterId.entries.firstOrNull { it.name == id }?.shortName ?: id
