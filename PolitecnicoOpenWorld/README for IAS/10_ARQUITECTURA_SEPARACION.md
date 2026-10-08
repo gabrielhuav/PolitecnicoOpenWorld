@@ -173,7 +173,10 @@ Kotlin no admite eso fuera de la clase. **Se queda como miembro.** Está avisado
 |---|---|
 | Qué puede hacer un peleador en cada estado, añadir un movimiento | `viewmodel/StreetFighterMaquinaEstados.kt` |
 | Cuánto daño hace algo, bloqueo, combos, parry, KO | `viewmodel/StreetFighterCombate.kt` |
-| Cómo decide la CPU, dificultad, sus combos | `viewmodel/StreetFighterCpuAi.kt` |
+| Qué hace la CPU en cada tick (decisión, acercarse/alejarse, antiaéreos, perfil por personaje) | `viewmodel/StreetFighterCpuAiDecision.kt` |
+| Cuánto pega la CPU según la dificultad, plazos de súper, defensa contra la súper rival | `viewmodel/StreetFighterCpuAiPolitica.kt` |
+| Cómo EJECUTA la CPU un combo del catálogo (acción→input, validación, cola) | `viewmodel/StreetFighterCpuAiCombos.kt` |
+| El punto de entrada de la IA (lo llama el motor) | `viewmodel/StreetFighterCpuAi.kt` |
 | Multijugador (online, Bluetooth, LAN, P2P) | `viewmodel/StreetFighterNet.kt` |
 | La escalera arcade, dificultad por escalón, partida a medias | `viewmodel/StreetFighterArcade.kt` |
 | Cuándo suena una voz y su subtítulo | `viewmodel/StreetFighterVoces.kt` |
@@ -277,19 +280,27 @@ bash tools/check_kmp_test_names.sh
 
 ## 8. Si vas a partir otro archivo grande
 
-Quedan estos por encima de 1.000 líneas (**medido el 2026-07-30**; nueve archivos de 336):
+Quedan estos por encima de 1.000 líneas (**re-medido con `wc -l` el 2026-09-23**; ocho archivos):
 
 | Módulo | Archivo | Líneas |
 |---|---|---:|
-| `:shared` | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` | 2320 |
-| `:shared` | `features/streetfighter/ui/StreetFighterScreen.kt` | 1771 |
-| `:app` | `features/map_exterior/viewmodel/WorldMapViewModel.kt` | 1596 |
+| `:shared` | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` | 2422 |
+| `:shared` | `features/streetfighter/ui/StreetFighterScreen.kt` | 1801 |
+| `:app` | `features/map_exterior/viewmodel/WorldMapViewModel.kt` | 1603 |
+| `:app` | `features/map_exterior/ui/NativeOsmMap.kt` | 1472 |
 | `:app` | `features/map_exterior/ui/WorldMapScreen.kt` | 1463 |
-| `:app` | `features/map_exterior/ui/NativeOsmMap.kt` | 1458 |
-| `:app` | `features/interiores/zombies/ui/ZombieGameScreen.kt` | 1343 |
-| `:app` | `AppNavGraph.kt` | 1167 |
+| `:app` | `features/interiores/zombies/ui/ZombieGameScreen.kt` | 1350 |
+| `:app` | `AppNavGraph.kt` | 1173 |
 | `:app` | `features/interiores/zombies/viewmodel/ZombieInteriorViewModel.kt` | 1165 |
 | `:shared` | `features/streetfighter/ui/SfSceneRenderer.kt` | 1089 |
+
+⚠️ **Las cifras anteriores (2026-07-30) estaban desfasadas y además no coincidían con las del
+doc 09 §0** — dos tablas del mismo repo dando números distintos para los mismos archivos. Ahora
+las dos salen de la misma medición. Si tocas uno de estos, re-mide y actualiza **las dos**.
+
+**`StreetFighterCpuAi.kt` ya no está en esta lista:** tenía 1094 líneas y el 2026-09-23 se partió
+en cuatro (200 + 593 + 229 + 148). Es el ejemplo más reciente de la receta de abajo aplicada de
+principio a fin.
 
 💡 **Los siete de `:app` son mundo abierto, zombis y navegación de Android.** Partirlos no ayuda a
 iOS: allí esos modos no existen. Los dos de `:shared` sí los paga todo el mundo.
