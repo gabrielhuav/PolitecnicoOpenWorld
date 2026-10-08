@@ -145,7 +145,7 @@ class SfArcadeCampaignAuditTest {
             )
             SfFighterId.POLICIA_CDMX -> listOf(
                 "special_pol_m_attack_1.ogg", "special_pol_m_attack_2.ogg",
-                "special_pol_m_hurt.ogg", "special_policia_cdmx_mujer_win.ogg"
+                "special_pol_m_hurt.ogg", "special_policia_cdmx_mujer_win.ogg", "special_power_siren.ogg"
             )
             SfFighterId.POLICIA_CDMX_HOMBRE -> listOf(
                 "special_pol_h_intro.ogg", "special_pol_h_attack.ogg",
@@ -155,11 +155,11 @@ class SfArcadeCampaignAuditTest {
                 "special_paramedico_cruz_roja_win.ogg", "special_power_electricity.ogg"
             )
             SfFighterId.POLICIA_GRANADERO_HOMBRE -> listOf(
-                "special_pol_h_intro.ogg", "special_pol_h_attack.ogg", "special_granadero_win.ogg"
+                "special_pol_h_intro.ogg", "special_pol_h_attack.ogg", "special_granadero_win.ogg", "special_power_siren.ogg"
             )
             SfFighterId.POLICIA_GRANADERO_MUJER -> listOf(
                 "special_pol_m_attack_1.ogg", "special_pol_m_attack_2.ogg",
-                "special_pol_m_hurt.ogg", "special_granadero_win.ogg"
+                "special_pol_m_hurt.ogg", "special_granadero_win.ogg", "special_power_siren.ogg"
             )
             SfFighterId.GRANADERO -> listOf(
                 "special_pol_h_intro.ogg", "special_pol_h_attack.ogg", "special_granadero_win.ogg"
