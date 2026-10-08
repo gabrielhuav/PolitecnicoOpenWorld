@@ -951,7 +951,8 @@ fun ZombieGameScreen(
                 onSelectMode = viewModel::selectCombatMode,
                 onDismissInventory = viewModel::dismissInventory,
                 onTestKey = viewModel::testInventoryKey,
-                onDiscardKey = viewModel::discardInventoryKey
+                onDiscardKey = viewModel::discardInventoryKey,
+                onSelectSlot = viewModel::selectInventorySlot
             )
 
             // Aviso de llave (cuando el jugador está sobre una). keyMessage (resultado de probar /

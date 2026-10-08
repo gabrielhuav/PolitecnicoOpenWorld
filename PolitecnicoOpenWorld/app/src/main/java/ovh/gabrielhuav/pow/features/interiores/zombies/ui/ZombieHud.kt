@@ -79,6 +79,7 @@ import ovh.gabrielhuav.pow.ui.components.WithShoulderTriggers
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
+import androidx.compose.animation.animateColorAsState//Agregado5
 
 @Composable
 fun ZombieHud(
@@ -98,7 +99,8 @@ fun ZombieHud(
     onDismissInventory: () -> Unit,
     // PUZZLE Misión 1: probar / desechar la llave del inventario (assetPath).
     onTestKey: (String) -> Unit = {},
-    onDiscardKey: (String) -> Unit = {}
+    onDiscardKey: (String) -> Unit = {},
+    onSelectSlot: (Int) -> Unit = {}//Agregado4.2
 ) {
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
@@ -243,37 +245,82 @@ fun ZombieHud(
                         // Slots USABLES dinámicos: 1 al inicio; TODOS al recuperar la mochila de
                         // Prankedy (Misión 2). Lo decide el VM (state.inventoryUnlockedSlots).
                         val unlockedSlots = state.inventoryUnlockedSlots
+                        //Agregado5
                         for (i in 0 until totalSlots) {
                             val unlocked = i < unlockedSlots
                             val heldKey = state.inventoryKeys.getOrNull(i)
+
+                            // NUEVO: Se agregó una variable para saber si esta casilla es la que está seleccionada actualmente.
+                            val isSelected = state.selectedInventorySlot == i
+
+                            // NUEVO: Se reemplazaron los colores fijos por 'animateColorAsState' para que 
+                            // la transición de color de fondo (al seleccionar o desbloquear) sea suave y animada.
+                            val slotBackground by animateColorAsState(
+                                targetValue = when {
+                                    !unlocked -> Color(0x55B71C1C)
+                                    isSelected -> Color(0xFF2E7D32) // Color verde oscuro si la casilla está seleccionada
+                                    else -> Color(0xFF2A2A33)
+                                },
+                                label = "inventorySlotBackground"
+                            )
+
+                            // NUEVO: Al igual que el fondo, el borde ahora también cambia de color de forma animada.
+                            val slotBorder by animateColorAsState(
+                                targetValue = when {
+                                    !unlocked -> Color(0xFFB71C1C)
+                                    isSelected -> Color(0xFF69F0AE) // Verde brillante si la casilla está seleccionada
+                                    else -> Color(0xFFD4AF37)
+                                },
+                                label = "inventorySlotBorder"
+                            )
+
                             Box(
                                 modifier = Modifier
                                     .size(56.dp)
                                     .background(
-                                        if (unlocked) Color(0xFF2A2A33) else Color(0x55B71C1C),
+                                        slotBackground, // NUEVO: Ahora usa el color de fondo animado en lugar del fijo.
                                         RoundedCornerShape(10.dp)
                                     )
                                     .border(
-                                        2.dp,
-                                        if (unlocked) Color(0xFFD4AF37) else Color(0xFFB71C1C),
+                                        // NUEVO: El grosor del borde aumenta a 3.dp cuando la casilla está seleccionada.
+                                        if (isSelected) 3.dp else 2.dp,
+                                        slotBorder, // NUEVO: Ahora usa el color de borde animado en lugar del fijo.
                                         RoundedCornerShape(10.dp)
                                     )
-                                    // MANTENER PULSADA la llave = DESECHARLA (el VM decide si se permite:
-                                    // incorrecta siempre; la correcta solo tras usarla para abrir la puerta).
-                                    .then(
-                                        if (heldKey != null) Modifier.pointerInput(heldKey) {
-                                            detectTapGestures(onLongPress = { onDiscardKey(heldKey) })
-                                        } else Modifier
-                                    ),
+                                    // NUEVO: Se quitó el modificador condicional '.then()' y se usa '.pointerInput' directo.
+                                    // Ahora se le pasan (i, heldKey, unlocked) como 'keys' para que se actualice si alguno cambia.
+                                    .pointerInput(i, heldKey, unlocked) {
+                                        detectTapGestures(
+                                            // NUEVO: Se añadió el evento 'onPress' para que al tocar la casilla se seleccione (onSelectSlot),
+                                            // asegurándose primero de que la casilla esté desbloqueada.
+                                            onPress = {
+                                                if (unlocked) {
+                                                    onSelectSlot(i)
+                                                }
+                                            },
+                                            // MANTENER PULSADA la llave = DESECHARLA (el VM decide si se permite:
+                                            // incorrecta siempre; la correcta solo tras usarla para abrir la puerta).
+                                            onLongPress = {
+                                                // NUEVO: Se agregó la condición 'if (unlocked)' por seguridad, para 
+                                                // evitar desechar llaves o lanzar eventos si la casilla está bloqueada.
+                                                if (unlocked) {
+                                                    heldKey?.let { onDiscardKey(it) }
+                                                }
+                                            }
+                                        )
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 when {
                                     !unlocked -> Text("🔒", fontSize = 24.sp)
-                                    heldKey != null -> InventoryKeyIcon(KeyDrop.entryAsset(heldKey), modifier = Modifier.size(46.dp))
+                                    heldKey != null -> InventoryKeyIcon(
+                                        KeyDrop.entryAsset(heldKey),
+                                        modifier = Modifier.size(46.dp)
+                                    )
                                     else -> {}
                                 }
                             }
-                        }
+                        }//Agregado5Final
                     }
                     Text(
                         if (state.inventoryKeys.isEmpty()) stringResource(R.string.zhud_inv_empty)

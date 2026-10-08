@@ -994,13 +994,27 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
     // ─── CONTROLES (interiores) ────────────────────────────
     // Y: MANTENER abre el INVENTARIO. A: TOCAR alterna correr; MANTENER abre el menú de ARMAS.
     private var aPressStartMs = 0L
+    
+    //Agregado2
+    fun selectInventorySlot(index: Int) {
+        if (index !in 0 until _state.value.inventoryUnlockedSlots) return
+        _state.update { it.copy(selectedInventorySlot = index) }
+    }
+    //Fin del agregado2
 
     fun onSecondaryPressed() { yPressStartMs = System.currentTimeMillis() }
 
     fun onSecondaryReleased() {
         val held = System.currentTimeMillis() - yPressStartMs
         if (held >= Y_HOLD_FOR_MENU_MS) {
-            _state.update { it.copy(showInventory = !it.showInventory, showWeaponMenu = false) }
+            //Agregado3
+            _state.update {
+                it.copy(
+                    showInventory = !it.showInventory,
+                    showWeaponMenu = false,
+                    selectedInventorySlot = null
+                )
+            }//Fin agregado3
         }
     }
 
@@ -1032,10 +1046,15 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
     fun dismissWeaponMenu() {
         _state.update { it.copy(showWeaponMenu = false) }
     }
-
+//Agregado4
     fun dismissInventory() {
-        _state.update { it.copy(showInventory = false) }
-    }
+        _state.update {
+            it.copy(
+                showInventory = false,
+                selectedInventorySlot = null
+            )
+        }
+    }//Fin agregado4
 
     /**
      * PUZZLE Misión 1: PRUEBA una llave del inventario. Solo "abre" estando en ENCB_lab2 (es ahí donde
