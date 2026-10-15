@@ -158,6 +158,15 @@
     <string name="sf_mode_arcade_desc">Campaña: derrota a todos y desbloquea peleadores</string>
     <string name="sf_mode_combos">COMBOS Y TUTORIAL</string>
     <string name="sf_mode_combos_desc">Aprende todos los controles y combos, y practícalos</string>
+    <!-- 🆕 EXAMEN EXTRAORDINARIO: práctica de los Extraordinarios (remates de fin de combate) -->
+    <string name="sf_mode_extraordinario">EXAMEN EXTRAORDINARIO</string>
+    <string name="sf_mode_extraordinario_desc">Practica los Extraordinarios: el rival ya reprobó y no hay límite de tiempo</string>
+    <string name="sf_extra_pick_fighter">¿Quién presenta el extraordinario?</string>
+    <string name="sf_extra_steps">PASOS</string>
+    <string name="sf_extra_hide_steps">OCULTAR</string>
+    <string name="sf_extra_range">Distancia: %1$s</string>
+    <string name="sf_extra_aprobado">¡APROBADO!</string>
+    <string name="sf_extra_reprobado">¡REPROBADO! Otra vez…</string>
     <string name="sf_mode_multiplayer">MULTIJUGADOR</string>
     <string name="sf_mode_practice">PRÁCTICA</string>
     <string name="sf_mp_accept">ACEPTAR</string>
