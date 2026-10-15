@@ -96,7 +96,6 @@ fun MainMenuScreen(
      * pantalla en vez de dos copias que se desincronizan.
      */
     chipDeCuenta: @Composable () -> Unit = {},
-    onNavigateToMultimedia: (() -> Unit)? = null,
 ) {
     val state by controller.state.collectAsState()
 
@@ -139,8 +138,7 @@ fun MainMenuScreen(
                         onNavigateToCollectibles = onNavigateToCollectibles,
                         onNavigateToStory = onNavigateToStory,
                         onMultiplayerClick = onMultiplayer,
-                        onNavigateToStreetFighter = onNavigateToStreetFighter,
-                        onNavigateToMultimedia = onNavigateToMultimedia
+                        onNavigateToStreetFighter = onNavigateToStreetFighter
                     )
                 }
             }
@@ -160,8 +158,7 @@ fun MainMenuScreen(
                     onNavigateToCollectibles = onNavigateToCollectibles,
                     onNavigateToStory = onNavigateToStory,
                     onMultiplayerClick = onMultiplayer,
-                    onNavigateToStreetFighter = onNavigateToStreetFighter,
-                        onNavigateToMultimedia = onNavigateToMultimedia
+                    onNavigateToStreetFighter = onNavigateToStreetFighter
                 )
             }
         }
@@ -311,8 +308,7 @@ fun MenuButtonsList(
     onNavigateToCollectibles: () -> Unit,
     onNavigateToStory: () -> Unit,
     onMultiplayerClick: () -> Unit = { controller.onMultiplayerPressed() },
-    onNavigateToStreetFighter: () -> Unit = {},
-    onNavigateToMultimedia: (() -> Unit)? = null
+    onNavigateToStreetFighter: () -> Unit = {}
 ) {
     // 🍏 Qué botones se pintan lo decide el catálogo de `:shared` (`PowModo.sePinta()`), no esta
     // pantalla: así la regla es UNA y se testea sin necesidad de un Mac. En Android `disponible()`
@@ -381,17 +377,6 @@ fun MenuButtonsList(
         color = Color(0xFF6B1C3A)
     )
     Spacer(Modifier.height(16.dp))
-
-    // La plataforma muestra el acceso solo cuando proporciona una ruta funcional.
-    if (onNavigateToMultimedia != null) {
-        MenuButton(
-            text = stringResource(Res.string.menu_multimedia),
-            onClick = onNavigateToMultimedia,
-            enabled = !state.isWarmingUp,
-            color = Color(0xFF6B1C3A)
-        )
-        Spacer(Modifier.height(16.dp))
-    }
 
     MenuButton(
         text = stringResource(Res.string.menu_collectibles),
@@ -704,4 +689,3 @@ private fun WarmupDialog(secondsElapsed: Int, onCancel: () -> Unit) {
         }
     }
 }
-

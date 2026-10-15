@@ -129,15 +129,10 @@ open class StreetFighterViewModel(
             win = listOf(SfVoiceLine("special_pol_h_win", "¿Se cree más chingón que nosotros o qué joven?")),
             power = listOf(SfVoiceLine("special_policia_cdmx_hombre_power"))
         )
-        // 🆕 (2026-09-24) PODER ESPECIAL de policía mujer y granaderos: antes no tenían `power` ni
-        // special_<id>.m4a, así que su proyectil sonaba con el hadouken genérico. Comparten una
-        // sirena (SFX sintetizado original, sin audio de terceros), igual que Escomboy/Escomgirl
-        // comparten special_power_electricity. El policía hombre ya tenía el suyo.
-        val sirenPower = listOf(SfVoiceLine("special_power_siren"))
         // WIN de granadero (H y M) = "3 de diana" (bugle). Usa special_granadero_win (special_gr_win se
         // eliminó por pedido del dueño 2026-07-18s).
         val grWin = SfVoiceLine("special_granadero_win")
-        val grH = SfVoicePack(intro = listOf(hIntro), attack = listOf(hAttack), win = listOf(grWin), power = sirenPower)
+        val grH = SfVoicePack(intro = listOf(hIntro), attack = listOf(hAttack), win = listOf(grWin))
         // MUJER: policía + granadera comparten ATTACK y HURT; el WIN difiere.
         // (2026-07-19) special_pol_m_attack se divide en attack_1 (primer segundo) y attack_2 (segundo 1 al 3).
         val mAttack = listOf(
@@ -149,9 +144,8 @@ open class StreetFighterViewModel(
             attack = mAttack,
             hurt = mHurt,
             win = listOf(SfVoiceLine("special_policia_cdmx_mujer_win", "Si dices policía, me comprometí como mujer a que la ciudadanía sintiera una mejor seguridad")),
-            power = sirenPower,
         )
-        val grM = SfVoicePack(attack = mAttack, hurt = mHurt, win = listOf(grWin), power = sirenPower)
+        val grM = SfVoicePack(attack = mAttack, hurt = mHurt, win = listOf(grWin))
         // 🆕 (2026-07-18s) Paparazzi 1: su ataque ESPECIAL (poder) = special_paparazzi_5 (el audio
         // correcto; special_paparazzi_1 era duplicado y se borró). DAÑO = 3 variantes.
         val papz1 = SfVoicePack(
@@ -181,7 +175,6 @@ open class StreetFighterViewModel(
                 attack = listOf(SfVoiceLine("special_llorona_attack")),
                 hurt = listOf(SfVoiceLine("special_llorona_hurt")),
                 power = listOf(SfVoiceLine("special_llorona_power")),
-                win = listOf(SfVoiceLine("special_llorona_win")),
             ),
             SfFighterId.LA_TZITZIMIME to SfVoicePack(
                 attack = listOf(SfVoiceLine("special_la_tzitzimime_attack")),
@@ -322,7 +315,8 @@ open class StreetFighterViewModel(
     // 🆕 (2026-07-19c) Sin cooldown en hurt para permitir interrupción inmediata en combos
     internal val hurtVoiceCooldownMs = 0L
     internal val attackVoiceCooldownMs = 4200L
-
+    // 🆕 Reacción de voz cuando un golpe ESPECIAL conecta sin bloqueo.
+    internal var lastSuperHitReactionMs = 0L
     /** Voz de DAÑO (pack HURT, variante al azar) con cooldown por índice.
      * Si la vida baja del 25% (<= 50 de 200) y tiene audio de lowHp de una sola vez, lo prioriza. */
     internal val arcadeRepo = environment.arcade
@@ -2012,6 +2006,7 @@ open class StreetFighterViewModel(
         introVoiceSent = false
         lastHurtVoiceMs.fill(0L)
         lastAttackVoiceMs.fill(0L)
+        lastSuperHitReactionMs = 0L
         lastHitTakenMs.fill(0L)
         lowHpVoiceTriggered.fill(false)
         rapidHitsTaken.fill(0)
@@ -2283,6 +2278,7 @@ open class StreetFighterViewModel(
         dirHeldPrev[1] = false to false
         lastHurtVoiceMs.fill(0L)
         lastAttackVoiceMs.fill(0L)
+        lastSuperHitReactionMs = 0L
         lowHpVoiceTriggered.fill(false)
         pendingAttacks.clear()
         pendingBonusPower = null

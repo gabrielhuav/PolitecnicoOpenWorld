@@ -47,7 +47,6 @@ import ovh.gabrielhuav.pow.features.interiores.shinecto.ui.ShineCTOScreen
 import ovh.gabrielhuav.pow.features.interiores.zombies.ui.ZombieGameScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.CollectiblesScreen
 import ovh.gabrielhuav.pow.features.main_menu.ui.MainMenuScreen
-import ovh.gabrielhuav.pow.features.multimedia.ui.MultimediaScreen
 import ovh.gabrielhuav.pow.features.streetfighter.ui.StreetFighterScreen
 import ovh.gabrielhuav.pow.features.main_menu.viewmodel.CollectiblesViewModel
 import ovh.gabrielhuav.pow.features.map_exterior.ui.WorldMapScreen
@@ -147,7 +146,7 @@ fun AppNavGraph(
                     // permiten vertical. ÚNICA fuente de verdad: por DESTINO de navegación (evita
                     // carreras de dispose entre pantallas).
                     DisposableEffect(navController) {
-                        val portraitRoutes = setOf("main_menu", "story_mode", "settings", "collectibles", "multimedia")
+                        val portraitRoutes = setOf("main_menu", "story_mode", "settings", "collectibles")
                         val listener = NavController.OnDestinationChangedListener { _, destination, arguments ->
                             val route = destination.route
                             // AJUSTES abierto DESDE EL JUEGO (fromGame=true) debe permanecer
@@ -268,9 +267,6 @@ fun AppNavGraph(
                                 },
                                 onNavigateToSettings = {
                                     navController.navigate("settings")
-                                },
-                                onNavigateToMultimedia = {
-                                    navController.navigate("multimedia") { launchSingleTop = true }
                                 },
                                 onNavigateToCollectibles = {
                                     navController.navigate("collectibles")
@@ -845,10 +841,6 @@ fun AppNavGraph(
                             }
                         }
 
-                        composable(route = "multimedia") {
-                            MultimediaScreen(onBack = { navController.popBackStack() })
-                        }
-
                         composable(route = "collectibles") {
                             CollectiblesScreen(
                                 controller = collectiblesViewModel,
@@ -1179,4 +1171,3 @@ val startRoom = backStackEntry.arguments?.getString("startRoom")
                             }
                     }
 }
-
