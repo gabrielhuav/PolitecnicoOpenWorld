@@ -50,6 +50,7 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -397,6 +398,7 @@ fun WorldMapScreen(
     // ─── ESTADO DEL MENÚ DE OPCIONES (con submenús anidados) ──────────────────
     var optionsExpanded by remember { mutableStateOf(false) }
     var optionsOpenGroup by remember { mutableStateOf<String?>(null) }
+    var showExitConfirmDialog by remember { mutableStateOf(false) }
     // NOTA: el menú de Opciones in-game NO cambia la orientación (el juego va SIEMPRE en
     // horizontal). Solo los menús de RUTA (Ajustes, etc.) permiten rotar — lo gestiona
     // MainActivity por destino de navegación. Ver 09.
@@ -1047,6 +1049,17 @@ fun WorldMapScreen(
         // sueltos que se sobrepongan con el mapa. Acordeón: abrir un submenú cierra
         // el otro. Al arrastrar el mapa, se abre solo en el submenú "Mapa".
         Column(modifier = Modifier.align(Alignment.TopEnd).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.End) {
+            // Botón para salir de Mundo Libre y volver al Menú Principal
+            IconButton(
+                onClick = { showExitConfirmDialog = true },
+                modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Salir al menú principal",
+                    tint = Color.Black
+                )
+            }
             IconButton(onClick = onNavigateToSettings, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black) }
             OptionsMenu(
                 expanded = optionsExpanded,
@@ -1160,6 +1173,52 @@ fun WorldMapScreen(
                         )
                     )
                 }
+            )
+        }
+        if (showExitConfirmDialog) {
+            AlertDialog(
+                onDismissRequest = { showExitConfirmDialog = false },
+                title = {
+                    Text(
+                        text = "Salir del juego",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        color = Color.White
+                    )
+                },
+                text = {
+                    Text(
+                        text = "¿Abandonar la partida y volver al menú principal?",
+                        fontSize = 15.sp,
+                        color = Color.White.copy(alpha = 0.85f)
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showExitConfirmDialog = false
+                            onNavigateToMainMenu()
+                        }
+                    ) {
+                        Text(
+                            text = "Salir",
+                            color = Color(0xFFFFD54F),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showExitConfirmDialog = false }
+                    ) {
+                        Text(
+                            text = "Seguir explorando",
+                            color = Color.White.copy(alpha = 0.85f)
+                        )
+                    }
+                },
+                containerColor = Color(0xFF221A22),
+                shape = RoundedCornerShape(16.dp)
             )
         }
 
