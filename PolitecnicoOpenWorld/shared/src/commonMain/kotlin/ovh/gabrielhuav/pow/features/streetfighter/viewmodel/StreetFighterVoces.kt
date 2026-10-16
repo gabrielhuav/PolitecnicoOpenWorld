@@ -123,6 +123,7 @@ internal fun StreetFighterViewModel.emitVoiceLines(lines: List<StreetFighterView
 
 /** Voz de VICTORIA del peleadór (pack WIN; si no tiene, su voz de special). */
 internal fun StreetFighterViewModel.emitWinVoice(id: SfFighterId, now: Long) {
+    if (id in sfNoWinVoiceFighters) return // sin voz de victoria a propósito
     val p = sfVoicePacks[id]
     if (p != null && emitVoiceLines(p.win, now)) return
     emitSpecialVoice(id, now)
