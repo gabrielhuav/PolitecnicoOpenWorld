@@ -118,4 +118,26 @@ Flujo UI: **peleador → Fácil/Medio/Difícil** (`ArcadeDifficultyOverlay`) →
 
 ---
 
-*Actualizado 2026-07-18h — asignación dueño + REY_GRUPERO → FES Aragón.*
+## 5. Escenario extra fuera del catálogo de arcade
+
+🆕 (2026-09-25) Se agregó un escenario que **no** forma parte de la lista de 16 mapas base ni de
+la asignación peleadór → mapa hogar de la sección 2, y por lo tanto **no** entra a la escalera del
+arcade (ni al azar de Práctica/IA vs IA/host multijugador cuando se filtra por desbloqueados).
+
+| Nombre | Archivo | Disponible en | Arcade |
+|--------|---------|----------------|--------|
+| Planetario IPN | `fondo_planetario_anim.webp` | Práctica, con Modo Desarrollador activo | No |
+
+- Registrado como entrada suelta en `SfTheme.kt` → `fullBackgrounds`, no en `SfStageCatalog.kt`
+  (por eso no tiene mapa de noche/apocalipsis ni peleadór hogar).
+- **No** está en `SfArcadeRepository.unlockedMaps()`: un jugador normal (sin Modo Desarrollador) lo
+  verá en el selector con candado 🔒, como cualquier mapa de arcade aún no desbloqueado.
+- Con **Modo Desarrollador** activo, `StreetFighterScreen` manda `unlockedMaps = null` al selector
+  (“todos disponibles”), así que ahí sí aparece jugable sin candado. Si en el futuro se quiere que
+  cualquier jugador lo tenga desbloqueado de inicio, hay que agregarlo a `unlockedMaps()` en
+  `SfArcadeRepository.kt` (por ejemplo, con una lista de “mapas extra siempre desbloqueados”).
+- Generado con el mismo pipeline (`tools/build_map_backgrounds.py`) que los 48 fondos base.
+
+---
+
+*Actualizado 2026-09-25 — se agregó el escenario extra Planetario IPN (fuera del arcade).*
