@@ -118,6 +118,9 @@ object SfSharedSheets {
         // Animaciones fuente (recortadas a bbox + espejadas), NORMALIZADAS por animación.
         // Mismos fallbacks que el tool (ya normalizados: reusar la lista es seguro).
         val idle = normalizeAnim(loadAnim(set, "Idle"))
+        val idleTurn = normalizeAnim(loadAnim(set, "IdleTurn"))
+        val crouch = normalizeAnim(loadAnim(set, "Crouch"))
+        val crouchTurn = normalizeAnim(loadAnim(set, "CrouchTurn"))
         var walk = normalizeAnim(loadAnim(set, "Walk"))
         var run = normalizeAnim(loadAnim(set, "Run"))
         var special = normalizeAnim(loadAnim(set, "Special"))
@@ -128,7 +131,7 @@ object SfSharedSheets {
 
         // Los 75 cuadros generados (los alias stun-1/2 y "jump-start/land" se resuelven al pegar).
         // scale = 1f: la normalización de tamaño ya se aplicó POR ANIMACIÓN arriba.
-        val gen = buildGenFrames(idle, walk, run, special, scale = 1f)
+        val gen = buildGenFrames(idle, idleTurn, crouch, crouchTurn, walk, run, special, scale = 1f)
 
         // Cuadros en el ORDEN del template ryu.json (mismo layout que SfFrameCatalog.remap)
         val order = SfFrameCatalog.templateFrameOrder()
@@ -204,6 +207,9 @@ object SfSharedSheets {
     /** Los 75 cuadros con las MISMAS transformaciones del tool (rotaciones/aplastados). */
     private fun buildGenFrames(
         idle: List<ImageBitmap>,
+        idleTurn: List<ImageBitmap>,
+        crouch: List<ImageBitmap>,
+        crouchTurn: List<ImageBitmap>,
         walk: List<ImageBitmap>,
         run: List<ImageBitmap>,
         special: List<ImageBitmap>,
@@ -225,21 +231,51 @@ object SfSharedSheets {
         for (i in 0 until 6) out["jump-up-${i + 1}"] = f(pick(run, i))
         // Voltereta: cuadro de carrera rotado (giro hacia adelante, sentido horario)
         for (i in 0 until 7) out["jump-roll-${i + 1}"] = f(pick(run, 2), rot = -(i * 51f), center = true)
-        out["crouch-1"] = f(pick(idle, 0), squashY = 0.85f)
-        out["crouch-2"] = f(pick(idle, 1), squashY = 0.70f)
-        out["crouch-3"] = f(pick(idle, 2), squashY = 0.58f)
-        for (i in 0 until 3) {
-            out["idle-turn-${i + 1}"] = f(pick(idle, 2 - i))
-            out["crouch-turn-${i + 1}"] = f(pick(idle, 2 - i), squashY = 0.58f)
+
+        // Agacharse: usar poses reales si existen, o squash sintético si el set carece de ellas
+        if (crouch.isNotEmpty()) {
+            out["crouch-1"] = f(pick(crouch, 0))
+            out["crouch-2"] = f(pick(crouch, crouch.size / 2))
+            out["crouch-3"] = f(pick(crouch, crouch.size - 1))
+        } else {
+            out["crouch-1"] = f(pick(idle, 0), squashY = 0.85f)
+            out["crouch-2"] = f(pick(idle, 1), squashY = 0.70f)
+            out["crouch-3"] = f(pick(idle, 2), squashY = 0.58f)
         }
-        // Ataques (aproximados con Special)
-        out["light-punch-1"] = f(pick(special, 0)); out["light-punch-2"] = f(pick(special, 1))
-        out["med-punch-1"] = f(pick(special, 0)); out["med-punch-2"] = f(pick(special, 1))
-        out["med-punch-3"] = f(pick(special, 2))
+
+        // Giro de pie: usar cuadros reales con capa al viento si existen
+        if (idleTurn.isNotEmpty()) {
+            for (i in 0 until 3) out["idle-turn-${i + 1}"] = f(pick(idleTurn, i))
+        } else {
+            for (i in 0 until 3) out["idle-turn-${i + 1}"] = f(pick(idle, 2 - i))
+        }
+
+        // Giro agachado: usar cuadros reales o squash
+        if (crouchTurn.isNotEmpty()) {
+            for (i in 0 until 3) out["crouch-turn-${i + 1}"] = f(pick(crouchTurn, i))
+        } else {
+            for (i in 0 until 3) out["crouch-turn-${i + 1}"] = f(pick(idle, 2 - i), squashY = 0.58f)
+        }
+
+        // 🆕 Ataques DIFERENCIADOS por botón (4 movimientos / posiciones distintas):
+        // 1) Puño Ligero (Botón X) -> jab rápido
+        out["light-punch-1"] = f(pick(special, 1))
+        out["light-punch-2"] = f(pick(special, 2))
+
+        // 2) Puño Medio (Botón Y) -> directo al cuerpo
+        out["med-punch-1"] = f(pick(special, 0))
+        out["med-punch-2"] = f(pick(special, 2))
+        out["med-punch-3"] = f(pick(special, 3))
+
+        // 3) Puño Fuerte (Botón B) -> puñetazo serio con máxima extensión e impacto
         out["heavy-punch-1"] = f(pick(special, special.size - 1))
-        out["light-kick-1"] = f(pick(special, 1)); out["light-kick-2"] = f(pick(special, 2))
-        out["med-kick-1"] = f(pick(special, special.size - 1))
-        for (i in 0 until 5) out["heavy-kick-${i + 1}"] = f(pick(special, i))
+
+        // 4) Patadas (Botón A) -> patadas reales usando las poses de pierna extendida hacia adelante de Run
+        val kickSrc = if (run.isNotEmpty()) run else special
+        out["light-kick-1"] = f(pick(kickSrc, 0))
+        out["light-kick-2"] = f(pick(kickSrc, 2 % kickSrc.size))
+        out["med-kick-1"] = f(pick(kickSrc, 4 % kickSrc.size))
+        for (i in 0 until 5) out["heavy-kick-${i + 1}"] = f(pick(kickSrc, (i * 2) % kickSrc.size))
         // Reacciones (idle inclinado/aplastado)
         out["hit-face-1"] = f(pick(idle, 0), rot = 8f, dx = -4)
         out["hit-face-2"] = f(pick(idle, 1), rot = 12f, dx = -6)

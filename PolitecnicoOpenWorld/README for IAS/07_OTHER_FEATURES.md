@@ -268,7 +268,7 @@ original sprites/stage/HUD/sounds; per-frame boxes and all 30 animations convert
   - **Quedan EMPAQUETADOS Ryu, Ken** (clon original/debug) y los diecisiete croma dedicados:
     **Prankedy, Señor de la Tienda, Rey Grupero, Paparazzi 1, Paparazzi 5, ambas policías CDMX,
     Paramédico Cruz Roja, ambos Policías Granadero, los tres estudiantes ESCOM, Yoalli Ehécatl,
-    el Charro Negro, La Tzitzimime y La Presidenta**
+    el Charro Negro, La Tzitzimime y La Presidenta**, y la skin jugable **El Calvo con Capa** (`CALVO_CON_CAPA` con set 512² y 25 frames WebP)
     (19 hojas por identidad + `proj-*`; escala común 100 px y KO con `flipX` automático).
   - **Rey de las Bromas y Pepe NO entran** (no jugables por diseño; comentados en `PlayerSkin`).
   - **Se BORRARON** los 11 sheets+JSON duplicados originales; Señor de la Tienda volvió después

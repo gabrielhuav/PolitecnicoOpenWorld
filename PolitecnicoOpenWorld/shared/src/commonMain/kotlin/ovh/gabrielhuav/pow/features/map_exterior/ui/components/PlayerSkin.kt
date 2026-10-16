@@ -216,6 +216,18 @@ enum class PlayerSkin(
         specialBodyFraction = 0.703125f,
         uniform512Canvas = true
     ),
+    CALVO_CON_CAPA(
+        displayName = "Calvo con Capa",
+        skinFolder  = "CalvoConCapa/",
+        skinPrefix  = "ccc_",
+        basePath    = "SPRITES/NPC/",
+        idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
+        walkBodyFraction = 0.703125f,
+        idleBodyFraction = 0.703125f,
+        runBodyFraction = 0.703125f,
+        specialBodyFraction = 0.703125f,
+        uniform512Canvas = true
+    ),
 
     // ── 🆕 5 PERSONAJES (paparazzis, policías, paramédico) — recortados con tools/_slice5.py.
     //     Recorte uniforme (figura ~0.865 del lienzo) → walkBodyFraction=0.865. Sin cómic. Solo dev.

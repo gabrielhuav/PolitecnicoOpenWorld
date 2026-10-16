@@ -28,8 +28,11 @@ object SfArcadeLadder {
     const val MAP_FIRST = "fondo_queso_ipn_anim.webp"
     const val MAP_FINAL = "fondo_zocalo_anim.webp"
 
-    /** Los 3 estudiantes desbloqueados de arranque; el jugador elige uno (NO son enemigos). */
-    val STARTERS = listOf(SfFighterId.ESCOMBOY, SfFighterId.ESCOMGIRL, SfFighterId.ROBOT)
+    /** Los estudiantes y personajes jugables desbloqueados de arranque (NO son enemigos). */
+    val STARTERS = listOf(
+        SfFighterId.ESCOMBOY, SfFighterId.ESCOMGIRL, SfFighterId.ROBOT,
+        SfFighterId.CALVO_CON_CAPA,
+    )
 
     /**
      * TODOS los personajes del arcade (estudiantes + enemigos). Lo usa el selector para pintar
@@ -37,6 +40,7 @@ object SfArcadeLadder {
      */
     val ALL_PARTICIPANTS = listOf(
         SfFighterId.ESCOMBOY, SfFighterId.ESCOMGIRL, SfFighterId.ROBOT,
+        SfFighterId.CALVO_CON_CAPA,
         SfFighterId.PARAMEDICO_CRUZ_ROJA, SfFighterId.PAPARAZZI_1, SfFighterId.PAPARAZZI_5,
         SfFighterId.SENOR_TIENDA, SfFighterId.REY_GRUPERO, SfFighterId.PRANKEDY,
         SfFighterId.POLICIA_CDMX_HOMBRE, SfFighterId.POLICIA_CDMX,
