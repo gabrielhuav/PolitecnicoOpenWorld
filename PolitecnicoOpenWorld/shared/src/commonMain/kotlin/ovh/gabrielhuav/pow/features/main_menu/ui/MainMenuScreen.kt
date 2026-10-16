@@ -73,6 +73,9 @@ import ovh.gabrielhuav.pow.shared.recursos.*
 import ovh.gabrielhuav.pow.domain.platform.disponible
 import ovh.gabrielhuav.pow.domain.platform.sePinta
 
+/** Máximo de caracteres del nombre de jugador en Multijugador (se dibuja sobre el personaje). */
+private const val MAX_PLAYER_NAME_LENGTH = 16
+
 @Composable
 fun MainMenuScreen(
     onNavigateToMap: (isMultiplayer: Boolean, playerName: String?) -> Unit,
@@ -194,7 +197,7 @@ fun MainMenuScreen(
                 text = {
                     OutlinedTextField(
                         value = state.playerName,
-                        onValueChange = { controller.updatePlayerName(it) },
+                        onValueChange = { controller.updatePlayerName(it.take(MAX_PLAYER_NAME_LENGTH)) },
                         label = { Text(stringResource(Res.string.menu_mp_username_label)) },
                         singleLine = true
                     )
@@ -204,7 +207,7 @@ fun MainMenuScreen(
                         onClick = {
                             controller.updateShowMultiplayerDialog(false)
                             // "Jugador_" es un id generado de respaldo (no es texto de UI traducible).
-                            val finalName = state.playerName.ifBlank { "Jugador_${(1000..9999).random()}" }
+                            val finalName = state.playerName.take(MAX_PLAYER_NAME_LENGTH).ifBlank { "Jugador_${(1000..9999).random()}" }
                             controller.guardarNombre(finalName)   // recuérdalo para la próxima vez
                             onNavigateToMap(true, finalName)
                         }
