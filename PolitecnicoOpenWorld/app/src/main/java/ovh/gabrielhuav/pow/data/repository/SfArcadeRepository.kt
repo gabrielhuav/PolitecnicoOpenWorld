@@ -51,6 +51,7 @@ class SfArcadeRepository(context: Context) {
         val DEFAULT_FIGHTERS = setOf("ESCOMBOY", "ESCOMGIRL", "ROBOT")
         /** Mapa desbloqueado de arranque (hogar de los starters = ESCOM día). */
         const val DEFAULT_MAP = "fondo_escom_anim.webp"
+        
 
         /**
          * Escribe exactamente el snapshot que producía `JSONObject`: conserva el orden y omite

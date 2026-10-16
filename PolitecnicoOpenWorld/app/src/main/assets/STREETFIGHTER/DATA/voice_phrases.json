@@ -201,11 +201,6 @@
       "en": "",
       "draft": ""
     },
-    "special_power_siren": {
-      "es": "(Sirena)",
-      "en": "(Siren)",
-      "draft": ""
-    },
     "special_prankedy_attack_1": {
       "es": "A ver... | voltéate, voltéate... | voltéate... Hazme c...",
       "en": "Let's see... | turn around, turn around... | turn around... Listen to m...",
@@ -277,9 +272,9 @@
       "draft": "Estos son los de la verga, güey, son los de la verga, güey."
     },
     "special_robot": {
-      "es": "Calculando Impacto.",
-      "en": "Calculating Impact.",
-      "draft": "Calculando Impacto"
+      "es": "Sistema activado, objetivo localizado.",
+      "en": "System activated, target located.",
+      "draft": "Sistema activado. Objetivo localizado."
     },
     "special_robot_attack": {
       "es": "",
@@ -287,9 +282,9 @@
       "draft": ""
     },
     "special_robot_hurt": {
-      "es": "Procesando Dolor",
-      "en": "Processing Pain",
-      "draft": "Procesando Dolor"
+      "es": "",
+      "en": "",
+      "draft": "Eeeeeeeeeeeeeeeeeee"
     },
     "special_robot_win": {
       "es": "La base de datos de virus... |  ha sido actualizada.",
