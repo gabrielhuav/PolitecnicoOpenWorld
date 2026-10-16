@@ -262,6 +262,13 @@ enum class SfFighterId(
         "Paramédico", "PARAMEDICO", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Paramedico.png",
         isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "Paramedico/", "pmd_"),
     ),
+    // 🆕 Estudiante IPN (lentes, sudadera guinda): COMPARTIDO con el NPC de interiores del Modo
+    //    Historia (SPRITES/NPC/NPCS/NPCSIPN/Ipn3/, PlayerSkin.IPN_3). Mira a la DERECHA → sin flip.
+    //    Solo seleccionable con Modo Desarrollador (SfArcadeLadder.DEV_ONLY_FIGHTERS).
+    ESTUDIANTE_IPN(
+        "Estudiante IPN", "IPN", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/EstudianteIpn.png",
+        isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "NPCS/NPCSIPN/Ipn3/", "ipn3_"),
+    ),
 }
 
 /** Fuerza del ataque (fighter.js FighterAttackBaseData; slide ya en px/s). */

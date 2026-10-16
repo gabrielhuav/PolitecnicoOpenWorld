@@ -91,6 +91,17 @@ object SfSharedSheets {
         buildSharedSheet(set).also { guardar(id, it) }
     }
 
+    /**
+     * Escala de RECORTE que debe usar el renderer para la hoja de [id].
+     *
+     * [sheetFor] solo submuestrea los atlas DEDICADOS; las hojas COMPARTIDAS siempre se arman a
+     * resolución completa. Si el renderer aplicara a una compartida el `sheetScale` global de gama
+     * baja (0.5), recortaría un cuarto de la celda y lo estiraría: el peleador se ve GIGANTE,
+     * cortado o invisible (hallazgo de QA, 2026-10-01, emulador de 2 GB).
+     */
+    fun sheetScaleFor(id: SfFighterId, requestedScale: Float): Float =
+        if (id.sharedSet != null) 1f else requestedScale
+
     /** Idle completo para el selector, recortado, orientado y normalizado a la misma altura. */
     fun previewFramesFor(set: SfSharedSet): List<ImageBitmap> = runCatching {
         normalizeAnim(loadAnim(set, "Idle"))
