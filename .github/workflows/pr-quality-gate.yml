@@ -45,9 +45,16 @@ jobs:
           # AGP 9.3.0 + Gradle 9.5.0 — AGP 9.3 exige Gradle >= 9.5 y el job moria al
           # configurar. Con "wrapper" ya no hay que tocar el YAML en cada upgrade.)
           gradle-version: wrapper
-      - name: Create secrets.properties (Maps API key; vacio es valido para tests)
+      # ⚠️ Vacia NO es valida: genera `MAPS_API_KEY = ;` en BuildConfig.java y assembleDebug no
+      # compila (gotcha medido en SETUP_PC_NUEVA.md §2.2). Y en un PR desde un FORK GitHub NO
+      # entrega secrets, asi que el gate de TODO PR de fork caia aqui sin culpa del PR (run
+      # 36857934501, 2026-10-01: un commit que solo tocaba audio). Sin secret se usa el mismo
+      # marcador que local.defaults.properties; con secret (rama del repo) nada cambia.
+      - name: Create secrets.properties (Maps API key; marcador si no hay secret)
+        env:
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
         run: |
-          echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > PolitecnicoOpenWorld/secrets.properties
+          echo "MAPS_API_KEY=${MAPS_API_KEY:-DEFAULT_API_KEY}" > PolitecnicoOpenWorld/secrets.properties
       # NOTA: no se escribe google-services.json a proposito -> el plugin google-services NO se aplica
       # (ver app/build.gradle.kts) y el proyecto compila/testea sin Firebase. Es lo que queremos en el gate.
       # 🍏 GUARDA DE iOS QUE CORRE EN LINUX. Un nombre de test entre backticks con ( ) o ,
