@@ -99,6 +99,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuGroup
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuItem
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionsMenu
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter
+import ovh.gabrielhuav.pow.features.map_exterior.util.stationMatchesQuery
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.DebugEditTool
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
@@ -1220,15 +1221,17 @@ fun WorldMapScreen(
                     var metrobusExpanded by remember { mutableStateOf(false) }
                     var metroQuery by remember { mutableStateOf("") }
                     var metrobusQuery by remember { mutableStateOf("") }
+                    // Bug corregido (examen QA): antes se usaba `.contains(q, ignoreCase = true)`,
+                    // que solo ignora mayúsculas/minúsculas, no acentos — "pantitlan" no
+                    // encontraba "Pantitlán". stationMatchesQuery normaliza ambos lados antes de
+                    // comparar, preservando la ñ como letra distinta de la n.
                     val filteredMetro = remember(metroQuery, uiState.metroStations) {
-                        val q = metroQuery.trim()
-                        val sorted = uiState.metroStations.sortedBy { it.name }
-                        if (q.isEmpty()) sorted else sorted.filter { it.name.contains(q, ignoreCase = true) }
+                        uiState.metroStations.sortedBy { it.name }
+                            .filter { stationMatchesQuery(it.name, metroQuery) }
                     }
                     val filteredMetrobus = remember(metrobusQuery, uiState.metrobusStations) {
-                        val q = metrobusQuery.trim()
-                        val sorted = uiState.metrobusStations.sortedBy { it.name }
-                        if (q.isEmpty()) sorted else sorted.filter { it.name.contains(q, ignoreCase = true) }
+                        uiState.metrobusStations.sortedBy { it.name }
+                            .filter { stationMatchesQuery(it.name, metrobusQuery) }
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_subtitle), fontSize = 14.sp)
