@@ -25,7 +25,10 @@
     <string name="menu_local_mode">Modo local (sin sesión)</string>
     <string name="menu_mp_connect">Conectar</string>
     <string name="menu_mp_dialog_title">Conectar a Servidor</string>
+    <string name="menu_mp_username_counter">%1$d/%2$d</string>
+    <string name="menu_mp_username_invalid_chars">Solo letras, números, espacios y _ - .</string>
     <string name="menu_mp_username_label">Nombre de Usuario</string>
+    <string name="menu_mp_username_too_short">Mínimo %1$d caracteres</string>
     <string name="menu_multiplayer">MULTIJUGADOR</string>
     <string name="menu_retry">REINTENTAR</string>
     <string name="menu_settings">AJUSTES</string>

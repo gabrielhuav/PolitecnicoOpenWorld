@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import ovh.gabrielhuav.pow.domain.multiplayer.PlayerNameRules
 import ovh.gabrielhuav.pow.domain.platform.PowModo
 import ovh.gabrielhuav.pow.shared.recursos.Res
 import ovh.gabrielhuav.pow.shared.recursos.*
@@ -105,7 +106,8 @@ fun MainMenuScreen(
     LaunchedEffect(Unit) {
         if (state.playerName.isBlank()) {
             val saved = controller.nombreGuardado()
-            if (saved.isNotBlank()) controller.updatePlayerName(saved)
+            // Un nombre guardado por una versión anterior pudo quedar sin límite: se normaliza.
+            if (saved.isNotBlank()) controller.updatePlayerName(PlayerNameRules.sanitizeInput(saved))
         }
     }
 
@@ -188,23 +190,43 @@ fun MainMenuScreen(
 
         // ─── Diálogo de nombre del jugador (solo aparece tras warmup OK) ──
         if (state.showMultiplayerDialog) {
+            val nameProblem = PlayerNameRules.validate(state.playerName)
             AlertDialog(
                 onDismissRequest = { controller.updateShowMultiplayerDialog(false) },
                 title = { Text(stringResource(Res.string.menu_mp_dialog_title)) },
                 text = {
                     OutlinedTextField(
                         value = state.playerName,
-                        onValueChange = { controller.updatePlayerName(it) },
+                        // Normaliza al teclear/pegar: sin saltos de línea ni espacios dobles, máx. 16.
+                        onValueChange = { controller.updatePlayerName(PlayerNameRules.sanitizeInput(it)) },
                         label = { Text(stringResource(Res.string.menu_mp_username_label)) },
-                        singleLine = true
+                        singleLine = true,
+                        isError = nameProblem != null,
+                        supportingText = {
+                            Text(
+                                when (nameProblem) {
+                                    PlayerNameRules.Problem.TOO_SHORT ->
+                                        stringResource(Res.string.menu_mp_username_too_short, PlayerNameRules.MIN_LENGTH)
+                                    PlayerNameRules.Problem.INVALID_CHARS ->
+                                        stringResource(Res.string.menu_mp_username_invalid_chars)
+                                    null -> stringResource(
+                                        Res.string.menu_mp_username_counter,
+                                        state.playerName.length,
+                                        PlayerNameRules.MAX_LENGTH
+                                    )
+                                }
+                            )
+                        }
                     )
                 },
                 confirmButton = {
                     TextButton(
+                        // Con un nombre inválido no se puede conectar (vacío sí: usa el respaldo).
+                        enabled = nameProblem == null,
                         onClick = {
                             controller.updateShowMultiplayerDialog(false)
                             // "Jugador_" es un id generado de respaldo (no es texto de UI traducible).
-                            val finalName = state.playerName.ifBlank { "Jugador_${(1000..9999).random()}" }
+                            val finalName = PlayerNameRules.finalName(state.playerName) { "Jugador_${(1000..9999).random()}" }
                             controller.guardarNombre(finalName)   // recuérdalo para la próxima vez
                             onNavigateToMap(true, finalName)
                         }

@@ -12,6 +12,7 @@ import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
+import ovh.gabrielhuav.pow.domain.multiplayer.PlayerNameRules
 import kotlin.math.cos
 
 // DE-DUP (2026-06-21, par 7): versión CANÓNICA FUSIONADA (antes el miembro de WorldMapViewModel.kt
@@ -179,7 +180,9 @@ internal fun WorldMapViewModel.handleMultiplayerMessage(messageJson: String) {
 
                         // FIX (de-dup par 7, fusionado del miembro): displayName nunca blank, para
                         // poder identificar jugadores remotos (antes el nombre vacío los hacía anónimos).
-                        val safeDisplayName = msg.displayName?.takeIf { it.isNotBlank() } ?: "Player_${msg.id.take(4)}"
+                        // Además se limita a 16 caracteres con "…": un cliente sin el límite del menú
+                        // podría mandar un nombre enorme que se dibuja encima de toda la pantalla.
+                        val safeDisplayName = PlayerNameRules.forDisplay(msg.displayName, fallback = "Player_${msg.id.take(4)}")
                         val otherPlayer = Npc(
                             id = msg.id,
                             type = if (isRemoteDriving) NpcType.CAR else NpcType.PERSON,
