@@ -8,6 +8,8 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.concurrent.Volatile
+import kotlin.coroutines.cancellation.CancellationException
 import ovh.gabrielhuav.pow.data.json.optJSONArray
 import ovh.gabrielhuav.pow.data.json.optLong
 import ovh.gabrielhuav.pow.data.json.optDouble
@@ -35,6 +37,11 @@ import ovh.gabrielhuav.pow.platform.log.powLog
  *  - ⚠️ `Dispatchers.IO` **no existe en Kotlin/Native** → `Dispatchers.Default` (09 §8 nº4).
  *    Para una petición HTTP con suspensión de verdad esto no bloquea nada: Ktor suspende, no
  *    ocupa el hilo mientras espera.
+ *
+ * 🆕 (2026-10-28) **Varios servidores** ([OverpassServidores]). Con uno solo, cuando
+ * `overpass-api.de` se saturaba o nos limitaba (429/504) una instalación nueva —sin calles en
+ * caché— se quedaba para siempre en el 25 % de la carga del mundo abierto: el VM reintenta cada
+ * 3 s contra el MISMO servidor. Ahora cada intento recorre la lista hasta que uno responda.
  */
 class OverpassRepository {
 
@@ -56,10 +63,15 @@ class OverpassRepository {
          * Un solo cliente para toda la vida del proceso. Crear un `HttpClient` por petición
          * levanta (y tira) un pool de conexiones cada vez.
          */
+        /** Índice en [OverpassServidores.URLS] del último que respondió bien. */
+        @Volatile
+        private var indiceUltimoBueno = 0
+
         private val http by lazy {
             HttpClient {
                 install(HttpTimeout) {
-                    connectTimeoutMillis = 15_000L
+                    // 10 s: un servidor caído debe fallar rápido para pasar al siguiente.
+                    connectTimeoutMillis = 10_000L
                     // 45 s: las consultas de 2 km pueden tardar de verdad.
                     requestTimeoutMillis = 45_000L
                 }
@@ -86,41 +98,52 @@ class OverpassRepository {
             out skel qt;
         """.trimIndent()
 
-            val urlString = "https://overpass-api.de/api/interpreter?data=${codificarUrl(query)}"
+            val datos = codificarUrl(query)
+            val orden = OverpassServidores.ordenDesde(indiceUltimoBueno)
+            for (base in orden) {
+                val ways = intentar(base, datos) ?: continue
+                // El próximo intento empieza por el que funcionó (no castigar siempre al caído).
+                indiceUltimoBueno = OverpassServidores.URLS.indexOf(base)
+                return@withContext ways
+            }
+            powLog(TAG, "Ningún servidor de Overpass respondió (${orden.size} probados).")
+            emptyList()
+        }
 
-            return@withContext try {
-                val respuesta = http.get(urlString) {
-                    header(
-                        "User-Agent",
-                        "PolitecnicoOpenWorld/1.0 (educational game; contact: dev@pow.ovh)"
-                    )
-                }
-                when {
-                    respuesta.status.isSuccess() -> {
-                        val parsed = parseOverpassJson(respuesta.bodyAsText())
-                        powLog(TAG, "Descarga OK: ${parsed.size} ways en radio ${FETCH_RADIUS_METERS}m")
-                        parsed
-                    }
-                    // Too Many Requests — Overpass nos está limitando
-                    respuesta.status.value == 429 -> {
-                        powLog(TAG, "Rate limited por Overpass (429). Usar caché.")
-                        emptyList()
-                    }
-                    // Gateway Timeout — el servidor está ocupado
-                    respuesta.status.value == 504 -> {
-                        powLog(TAG, "Overpass timeout en servidor (504).")
-                        emptyList()
-                    }
-                    else -> {
-                        powLog(TAG, "HTTP ${respuesta.status.value} inesperado")
-                        emptyList()
-                    }
-                }
-            } catch (e: Exception) {
-                powLog(TAG, "Error de red: ${e.message}")
-                emptyList()
+    /**
+     * Una petición a UN servidor. `null` = falló (pasar al siguiente); lista (aunque vacía) =
+     * respuesta válida. Una zona sin calles es una respuesta válida: no se pregunta a los demás.
+     */
+    private suspend fun intentar(base: String, datos: String): List<MapWay>? = try {
+        val respuesta = http.get("$base?data=$datos") {
+            header(
+                "User-Agent",
+                "PolitecnicoOpenWorld/1.0 (educational game; contact: dev@pow.ovh)"
+            )
+        }
+        val cuerpo = if (respuesta.status.isSuccess()) respuesta.bodyAsText() else null
+        when {
+            cuerpo == null -> {
+                // 429 = nos limita; 504 = saturado; cualquier otro = caído. Todos: siguiente.
+                powLog(TAG, "HTTP ${respuesta.status.value} en $base")
+                null
+            }
+            OverpassServidores.esErrorDelServidor(cuerpo) -> {
+                powLog(TAG, "Overpass devolvió 200 con error de ejecución en $base")
+                null
+            }
+            else -> {
+                val parsed = parseOverpassJson(cuerpo)
+                powLog(TAG, "Descarga OK de $base: ${parsed.size} ways en radio ${FETCH_RADIUS_METERS}m")
+                parsed
             }
         }
+    } catch (e: CancellationException) {
+        throw e // salir del mundo cancela la carga: no tragarse la cancelación
+    } catch (e: Exception) {
+        powLog(TAG, "Error de red en $base: ${e.message}")
+        null
+    }
 
     /**
      * Percent-encoding de la consulta.
@@ -191,5 +214,43 @@ class OverpassRepository {
         }
 
         return ways
+    }
+}
+
+/**
+ * Servidores públicos de Overpass, en orden de preferencia (lista de instancias públicas de la
+ * wiki de OpenStreetMap). Todos hablan el mismo protocolo, así que la consulta no cambia.
+ *
+ * ⚠️ `lz4.` y `z.` son las máquinas detrás de `overpass-api.de`: si ESE operador nos limita por
+ * IP pueden limitarnos también, por eso siguen instancias de otros operadores. Si una desaparece,
+ * basta con quitarla de aquí.
+ */
+internal object OverpassServidores {
+    val URLS = listOf(
+        "https://overpass-api.de/api/interpreter",
+        "https://lz4.overpass-api.de/api/interpreter",
+        "https://z.overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+        "https://overpass.private.coffee/api/interpreter",
+        "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+    )
+
+    /** Todos los servidores, empezando por [inicio] y dando la vuelta. */
+    fun ordenDesde(inicio: Int): List<String> {
+        val desde = if (inicio in URLS.indices) inicio else 0
+        return URLS.indices.map { URLS[(desde + it) % URLS.size] }
+    }
+
+    /**
+     * Overpass a veces responde **200** con un JSON cuyo `remark` dice que la consulta falló
+     * (timeout o memoria del servidor) y `elements` vacío. Tomarlo como "zona sin calles"
+     * dejaba la carga atorada igual que un 504.
+     */
+    fun esErrorDelServidor(cuerpo: String): Boolean {
+        val remark = runCatching { powJsonObjeto(cuerpo).optString("remark", "") }.getOrNull()
+            ?: return true // ni siquiera es JSON: página de error del proxy/servidor
+        return remark.contains("error", ignoreCase = true) ||
+            remark.contains("timed out", ignoreCase = true) ||
+            remark.contains("out of memory", ignoreCase = true)
     }
 }
