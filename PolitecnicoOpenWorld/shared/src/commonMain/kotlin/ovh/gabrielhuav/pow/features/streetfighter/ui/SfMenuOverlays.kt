@@ -158,6 +158,7 @@ fun SfModeMenuOverlay(
     onPractice: () -> Unit,
     onAiVsAi: () -> Unit,
     onCombos: () -> Unit, // 🆕 (2026-07-21) hoja de combos + tutorial interactivo
+    onExtraordinario: () -> Unit, // 🆕 EXAMEN EXTRAORDINARIO: práctica de Extraordinarios
     onMultiplayer: () -> Unit,
     onGauntletAll: () -> Unit,
     onGauntletArcade: () -> Unit,
@@ -253,6 +254,22 @@ fun SfModeMenuOverlay(
                     textAlign = TextAlign.Center,
                 )
             }
+            // 🆕 EXAMEN EXTRAORDINARIO: practicar los Extraordinarios (remates de fin de combate)
+            // sin tener que ganar dos rondas. Visible SIEMPRE, como Combos.
+            Spacer(modifier = Modifier.height(10.dp))
+            PowButton(
+                text = stringResource(Res.string.sf_mode_extraordinario),
+                onClick = onExtraordinario,
+                color = Color(0xFF6B4E16),
+                modifier = Modifier.fillMaxWidth(0.68f),
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = stringResource(Res.string.sf_mode_extraordinario_desc),
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+            )
             // 🆕 AUTOJUEGO / SHOWCASE: QA interno, SOLO con Modo Desarrollador (Ajustes).
             if (devMode) {
                 Spacer(modifier = Modifier.height(8.dp))

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gallery_title">Multimedia</string>
+    <string name="gallery_back">Back to menu</string>
+    <string name="gallery_characters">Characters</string>
+    <string name="gallery_maps">Maps</string>
+    <string name="gallery_designs">Designs</string>
+    <string name="gallery_image_unavailable">Image unavailable</string>
+    <string name="gallery_prankedy">Prankedy</string>
+    <string name="gallery_prankedy_description">The character in an idle pose. An open-world sprite.</string>
+    <string name="gallery_charro">Charro Negro</string>
+    <string name="gallery_charro_description">The character in an idle pose. Existing game artwork.</string>
+    <string name="gallery_escom_stage">ESCOM stage</string>
+    <string name="gallery_escom_stage_description">Preview of the daytime ESCOM combat stage.</string>
+    <string name="gallery_cecyt9_stage">CECyT 9 stage</string>
+    <string name="gallery_cecyt9_stage_description">Preview of the daytime CECyT 9 combat stage.</string>
+    <string name="gallery_escom_building">ESCOM building</string>
+    <string name="gallery_escom_building_description">Building artwork used in the game world.</string>
+    <string name="gallery_cic_building">CIC buildings</string>
+    <string name="gallery_cic_building_description">Artwork of the Computing Research Center buildings.</string>
+</resources>

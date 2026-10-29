@@ -148,7 +148,7 @@ Rename de cara al jugador. **El código NO cambia de nombre**: sigue siendo `str
   español está a **489 de los 500 caracteres** que permite Play: para añadir hay que recortar.
 - **Comentarios, docs y textos de tienda** actualizados en bloque (75 archivos).
 - **NO se reescribió el historial**: `_ARCHIVO/`, el changelog del README público (62 menciones,
-  todas en entradas con fecha) y `PR_lanzamiento_huelum_vs_goya.md` (PR #136, ya mergeado) se
+  todas en entradas con fecha) y `marketing/PR_lanzamiento_huelum_vs_goya.md` (PR #136, ya mergeado) se
   dejaron con el nombre viejo a propósito.
 - Verificado: 342 tests (125 `:app` + 217 `:shared`) 0 fallos, detekt exit 0, nombres KMP OK.
 
