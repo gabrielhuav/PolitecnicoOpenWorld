@@ -65,6 +65,10 @@ class NpcAiManager {
         const val FEAR_DURATION_MS = 4500L
         const val FEAR_SPEED_MULT = 3.8f
 
+        const val HORN_RADIUS = 0.00025 // ~27m: rango auditivo del claxon de auto
+        const val HORN_FEAR_DURATION_MS = 3500L
+        const val HORN_ANNOY_DURATION_MS = 2500L
+
         const val CHAT_DISTANCE = 0.00035
         const val CHAT_DURATION_MS = 10000L
         const val CHAT_CHANCE = 0.01f
@@ -367,6 +371,53 @@ class NpcAiManager {
         }
     }
 
+    private class HornEvent(val lat: Double, val lon: Double, val fearUntil: Long, val annoyUntil: Long)
+    private val pendingHorn = PowListaConcurrente<HornEvent>()
+
+    /**
+     * Dispara la reacción al claxon de auto en las coordenadas [lat], [lon].
+     * Peatones cobardes (COWARD) huyen en pánico; agresivos (AGGRESSIVE) muestran burbuja de queja.
+     */
+    fun triggerHorn(lat: Double, lon: Double) {
+        val now = ahoraMs()
+        pendingHorn.add(HornEvent(lat, lon, now + HORN_FEAR_DURATION_MS, now + HORN_ANNOY_DURATION_MS))
+    }
+
+    private fun applyPendingHorn() {
+        if (pendingHorn.isEmpty()) return
+        val events = ArrayList(pendingHorn)
+        pendingHorn.clear()
+        for (i in serverNpcs.indices) {
+            val npc = serverNpcs[i]
+            if (npc.type != NpcType.PERSON) continue
+            var matchedEvent: HornEvent? = null
+            for (ev in events) {
+                if (calculateDistance(npc.location.latitude, npc.location.longitude, ev.lat, ev.lon) <= HORN_RADIUS) {
+                    matchedEvent = ev
+                    break
+                }
+            }
+            matchedEvent?.let { ev ->
+                if (npc.trait == ovh.gabrielhuav.pow.domain.models.map.NpcTrait.COWARD) {
+                    serverNpcs[i] = npc.copy(
+                        fearUntil = ev.fearUntil,
+                        fearFromLat = ev.lat,
+                        fearFromLon = ev.lon,
+                        chatUntil = 0L,
+                        chatPartnerId = null,
+                        isMoving = true
+                    )
+                } else if (npc.trait == ovh.gabrielhuav.pow.domain.models.map.NpcTrait.AGGRESSIVE) {
+                    serverNpcs[i] = npc.copy(
+                        talkingUntil = ev.annoyUntil,
+                        chatUntil = 0L,
+                        chatPartnerId = null
+                    )
+                }
+            }
+        }
+    }
+
     suspend fun updateNpcs(playerLocation: GeoPoint, amIHost: Boolean) {
         if (!networkIsReady || !amIHost) return
 
@@ -600,6 +651,7 @@ class NpcAiManager {
             val now = ahoraMs()
 
             applyPendingFear()
+            applyPendingHorn()
 
             maybeStartChats(now, pLat0, pLon0)
 
