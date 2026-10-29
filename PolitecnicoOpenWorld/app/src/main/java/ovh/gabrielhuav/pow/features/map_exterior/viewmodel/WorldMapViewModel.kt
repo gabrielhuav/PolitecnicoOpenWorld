@@ -1379,6 +1379,15 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     fun steerRight(pressed: Boolean) { isSteeringRightPressed = pressed; if (pressed) recenterIfPanning() }
     fun accelerate(pressed: Boolean) { isGasPressed = pressed; if (pressed) recenterIfPanning() }
     fun brake(pressed: Boolean) { isBrakePressed = pressed; if (pressed) recenterIfPanning() }
+    fun honkHorn() {
+        if (_uiState.value.isDrivingPoliceCar) {
+            soundManager.playPolice1()
+        } else {
+            soundManager.playHorn()
+        }
+        val loc = _uiState.value.currentLocation ?: return
+        npcAiManager.triggerHorn(loc.latitude, loc.longitude)
+    }
     private fun recenterIfPanning() { if (_uiState.value.isUserPanningMap) centerOnPlayer() }
 
     internal val isSpawningCollectible = AtomicBoolean(false)
