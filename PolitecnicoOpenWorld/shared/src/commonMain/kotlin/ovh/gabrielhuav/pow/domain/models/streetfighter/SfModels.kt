@@ -262,6 +262,12 @@ enum class SfFighterId(
         "Paramédico", "PARAMEDICO", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Paramedico.png",
         isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "Paramedico/", "pmd_"),
     ),
+    // 🆕 (2026-09-30) Alexis Syntaxis: hoja dedicada 2560x6656 (celdas 256², pies en 128,224)
+    // con la misma estructura de frames que escomboy.json.
+    ALEXIS_SYNTAXIS(
+        "Alexis Syntaxis", "SYNTAXIS",
+        "STREETFIGHTER/DATA/alexis_syntaxis.json", "STREETFIGHTER/IMAGES/AlexisSyntaxis.webp",
+    ),
 }
 
 /** Fuerza del ataque (fighter.js FighterAttackBaseData; slide ya en px/s). */
