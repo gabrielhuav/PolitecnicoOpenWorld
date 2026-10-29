@@ -1,0 +1,68 @@
+name: Calles CDMX (datos estáticos)
+
+# Genera las calles de la CDMX en celdas de ~2 km y las publica en la rama huérfana
+# `datos-calles`, de donde las descarga la app (CallesEstaticas en OverpassRepository.kt) por
+# raw.githubusercontent.com. Existe porque Overpass en vivo fallaba en horas pico (502/504 en
+# TODOS sus servidores públicos) y dejaba el mundo abierto atorado en el 25 % de la carga.
+#
+# ⚠️ La rama `datos-calles` se REEMPLAZA en cada corrida (push --force de un solo commit): solo
+# guarda la última versión, así el repo no crece ~decenas de MB cada mes. No trabajes en ella.
+# ⚠️ No toca `main`, ni `gh-pages`, ni dispara el release (no cambia PolitecnicoOpenWorld/**).
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 9 3 * *" # día 3 de cada mes, 09:17 UTC
+
+permissions:
+  contents: write
+
+concurrency:
+  group: calles-cdmx
+  cancel-in-progress: false
+
+jobs:
+  generar:
+    runs-on: ubuntu-latest
+    env:
+      PBF_URL: https://download.geofabrik.de/north-america/mexico-latest.osm.pbf
+      BBOX: "-99.40,19.04,-98.90,19.70" # oeste,sur,este,norte (Zona Metropolitana, núcleo)
+      HIGHWAY: primary,secondary,tertiary,residential,unclassified,footway,pedestrian,path,living_street,service
+    steps:
+      - name: Checkout (solo el generador)
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: PolitecnicoOpenWorld/tools/calles
+      - name: Instalar osmium
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq osmium-tool
+          pip install osmium
+      - name: Descargar el extracto de México (Geofabrik)
+        run: curl -sSfL --retry 3 -o mexico.osm.pbf "$PBF_URL"
+      - name: Recortar la CDMX y quedarse con las calles
+        run: |
+          osmium extract -s complete_ways -b "$BBOX" mexico.osm.pbf -o cdmx.osm.pbf --overwrite
+          osmium tags-filter cdmx.osm.pbf "w/highway=$HIGHWAY" -o calles.osm.pbf --overwrite
+      - name: Generar las celdas
+        run: |
+          python3 PolitecnicoOpenWorld/tools/calles/generar_celdas.py calles.osm.pbf salida --bbox="$BBOX" \
+            | tee resumen.txt
+          {
+            echo "### Calles CDMX"
+            echo '```'
+            cat resumen.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Publicar en la rama datos-calles (solo la última versión)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp PolitecnicoOpenWorld/tools/calles/README_RAMA.md salida/README.md
+          cd salida
+          git init -q -b datos-calles
+          git config user.name "pow-calles-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "datos: calles CDMX $(date -u +%F) [skip ci]"
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" datos-calles
