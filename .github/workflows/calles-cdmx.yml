@@ -63,6 +63,7 @@ jobs:
           osmium tags-filter cdmx.osm.pbf "w/highway=$HIGHWAY" -o calles.osm.pbf --overwrite
       - name: Generar las celdas
         run: |
+          set -euo pipefail
           python3 PolitecnicoOpenWorld/tools/calles/generar_celdas.py calles.osm.pbf salida --bbox="$BBOX" \
             | tee resumen.txt
           {

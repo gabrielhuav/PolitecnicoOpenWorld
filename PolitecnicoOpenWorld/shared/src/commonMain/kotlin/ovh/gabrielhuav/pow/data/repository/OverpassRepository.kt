@@ -24,9 +24,9 @@ import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import ovh.gabrielhuav.pow.platform.log.powLog
 
 /**
- * Repositorio que consulta la Overpass API para obtener la red de calles.
+ * Repositorio de calles: archivos estaticos de CDMX primero, Overpass como respaldo.
  *
- * RESPONSABILIDAD ÚNICA: Solo sabe hablar con Overpass. No decide si hay que
+ * RESPONSABILIDAD ÚNICA: Descargar y parsear la red de calles. No decide si hay que
  * descargar o no — esa decisión la toma WorldMapViewModel usando RoadNetworkCache.
  *
  * Radio de 2000 m y timeout de lectura de 45 s: se descarga más por petición para hacer muchas
@@ -91,7 +91,7 @@ class OverpassRepository {
     }
 
     /**
-     * Descarga la red de calles alrededor de (lat, lon) desde Overpass.
+     * Descarga la red de calles alrededor de (lat, lon), primero estatica y luego Overpass.
      * Retorna lista vacía en caso de cualquier error — el caller decide qué hacer.
      */
     suspend fun fetchRoadNetwork(lat: Double, lon: Double): List<MapWay> =

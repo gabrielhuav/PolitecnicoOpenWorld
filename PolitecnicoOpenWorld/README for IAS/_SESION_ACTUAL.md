@@ -20,7 +20,9 @@ en el mismo PR y continuar sin confirmaciones adicionales. No se ha autorizado m
 - Receta reproducible: `tools/sf_fighters/alexis_syntaxis.json`.
 - Tutorial: `SF/CI_CD_agregar_peleador.md`. Workflow `SF Fighter Assets`.
 - QA geométrico sin errores, cuatro tests Python de regresión del gate en verde.
-- Falta cerrar la prueba visual en emulador y el gate completo del commit final.
+- Video real en emulador y comparativa GIF de los 11 cuadros guardados en
+  `pr-screenshots/alexis-qa/`. La revisión visual cubre daño representativo;
+  no sustituye la matriz completa de dispositivos, accesibilidad e iOS.
 - PR etiquetado `manual-play-upload` y `qa-pending`; no subir a Play automáticamente.
 - R-5: personaje ficticio de parodia; renombrarlo no prueba ausencia de parecido con
   personas reales. Se documenta la limitación; no se presenta como revisión jurídica.
@@ -49,10 +51,16 @@ en el mismo PR y continuar sin confirmaciones adicionales. No se ha autorizado m
 - No borrar GEN canónico ni las carpetas antiguas enteras: contienen variantes únicas.
 - `PR_DESCRIPTION.md` ya estaba sin seguimiento al arrancar: no mezclar su texto viejo.
 
-## Verificación en curso
+## Verificación
 
 - Kotlin/Native test names: OK.
-- Build Android + tests app/shared: en ejecución; primer intento detectó el fallo HTML
-  de Overpass, ya corregido. Confirmar XML y resultado de la última ejecución.
-- detekt completo con baseline: en ejecución.
-- Emulador Small_Phone_API_35 arrancado; falta instalar APK y grabar evidencia.
+- Build Android + tests: OK, 129 app + 273 shared, cero fallos; incluye el audit Arcade.
+- detekt completo con baseline: OK. Cuatro tests Python de sprites + cuatro de calles: OK.
+- Commit de código/assets verificado: `282b69083c5961fc852d80327ab6b44a602683b9`.
+  Sus tres workflows de GitHub terminaron en verde; las ejecuciones del fork se aprobaron.
+- Reconstrucción exacta de píxeles y JSON en local y CI. Los 11 hurt/stun miden 100 px
+  con alfa >16, sin modificar el renderer ni hurtScale.
+- Small_Phone_API_35: combate grabado sin cierre; evidencia corta MP4 y GIF de atlas.
+- Carga de mapa en frío: caché anterior conservada aparte; log real confirma
+  `Calles estáticas OK (975_-4958): 3427 ways`. La carga supera 25% y llega al mapa jugable.
+- Informe y límites de QA: `pr-screenshots/alexis-qa/README.md`.
