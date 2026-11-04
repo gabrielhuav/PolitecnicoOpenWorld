@@ -13,4 +13,5 @@ Consulta directa, por ejemplo la celda de ESCOM:
 `https://raw.githubusercontent.com/gabrielhuav/PolitecnicoOpenWorld/datos-calles/v1/celdas/975_-4958.json`
 
 Datos © OpenStreetMap contributors, disponibles bajo la Open Database License (ODbL 1.0).
-Fuente: extracto de México de Geofabrik.
+Fuente y cobertura exactas: consultar `v1/indice.json`. La cobertura inicial se generó
+desde BBBike MexicoCity; las actualizaciones mensuales usan Geofabrik México.
