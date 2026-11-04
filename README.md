@@ -20,6 +20,9 @@ The project is built entirely with **Kotlin + Jetpack Compose**, follows a stric
 
 ### 🔄 Recent Changes
 
+- **Alexis Syntaxis asset repair and fighter CI (2026-11-04)** — damage/stun sprites now follow the 100 px standing-height standard, with corrected feet anchors. Four talking poses and ten clipped action poses were regenerated. A reproducible asset workflow builds previews, checks geometry and compares committed assets with their sources. See the [fighter CI tutorial](PolitecnicoOpenWorld/README%20for%20IAS/SF/CI_CD_agregar_peleador.md).
+- **Static CDMX streets (2026-11-04)** — integrates the static-cell approach from PR #182 ahead of Overpass, and rejects malformed/HTML responses so gateway errors are retried through the fallback instead of accepted as empty streets.
+
 The latest integration work centers on the **multiplayer back end**, which now spans two servers, plus the previously bundled feature/performance PRs:
 
 - **TITULACIÓN POR COMBATE: the police fighters' special move gets its own sound (new, 2026-09-24)** — the **CDMX policewoman**, the **riot-squad Granadero** and the **Granadera** had no `power` voice line and no `special_<id>` clip, so their projectile fell back to the generic `hadouken`. They now share a short **siren + impact SFX** (`special_power_siren`, 1.5 s, original synthesized audio with no third-party samples) with a short `(Siren)` subtitle when voice subtitles are enabled, the same way Escomboy and Escomgirl share `special_power_electricity`. The CDMX policeman keeps his own clip. The arcade audit test now requires the new file for the three of them.
@@ -346,6 +349,9 @@ The detailed checklist lives in **`plan.artifact.md` §11**. In short, on every 
 El proyecto está construido íntegramente en **Kotlin + Jetpack Compose**, sigue un patrón **MVVM** estricto organizado por *features* y delega la lógica de mundo persistente a **dos servidores Node.js independientes**: uno para el open world y uno nuevo, dedicado, para el minijuego de zombis.
 
 ### 🔄 Cambios Recientes
+
+- **Alexis Syntaxis: sprites corregidos y CI de peleadores (2026-11-04)** — los cuadros de daño/aturdimiento cumplen la altura erguida de 100 px y se corrigen los anclajes de pies. Se regeneraron cuatro poses de hablar y diez poses de acción cortadas. Un workflow reproducible genera previews, valida geometría y compara los assets versionados con sus fuentes. Ver [tutorial de CI](PolitecnicoOpenWorld/README%20for%20IAS/SF/CI_CD_agregar_peleador.md).
+- **Calles estáticas de CDMX (2026-11-04)** — integra el enfoque de celdas estáticas del PR #182 antes de Overpass y rechaza respuestas HTML o malformadas para que los errores del servidor activen el respaldo en vez de aceptarse como calles vacías.
 
 El último trabajo de integración se centra en el **back end multijugador**, que ahora abarca dos servidores, además de los PRs de funcionalidad/rendimiento previos:
 

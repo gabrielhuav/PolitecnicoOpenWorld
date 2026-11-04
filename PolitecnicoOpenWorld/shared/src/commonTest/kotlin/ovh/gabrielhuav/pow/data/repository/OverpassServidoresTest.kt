@@ -56,4 +56,11 @@ class OverpassServidoresTest {
     fun `una pagina HTML en vez de JSON cuenta como error`() {
         assertTrue(OverpassServidores.esErrorDelServidor("<html><body>502 Bad Gateway</body></html>"))
     }
+
+    @Test
+    fun `un objeto sin elements o con elements invalido cuenta como error`() {
+        assertTrue(OverpassServidores.esErrorDelServidor("{}"))
+        assertTrue(OverpassServidores.esErrorDelServidor("""{"elements":null}"""))
+        assertTrue(OverpassServidores.esErrorDelServidor("""{"elements":{}}"""))
+    }
 }

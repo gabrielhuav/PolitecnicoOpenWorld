@@ -145,9 +145,10 @@ data class PoliceShot(from: GeoPoint, to: GeoPoint, at: Long)
 ## Game loop — `WorldMapGameLoop.kt` / `WorldMapViewModel.startGameLoop`
 
 **ES:** Coroutine en `Dispatchers.Default`, **tick cada 33 ms** (~30 Hz). Arranque: espera ubicación,
-carga calles (caché Room → si no, Overpass con backoff exponencial 1s→30s). Luego, por tick:
+carga calles (caché Room → celda estática `datos-calles` → Overpass con respaldos y backoff).
+La cobertura inicial y la generación mensual se documentan en `tools/calles/README.md`. Luego, por tick:
 **EN:** Coroutine on `Dispatchers.Default`, **tick every 33 ms** (~30 Hz). Startup: wait for location,
-load roads (Room cache → else Overpass with exponential backoff 1s→30s). Then, per tick:
+load roads (Room cache → static `datos-calles` cell → Overpass backups with backoff). Then, per tick:
 
 ```
 1. ESCOM sync: dentro de ESCOM + red lista → `spawnEscomItems` (ya **NO** spawnea la mano; solo marca el flag); fuera → limpia.

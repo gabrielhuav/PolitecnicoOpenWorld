@@ -17,6 +17,10 @@
 
 ## Por dónde empezar
 
+**CI de peleadores (2026-11-04):** [Tutorial de recortes, QA y GitHub Actions](CI_CD_agregar_peleador.md).
+Las recetas versionadas viven en `tools/sf_fighters/`; el workflow exige reconstrucción
+reproducible para atlas modificados. Alexis / PR #158 incluye fuentes de reparación.
+
 1. `../09_CONVENTIONS_GOTCHAS.md` — convenciones OBLIGATORIAS (MVVM, estado inmutable
    `_state.update { it.copy(...) }`, strings ES+EN con paridad, CRLF en `.kt`).
 2. `../_SESION_ACTUAL.md` — **qué se está haciendo AHORA MISMO** y qué sigue.

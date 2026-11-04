@@ -7,6 +7,12 @@
 
 ## 0. Mapa de carpetas (dónde vive cada cosa)
 
+**2026-11-04:** el flujo reproducible de CI, con staging, normalización final y recetas
+por personaje, está en [CI_CD_agregar_peleador.md](CI_CD_agregar_peleador.md).
+Los atlas de producción actuales son **WebP lossless**; el `.png` de la tabla es histórico.
+Para Alexis se conserva el atlas importado y una hoja con 14 poses regeneradas en
+`newSFAssets/AlexisSyntaxis/`; su receta corrige geometría sin cambiar el renderer.
+
 | Etapa | Ruta |
 |---|---|
 | Hojas ORIGINALES por personaje (01-29) | `newSFAssets/<Personaje>/<Personaje>_NN_Slug.png` |

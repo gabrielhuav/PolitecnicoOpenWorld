@@ -1,0 +1,22 @@
+{
+  "character": "alexis_syntaxis",
+  "title": "AlexisSyntaxis",
+  "mode": "atlas-repair",
+  "source_atlas": "newSFAssets/AlexisSyntaxis/atlas-pr158-original.webp",
+  "source_data": "newSFAssets/AlexisSyntaxis/atlas-pr158-original.json",
+  "repair_sheet": "newSFAssets/AlexisSyntaxis/repair-14-poses.png",
+  "repair_grid": [4, 4],
+  "replacement_cells": {
+    "talk-1": 0, "talk-2": 1, "talk-3": 2, "talk-4": 3,
+    "special-light-3": 4, "special-light-4": 5, "special-light-5": 6,
+    "special-medium-2": 7, "special-medium-3": 8,
+    "special-medium-4": 9, "special-medium-5": 10,
+    "throw-5": 11, "super-8": 12, "power-throw-6": 13
+  },
+  "replacement_heights": {
+    "special-light-3": 100, "special-light-4": 100, "special-light-5": 100,
+    "special-medium-2": 100, "special-medium-3": 100,
+    "special-medium-4": 108, "special-medium-5": 115,
+    "throw-5": 100, "super-8": 130, "power-throw-6": 105
+  }
+}
