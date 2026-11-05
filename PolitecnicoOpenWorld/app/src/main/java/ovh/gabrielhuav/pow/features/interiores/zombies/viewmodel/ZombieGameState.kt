@@ -107,6 +107,7 @@ data class ZombieGameState(
     val showInventory: Boolean = false,
     val inventoryKeys: List<String> = emptyList(),
     val inventoryUnlockedSlots: Int = 2,
+    val selectedInventorySlot: Int? = null,//PrimerAgregado
     // MISIÓN 3 (recompensa): sin arma de fuego, el modo RANGED está BLOQUEADO (solo campaña;
     // fuera de campaña/multijugador llega true desde AppNavGraph).
     val firearmUnlocked: Boolean = true,
