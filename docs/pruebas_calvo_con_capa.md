@@ -142,3 +142,11 @@
 ## 4. Dictamen Final de Calidad
 * **Defectos encontrados:** 0 defectos bloqueantes, 0 regresiones.
 * **Recomendación:** **APROBAR PARA MERGE**. La contribución es limpia, no invasiva, cumple con la arquitectura MVVM, preserva el rendimiento y amplía la experiencia de juego en ambos modos principales de la aplicación.
+
+
+## Revisión de escala de sprites (PR #143)
+
+- Atlas único: `PolitecnicoOpenWorld/app/src/main/assets/STREETFIGHTER/IMAGES/CalvoConCapa.webp` (celdas de 256×256 px).
+- Punto de apoyo declarado: `(128, 224)`; el cuerpo en poses estándar mide aproximadamente 100 px.
+- Se midió el contenido visible de cada celda a partir del canal alfa. Las poses que superaban 100 px se redujeron con vecino más cercano y se anclaron por abajo: `jump-up-3`, `jump-up-5`, `jump-up-6`, `jump-roll-2`, `jump-roll-5`, `fall-1` y `jump-start-2`.
+- Verificar en emulador las poses de golpe, salto/ataque aéreo, derribo y KO para confirmar que no cambie el tamaño aparente.

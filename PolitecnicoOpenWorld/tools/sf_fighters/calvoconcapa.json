@@ -1,0 +1,29 @@
+{
+  "fighterId": "CALVO_CON_CAPA",
+  "displayName": "El Calvo con Capa",
+  "sourceSheets": [
+    "../newSFAssets/CalvoConCapa/CalvoConCapa_01_Idle_Turn.png",
+    "../newSFAssets/CalvoConCapa/CalvoConCapa_02_Crouch_CrouchTurn.png",
+    "../newSFAssets/CalvoConCapa/CalvoConCapa_03_Walk_Run.png",
+    "../newSFAssets/CalvoConCapa/CalvoConCapa_04_JumpStart_Land.png",
+    "../newSFAssets/CalvoConCapa/CalvoConCapa_05_JumpUp_Air.png"
+  ],
+  "atlas": "app/src/main/assets/STREETFIGHTER/IMAGES/CalvoConCapa.webp",
+  "frameData": "app/src/main/assets/STREETFIGHTER/DATA/calvoconcapa.json",
+  "packing": {
+    "cellSize": [256, 256],
+    "feetAnchor": [128, 224],
+    "maxVisibleBodyHeightPx": 100,
+    "contentBoundsMeasuredFromAlpha": true,
+    "oversizedPosesScaledNearestNeighborAndBottomAnchored": [
+      "jump-up-3",
+      "jump-up-5",
+      "jump-up-6",
+      "jump-roll-2",
+      "jump-roll-5",
+      "fall-1",
+      "jump-start-2"
+    ]
+  },
+  "notes": "Una sola imagen atlas WebP y un JSON de coordenadas para todas las animaciones; no se cargan imágenes individuales por pose. La escala máxima se verifica sobre poses de daño, agachado, aéreas, derribo y KO."
+}

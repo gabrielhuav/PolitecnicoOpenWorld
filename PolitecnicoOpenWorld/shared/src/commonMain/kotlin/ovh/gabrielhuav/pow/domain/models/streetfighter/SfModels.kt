@@ -262,6 +262,10 @@ enum class SfFighterId(
         "Paramédico", "PARAMEDICO", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Paramedico.png",
         isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "Paramedico/", "pmd_"),
     ),
+    ALEXIS_SYNTAXIS(
+        "Alexis Syntaxis", "SYNTAXIS",
+        "STREETFIGHTER/DATA/alexis_syntaxis.json", "STREETFIGHTER/IMAGES/AlexisSyntaxis.webp",
+    ),
     CALVO_CON_CAPA(
         "El Calvo con Capa", "CALVO",
         "STREETFIGHTER/DATA/calvoconcapa.json", "STREETFIGHTER/IMAGES/CalvoConCapa.webp",
