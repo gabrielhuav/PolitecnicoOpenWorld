@@ -65,6 +65,9 @@ jobs:
       - name: Nombres de test compatibles con Kotlin/Native
         working-directory: ./PolitecnicoOpenWorld
         run: bash tools/check_kmp_test_names.sh
+      - name: Respaldo de proveedores Leaflet
+        working-directory: ./PolitecnicoOpenWorld
+        run: node --test tools/tests/test_world_map_tiles.cjs
       # assembleDebug ARMA la app (compila, valida el grafo Hilt COMPLETO y el merge de
       # manifest/recursos — cosas que los unit tests no cubren), y los dos `test*` corren la
       # logica pura. Todo debe pasar para mergear.

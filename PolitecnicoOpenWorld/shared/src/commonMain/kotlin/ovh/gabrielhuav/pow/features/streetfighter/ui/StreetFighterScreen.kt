@@ -102,11 +102,15 @@ import ovh.gabrielhuav.pow.platform.assets.PowAssets
 import ovh.gabrielhuav.pow.platform.imagen.PowImagen
 import ovh.gabrielhuav.pow.platform.imagen.decodificarReducido
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
-import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfArcadeOutcome
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfOnlineStatus
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SF_STOP_SPECIALS_EVENT
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterState
 import ovh.gabrielhuav.pow.shared.recursos.*
+import ovh.gabrielhuav.pow.features.streetfighter.records.RecordsLoadResult
+import ovh.gabrielhuav.pow.features.streetfighter.records.FighterRecordsStore
+import ovh.gabrielhuav.pow.features.streetfighter.records.rememberFighterRecordsSettings
+import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfArcadeOutcome
+import androidx.compose.runtime.saveable.rememberSaveable
 
 // View Compose PURA del modo de pelea 1v1: observa el estado con collectAsState() y solo
 // emite intenciones al VM (contrato MVVM, README for IAS 01/09).
@@ -176,10 +180,11 @@ private fun releaseSfSpecials(activePlayers: MutableMap<String, PowClip>) {
     }
 }
 
-@Composable
+@Composable 
 fun StreetFighterScreenCommon(
     onExitToMap: () -> Unit,
     controller: StreetFighterController,
+    controlsScale: Float = 1f,
     onlineStatusContent: @Composable (
         StreetFighterState,
         SfTheme,
@@ -510,10 +515,22 @@ fun StreetFighterScreenCommon(
             } else {
                 null
             }
-            val tutorialButton = tutorialStepLabel?.let(::sfButtonForLabel)
+            // 🆕 EXAMEN EXTRAORDINARIO: con el panel de PASOS abierto, el siguiente paso se
+            // resalta igual que en el tutorial (flecha sobre el joystick o botón que brilla).
+            var extraShowSteps by remember { mutableStateOf(false) }
+            val extraHud = state.extraordinarioHud
+            val extraNext = if (extraShowSteps && extraHud != null && extraHud.flash.isEmpty()) {
+                extraHud.steps.getOrNull(extraHud.stepIndex)
+            } else {
+                null
+            }
+            val extraIsButton = extraNext != null && extraNext.length == 1 && extraNext[0].isLetter()
+            val tutorialButton = tutorialStepLabel?.let(::sfButtonForLabel) ?: extraNext?.takeIf { extraIsButton }
             val tutorialJoystick = tutorialStepLabel?.let(::sfJoystickHintForLabel)
+                ?: extraNext?.takeIf { !extraIsButton }
             JoystickController(
                 modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+                tamano = 180.dp * controlsScale.coerceIn(0.6f, 1.4f),
                 onRelease = controller::onJoystickRelease,
                 // 🆕 (2026-07-25) Respuesta INMEDIATA al toque: en la pelea los controles deben
                 // responder al instante (agacharse/caminar). Con el arrastre de siempre un tap se
@@ -527,7 +544,10 @@ fun StreetFighterScreenCommon(
             if (tutorialJoystick != null) {
                 SfJoystickHint(
                     text = tutorialJoystick,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(start = 30.dp, bottom = 150.dp),
+                    modifier = Modifier.align(Alignment.BottomStart).padding(
+                        start = 30.dp,
+                        bottom = 12.dp + 138.dp * controlsScale.coerceIn(0.6f, 1.4f),
+                    )
                 )
             }
             // OJO: padding-end grande a propósito — en landscape la barra de navegación/gestos
@@ -536,6 +556,7 @@ fun StreetFighterScreenCommon(
             // los toques caen dentro del juego.
             FighterXboxButtons(
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 64.dp, bottom = 16.dp),
+                controlsScale = controlsScale,
                 onPunch = { strength -> controller.onAttackPressed(strength, SfAttackType.PUNCH) },
                 onKick = controller::onKickPressed,
                 bonusPowerCount = state.player.id.bonusPowerCount,
@@ -548,9 +569,13 @@ fun StreetFighterScreenCommon(
                 // 🆕 (2026-07-22) Rediseño "Neón Arcade": gatillos L (izquierda, encima del
                 // joystick) = L1 Parry · L2 Burla.
                 FighterShoulderButtons(
+                    controlsScale = controlsScale,
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .padding(start = 16.dp, bottom = 185.dp),
+                        .padding(
+                            start = 16.dp,
+                            bottom = 12.dp + 173.dp * controlsScale.coerceIn(0.6f, 1.4f),
+                        ),
                     isLeft = true,
                     superReady = state.player.superReady,
                     onParry = controller::onParryPressed,
@@ -563,9 +588,13 @@ fun StreetFighterScreenCommon(
                 )
                 // Gatillos R (derecha, encima del diamante) = R1 Agarre · R2 Súper.
                 FighterShoulderButtons(
+                    controlsScale = controlsScale,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = 190.dp),
+                        .padding(
+                            end = 16.dp,
+                            bottom = 16.dp + 174.dp * controlsScale.coerceIn(0.6f, 1.4f),
+                        ),
                     isLeft = false,
                     superReady = state.player.superReady,
                     onParry = controller::onParryPressed,
@@ -595,6 +624,15 @@ fun StreetFighterScreenCommon(
                     // `exitTutorial` devuelve el estado a selección de personaje; el
                     // LaunchedEffect(inCharacterSelect) reabre el flujo normal del modo.
                     onExit = controller::exitTutorial,
+                )
+            }
+            // 🆕 EXAMEN EXTRAORDINARIO: botones PASOS/SALIR, panel del comando y ¡APROBADO!
+            if (state.extraordinarioActive && extraHud != null) {
+                SfExtraordinarioOverlay(
+                    hud = extraHud,
+                    showSteps = extraShowSteps,
+                    onToggleSteps = { extraShowSteps = !extraShowSteps },
+                    onExit = controller::backToCharacterSelect,
                 )
             }
             // 🆕 (2026-07-22) El hint de controles al fondo se QUITÓ (pedido del dueño): estorbaba
@@ -712,7 +750,13 @@ fun StreetFighterScreenCommon(
         var aiVsAiSetup by remember { mutableStateOf(false) }
         // 🆕 (2026-07-21) HOJA DE COMBOS: lista de controles y combos + "PROBAR" (tutorial).
         var showComboSheet by remember { mutableStateOf(false) }
+        // 🆕 (issue #150) Pantalla de récords por peleador
+        var showRecords by remember { mutableStateOf(false) }
+        val recordsSettings = rememberFighterRecordsSettings()
+        var recordsResult by remember { mutableStateOf(FighterRecordsStore.load(recordsSettings)) }
         var comboFighter by remember { mutableStateOf<SfFighterId?>(null) }
+        // 🆕 EXAMEN EXTRAORDINARIO: selector propio (solo peleadores con Extraordinario).
+        var extraSetup by remember { mutableStateOf(false) }
         // 🆕 (2026-07-22) MEMORIA DEL MODO: al salir de una pelea se vuelve al selector DEL
         // MISMO modo (antes SIEMPRE forzaba el selector de Arcade). Se registra al LANZAR
         // cada modo; "menu" = gauntlet/showcase (no tienen selector propio) → menú de modos.
@@ -722,9 +766,11 @@ fun StreetFighterScreenCommon(
                 arcadeSetup = false
                 sfMenu = false
                 aiVsAiSetup = false
+                extraSetup = false
                 when (lastLaunchedMode) {
                     "arcade" -> arcadeSetup = true
                     "aivsai" -> aiVsAiSetup = true
+                    "extra" -> extraSetup = true // 🆕 volver = selector del examen
                     "practice" -> Unit // el selector de práctica es la rama default
                     "combos" -> showComboSheet = true // vuelve a la hoja del peleador probado
                     else -> sfMenu = true
@@ -847,8 +893,24 @@ fun StreetFighterScreenCommon(
                                 sfMenu = true
                             },
                         )
+                        // 🆕 (issue #150) RÉCORDS por peleador
+                        showRecords -> FighterRecordsOverlay(
+                            result = recordsResult,
+                            onReset = {
+                                FighterRecordsStore.reset(recordsSettings)
+                                recordsResult = RecordsLoadResult.Empty
+                            },
+                            onBack = {
+                                showRecords = false
+                                sfMenu = true
+                            },
+                        )
                         // 🆕 MENÚ DE MODOS (estilo POW): ARCADE principal, PRÁCTICA, IA VS IA, MULTIJUGADOR
                         sfMenu -> SfModeMenuOverlay(
+                            onRecords = {
+                                sfMenu = false
+                                showRecords = true
+                            },
                             devMode = controller.devUnlockAll(),
                             audioShowcaseRunning = state.audioShowcaseRunning,
                             audioShowcaseIndex = state.audioShowcaseIndex,
@@ -885,6 +947,16 @@ fun StreetFighterScreenCommon(
                             onCombos = {
                                 controller.stopAudioShowcase()
                                 showComboSheet = true
+                            },
+                            onExtraordinario = {
+                                controller.stopAudioShowcase()
+                                sfMenu = false
+                                arcadeSetup = false
+                                aiVsAiSetup = false
+                                extraSetup = true
+                                pendingFighter = null
+                                pendingRival = null
+                                pendingDifficulty = null
                             },
                             onMultiplayer = {
                                 controller.stopAudioShowcase()
@@ -973,6 +1045,32 @@ fun StreetFighterScreenCommon(
                             lowEnd = lowEnd,
                             isActuallyUnlocked = { controller.isFighterActuallyUnlocked(it) },
                         )
+                        // 🆕 EXAMEN EXTRAORDINARIO: solo peleadores con Extraordinario; rival y
+                        // escenario AL AZAR (entre desbloqueados, o todos en Modo Dev).
+                        extraSetup -> {
+                            val conExtra = remember { controller.extraordinarioFighters().toSet() }
+                            CharacterSelectOverlay(
+                                fighters = controller.selectableFighters().filter { it in conExtra },
+                                lockedFighters = controller.lockedFighters().filter { it in conExtra },
+                                subtitle = stringResource(Res.string.sf_extra_pick_fighter),
+                                onSelect = { f ->
+                                    val rival = controller.selectableFighters().filter { it != f }.randomOrNull() ?: f
+                                    val unlocked = controller.unlockedMaps()
+                                    val pool = if (controller.devUnlockAll()) {
+                                        theme.fullBackgrounds.map { it.file }
+                                    } else {
+                                        theme.fullBackgrounds.map { it.file }.filter { it in unlocked }
+                                    }
+                                    chosenBgFile = pool.randomOrNull() ?: theme.fullBackgrounds.firstOrNull()?.file
+                                    lastLaunchedMode = "extra"
+                                    extraSetup = false
+                                    controller.startExtraordinario(f, rival)
+                                },
+                                onBack = { extraSetup = false; sfMenu = true },
+                                lowEnd = lowEnd,
+                                isActuallyUnlocked = { controller.isFighterActuallyUnlocked(it) },
+                            )
+                        }
                         // PRÁCTICA (versus): peleador → RIVAL → DIFICULTAD → mapa
                         fighter == null -> CharacterSelectOverlay(
                             fighters = controller.selectableFighters(),
@@ -1182,19 +1280,54 @@ fun StreetFighterScreenCommon(
             }
         }
 
-        // Botón de salida.
+        // Botones superiores: Pausa (asset Button Pause) y Salida (✕).
         //
-        // ⚠️ `systemBarsPadding()` va SOLO en este botón, no en la pantalla: el combate se dibuja a
+        // ⚠️ `systemBarsPadding()` va SOLO en esta fila, no en la pantalla: el combate se dibuja a
         // sangre hasta los bordes a propósito, y meter el padding arriba lo encogería. Sin esto, en
-        // iOS la ✕ se cuela DEBAJO de la barra de estado (medido en el simulador: quedaba encima
-        // del icono de batería y era casi imposible de pulsar).
-        TextButton(
-            onClick = controller::requestExit,
-            modifier = Modifier.align(Alignment.TopEnd).systemBarsPadding().padding(2.dp),
-        ) {
-            Text("✕", color = Color.White, fontSize = 18.sp)
+        // iOS los botones se cuelan DEBAJO de la barra de estado (medido en el simulador).
+        if (!state.inCharacterSelect) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .systemBarsPadding()
+                    .padding(end = 4.dp, top = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Image(
+                    painter = painterResource(Res.drawable.ic_button_pause),
+                    contentDescription = stringResource(Res.string.sf_paused),
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .clickable(onClick = controller::togglePause),
+                )
+                TextButton(
+                    onClick = controller::requestExit,
+                    modifier = Modifier.padding(start = 2.dp),
+                ) {
+                    Text("✕", color = Color.White, fontSize = 18.sp)
+                }
+            }
         }
-
+        // 🆕 (issue #150) Anota el resultado en los récords UNA sola vez por pelea de Arcade.
+// rememberSaveable evita contarla doble si la pantalla se recrea (rotación, etc.).
+// Práctica, IA vs IA, tutorial y online no pasan por aquí (arcadeActive = false).
+        var recordedThisEnd by rememberSaveable { mutableStateOf(false) }
+        val arcadeEndShown = state.showEndMenu && state.arcadeActive
+        LaunchedEffect(arcadeEndShown) {
+            if (!arcadeEndShown) {
+                recordedThisEnd = false
+                return@LaunchedEffect
+            }
+            if (recordedThisEnd) return@LaunchedEffect
+            val playerWon = when (state.arcadeOutcome) {
+                SfArcadeOutcome.WON, SfArcadeOutcome.COMPLETED -> true
+                SfArcadeOutcome.LOST -> false
+                else -> null
+            } ?: return@LaunchedEffect
+            recordsResult = FighterRecordsStore.register(recordsSettings, state.player.id.name, playerWon)
+            recordedThisEnd = true
+        }
         // 🆕 Fin de pelea en ARCADE: ganar (CONTINUAR) / perder (REINTENTAR) / campeón. Reemplaza
         // el menú normal mientras haya una escalera en curso.
         if (state.showEndMenu && state.arcadeActive) {
@@ -1279,9 +1412,57 @@ fun StreetFighterScreenCommon(
                         letterSpacing = 2.sp,
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    PowButton(text = stringResource(Res.string.sf_continue), onClick = controller::togglePause)
+                    PowButton(
+                        text = stringResource(Res.string.sf_continue),
+                        onClick = controller::togglePause,
+                        color = Color(0xFF1C6B4A),
+                        modifier = Modifier.fillMaxWidth(0.55f),
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    PowButton(
+                        text = stringResource(Res.string.sf_pause_moves),
+                        onClick = {
+                            comboFighter = state.player.id
+                            showComboSheet = true
+                        },
+                        color = Color(0xFF1565C0),
+                        modifier = Modifier.fillMaxWidth(0.55f),
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    PowButton(
+                        text = stringResource(Res.string.sf_pause_restart),
+                        onClick = {
+                            controller.togglePause()
+                            controller.restartBattle()
+                        },
+                        color = Color(0xFF7B3F00),
+                        modifier = Modifier.fillMaxWidth(0.55f),
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    PowButton(
+                        text = stringResource(Res.string.sf_pause_exit),
+                        onClick = controller::requestExit,
+                        color = Color(0xFF8B1538),
+                        modifier = Modifier.fillMaxWidth(0.55f),
+                    )
                 }
             }
+        }
+
+        // Hoja de combos invocada desde la pausa en plena pelea
+        if (showComboSheet && !state.inCharacterSelect && comboFighter != null) {
+            SfComboSheetOverlay(
+                fighterId = comboFighter!!,
+                combos = remember(comboFighter) { controller.comboSheet(comboFighter!!) },
+                onTry = {
+                    showComboSheet = false
+                    if (state.isPaused) controller.togglePause()
+                    lastLaunchedMode = "combos"
+                    controller.startTutorial(comboFighter!!)
+                },
+                onChangeFighter = { showComboSheet = false },
+                onBack = { showComboSheet = false },
+            )
         }
 
         // 🆕 Retomar pelea arcade guardada (tras minimizar / salir a medias)
@@ -1321,12 +1502,23 @@ fun StreetFighterScreenCommon(
                 textContentColor = Color.White.copy(alpha = 0.8f),
                 title = { Text(stringResource(Res.string.sf_exit_title)) },
                 text = { Text(stringResource(Res.string.sf_exit_message)) },
+                // Implementación del dialogo de salida cuando el botón de "Back" nativo de Android es pulsado
                 confirmButton = {
-                    // Al salir a menú con arcade activo, forcePause ya guardó; aquí re-guarda por si acaso
-                    TextButton(onClick = {
-                        controller.forcePause()
-                        onExitToMap()
-                    }) { Text(stringResource(Res.string.sf_exit_confirm), color = Color(0xFFD4AF37)) }
+                    Row {
+                        // Tercera opción: volver al selector de personaje sin salir del modo (solo offline)
+                        if (sfCanChangeCharacterFromExit(state.onlineStatus)) {
+                            TextButton(onClick = {
+                                controller.forcePause() // guarda la sesión arcade igual que "Salir"
+                                controller.dismissExitDialog()
+                                controller.backToCharacterSelect()
+                            }) { Text(stringResource(Res.string.sf_change_character), color = Color.White) }
+                        }
+                        // Al salir a menú con arcade activo, se re-guarda por si acaso despues de forcePause
+                        TextButton(onClick = {
+                            controller.forcePause()
+                            onExitToMap()
+                        }) { Text(stringResource(Res.string.sf_exit_confirm), color = Color(0xFFD4AF37)) }
+                    }
                 },
                 dismissButton = { TextButton(onClick = controller::dismissExitDialog) { Text(stringResource(Res.string.sf_keep_fighting), color = Color.White.copy(alpha = 0.7f)) } },
             )
@@ -1555,6 +1747,7 @@ private fun trimTransparent(bmp: Bitmap): Bitmap {
 @Composable
 private fun FighterXboxButtons(
     modifier: Modifier = Modifier,
+    controlsScale: Float = 1f,
     onPunch: (SfAttackStrength) -> Unit,
     onKick: () -> Unit,
     bonusPowerCount: Int,
@@ -1562,9 +1755,10 @@ private fun FighterXboxButtons(
     // 🆕 (2026-07-22) TUTORIAL: letra del botón que TOCA presionar (brilla/pulsa) o null.
     highlight: String? = null,
 ) {
+    val scale = controlsScale.coerceIn(0.6f, 1.4f)
     Box(
         modifier = modifier
-            .size(180.dp)
+            .size(180.dp * scale)
             .clip(CircleShape)
             .background(Color.Black.copy(alpha = 0.4f)),
         contentAlignment = Alignment.Center,
@@ -1572,28 +1766,28 @@ private fun FighterXboxButtons(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             // Y arriba — PUÑO MEDIO (amarillo)
             SfTutorialButtonGlow(active = highlight == "Y") {
-                ActionButton(text = "Y", color = Color(0xFFF1C40F), onHoldEvent = { pressed ->
+                ActionButton(text = "Y", color = Color(0xFFF1C40F),tamano = 48.dp * scale, onHoldEvent = { pressed ->
                     if (pressed) onPunch(SfAttackStrength.MEDIUM)
                 })
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // X izquierda — PUÑO LIGERO (azul)
                 SfTutorialButtonGlow(active = highlight == "X") {
-                    ActionButton(text = "X", color = Color(0xFF3498DB), onHoldEvent = { pressed ->
+                    ActionButton(text = "X", color = Color(0xFF3498DB),tamano = 48.dp * scale, onHoldEvent = { pressed ->
                         if (pressed) onPunch(SfAttackStrength.LIGHT)
                     })
                 }
-                Spacer(modifier = Modifier.size(48.dp))
+                Spacer(modifier = Modifier.size(48.dp * scale))
                 // B derecha — PUÑO FUERTE (rojo)
                 SfTutorialButtonGlow(active = highlight == "B") {
-                    ActionButton(text = "B", color = Color(0xFFE74C3C), onHoldEvent = { pressed ->
+                    ActionButton(text = "B", color = Color(0xFFE74C3C),tamano = 48.dp * scale, onHoldEvent = { pressed ->
                         if (pressed) onPunch(SfAttackStrength.HEAVY)
                     })
                 }
             }
             // A abajo — PATADA (verde; fuerza según joystick: neutro/adelante/atrás)
             SfTutorialButtonGlow(active = highlight == "A") {
-                ActionButton(text = "A", color = Color(0xFF2ECC71), onHoldEvent = { pressed ->
+                ActionButton(text = "A", color = Color(0xFF2ECC71),tamano = 48.dp * scale, onHoldEvent = { pressed ->
                     if (pressed) onKick()
                 })
             }
@@ -1601,7 +1795,7 @@ private fun FighterXboxButtons(
         if (bonusPowerCount > 0) {
             // Centro del diamante: recorre P1..PN. El siguiente toque avanza al poder
             // siguiente; Yoalli tiene 9 y La Tzitzimime 5.
-            ActionButton(text = "P", color = Color(0xFF8E44AD), onHoldEvent = { pressed ->
+            ActionButton(text = "P", color = Color(0xFF8E44AD),tamano = 48.dp * scale, onHoldEvent = { pressed ->
                 if (pressed) onBonusPower()
             })
         }
@@ -1728,6 +1922,7 @@ private fun SfJoystickHint(text: String, modifier: Modifier = Modifier) {
 @Composable
 private fun FighterShoulderButtons(
     modifier: Modifier = Modifier,
+    controlsScale: Float = 1f,
     isLeft: Boolean,
     superReady: Boolean,
     onParry: () -> Unit,
@@ -1745,23 +1940,24 @@ private fun FighterShoulderButtons(
     // 🆕 (2026-07-22) TUTORIAL: letra del botón que TOCA presionar (brilla/pulsa) o null.
     highlight: String? = null,
 ) {
+    val scale = controlsScale.coerceIn(0.6f, 1.4f)
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         if (isLeft) {
             // L1 · Parry (cian neón): desvía el golpe si se aprieta a tiempo
-            SfNeonButton("L1", Color(0xFF00F2FE), Color(0xFF00ADB5), highlight == "L1", onParry)
-            Spacer(modifier = Modifier.size(6.dp))
+            SfNeonButton("L1", Color(0xFF00F2FE), Color(0xFF00ADB5), highlight == "L1", onParry, controlsScale = scale,)
+            Spacer(modifier = Modifier.size(6.dp * scale))
             // L2 · Burla (rosa neón, sin efecto en combate)
-            SfNeonButton("L2", Color(0xFFFF007F), Color(0xFFC5005E), highlight == "L2", onTaunt)
+            SfNeonButton("L2", Color(0xFFFF007F), Color(0xFFC5005E), highlight == "L2", onTaunt, controlsScale = scale,)
             if (showCounter) {
-                Spacer(modifier = Modifier.size(6.dp))
+                Spacer(modifier = Modifier.size(6.dp * scale))
                 // 🆕 L3 · Contraataque (esmeralda, de la reserva de paleta): ventana más corta
                 // que el parry; si conecta, agarre gratis con daño de bonus.
-                SfNeonButton("L3", Color(0xFF2D6A4F), Color(0xFF1B4332), highlight == "L3", onCounter)
+                SfNeonButton("L3", Color(0xFF2D6A4F), Color(0xFF1B4332), highlight == "L3", onCounter, controlsScale = scale,)
             }
         } else {
             // R1 · Agarre (violeta neón): lanza al rival pegado, atraviesa la guardia
-            SfNeonButton("R1", Color(0xFF7928CA), Color(0xFF56149F), highlight == "R1", onGrab)
-            Spacer(modifier = Modifier.size(6.dp))
+            SfNeonButton("R1", Color(0xFF7928CA), Color(0xFF56149F), highlight == "R1", onGrab, controlsScale = scale,)
+            Spacer(modifier = Modifier.size(6.dp * scale))
             // R2 · Súper (naranja neón; apagado si el medidor no está lleno)
             SfNeonButton(
                 label = "R2",
@@ -1769,12 +1965,13 @@ private fun FighterShoulderButtons(
                 border = if (superReady) Color(0xFFC85A00) else Color(0xFF3A3A3A),
                 highlighted = highlight == "R2",
                 onPress = onSuper,
+                controlsScale = scale,
             )
             if (showPowerThrow) {
-                Spacer(modifier = Modifier.size(6.dp))
+                Spacer(modifier = Modifier.size(6.dp * scale))
                 // 🆕 R3 · Derribo con poder (rubí, de la reserva de paleta): cuesta medidor,
                 // pega más fuerte y empuja más que el agarre normal.
-                SfNeonButton("R3", Color(0xFF9B2226), Color(0xFF641220), highlight == "R3", onPowerThrow)
+                SfNeonButton("R3", Color(0xFF9B2226), Color(0xFF641220), highlight == "R3", onPowerThrow, controlsScale = scale,)
             }
         }
     }
@@ -1788,13 +1985,14 @@ private fun SfNeonButton(
     border: Color,
     highlighted: Boolean,
     onPress: () -> Unit,
+    controlsScale: Float = 1f,
 ) {
     SfTutorialButtonGlow(active = highlighted) {
         Box(
             modifier = Modifier.border(2.dp, border, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            ActionButton(text = label, color = fill, onHoldEvent = { pressed -> if (pressed) onPress() })
+            ActionButton(text = label, color = fill, tamano = 48.dp * controlsScale, onHoldEvent = { pressed -> if (pressed) onPress() })
         }
     }
 }

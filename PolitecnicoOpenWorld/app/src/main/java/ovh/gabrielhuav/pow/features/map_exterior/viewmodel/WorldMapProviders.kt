@@ -18,7 +18,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-fun WorldMapViewModel.setMapProvider(provider: MapProvider) {
+fun WorldMapViewModel.setMapProvider(requested: MapProvider) {
+    val provider = requested.keyFreeProvider
     val ts = if (provider == MapProvider.OSM) TileSource.LOCAL_OSM else TileSource.NETWORK
     val currentZoom = _uiState.value.zoomLevel
     val newZoom = when {
@@ -36,7 +37,8 @@ fun WorldMapViewModel.setMapProvider(provider: MapProvider) {
  * segundo plano. Cuando termina, 'pendingProviderReady' se pone en true y la
  * UI avisa para confirmar el cambio.
  */
-fun WorldMapViewModel.requestMapProvider(provider: MapProvider) {
+fun WorldMapViewModel.requestMapProvider(requested: MapProvider) {
+    val provider = requested.keyFreeProvider
     val st = _uiState.value
     if (provider == st.mapProvider) {
         // El destino ya es el activo: descartar cualquier pendiente.
@@ -51,9 +53,11 @@ fun WorldMapViewModel.requestMapProvider(provider: MapProvider) {
     providerPreloadJob?.cancel()
     _uiState.update { it.copy(pendingProvider = provider, pendingProviderReady = false) }
     providerPreloadJob = viewModelScope.launch {
-        preloadProvider(provider)
+        val ready = preloadProvider(provider)
         if (isActive && _uiState.value.pendingProvider == provider) {
-            _uiState.update { it.copy(pendingProviderReady = true) }
+            _uiState.update {
+                it.copy(pendingProvider = if (ready) provider else MapProvider.OSM_WEB, pendingProviderReady = true)
+            }
         }
     }
 }
@@ -76,7 +80,7 @@ fun WorldMapViewModel.cancelPendingProvider() {
 internal suspend fun WorldMapViewModel.preloadProvider(provider: MapProvider): Boolean = withContext(Dispatchers.IO) {
     if (!provider.isWebProvider) { delay(400); return@withContext true } // nativo/local
     val loc = _uiState.value.currentLocation ?: run { delay(400); return@withContext false }
-    val z = ZOOM_GAMEPLAY_WEB.toInt()
+    val z = minOf(ZOOM_GAMEPLAY_WEB.toInt(), provider.tileMaxNativeZoom)
     val n = 1 shl z
     val xCenter = ((loc.longitude + 180.0) / 360.0 * n).toInt().coerceIn(0, n - 1)
     val latRad = Math.toRadians(loc.latitude)
@@ -93,17 +97,7 @@ internal suspend fun WorldMapViewModel.preloadProvider(provider: MapProvider): B
 }
 
 internal fun WorldMapViewModel.tileUrlFor(provider: MapProvider, z: Int, x: Int, y: Int): String? {
-    val template = when (provider) {
-        MapProvider.CARTO_VOYAGER  -> "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
-        MapProvider.CARTO_DB_DARK  -> "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
-        MapProvider.CARTO_DB_LIGHT -> "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
-        MapProvider.ESRI           -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
-        MapProvider.ESRI_SATELLITE -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-        MapProvider.OPEN_TOPO      -> "https://a.tile.opentopomap.org/{z}/{x}/{y}.png"
-        MapProvider.OSM_WEB        -> "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        MapProvider.GOOGLE_MAPS    -> "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
-        else -> null
-    } ?: return null
+    val template = provider.webTileTemplate
     return template.replace("{z}", z.toString()).replace("{x}", x.toString()).replace("{y}", y.toString())
 }
 
@@ -112,10 +106,18 @@ internal fun WorldMapViewModel.fetchTile(url: String): Boolean = try {
         connectTimeout = 4000; readTimeout = 4000
         setRequestProperty("User-Agent", "PolitecnicoOpenWorld/1.0")
     }
-    val code = conn.responseCode
-    runCatching { conn.inputStream.use { it.readBytes() } } // descarga para cachear en CDN/SO
-    conn.disconnect()
-    code in 200..299
+    try {
+        if (conn.responseCode in 200..299) {
+            val bytes = conn.inputStream.use { it.readBytes() }
+            val dimensions = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, dimensions)
+            dimensions.outWidth > 0 && dimensions.outHeight > 0
+        } else {
+            false
+        }
+    } finally {
+        conn.disconnect()
+    }
 } catch (e: Exception) { false }
 
 /**
@@ -154,7 +156,7 @@ fun WorldMapViewModel.prepareMapForEntry() {
 internal suspend fun WorldMapViewModel.downloadMapAround(provider: MapProvider): Boolean = withContext(Dispatchers.IO) {
     val loc = _uiState.value.currentLocation
         ?: run { _uiState.update { it.copy(mapLoadProgress = 1f) }; return@withContext false }
-    val z = ZOOM_GAMEPLAY_WEB.toInt()
+    val z = minOf(ZOOM_GAMEPLAY_WEB.toInt(), provider.tileMaxNativeZoom)
     val n = 1 shl z
     val xC = ((loc.longitude + 180.0) / 360.0 * n).toInt()
     val latRad = Math.toRadians(loc.latitude)
@@ -206,7 +208,7 @@ internal suspend fun WorldMapViewModel.downloadGateTiles() = withContext(Dispatc
         downloadOsmNativeForEntry()
         return@withContext
     }
-    val z = if (provider.isWebProvider) ZOOM_GAMEPLAY_WEB.toInt() else 18
+    val z = minOf(ZOOM_GAMEPLAY_WEB.toInt(), provider.tileMaxNativeZoom)
     val n = 1 shl z
     val xC = ((loc.longitude + 180.0) / 360.0 * n).toInt()
     val latRad = Math.toRadians(loc.latitude)

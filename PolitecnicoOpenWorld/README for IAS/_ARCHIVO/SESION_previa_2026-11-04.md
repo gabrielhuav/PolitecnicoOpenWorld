@@ -1,0 +1,325 @@
+# 🧠 MEMORIA COMPARTIDA ENTRE IAs — estado vivo
+
+> Único traspaso entre IAs. Ventana de 2 días; máximo 200 líneas. Aquí va estado medido,
+> trabajo abierto y trampas caras. Diseño e historia viven en los documentos de cada área.
+
+**Última actualización:** 2026-09-28 · Botón de Pausa HUD y Menú de Pausa Mejorado en Titulación por Combate · rama `new-feature`
+
+## ✅ 09-28 / 09-30: BOTÓN DE PAUSA HUD (CON ASSET) + MENÚ DE PAUSA MEJORADO (Titulación por Combate)
+
+- **Problema previo:** En plena pelea, el botón superior derecho era únicamente una "✕" que abría directamente el diálogo de abandonar la pelea hacia el mapa exterior ("Salir de la pelea"). La pausa solo se activaba de forma pasiva al bloquear o minimizar la pantalla, y el overlay de pausa solo ofrecía "Continuar". No había forma de pausar manualmente para revisar combos o reiniciar la ronda.
+- **Implementación (todo en Compose Multiplatform / `commonMain`):**
+  1. `StreetFighterScreen.kt`:
+     - **Botones en HUD superior:** En la esquina superior derecha (`Alignment.TopEnd` con `systemBarsPadding()`), se ubica el botón de pausa con el asset gráfico pixel-art oficial (`ic_button_pause.png`, `size(24.dp)`) a la izquierda del botón de salida (**`✕`**). Con esto no interfiere con el cronómetro ni el cartel de KO central.
+     - Preserva `systemBarsPadding()` defensivo para evitar solapamientos con la barra de estado en iOS y Android.
+  2. Asset gráfico añadido: `shared/src/commonMain/composeResources/drawable/ic_button_pause.png` (extraído y optimizado con fondo transparente a partir de `Button Pause.jpg`).
+  3. Menú de pausa enriquecido con opciones completas:
+     - **Continuar** (`sf_continue`)
+     - **Lista de movimientos** (`sf_pause_moves`): Invoca la `SfComboSheetOverlay` del peleador actual en plena pausa para consultar comandos sin abandonar el combate.
+     - **Reiniciar combate** (`sf_pause_restart`): Despausa y reinicia la pelea de inmediato vía `controller.restartBattle()`.
+     - **Salir al menú** (`sf_pause_exit`): Abre la confirmación estándar para salir.
+  4. Strings localizados con paridad completa en español e inglés en `composeResources/values/strings.xml` y `values-en/strings.xml`.
+
+## 🍏 09-05 (Mac): VERIFICADO EN EL SIMULADOR — 1 fallo de texto, la memoria NO empeoró
+
+Ejecutado `PROMPT_MAC_verificar_ios_titulacion.md` en **iPhone SE (3ª gen), iOS 18.2, Xcode 26.6**.
+Todo lo de aquí está MEDIDO en pantalla, no deducido.
+
+### ✅ RESUELTO — el rótulo del botón destacado se cortaba con la fuente del sistema en grande
+
+- **Síntoma (iPhone SE + fuente del sistema al máximo):** el botón destacado mostraba
+  **"★ TITULACIÓN POR"** y desaparecía "COMBATE ★", **sin "…"**. Y la letra salía MÁS GRANDE que a
+  tamaño normal: el autoajuste no encogía nada. Igual en inglés (es nombre propio, mismo string).
+
+**La causa, que NO es la que parecía.** El `autoSize` solo encogía los rótulos de UNA palabra.
+Con `maxLines = 1` y `softWrap` en su valor por defecto (`true`), un rótulo CON ESPACIO se parte
+en el espacio, Compose tira lo que sobra y mide la línea que queda — **que sí cabe**. Sin
+desbordamiento que medir, `StepBased` se queda en el tamaño máximo, y como `BasicText` usa
+`TextOverflow.Clip`, lo tirado desaparece sin puntos suspensivos. Los de una palabra sí encogían
+porque no tienen dónde partirse (por eso `COLECCIONABLES` sí funcionaba y fue la pista).
+
+**Arreglo (3 líneas, todo en `commonMain`, VERIFICADO en pantalla):**
+1. `softWrap = false` en `FeaturedStreetFighterButton` y `MenuButton` (`MainMenuScreen.kt`) y en
+   el rótulo de `FeaturedArcadeButton` (`SfMenuOverlays.kt`). Es la misma bandera en la que ya se
+   apoyaba el fix del S24 en `StageBadge`.
+2. El piso del botón destacado bajó de **11 → 6.sp**. Con `softWrap = false` ya encogía, pero
+   topaba con los 11.sp y seguía comiéndose la ★ final (26 caracteres + 1.sp de `letterSpacing`
+   en cada uno piden ~10.sp). ⚠️ **6.sp no es letra diminuta**: el piso está en `sp`, así que el
+   sistema lo multiplica por la escala del usuario — a tamaño de accesibilidad acaban siendo
+   ~19 pt en pantalla. **Con la fuente normal el piso ni se toca: sigue pintando a 20.sp.**
+3. **NO se tocó** la descripción del botón ARCADE (`maxLines = 2`): ahí `softWrap = false` la
+   colapsaría a una línea y se perdería el diseño de dos.
+
+**Verificado en el iPhone SE, las 6 combinaciones:** rótulo COMPLETO con las dos estrellas en
+fuente normal / máxima de Ajustes / máxima de accesibilidad, en **español y en inglés**. A tamaño
+normal se pinta idéntico a antes (sin regresión). En el submenú, `★ ARCADE ★` y su descripción de
+2 líneas, completos.
+**Los altos fijos (56/76.dp) NO se tocaron** — el fix del S24 sigue intacto.
+Cierre en verde tras el cambio: **342 tests** (125 `:app` + 217 `:shared`) 0 fallos,
+`:shared:iosSimulatorArm64Test` OK, **detekt exit 0**, `check_kmp_test_names.sh` OK.
+
+### ⚠️ Aparte y PREEXISTENTE (no lo trajo esta rama): `PowButton` no se autoajusta
+
+`ui/components/PowButton.kt` sigue con `Text` a 13.sp FIJO, sin `maxLines` y con alto fijo de
+44.dp. Con la fuente en grande, en el submenú de pelea se lee **"COMBOS Y"** (se come
+"TUTORIAL", cae a una 2ª línea que el alto fijo recorta) y **"MULTIJUGADO"** (sin la R, recortado
+a lo ancho). La rama solo convirtió `MenuButton`, `FeaturedStreetFighterButton` y
+`FeaturedArcadeButton`; este botón se quedó fuera. **SIGUE ABIERTO a propósito**: `PowButton`
+es un componente COMPARTIDO entre modos y entre plataformas, así que convertirlo también cambia
+Android — es una decisión aparte, no parte de este arreglo.
+
+### ✅ Lo que SÍ pasó
+
+- **Fuente normal, ES y EN:** botón grande completo, **sin** la etiqueta "MODO COMBATE" (bien
+  quitada), y `AJUSTES`/`COLECCIONABLES` enteros. En inglés **sigue diciendo "TITULACIÓN POR
+  COMBATE"** (no se traduce) ✅.
+- **Submenú:** título en 2 líneas completo; `★ ARCADE ★` y su descripción largos, enteros ✅.
+- **Movimientos nuevos:** **L3 (verde) y R3 (rojo) SE PINTAN** en la pelea ✅. 60 FPS estables.
+- **La Llorona:** el atlas del bundle es **byte-idéntico** al del repo (`cb6911a3…`), o sea el
+  re-empaquetado sí viajó a iOS. Recortados del atlas del `.app`: **Especial Pesado 5/5 cuadros y
+  Especial Medio 5/5 con ella VISIBLE**, incluido el cuadro que antes solo tenía el efecto, y el
+  brillo cian del `special-medium-3`. Los dos arreglos del 08-30 están en iOS ✅.
+
+### 📏 MEMORIA — no empeoró; el número de referencia no es comparable
+
+`footprint` sobre el proceso del simulador (`phys_footprint`), iPhone SE:
+
+| Momento | Medido | Referencia `ccac1bbd` |
+|---|---|---|
+| Menú recién abierto | 53–55 MB | — |
+| En pelea con La Llorona | 370–689 MB (pico 819–822 MB) | ~612 MB |
+| De vuelta al menú | **224–229 MB** (2 corridas) | ~494 MB |
+
+⚠️ **El pico alto NO es de La Llorona.** Corrida de control con **Estudianta**: 399–684 MB, pico
+**818 MB** — prácticamente idéntico. El perfil de memoria es el mismo con cualquier peleador, así
+que **el atlas re-empaquetado no engordó nada**. La vuelta al menú es la mitad de la referencia.
+La diferencia con el ~612 MB de `ccac1bbd` es de línea base / forma de medir, no una regresión.
+
+### 🔎 Notas del entorno (por si alguien repite esto)
+
+- El roster sale bloqueado (3 peleadores). Para llegar a La Llorona: **Ajustes → Modo
+  Desarrollador ON** (`devUnlockAll()`); quedó ENCENDIDO en el simulador, junto con "Mostrar FPS".
+- Los especiales piden joystick + botón a la vez: `touch2_path` (dos dedos). Verificar la
+  animación cuadro a cuadro **desde el atlas del `.app` es más fiable** que intentar fotografiar
+  una animación de menos de un segundo.
+- La pelea en iOS va en VERTICAL con franjas negras (el forzado de orientación solo está en el
+  mundo abierto). No es de esta rama.
+
+## ✅ 09-05: El modo pelea se llama ahora "TITULACIÓN POR COMBATE" (antes "Huelum vs. Goya")
+
+Rename de cara al jugador. **El código NO cambia de nombre**: sigue siendo `street_fighter`/`Sf*`
+(regla de siempre, ver `SF/00_SF_INDEX.md`).
+
+- **Lo que ve el jugador**: string `menu_street_fighter` en los 4 archivos (ES/EN × `:app`/
+  `:shared`) + la frase dentro de `wip_message`. El nombre es propio: **idéntico en inglés**, igual
+  que lo era "Huelum vs. Goya".
+- **Único identificador de código tocado**: `PowModo.HUELUM_VS_GOYA` → `PowModo.STREET_FIGHTER`.
+  Se comprobó primero que NO se persiste por nombre (no hay `valueOf`/`.name`: es un catálogo en
+  memoria para decidir qué botones se pintan), así que no rompe saves. Se renombró a la convención
+  del código para que el próximo cambio comercial no vuelva a tocar Kotlin.
+- **El botón destacado del menú no daba el ancho** con el nombre nuevo (22 caracteres contra los 15
+  de antes): iba a 20.sp FIJO con `maxLines = 1` + `softWrap = false`, así que se cortaba con
+  puntos suspensivos. Ahora usa `BasicText` con `autoSize = TextAutoSize.StepBased(11.sp…20.sp)`:
+  encoge solo lo necesario, así que aguanta el nombre largo, el inglés y la fuente grande del
+  sistema. **El alto sigue FIJO en 76.dp** — de eso depende el fix del S24 (2026-07-21).
+- **Se quitó la etiqueta "◆ MODO COMBATE ◆"** (`menu_featured_tag`): con el nombre nuevo repetía lo
+  mismo y su espacio es el que necesitaba el rótulo. No la usaba nadie más, así que se borró de los
+  4 archivos de strings en vez de dejarla colgando.
+- El título del submenú de pelea (`SfMenuOverlays.kt`) muestra el mismo string a 24.sp: lleva
+  padding lateral y centrado para que parta en dos líneas en vez de irse de borde a borde (ahí SÍ
+  puede, la columna hace scroll y no tiene alto fijo).
+- **Los DEMÁS botones del menú también se autoajustan ahora** (el problema no era solo del renombrado):
+  `MenuButton` —por el que pasan TODOS los botones del menú principal, incluidos los modos vía
+  `BotonDeModo`— pintaba a 16.sp FIJO dentro de 56.dp de alto fijo y con `Ellipsis`. En pantalla
+  chica o con fuente grande, los rótulos largos ("COLECCIONABLES", "MULTIJUGADOR", "COLLECTIBLES")
+  salían cortados con "…". Ahora bajan hasta 10.sp antes de recortar nada. El botón ARCADE del
+  submenú de pelea recibió lo mismo para su rótulo y su descripción larga, que podía desbordar su
+  caja de 76.dp. **Los altos fijos NO se tocaron** — de ellos depende el fix del S24.
+- ⚠️ **Sin verificar en pantalla**: compila y la lógica de autoajuste impide el recorte, pero nadie
+  lo ha visto todavía en un dispositivo chico real. Si a 10.sp queda muy pequeño, subir ese piso.
+  Sí está comprobado que **compila para iOS** (`:shared:compileKotlinIosSimulatorArm64` OK): el
+  `autoSize` existe en Kotlin/Native. **Traspaso para probarlo en la Mac:
+  `PROMPT_MAC_verificar_ios_titulacion.md`.**
+- ⚠️ **NOTAS DE VERSIÓN SIN ACTUALIZAR (bloquea el merge).** Mergear el PR #141 dispara
+  `android-release.yml` → AAB firmado → Play **track alpha (prueba cerrada), `status: completed`**,
+  usando `distribution/whatsnew/*`. Esas notas siguen siendo las de 1.0.0.17 y **no mencionan nada
+  de esta rama**: ni el renombrado (que el jugador VE), ni los 2 movimientos nuevos, ni los
+  arreglos de La Llorona. Lo único que se tocó ahí fue el nombre del modo en un bullet. ⚠️ El
+  español está a **489 de los 500 caracteres** que permite Play: para añadir hay que recortar.
+- **Comentarios, docs y textos de tienda** actualizados en bloque (75 archivos).
+- **NO se reescribió el historial**: `_ARCHIVO/`, el changelog del README público (62 menciones,
+  todas en entradas con fecha) y `marketing/PR_lanzamiento_huelum_vs_goya.md` (PR #136, ya mergeado) se
+  dejaron con el nombre viejo a propósito.
+- Verificado: 342 tests (125 `:app` + 217 `:shared`) 0 fallos, detekt exit 0, nombres KMP OK.
+
+## ✅ 08-30: "La Llorona se ve como una bola negra" — RESUELTO en 2 movimientos, auditados los 18
+
+Reporte del dueño sobre su Especial Pesado. Resultaron ser DOS problemas separados, encontrados
+uno tras otro — el primero no era "el" bug, solo lo tapaba parcialmente:
+
+1. **Bug de pipeline (color de borde)**: `place_sf()`/`place_world()`
+   (`tools/slice_sf_chroma_sheets.py`) escalaban con LANCZOS sin premultiplicar alfa — el borde
+   semitransparente de un efecto OSCURO sale más oscuro/desaturado de lo que el arte de origen
+   tenía. Corregido con `resize_premultiplied()`. Sin regresión (`idle-1` sale byte-idéntico).
+   Detalle técnico en `SF/00_SF_INDEX.md` §9.
+2. **El bug real — composición, no color**: en la hoja 12 original, el cuadro 4 de SPECIAL HEAVY
+   dibujaba a La Llorona y el remolino YA MUY SEPARADOS dentro de la MISMA celda ancha. El
+   recorte automático, al partir esa celda en 2 cuadros de animación, dejaba UN CUADRO CON SOLO
+   EL EFECTO — en el juego, en ese instante, ella desaparecía por completo. Confirmado comparando
+   contra `_11_SpecialLight_Medium.png` (ahí SÍ está visible en los 5 cuadros). Corregido
+   regenerando el arte: cuadro 4 ancho → 2 cuadros parejos con ella SIEMPRE visible.
+   **El mismo defecto apareció DESPUÉS en Special Medium** (hoja 11, cuadro 5: las calaveras
+   dispersándose sin ella) — el dueño lo detectó jugando ("joystick+Y"). Mismo diagnóstico, mismo
+   arreglo (cuadro 5 ensanchado, ella visible junto a las calaveras). Ambos ya corregidos y
+   re-empaquetados.
+- **Auditoría completa de los 18** (pedida por el dueño tras el 2º hallazgo): script que compara
+  el área opaca de cada cuadro de special1Light/Medium/Heavy, superArt, bonusPower y el resto del
+  moveset contra el idle de cada personaje — señala cuadros con <10-15% del área esperada (cuerpo
+  ausente). **Resultado: SOLO La Llorona tenía el defecto** (ambos casos ya corregidos). Los
+  otros 17 están limpios. Metodología en `SF/00_SF_INDEX.md` §10 por si hace falta repetirla.
+- **Hallazgo aparte — TAMBIÉN CORREGIDO (a petición del dueño)**: `special-medium-3` de La
+  Llorona detectaba 6 blobs en vez de 5 en su fila (su efecto quedaba MUY cerca del límite del
+  umbral "fragmento angosto" de `merge_fragments`, no se fusionaba con su cuerpo, y `pick()`
+  descartaba el efecto en silencio para completar el contrato de 5). Arreglado en CÓDIGO, no en
+  arte: nuevo override `FORCE_EXACT_MERGE` en `slice_sf_chroma_sheets.py` — fusiona el par de
+  blobs con el hueco más chico hasta llegar exacto al conteo esperado, pero SOLO para
+  `(char, hoja)` explícitamente listados ahí (hoy solo `("lallorona", 11)`) — cero cambio de
+  comportamiento para los otros 17. Verificado: "6/5 AVISO" → "5/5 OK", cuadro 3 ya muestra su
+  brillo cian. Detalle en `SF/00_SF_INDEX.md` §12.
+- **Revisado, NO tocado**: los otros 16. La Presidenta tiene el mismo patrón de borde en sus 11
+  bonus powers pero sus colores base son brillantes (no se ve roto) — pendiente si el dueño lo
+  pide. El "agujero negro" de La Tzitzimime (Special Heavy) es diseño intencional (eclipse), no
+  el bug — confirmado contra el arte de origen.
+- **Lección para la próxima**: si un cuadro de una hoja combina 2 momentos en una celda ancha (el
+  personaje + un efecto ya lejos de él), NO asumas que el recorte automático los va a separar
+  bien — revisa si el personaje sigue visible en AMBOS cuadros resultantes, comparando contra una
+  animación hermana que sí esté bien. Detalle y la regla del audit en `00_SF_INDEX.md` §10.
+- Nada de esto se ha commiteado.
+
+## ✅ 08-29/30: CONTRAATAQUE + DERRIBO CON PODER — motor, arte y pipeline TERMINADOS (18/18)
+
+Dos movimientos nuevos de la familia Agarre/Parry para "Titulación por Combate". Diseño completo en
+`SF/DISENO_ARCADE_SF_POW.md` (registro por fecha); prompt de arte y su historial de correcciones
+en `SF/PROMPT_hoja30_contraataque_derribo.md`.
+
+**✅ Motor (`:shared`) implementado y verificado, SIN COMMITEAR:**
+- `SfFighterState.COUNTER` / `POWER_GRAB` / `POWER_THROW` (al final del enum), tabla
+  `SfStateMachine.VALID_FROM`, ramas en `runStateHandler` (`StreetFighterMaquinaEstados.kt`).
+- `applyCounterThrow` / `applyPowerThrow` en `StreetFighterCombate.kt` (mirrors de `applyThrow`
+  con su propio daño/empuje); ventana de tiempo `counterActiveUntilMs` (molde de
+  `parryActiveUntilMs`); medidor parcial (`POWER_THROW_METER_COST = 40`) gastado al ENTRAR a
+  `POWER_GRAB`, conecte o falle.
+- IA en `StreetFighterCpuAi.kt` (contraataque como alternativa arriesgada al parry; derribo con
+  poder preferido sobre el agarre normal cuando sobra medidor y no se guarda para la súper).
+- Botones L3 (Esmeralda)/R3 (Rubí) en `StreetFighterScreen.kt` — la paleta YA estaba reservada
+  para esto en el propio comentario del archivo. Gate por movimiento (`playerHasCounterMove`/
+  `playerHasPowerThrowMove`), no por todo el moveset 3rd Strike.
+- `./gradlew :app:testDebugUnitTest :shared:testAndroidHostTest` en verde, `detekt` exit 0,
+  `bash tools/check_kmp_test_names.sh` OK. Sin arte, el motor es 100% inerte (`hasAnim` bloquea
+  los 3 estados nuevos) — cero regresión visual/jugable mientras tanto.
+
+**✅ Arte (hoja 30, 18 personajes dedicados) — TERMINADO Y VERIFICADO (2026-08-29d), 3 rondas de corrección:**
+1. **Tanda 1** (layout de 2 filas, 12 cuadros de "Derribo con Poder" en una sola fila de 1672px):
+   cuadros pegados. **Corregido:** layout de 3 filas (6 / 4 / 8), hueco mínimo ≥70px.
+2. **Tanda 2** (2600×1412): 9 de 18 dibujaron al RIVAL en la Fila 3 (maniquí/silueta/cuerpo,
+   rompe "oponente invisible"). **Corregido y verificado** en ESCOMROBOT, La Presidenta, Yoalli
+   Ehécatl, Charro Negro, La Tzitzimime, Policía Femenino CDMX, Policía Masculino CDMX,
+   Paramédico Cruz Roja, Policía Granadero (Hombre).
+3. **Tanda 3**: de esos 9, otros 4 habían reinterpretado el agarre como un PODER A DISTANCIA
+   (ESCOMROBOT con orbes/escudo holográfico, Yoalli Ehécatl con fuego, Policía Masculino CDMX
+   y Policía Granadero Hombre lanzando una granada) en vez de un agarre físico de corto alcance
+   (62px, pegado al rival) — y Policía Granadero Hombre había perdido su escudo antimotines.
+   **Corregido y verificado**: agarre físico limpio en los 4, escudo del Granadero restaurado en
+   las 3 filas, Fila 2 de Policía Masculino CDMX en 4 cuadros exactos (había salido en 6).
+   Prompt completo de las 3 rondas en `SF/PROMPT_hoja30_contraataque_derribo.md`.
+
+**✅ Pipeline Python — HECHO para los 18/18 (2026-08-30):**
+1. `tools/slice_sf_chroma_sheets.py` (`SHEETS[30]`) y `tools/pack_sf_character.py`
+   (`NEW_MOVE_ANIMATIONS`/`reference_frame_key()`) ya extendidos. 2 bugs reales encontrados y
+   corregidos en `merge_fragments`/`maybe_split` (mismo archivo, `slice_sf_chroma_sheets.py`):
+   un fragmento suelto (el efecto de impacto de la Fila 3) tumbaba la separación por filas y
+   fusionaba Fila 2 con Fila 3; y `maybe_split` reordenaba todo por X puro incluso sin partir
+   nada, intercalando las 2 filas. Detalle técnico en
+   `SF/PROMPT_hoja30_contraataque_derribo.md` ("Código del pipeline").
+2. **Recortados + empacados los 18/18**: CharroNegro, EscomBoy, EscomGirl, Robot (ESCOMROBOT),
+   LaLlorona, LaTzitzimime, Paparazzi1, Paparazzi5, PoliciaCDMX, PoliciaCDMXHombre,
+   PoliciaGranaderoMujer, PoliciaGranaderoHombre, Prankedy, ReyGrupero, SenorTienda,
+   YoalliEhecatl, LaPresidenta, ParamedicoCruzRoja. Los 3 últimos necesitaron una 4ª ronda de
+   arte (CORRECCIÓN 4: Fila 3 traía 7 poses en vez de 8, el efecto de impacto flotaba solo en
+   el hueco central en vez de acompañar a una pose) — ya regenerados, verificados visualmente
+   (8 siluetas, efecto pegado a una pose real) y empaquetados. QA visual con
+   `sf_contact_sheet.py` en 6 muestras total: sin rival, sin fuego, escudo del Granadero
+   conservado.
+3. Verificación del motor repetida tras el empaquetado final: `./gradlew :app:testDebugUnitTest
+   :shared:testAndroidHostTest` BUILD SUCCESSFUL, detekt exit 0, `check_kmp_test_names.sh` OK.
+4. `combos.json` ya tiene las 2 lecciones básicas del tutorial (`b_counter`/`b_powerthrow`); no
+   hace falta nada más ahí salvo que se quiera un combo universal/de firma con estos movimientos.
+
+**CONTRAATAQUE + DERRIBO CON PODER quedan completos: motor, arte y pipeline para los 18
+personajes.** Nada de esto se ha commiteado.
+
+**🆕 Nuevo doc: `SF/PIPELINE_agregar_movimientos_y_personajes.md`** — generaliza todo este
+proceso (diseño→motor→prompt→arte→correcciones→pipeline→verificación→docs) como receta
+reutilizable para la próxima vez que se agregue un movimiento o un peleador nuevo, con el
+reparto de quién hace qué (Claude / IA de imagen / dueño). Léelo antes de repetir algo de esto.
+
+⚠️ **La caché GEN real vive en
+`newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/`** (commiteada a
+git), NO en `app/src/main/assets/.../GEN` (esa ruta nunca debe usarse — viajaría al APK; si
+aparece localmente sin querer, es basura y se borra). `pack_sf_character.py` **reconstruye el
+personaje COMPLETO desde el GEN indicado** (exige las 77 claves de `sf_template.json`) — no
+fusiona con el JSON/atlas ya existente, así que siempre hace falta la caché completa, no solo
+la hoja que se está agregando.
+
+## 1. Reglas vivas
+
+- Leer `00_INDEX.md`, `09_CONVENTIONS_GOTCHAS.md` y `10_ARQUITECTURA_SEPARACION.md`. **Si toca las
+  DOS plataformas, `11_SEPARACION_IOS_ANDROID.md` es obligatorio** (costuras y trampas del simulador).
+- `PowJson` imita Gson a propósito. `encodeToString(Map)` compila y falla en runtime: usar
+  `jsonOf`/`jsonArrayOf`. No cambiar saves ni la ruta Android de la BD.
+- Kotlin queda en **2.3.21** (KSP no existe para 2.4); AGP 9 usa `android.builtInKotlin=true`;
+  tests shared = `testAndroidHostTest`. `iosX64` fuera: Compose MP 1.11.1 no publica ese target.
+- Los nombres de tests de `commonTest` no admiten `(`, `)` ni `,`: `bash tools/check_kmp_test_names.sh`.
+- En parciales, los campos viven en la clase y nunca se repite allí una función del parcial:
+  ganaría la clase en silencio (`10_ARQUITECTURA_SEPARACION.md` §4).
+- Un estado nuevo de `SfFighterState` va SIEMPRE al final del enum (viaja por red como
+  `enum.name`) y necesita rama en el `when` exhaustivo de `runStateHandler` + entrada en
+  `SfStateMachine.VALID_FROM` + gate `hasAnim` antes de poder jugarse (09 §12).
+- **🆕 (08-29) Las IAs de generación de imagen NO respetan "oponente invisible" de forma
+  confiable, aunque el prompt lo diga explícito**: la mitad de una tanda de 18 dibujó un
+  maniquí/silueta del rival en el cuadro donde el agarre "conecta". Corregido eso, una
+  fracción de esos mismos personajes reinterpretó el agarre como un PODER A DISTANCIA (fuego,
+  orbes, granadas) — dos fallos DISTINTOS de la misma tanda, cada uno necesitó su propia
+  corrección explícita. Revisar SIEMPRE VISUALMENTE cada personaje (no solo dimensiones/fondo/
+  conteo de cuadros) antes de dar por buena una hoja con agarre/lanzamiento — y no asumir que
+  arreglar un fallo no introdujo otro. Ver `SF/00_SF_INDEX.md` §"reglas que más caro han salido".
+
+## 🖥️ Rutas por PC
+
+| PC | Raíz del proyecto (`gradlew` y `tools/`) |
+|---|---|
+| Laptop | `C:\Users\gabri\AndroidStudioProjects\PolitecnicoOpenWorld\PolitecnicoOpenWorld` |
+| Escritorio (MEDIDO 07-29) | `C:\Users\gabri\Documents\GitHub Desktop\PolitecnicoOpenWorld\PolitecnicoOpenWorld` |
+| Mac | `/Users/gabrielhuav/Documents/GitHub/PolitecnicoOpenWorld/PolitecnicoOpenWorld` |
+
+La carpeta es doble; los docs usan rutas relativas a esta raíz. El GEN de sprites vive fuera, en
+`..\newSFAssets\GEN_*`. En Windows la ruta del escritorio lleva espacio: entrecomillarla.
+PC nueva: `SETUP_PC_NUEVA.md`; `gradle-wrapper.jar` y `secrets.properties` no viajan por Git.
+
+## Verificación al cerrar (motor SF; no toca arte/pipeline Python)
+
+```bash
+./gradlew :app:testDebugUnitTest :shared:testAndroidHostTest
+```
+
+```bash
+./detekt-cli-1.23.8/bin/detekt-cli --config PolitecnicoOpenWorld/config/detekt/detekt.yml --build-upon-default-config --input PolitecnicoOpenWorld/app/src/main/java,PolitecnicoOpenWorld/shared/src/commonMain/kotlin --baseline PolitecnicoOpenWorld/config/detekt/baseline.xml
+```
+
+```bash
+bash tools/check_kmp_test_names.sh
+```
+
+Esperado: 0 fallos, detekt exit 0, nombres de test compatibles con Kotlin/Native. Los tres ya
+estaban en verde el 08-29 antes de tocar el arte. Antes de push: `git status`, actualizar este
+archivo y hacer `git pull` inmediatamente antes del push.
