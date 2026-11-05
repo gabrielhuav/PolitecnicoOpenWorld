@@ -516,6 +516,9 @@ class SoundManager private constructor(context: Context) {
         mainSoundMediaPlayer = null
         prankedyRemixMediaPlayer?.release()
         prankedyRemixMediaPlayer = null
+        synchronized(Companion) {
+            if (INSTANCE === this) INSTANCE = null
+        }
     }
 
     companion object {

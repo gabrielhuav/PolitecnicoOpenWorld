@@ -5,6 +5,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfOnlineStatus
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterState
 
@@ -33,6 +34,48 @@ class SfRoundSoundCuesTest {
     }
 
     @Test
+    fun `restarting the first round through its intro allows the same cue again`() {
+        val first = sfRoundSoundCue(active, null) as SfRoundSoundCue.Start
+        assertEquals(SfRoundSoundCue.None, sfRoundSoundCue(active, first.key))
+
+        val restartIntro = active.copy(showRoundIntro = true, roundIntroCountdown = 3)
+        assertEquals(SfRoundSoundCue.Reset, sfRoundSoundCue(restartIntro, first.key))
+        // La pantalla limpia playedRoundKey al recibir Reset; los datos de ronda siguen en 1/0/0.
+        assertEquals(first, sfRoundSoundCue(active, null))
+    }
+
+    @Test
+    fun `pausing and resuming a played round do not reset its cue`() {
+        val playedKey = (sfRoundSoundCue(active, null) as SfRoundSoundCue.Start).key
+        assertEquals(SfRoundSoundCue.None, sfRoundSoundCue(active.copy(isPaused = true), playedKey))
+        assertEquals(SfRoundSoundCue.None, sfRoundSoundCue(active, playedKey))
+    }
+
+    @Test
+    fun `restoring the saved played key during a round does not replay its cue`() {
+        val savedKey = (sfRoundSoundCue(active, null) as SfRoundSoundCue.Start).key
+        val restoredState = active.copy(gameTimeMs = 900, displayTime = 89)
+        assertEquals(SfRoundSoundCue.None, sfRoundSoundCue(restoredState, savedKey))
+    }
+
+    @Test
+    fun `boss metamorphosis does not announce a second start during round two`() {
+        val before = active.copy(
+            roundNumber = 2,
+            playerRoundWins = 1,
+            player = active.player.copy(id = SfFighterId.LA_PRESIDENTA),
+            cpu = active.cpu.copy(id = SfFighterId.YOALLI_EHECATL),
+        )
+        val playedKey = (sfRoundSoundCue(before, null) as SfRoundSoundCue.Start).key
+        val transformed = before.copy(
+            player = before.player.copy(id = SfFighterId.YOALLI_EHECATL),
+            cpu = before.cpu.copy(id = SfFighterId.LA_PRESIDENTA),
+        )
+        assertEquals(playedKey, sfRoundSoundKey(transformed))
+        assertEquals(SfRoundSoundCue.None, sfRoundSoundCue(transformed, playedKey))
+    }
+
+    @Test
     fun `paused waiting and ended rounds cannot announce fight`() {
         assertNull(sfRoundSoundKey(active.copy(isPaused = true)))
         assertNull(sfRoundSoundKey(active.copy(waitingForOpponentReady = true)))
@@ -58,10 +101,12 @@ class SfRoundSoundCuesTest {
     }
 
     @Test
-    fun `online victory follows the guest or host local side`() {
+    fun `online winner indices are already local for both guest and host`() {
+        // VM.networkIndexOf("p2") devuelve 0 para el invitado; "p1" devuelve 1.
         val guest = active.copy(showEndMenu = true, onlineStatus = SfOnlineStatus.FIGHTING, isHost = false)
-        assertEquals(SfMatchSound.VICTORY, sfMatchSound(guest.copy(winnerIndex = 1)))
-        assertEquals(SfMatchSound.LOSE, sfMatchSound(guest.copy(winnerIndex = 0)))
+        assertEquals(SfMatchSound.VICTORY, sfMatchSound(guest.copy(winnerIndex = 0)))
+        assertEquals(SfMatchSound.LOSE, sfMatchSound(guest.copy(winnerIndex = 1)))
+        // En el host, "p1" es 0 y "p2" es 1: el contrato local sigue siendo el mismo.
         val host = guest.copy(isHost = true)
         assertEquals(SfMatchSound.VICTORY, sfMatchSound(host.copy(winnerIndex = 0)))
         assertEquals(SfMatchSound.LOSE, sfMatchSound(host.copy(winnerIndex = 1)))

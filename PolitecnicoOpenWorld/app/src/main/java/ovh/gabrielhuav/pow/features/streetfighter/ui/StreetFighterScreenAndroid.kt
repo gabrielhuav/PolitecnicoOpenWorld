@@ -42,12 +42,18 @@ fun StreetFighterScreen(
     }
 
     val soundManager = remember(context) { SoundManager.getInstance(context) }
-    val roundSoundKey = sfRoundSoundKey(sfState)
     var playedRoundKey by rememberSaveable { mutableStateOf<String?>(null) }
-    LaunchedEffect(roundSoundKey, sfState.inCharacterSelect) {
-        if (sfState.inCharacterSelect) playedRoundKey = null
-        if (roundSoundKey != null && roundSoundKey != playedRoundKey && soundManager.playStartRound()) {
-            playedRoundKey = roundSoundKey
+    val roundCue = sfRoundSoundCue(sfState, playedRoundKey)
+    LaunchedEffect(roundCue) {
+        when (roundCue) {
+            SfRoundSoundCue.Reset -> {
+                playedRoundKey = null
+                soundManager.stopRoundSounds()
+            }
+            SfRoundSoundCue.None -> Unit
+            is SfRoundSoundCue.Start -> if (soundManager.playStartRound()) {
+                playedRoundKey = roundCue.key
+            }
         }
     }
 
