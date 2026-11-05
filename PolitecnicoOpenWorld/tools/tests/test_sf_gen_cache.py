@@ -51,6 +51,21 @@ class GenCacheTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'modificado'):
             validate(self.root)
 
+    def test_git_puede_normalizar_crlf_en_json_sin_cambiar_su_contenido(self):
+        target = self.target.with_suffix('.json')
+        windows = b'{\r\n}\r\n'
+        linux = windows.replace(b'\r\n', b'\n')
+        target.write_bytes(linux)
+        manifest = {'aliases': {self.old.relative_to(self.root).as_posix(): {
+            'target': target.relative_to(self.root).as_posix(),
+            'sha256': hashlib.sha256(windows).hexdigest(), 'bytes': len(windows),
+            'lf_sha256': hashlib.sha256(linux).hexdigest(), 'lf_bytes': len(linux)}}}
+        (self.root / 'newSFAssets/gen_duplicates.json').write_text(json.dumps(manifest))
+        validate(self.root)
+        target.write_bytes(b'{"otro":1}\n')
+        with self.assertRaisesRegex(ValueError, 'modificado'):
+            validate(self.root)
+
     def test_rechaza_referencias_fuera_del_repo(self):
         manifest = {'aliases': {self.old.relative_to(self.root).as_posix(): {
             'target': '../escape.png', 'sha256': '', 'bytes': 0}}}

@@ -65,7 +65,14 @@ def validate(root=ROOT):
         if not entry['target'].startswith(CANONICAL):
             raise ValueError('El destino no pertenece al GEN canonico: ' + name)
         content = target.read_bytes()
-        if len(content) != entry['bytes'] or hashlib.sha256(content).hexdigest() != entry['sha256']:
+        exact = len(content) == entry['bytes'] and hashlib.sha256(content).hexdigest() == entry['sha256']
+        # Git convierte CRLF/LF en metadatos JSON. Mantener el hash original y
+        # aceptar ademas la forma LF de Git, sin normalizar imagenes ni otros binarios.
+        normalized = content.replace(b'\r\n', b'\n')
+        git_text = (target.suffix == '.json' and 'lf_sha256' in entry
+                    and len(normalized) == entry['lf_bytes']
+                    and hashlib.sha256(normalized).hexdigest() == entry['lf_sha256'])
+        if not exact and not git_text:
             raise ValueError('Destino canonico modificado: ' + entry['target'])
         if source.is_file() and source.read_bytes() == content:
             raise ValueError('Duplicado reintroducido: ' + name)

@@ -124,7 +124,9 @@
     "newSFAssets/GEN_lallorona_intermedio/WORLD_lallorona/_world_scale.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/WORLD_lallorona/_world_scale.json",
       "sha256": "4e21dceeb7a5db28a89f5e3a0092b1c06beb7627305cfdcaa1cef69acf8f5d6c",
-      "bytes": 71
+      "bytes": 71,
+      "lf_bytes": 71,
+      "lf_sha256": "4e21dceeb7a5db28a89f5e3a0092b1c06beb7627305cfdcaa1cef69acf8f5d6c"
     },
     "newSFAssets/GEN_lallorona_intermedio/lallorona/_extra/correr/01.png": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/lallorona/run-1.png",
@@ -354,12 +356,16 @@
     "newSFAssets/GEN_lallorona_intermedio/lallorona/_frame_meta.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/escomboy/_frame_meta.json",
       "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
-      "bytes": 2
+      "bytes": 2,
+      "lf_bytes": 2,
+      "lf_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
     },
     "newSFAssets/GEN_lallorona_intermedio/lallorona/_scale.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/lallorona/_scale.json",
       "sha256": "eae0dfdee030e84d72ac30308b7e2bdaf5fcaee31429de9b21c46f3242948fd6",
-      "bytes": 51
+      "bytes": 51,
+      "lf_bytes": 51,
+      "lf_sha256": "eae0dfdee030e84d72ac30308b7e2bdaf5fcaee31429de9b21c46f3242948fd6"
     },
     "newSFAssets/GEN_lallorona_intermedio/lallorona/backwards-1.png": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/lallorona/backwards-1.png",
@@ -829,12 +835,16 @@
     "newSFAssets/GEN_prankedy_intermedio/prankedy/_frame_meta.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/prankedy/_frame_meta.json",
       "sha256": "cf9cbdb1191766b10e4dcc8679dc2d5c655696be8a1f34da380165b26aea1352",
-      "bytes": 83
+      "bytes": 83,
+      "lf_bytes": 76,
+      "lf_sha256": "c6bfa00119951a9c74145ed9112e9f59639e945894a4fcb9b2b28e742818d278"
     },
     "newSFAssets/GEN_prankedy_intermedio/prankedy/_scale.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/prankedy/_scale.json",
       "sha256": "f8734de0abac4cde6674081c3ba9797f8522caf827cf9673c00a697bdd042750",
-      "bytes": 52
+      "bytes": 52,
+      "lf_bytes": 52,
+      "lf_sha256": "f8734de0abac4cde6674081c3ba9797f8522caf827cf9673c00a697bdd042750"
     },
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/WORLD_paparazzi1/Idle/pn1_i_1.webp": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/WORLD_paparazzi1/Idle/pn1_i_1.webp",
@@ -984,12 +994,16 @@
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/WORLD_paparazzi1/_world_scale.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/WORLD_paparazzi1/_world_scale.json",
       "sha256": "4e21dceeb7a5db28a89f5e3a0092b1c06beb7627305cfdcaa1cef69acf8f5d6c",
-      "bytes": 71
+      "bytes": 71,
+      "lf_bytes": 71,
+      "lf_sha256": "4e21dceeb7a5db28a89f5e3a0092b1c06beb7627305cfdcaa1cef69acf8f5d6c"
     },
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/WORLD_prankedy/_world_scale.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/WORLD_prankedy/_world_scale.json",
       "sha256": "4e21dceeb7a5db28a89f5e3a0092b1c06beb7627305cfdcaa1cef69acf8f5d6c",
-      "bytes": 71
+      "bytes": 71,
+      "lf_bytes": 71,
+      "lf_sha256": "4e21dceeb7a5db28a89f5e3a0092b1c06beb7627305cfdcaa1cef69acf8f5d6c"
     },
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/WORLD_reygrupero/Idle/rg_i_1.webp": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/WORLD_reygrupero/Idle/rg_i_1.webp",
@@ -1139,7 +1153,9 @@
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/WORLD_reygrupero/_world_scale.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/WORLD_reygrupero/_world_scale.json",
       "sha256": "4e21dceeb7a5db28a89f5e3a0092b1c06beb7627305cfdcaa1cef69acf8f5d6c",
-      "bytes": 71
+      "bytes": 71,
+      "lf_bytes": 71,
+      "lf_sha256": "4e21dceeb7a5db28a89f5e3a0092b1c06beb7627305cfdcaa1cef69acf8f5d6c"
     },
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/WORLD_senortienda/Idle/st_i_1.webp": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/WORLD_senortienda/Idle/st_i_1.webp",
@@ -1289,7 +1305,9 @@
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/WORLD_senortienda/_world_scale.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/WORLD_senortienda/_world_scale.json",
       "sha256": "4e21dceeb7a5db28a89f5e3a0092b1c06beb7627305cfdcaa1cef69acf8f5d6c",
-      "bytes": 71
+      "bytes": 71,
+      "lf_bytes": 71,
+      "lf_sha256": "4e21dceeb7a5db28a89f5e3a0092b1c06beb7627305cfdcaa1cef69acf8f5d6c"
     },
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/paparazzi1/_extra/correr/01.png": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/paparazzi1/_extra/correr/01.png",
@@ -1384,12 +1402,16 @@
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/paparazzi1/_frame_meta.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/paparazzi1/_frame_meta.json",
       "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
-      "bytes": 2
+      "bytes": 2,
+      "lf_bytes": 2,
+      "lf_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
     },
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/paparazzi1/_scale.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/paparazzi1/_scale.json",
       "sha256": "df0cbfde59de668abd53b9f02e32f73a1db0ed4d0f5cd32840cd8971ad5bbbb8",
-      "bytes": 53
+      "bytes": 53,
+      "lf_bytes": 53,
+      "lf_sha256": "df0cbfde59de668abd53b9f02e32f73a1db0ed4d0f5cd32840cd8971ad5bbbb8"
     },
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/prankedy/_extra/correr/01.png": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/prankedy/_extra/correr/01.png",
@@ -1484,12 +1506,16 @@
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/prankedy/_frame_meta.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/prankedy/_frame_meta.json",
       "sha256": "cf9cbdb1191766b10e4dcc8679dc2d5c655696be8a1f34da380165b26aea1352",
-      "bytes": 83
+      "bytes": 83,
+      "lf_bytes": 76,
+      "lf_sha256": "c6bfa00119951a9c74145ed9112e9f59639e945894a4fcb9b2b28e742818d278"
     },
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/prankedy/_scale.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/prankedy/_scale.json",
       "sha256": "f8734de0abac4cde6674081c3ba9797f8522caf827cf9673c00a697bdd042750",
-      "bytes": 52
+      "bytes": 52,
+      "lf_bytes": 52,
+      "lf_sha256": "f8734de0abac4cde6674081c3ba9797f8522caf827cf9673c00a697bdd042750"
     },
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/reygrupero/_extra/correr/01.png": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/reygrupero/_extra/correr/01.png",
@@ -1584,12 +1610,16 @@
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/reygrupero/_frame_meta.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/reygrupero/_frame_meta.json",
       "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
-      "bytes": 2
+      "bytes": 2,
+      "lf_bytes": 2,
+      "lf_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
     },
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/reygrupero/_scale.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/reygrupero/_scale.json",
       "sha256": "bca8f39bc435e11bde61f42b74d7dc9caedef21203c47f4583a7ed57cd25c202",
-      "bytes": 52
+      "bytes": 52,
+      "lf_bytes": 52,
+      "lf_sha256": "bca8f39bc435e11bde61f42b74d7dc9caedef21203c47f4583a7ed57cd25c202"
     },
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/senortienda/_extra/correr/01.png": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/senortienda/_extra/correr/01.png",
@@ -1684,17 +1714,23 @@
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/senortienda/_frame_meta.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/senortienda/_frame_meta.json",
       "sha256": "cf9cbdb1191766b10e4dcc8679dc2d5c655696be8a1f34da380165b26aea1352",
-      "bytes": 83
+      "bytes": 83,
+      "lf_bytes": 76,
+      "lf_sha256": "c6bfa00119951a9c74145ed9112e9f59639e945894a4fcb9b2b28e742818d278"
     },
     "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio/senortienda/_scale.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/senortienda/_scale.json",
       "sha256": "b619d5c419bce09dee5ec177e8df61dc5556f12d9d4a45756c6844aebac1d4eb",
-      "bytes": 53
+      "bytes": 53,
+      "lf_bytes": 53,
+      "lf_sha256": "b619d5c419bce09dee5ec177e8df61dc5556f12d9d4a45756c6844aebac1d4eb"
     },
     "newSFAssets/GEN_prankedy_senortienda_uniform_intermedio/WORLD_prankedy/_world_scale.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/WORLD_prankedy/_world_scale.json",
       "sha256": "4e21dceeb7a5db28a89f5e3a0092b1c06beb7627305cfdcaa1cef69acf8f5d6c",
-      "bytes": 71
+      "bytes": 71,
+      "lf_bytes": 71,
+      "lf_sha256": "4e21dceeb7a5db28a89f5e3a0092b1c06beb7627305cfdcaa1cef69acf8f5d6c"
     },
     "newSFAssets/GEN_prankedy_senortienda_uniform_intermedio/WORLD_senortienda/Idle/st_i_1.webp": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/WORLD_senortienda/Idle/st_i_1.webp",
@@ -1844,7 +1880,9 @@
     "newSFAssets/GEN_prankedy_senortienda_uniform_intermedio/WORLD_senortienda/_world_scale.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/WORLD_senortienda/_world_scale.json",
       "sha256": "4e21dceeb7a5db28a89f5e3a0092b1c06beb7627305cfdcaa1cef69acf8f5d6c",
-      "bytes": 71
+      "bytes": 71,
+      "lf_bytes": 71,
+      "lf_sha256": "4e21dceeb7a5db28a89f5e3a0092b1c06beb7627305cfdcaa1cef69acf8f5d6c"
     },
     "newSFAssets/GEN_prankedy_senortienda_uniform_intermedio/prankedy/_extra/correr/01.png": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/prankedy/_extra/correr/01.png",
@@ -1939,12 +1977,16 @@
     "newSFAssets/GEN_prankedy_senortienda_uniform_intermedio/prankedy/_frame_meta.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/prankedy/_frame_meta.json",
       "sha256": "cf9cbdb1191766b10e4dcc8679dc2d5c655696be8a1f34da380165b26aea1352",
-      "bytes": 83
+      "bytes": 83,
+      "lf_bytes": 76,
+      "lf_sha256": "c6bfa00119951a9c74145ed9112e9f59639e945894a4fcb9b2b28e742818d278"
     },
     "newSFAssets/GEN_prankedy_senortienda_uniform_intermedio/prankedy/_scale.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/prankedy/_scale.json",
       "sha256": "f8734de0abac4cde6674081c3ba9797f8522caf827cf9673c00a697bdd042750",
-      "bytes": 52
+      "bytes": 52,
+      "lf_bytes": 52,
+      "lf_sha256": "f8734de0abac4cde6674081c3ba9797f8522caf827cf9673c00a697bdd042750"
     },
     "newSFAssets/GEN_prankedy_senortienda_uniform_intermedio/senortienda/_extra/correr/01.png": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/senortienda/_extra/correr/01.png",
@@ -2039,32 +2081,44 @@
     "newSFAssets/GEN_prankedy_senortienda_uniform_intermedio/senortienda/_frame_meta.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/senortienda/_frame_meta.json",
       "sha256": "cf9cbdb1191766b10e4dcc8679dc2d5c655696be8a1f34da380165b26aea1352",
-      "bytes": 83
+      "bytes": 83,
+      "lf_bytes": 76,
+      "lf_sha256": "c6bfa00119951a9c74145ed9112e9f59639e945894a4fcb9b2b28e742818d278"
     },
     "newSFAssets/GEN_prankedy_senortienda_uniform_intermedio/senortienda/_scale.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/senortienda/_scale.json",
       "sha256": "b619d5c419bce09dee5ec177e8df61dc5556f12d9d4a45756c6844aebac1d4eb",
-      "bytes": 53
+      "bytes": 53,
+      "lf_bytes": 53,
+      "lf_sha256": "b619d5c419bce09dee5ec177e8df61dc5556f12d9d4a45756c6844aebac1d4eb"
     },
     "newSFAssets/GEN_reygrupero_intermedio/reygrupero/_frame_meta.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/reygrupero/_frame_meta.json",
       "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
-      "bytes": 2
+      "bytes": 2,
+      "lf_bytes": 2,
+      "lf_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
     },
     "newSFAssets/GEN_robot_intermedio/robot/_frame_meta.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/robot/_frame_meta.json",
       "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
-      "bytes": 2
+      "bytes": 2,
+      "lf_bytes": 2,
+      "lf_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
     },
     "newSFAssets/GEN_senortienda_intermedio/senortienda/_frame_meta.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/senortienda/_frame_meta.json",
       "sha256": "cf9cbdb1191766b10e4dcc8679dc2d5c655696be8a1f34da380165b26aea1352",
-      "bytes": 83
+      "bytes": 83,
+      "lf_bytes": 76,
+      "lf_sha256": "c6bfa00119951a9c74145ed9112e9f59639e945894a4fcb9b2b28e742818d278"
     },
     "newSFAssets/GEN_senortienda_intermedio/senortienda/_scale.json": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/senortienda/_scale.json",
       "sha256": "b619d5c419bce09dee5ec177e8df61dc5556f12d9d4a45756c6844aebac1d4eb",
-      "bytes": 53
+      "bytes": 53,
+      "lf_bytes": 53,
+      "lf_sha256": "b619d5c419bce09dee5ec177e8df61dc5556f12d9d4a45756c6844aebac1d4eb"
     },
     "newSFAssets/GEN_senortienda_intermedio/senortienda/crouch-turn-1.png": {
       "target": "newSFAssets/GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/senortienda/crouch-turn-1.png",

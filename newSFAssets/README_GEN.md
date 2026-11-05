@@ -26,6 +26,9 @@ Las carpetas históricas incompletas siguen siendo incompletas: para el roster a
 usar el GEN canónico indicado en la documentación SF.
 
 CI verifica los hashes de cada destino y rechaza copias idénticas reintroducidas.
+Los metadatos JSON incluyen además tamaño y hash de su forma LF en Git, para que
+la conversión CRLF/LF del checkout de Windows/Linux no se confunda con otro contenido.
+Las imágenes se comprueban por sus bytes exactos, sin normalización.
 Si se modifica un destino canónico referenciado, hay que conservar primero sus bytes
 anteriores para las variantes históricas y actualizar el manifiesto; cambiar el hash
 sin conservar esa variante alteraría el historial.
