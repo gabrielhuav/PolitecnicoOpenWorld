@@ -15,7 +15,7 @@ low-end performance) or doc drift.
 > **6220 a 2299** líneas y `StreetFighterScreen` de **4029 a 1902** (cifras de la Fase 5; los
 > tamaños VIGENTES son los de la tabla).
 >
-> ⚠️ **Las cifras de abajo se re-midieron con `wc -l` el 2026-09-23.** Las anteriores eran de
+> ⚠️ **Las cifras de abajo se re-midieron con `wc -l` el 2026-10-17 (rama `features`, tras restaurar lo revertido en #177).** Las anteriores eran de
 > 2026-07-27 y **siete de las nueve filas habían quedado desfasadas** (hasta 136 líneas de
 > diferencia), lo que hacía tomar decisiones de "¿hay que partir esto?" con datos falsos. Si
 > tocas uno de estos archivos, vuelve a medir y actualiza aquí: es la regla de "MEDIR, no
@@ -23,15 +23,16 @@ low-end performance) or doc drift.
 >
 > | Archivo | Líneas | Antes decía |
 > |---|---:|---:|
-> | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` | 2422 | 2299 |
-> | `features/streetfighter/ui/StreetFighterScreen.kt` | 1801 | 1902 |
-> | `features/map_exterior/viewmodel/WorldMapViewModel.kt` | 1603 | 1596 |
+> | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` | 2466 | 2422 |
+> | `features/streetfighter/ui/StreetFighterScreen.kt` | 1999 | 1801 |
+> | `features/map_exterior/viewmodel/WorldMapViewModel.kt` | 1612 | 1603 |
 > | `features/map_exterior/ui/WorldMapScreen.kt` | 1463 | 1463 |
 > | `features/map_exterior/ui/NativeOsmMap.kt` | 1472 | 1458 |
 > | `features/interiores/zombies/ui/ZombieGameScreen.kt` | 1350 | 1343 |
-> | `AppNavGraph.kt` | 1173 | 1175 |
+> | `AppNavGraph.kt` | 1182 | 1173 |
 > | `features/interiores/zombies/viewmodel/ZombieInteriorViewModel.kt` | 1165 | 1165 |
-> | `features/streetfighter/ui/SfSceneRenderer.kt` | 1089 | 1225 |
+> | `features/streetfighter/ui/SfSceneRenderer.kt` | 1230 | 1089 |
+> | `domain/models/ai/NpcAiManager.kt` | 1048 | (no estaba en la tabla) |
 >
 > **🆕 (2026-09-23) `StreetFighterCpuAi.kt` se partió en cuatro.** Había llegado a **1094 líneas**
 > sin estar en esta tabla — o sea, cruzó el umbral sin que nadie lo evaluara. Se cortó por dominio,

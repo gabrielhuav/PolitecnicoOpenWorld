@@ -19,6 +19,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHurtArea
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfMetamorphosis
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfSuperArt
 import kotlin.random.Random
+import ovh.gabrielhuav.pow.domain.streetfighter.SfSuperHitReaction
 
 // ────────────────────────────────────────────────────────────────────────────
 // PARCIAL de StreetFighterViewModel: 💥 COMBATE: colisiones, impactos, daño y empuje contra los bordes del escenario
@@ -418,6 +419,11 @@ internal fun StreetFighterViewModel.applyAttackHit(
         else "${strength.name.lowercase()}-${type.name.lowercase()}-hit"
     )
 
+    // 🆕 Reacción de voz cuando un golpe ESPECIAL (súper, poder extra o fatality) conecta.
+    if (SfSuperHitReaction.deberiaSonar(SfSuperHitReaction.esEstadoEspecial(attacker.state), blocked, now, lastSuperHitReactionMs)) {
+        lastSuperHitReactionMs = now
+        emitVoiceClip("special_super_hit_reaction")
+    }
     // 🆕 (2026-07-21) MEDIDOR DE SÚPER: carga al pegar y al recibir (el que va perdiendo
     // también acumula, como en 3rd Strike). El bloqueo carga menos.
     attacker = attacker.copy(

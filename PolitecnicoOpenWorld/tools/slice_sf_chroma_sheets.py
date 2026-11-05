@@ -23,6 +23,7 @@ import os, sys, json, re, argparse
 import numpy as np
 from PIL import Image, ImageOps
 from scipy import ndimage
+from sf_gen_cache import resolve_file, list_gen_files
 
 CANVAS, FEET_Y, CX, TARGET_H = 256, 224, 128, 100.0
 W_CANVAS = 512
@@ -584,7 +585,8 @@ def detect_orientation_flips(frames):
 
 def update_frame_meta(gen_dir, names, flips):
     path = os.path.join(gen_dir, "_frame_meta.json")
-    meta = json.load(open(path, encoding="utf-8")) if os.path.exists(path) else {}
+    source = resolve_file(path)
+    meta = json.load(open(source, encoding="utf-8")) if os.path.exists(source) else {}
     for name, flip in zip(names, flips):
         if flip:
             meta[name] = {"flipX": True}
@@ -690,8 +692,8 @@ def sequence_scale(frames, target_h, fallback):
 
 def ref_world_metrics(ref_dir):
     idle = os.path.join(ref_dir, "Idle")
-    f = sorted(os.listdir(idle))[0]
-    im = Image.open(os.path.join(idle, f)).convert("RGBA")
+    f = list_gen_files(idle)[0]
+    im = Image.open(resolve_file(os.path.join(idle, f))).convert("RGBA")
     a = np.asarray(im)[..., 3] > 8
     ys, _ = np.where(a)
     return int(ys.max() - ys.min() + 1), int(ys.max()) + 1
@@ -780,8 +782,8 @@ def main():
         with open(os.path.join(world_dir, "_world_scale.json"), "w", encoding="utf-8") as f:
             json.dump({"feetY": feet, "targetHeight": ref_h,
                        "strategy": "perAnimationMedian"}, f)
-    elif os.path.exists(scale_file):
-        scale = json.load(open(scale_file))["scale"]
+    elif os.path.exists(resolve_file(scale_file)):
+        scale = json.load(open(resolve_file(scale_file)))["scale"]
     else:
         sys.exit("Falta %s: procesa primero la hoja 01 (fija la escala)." % scale_file)
 
@@ -832,9 +834,9 @@ def main():
             wdir = os.path.join(args.gen, "WORLD_" + args.char, folder)
             os.makedirs(wdir, exist_ok=True)
             world_scale_file = os.path.join(args.gen, "WORLD_" + args.char, "_world_scale.json")
-            if not os.path.exists(world_scale_file):
+            if not os.path.exists(resolve_file(world_scale_file)):
                 sys.exit("Falta %s: procesa primero la hoja 01 (fija la escala mundial)." % world_scale_file)
-            world_meta = json.load(open(world_scale_file, encoding="utf-8"))
+            world_meta = json.load(open(resolve_file(world_scale_file), encoding="utf-8"))
             feet = world_meta["feetY"]
             # Mantiene el contrato exacto del mundo: si sobra arte, muestrea uniformemente;
             # si falta un solo cuadro, repite el vecino central como en SF. Faltantes mayores

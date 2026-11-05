@@ -299,13 +299,19 @@ open class StreetFighterViewModel(
         SfFighterId.PRANKEDY, SfFighterId.SENOR_TIENDA, SfFighterId.PAPARAZZI_1, SfFighterId.PAPARAZZI_5,
         SfFighterId.REY_GRUPERO, SfFighterId.ESCOMBOY, SfFighterId.CHARRO_NEGRO, SfFighterId.LAZARO,
         SfFighterId.POLICIA_CDMX_HOMBRE, SfFighterId.POLICIA_GRANADERO_HOMBRE, SfFighterId.GRANADERO,
-        SfFighterId.PARAMEDICO_CRUZ_ROJA, SfFighterId.PARAMEDICO,
+        SfFighterId.PARAMEDICO_CRUZ_ROJA, SfFighterId.PARAMEDICO, SfFighterId.ALEXIS_SYNTAXIS,
     )
 
     // 🆕 (2026-07-18s) Peleadores SIN voz a propósito (special_<id>.m4a borrado por el dueño):
     // su poder especial suena con el hadouken genérico. La auditoría NO los marca como faltantes.
     internal val sfVoicelessFighters = setOf(
-        SfFighterId.LAZARO, SfFighterId.PARAMEDICO, SfFighterId.PRANKEDY,
+        SfFighterId.LAZARO, SfFighterId.PARAMEDICO, SfFighterId.PRANKEDY, SfFighterId.ALEXIS_SYNTAXIS,
+    )
+
+    // 🆕 (2026-10-15) Peleadores que NO emiten ningún sonido de voz al ganar (ni su pack WIN
+    // ni el fallback al special). Ver emitWinVoice.
+    internal val sfNoWinVoiceFighters = setOf(
+        SfFighterId.ALEXIS_SYNTAXIS,
     )
 
     /** Emite un clip de voz `special_<name>.m4a` si el asset existe. true = se emitió. */
@@ -322,7 +328,8 @@ open class StreetFighterViewModel(
     // 🆕 (2026-07-19c) Sin cooldown en hurt para permitir interrupción inmediata en combos
     internal val hurtVoiceCooldownMs = 0L
     internal val attackVoiceCooldownMs = 4200L
-
+    // 🆕 Reacción de voz cuando un golpe ESPECIAL conecta sin bloqueo.
+    internal var lastSuperHitReactionMs = 0L
     /** Voz de DAÑO (pack HURT, variante al azar) con cooldown por índice.
      * Si la vida baja del 25% (<= 50 de 200) y tiene audio de lowHp de una sola vez, lo prioriza. */
     internal val arcadeRepo = environment.arcade
@@ -1293,7 +1300,7 @@ open class StreetFighterViewModel(
     /** Cola común del update: posición, slide, animación, límites y colisión de ataque. */
     private fun finishFighterUpdate(sim: Sim, idx: Int, now: Long, dt: Float) {
         // 🆕 (2026-07-22, Fase 1) cinemática de un tick (posición + slide) extraída a SfPhysics (puro).
-        sim.setFighter(idx, clampFighterToStage(SfPhysics.step(sim.fighter(idx), dt)))
+        sim.setFighter(idx, clampFighterToStage(SfPhysics.step(SfPhysics.applyInterruptedGravity(sim.fighter(idx), dt), dt)))
 
         // Aterrizaje en el MISMO tick en que se cruza el piso. Antes dependía del tick siguiente;
         // un valor de velocidad roto podía dejar un estado JUMP/AIR clavado y parecer que el NPC
@@ -2036,6 +2043,7 @@ open class StreetFighterViewModel(
         introVoiceSent = false
         lastHurtVoiceMs.fill(0L)
         lastAttackVoiceMs.fill(0L)
+        lastSuperHitReactionMs = 0L
         lastHitTakenMs.fill(0L)
         lowHpVoiceTriggered.fill(false)
         rapidHitsTaken.fill(0)
@@ -2311,6 +2319,7 @@ open class StreetFighterViewModel(
         dirHeldPrev[1] = false to false
         lastHurtVoiceMs.fill(0L)
         lastAttackVoiceMs.fill(0L)
+        lastSuperHitReactionMs = 0L
         lowHpVoiceTriggered.fill(false)
         pendingAttacks.clear()
         pendingBonusPower = null

@@ -57,6 +57,7 @@ import ovh.gabrielhuav.pow.shared.recursos.Res
 import ovh.gabrielhuav.pow.shared.recursos.menu_back
 import ovh.gabrielhuav.pow.shared.recursos.settings_back
 import ovh.gabrielhuav.pow.shared.recursos.settings_title
+import ovh.gabrielhuav.pow.shared.recursos.settings_exit_to_menu
 
 /**
  * Única pantalla de Ajustes para Android e iOS.
@@ -162,7 +163,7 @@ fun SettingsScreen(
                         accountContent = accountContent,
                     )
                     Spacer(Modifier.height(16.dp))
-                    BackButton(onExitToMainMenu, Modifier.fillMaxWidth().height(56.dp))
+                    ExitToMenuButton(onExitToMainMenu, Modifier.fillMaxWidth().height(56.dp))
                 }
             } else {
                 Row(
@@ -183,7 +184,7 @@ fun SettingsScreen(
                             )
                         }
                         Spacer(Modifier.height(if (compactLandscape) 10.dp else 32.dp))
-                        BackButton(
+                        ExitToMenuButton(
                             onExitToMainMenu,
                             Modifier.fillMaxWidth().height(if (compactLandscape) 42.dp else 56.dp),
                             compactLandscape,
@@ -313,7 +314,7 @@ private fun SettingsCategoryIcon.image(): ImageVector = when (this) {
 }
 
 @Composable
-private fun BackButton(onClick: () -> Unit, modifier: Modifier, compact: Boolean = false) {
+private fun ExitToMenuButton(onClick: () -> Unit, modifier: Modifier, compact: Boolean = false) {
     val shape = CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp)
     Button(
         onClick = onClick,
@@ -325,7 +326,7 @@ private fun BackButton(onClick: () -> Unit, modifier: Modifier, compact: Boolean
         modifier = modifier.shadow(8.dp, shape),
     ) {
         Text(
-            stringResource(Res.string.menu_back),
+            stringResource(Res.string.settings_exit_to_menu),
             fontSize = if (compact) 12.sp else 16.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 2.sp,
