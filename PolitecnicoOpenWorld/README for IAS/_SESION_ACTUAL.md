@@ -18,6 +18,12 @@ La gravedad común continúa en estados que interrumpen un salto; KO ya no fija 
 cada tick, THROWN espera el suelo y el techo detiene velocidades ascendentes degeneradas.
 MapProvider centraliza URL/zoom, migra CARTO/Google sin credenciales a OSM y limita el
 selector a servicios sin clave; fallback Leaflet a OSM con atribución y sin reintento por frame.
+Verificado 2026-11-05: APK + 129 app/279 shared sin fallos; 12 Python + 3 JS,
+detekt, guard Native y los tres workflows verdes para `269e7a86`.
+QA real API 35: Alexis vs Paramédico, media, UNAM CU nocturno; daño, KO y ataques
+aéreos revisados. Mundo Libre carga OSM sin aviso de clave. Videos/capturas nuevos en
+`pr-screenshots/alexis-qa/emulator-nov5-*`; resumen `test-summary-nov5.json`.
+Ajustes originales del emulador restaurados tras QA; iOS no ejecutado en esta PC.
 La sección de Alexis siguiente documenta el primer arreglo del 4 de noviembre, anterior
 a esta corrección; sus cifras de 100 px y renderer sin cambios son históricas.
 

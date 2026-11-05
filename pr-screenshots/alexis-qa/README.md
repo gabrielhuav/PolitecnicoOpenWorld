@@ -22,6 +22,34 @@ HURT conserva el dibujo natural calibrado sin cambiar hurtScale; daño de pie mi
 - Tres pruebas de JS ejecutan el código Leaflet real con capas/eventos simulados:
   fallback único, ausencia de reintento por frame y errores tardíos de la capa anterior.
 
+Validación del código/assets `269e7a864b0bd61b3bbfe8fdd6dbb482b29b1367`:
+APK debug compilado; 129 tests app + 279 shared sin fallos, incluido el audit Arcade.
+12 tests Python de assets/caché y 3 de JS, detekt y guard Native en verde.
+[Resumen actualizado](test-summary-nov5.json).
+Los tres workflows completaron en verde:
+[calidad](https://github.com/gabrielhuav/PolitecnicoOpenWorld/actions/runs/41985641876),
+[recortes](https://github.com/gabrielhuav/PolitecnicoOpenWorld/actions/runs/41985641893),
+[calles](https://github.com/gabrielhuav/PolitecnicoOpenWorld/actions/runs/41985641874).
+
+Comprobación real en `Small_Phone_API_35` (Android 35, 1280×720), con el APK nuevo:
+Alexis vs Paramédico Cruz Roja, dificultad media, escenario UNAM CU nocturno.
+[Daño y KO](emulator-nov5-damage-ko.mp4), [puño/patada aéreos y vuelta al suelo](emulator-nov5-air.mp4),
+[captura KO](emulator-nov5-ko.png). Son dos extractos de grabaciones reales, sin interpolar
+la escala del sprite. Revisados daño, salto con ataque, interrupción aérea y KO: no se
+observó el crecimiento anterior ni la suspensión prolongada. Las pruebas puras cubren
+las combinaciones de velocidad inicial y estados no recorridas en esos extractos.
+No equivale a la matriz completa de dispositivos ni a QA de iOS.
+El primer arranque del emulador tuvo ANR de System UI; se reinició en frío sin snapshot
+(`-gpu swiftshader`, 4 GB) antes de grabar estas evidencias. Se guardaron los ajustes
+originales y se habilitó Developer Mode solo para acceder al roster de prueba.
+
+Mundo Libre completó la carga en el mismo APK: [mapa sin aviso de clave](emulator-nov5-map.png).
+El [log de teselas](map-nov5-log.txt) confirma URLs `tile.openstreetmap.org`, HTTP 200.
+Los cuatro servicios Web ofrecidos se revisaron también con teselas reales en la tabla
+anterior; la migración de las selecciones antiguas está cubierta por las pruebas Kotlin.
+No hubo errores fatales de AndroidRuntime durante estas pruebas. Al terminar se
+restauró el XML original de ajustes del emulador, incluido Developer Mode desactivado.
+
 La evidencia y los números del 4 de noviembre que siguen son históricos.
 
 
