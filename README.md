@@ -12,6 +12,13 @@
 
 ---
 
+**2026-11-05 · PR #158:** Alexis Syntaxis: corrected body scale during damage, aerial
+attacks, knockdowns and KO; interrupted jumps keep falling. Maps default to OpenStreetMap
+and fall back from unavailable web layers; credentialed services are excluded from the
+key-free selector. / Escala corregida en daño, ataques aéreos, derribos y KO; los saltos
+interrumpidos siguen cayendo. Mapas sin marcas de clave: OpenStreetMap por defecto,
+respaldo ante fallos y selector de servicios sin credenciales.
+
 ## 🇬🇧 English Version
 
 **Politécnico Open World (POW)** is an Android 2D top-down exploration app built on top of real-world maps. The player navigates the actual streets of their surroundings (with initial focus on the ESCOM / Zacatenco area in Mexico City) using **OpenStreetMap** cartographic data, sharing the world with procedural NPCs (pedestrians and vehicles) and with other players connected to a real-time server. The ESCOM campus also hosts an embedded zombie survival minigame with interior buildings, melee/ranged combat and a power-up system — now backed by its own authoritative server.

@@ -1,6 +1,6 @@
 # Memoria compartida — estado vivo
 
-Actualizado: 2026-11-04 · rama `pr/158` · PR #158.
+Actualizado: 2026-11-05 · rama `pr/158` · PR #158.
 El historial anterior completo está en `_ARCHIVO/SESION_previa_2026-11-04.md`.
 
 ## Alcance autorizado
@@ -9,7 +9,19 @@ El dueño pidió corregir Alexis Syntaxis, agregar CI/tutorial de peleadores, si
 el repo e integrar la alternativa al bloqueo de calles al 25%. Autorizó commits y push
 en el mismo PR y continuar sin confirmaciones adicionales. No se ha autorizado merge.
 
-## Alexis Syntaxis
+## Corrección posterior al reporte de tamaño y caída (2026-11-05)
+
+El reporte real demostró que el QA anterior no cubría bien AIR/THROWN/GET_UP/KO.
+Se calibran esas poses y el daño comprimido en la receta (cabeza/cuerpo, no solo altura).
+El renderer deja de inflar las poses dobladas a 100 px. No cambia hurtScale ni hitboxes.
+La gravedad común continúa en estados que interrumpen un salto; KO ya no fija vy=120
+cada tick, THROWN espera el suelo y el techo detiene velocidades ascendentes degeneradas.
+MapProvider centraliza URL/zoom, migra CARTO/Google sin credenciales a OSM y limita el
+selector a servicios sin clave; fallback Leaflet a OSM con atribución y sin reintento por frame.
+La sección de Alexis siguiente documenta el primer arreglo del 4 de noviembre, anterior
+a esta corrección; sus cifras de 100 px y renderer sin cambios son históricas.
+
+## Alexis Syntaxis (primera corrección, 2026-11-04)
 
 - Fuente importada de PR #158 y JSON preservados en `newSFAssets/AlexisSyntaxis/`.
 - 14 poses regeneradas con imagegen: cuatro talk de cuerpo completo y diez cuadros

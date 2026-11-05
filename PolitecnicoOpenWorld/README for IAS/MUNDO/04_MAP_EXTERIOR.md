@@ -21,6 +21,20 @@ extension partials** (`WorldMap*.kt`) grouping logic by topic. State is `WorldMa
 > nueva NO la dupliques como miembro+extensión. / The member-vs-extension twin pattern: member wins,
 > extension dies. The 8 twins that existed were all de-duplicated on 2026-06-21 (see `09 §12`).
 
+## Proveedores sin credenciales (2026-11-05)
+
+La configuración de teselas y zoom nativo vive en el modelo compartido `MapProvider`.
+El default es OSM_WEB. CARTO sirve marcas de agua sin una clave desde septiembre de 2026
+([documentación oficial](https://carto.com/basemaps/apikey/index.html)); no tratar HTTP 200
+como prueba de que ese mapa sea válido. Los valores antiguos CARTO y Google se conservan
+para compatibilidad, pero `keyFreeProvider` los migra a OSM_WEB. Ajustes solo ofrece OSM,
+OSM Web, Esri (calles/satélite) y OpenTopoMap en esta distribución sin credenciales.
+Precarga y WebView usan la misma URL y límite de zoom; OpenTopo se limita a z17.
+Si una capa Web falla al cargar teselas, Leaflet cambia a OSM y recuerda la solicitud
+para evitar volver a pedir el proveedor fallido en cada frame. Una precarga fallida
+no se presenta como lista: ofrece OSM. Las URLs nuevas no reutilizan la caché CARTO
+con marcas de agua; no se elimina la caché ni los datos del usuario.
+
 ---
 
 ## Tabla "Key files" (salta directo aquí) / jump straight here

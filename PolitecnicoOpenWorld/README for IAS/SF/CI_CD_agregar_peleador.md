@@ -14,6 +14,14 @@ Lee `00_SF_INDEX.md`, `PIPELINE_agregar_movimientos_y_personajes.md` y
 El contrato es RGBA 256×256, pies en y=224, centro x=128, altura erguida 100 px;
 proyectiles/efectos independientes tienen origen `[128,128]`.
 Las poses agachadas, saltos y efectos conservan su propia altura.
+**No uses la altura vertical de una pose doblada para calibrar el cuerpo**: compara cabeza,
+tronco y piernas con idle. En `atlas-repair`, `frame_heights` y `frame_widths` fijan la
+medida por pose; para un KO tumbado se controla la longitud horizontal. El gate comprueba
+esas medidas al reconstruir y al validar producción. Alexis usa 105–110 px de longitud
+para fall, en lugar de los 137–191 px originales, manteniendo los pies en y=224.
+El renderer respeta la escala natural de AIR_PUNCH/AIR_KICK, THROWN/GET_UP y agachados;
+no debe estirarlos a la altura de una pose erguida. Prueba daño, salto con golpe,
+derribo, recuperación y KO, además de idle. La gravedad continúa tras interrumpir un salto.
 
 Un dedicado necesita las hojas 01–30 y cualquier movimiento posterior que use el motor.
 La 01 calibra escala; 14/15 se procesan después de 07–09 porque reemplazan poses refinadas.

@@ -49,6 +49,24 @@ class FighterAssetGateTest(unittest.TestCase):
         image.paste((255, 255, 255, 255), (0, 124, 256, 224))
         self.assertTrue(self.run_check(image))
 
+    def test_gate_checks_horizontal_body_length_instead_of_standing_height(self):
+        self.recipe['frame_widths'] = {'fall-5': 110}
+        data = {'frames': {'fall-5': {'src': [0, 0, 256, 256], 'origin': [128, 224]}},
+                'animations': {'idle': [['fall-5', 4]]}}
+        image = Image.new('RGBA', (256, 256))
+        image.paste('white', (33, 182, 224, 224))
+        self.assertTrue(self.run_check(image, data))
+        self.assertFalse(self.run_check(place(image, target_width=110), data))
+
+    def test_compressed_hurt_pose_uses_recipe_calibration(self):
+        self.recipe['frame_heights'] = {'hit-face-1': 84}
+        data = {'frames': {'hit-face-1': {'src': [0, 0, 256, 256], 'origin': [128, 224]}},
+                'animations': {'idle': [['hit-face-1', 4]]}}
+        image = Image.new('RGBA', (256, 256))
+        image.paste('white', (100, 124, 156, 224))
+        self.assertTrue(self.run_check(image, data))
+        self.assertFalse(self.run_check(place(image, 84), data))
+
     def test_normalizer_refuses_to_silently_clip_art(self):
         with self.assertRaisesRegex(ValueError, 'no cabe'):
             place(Image.new('RGBA', (400, 100), 'white'))

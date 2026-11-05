@@ -1300,7 +1300,7 @@ open class StreetFighterViewModel(
     /** Cola común del update: posición, slide, animación, límites y colisión de ataque. */
     private fun finishFighterUpdate(sim: Sim, idx: Int, now: Long, dt: Float) {
         // 🆕 (2026-07-22, Fase 1) cinemática de un tick (posición + slide) extraída a SfPhysics (puro).
-        sim.setFighter(idx, clampFighterToStage(SfPhysics.step(sim.fighter(idx), dt)))
+        sim.setFighter(idx, clampFighterToStage(SfPhysics.step(SfPhysics.applyInterruptedGravity(sim.fighter(idx), dt), dt)))
 
         // Aterrizaje en el MISMO tick en que se cruza el piso. Antes dependía del tick siguiente;
         // un valor de velocidad roto podía dejar un estado JUMP/AIR clavado y parecer que el NPC

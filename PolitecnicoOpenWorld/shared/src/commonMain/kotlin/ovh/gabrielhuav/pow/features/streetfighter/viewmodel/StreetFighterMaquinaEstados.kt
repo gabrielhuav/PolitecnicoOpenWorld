@@ -202,7 +202,7 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
         SfFighterState.HURT_HEAD_LIGHT, SfFighterState.HURT_HEAD_MEDIUM, SfFighterState.HURT_HEAD_HEAVY,
         SfFighterState.HURT_BODY_LIGHT, SfFighterState.HURT_BODY_MEDIUM, SfFighterState.HURT_BODY_HEAVY,
         -> {
-            if (isAnimationCompleted(f)) {
+            if (isAnimationCompleted(f) && f.y >= SfConstants.STAGE_FLOOR) {
                 val opp = sim.fighter(1 - idx)
                 sim.setFighter(1 - idx, opp.copy(attackStruck = false))
                 changeState(sim, idx, SfFighterState.IDLE, now)
@@ -412,7 +412,7 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
             recoverFromCrouchState(sim, idx, input, now)
         }
         // Derribo: cae, se queda un momento y se levanta solo (wake-up).
-        SfFighterState.THROWN -> if (isAnimationCompleted(f)) {
+        SfFighterState.THROWN -> if (isAnimationCompleted(f) && f.y >= SfConstants.STAGE_FLOOR) {
             if (!forceState(sim, idx, SfFighterState.GET_UP, now)) {
                 forceState(sim, idx, SfFighterState.IDLE, now)
             }
@@ -429,9 +429,8 @@ internal fun StreetFighterViewModel.runStateHandler(sim: StreetFighterViewModel.
                     var nf = withAnimationFrame(f, 3, now)
                     nf = nf.copy(velocityY = 0f, y = SfConstants.STAGE_FLOOR)
                     sim.setFighter(idx, nf)
-                } else {
-                    sim.setFighter(idx, f.copy(velocityY = 120f))
                 }
+                // La gravedad común conserva la caída; no fijar una velocidad lenta cada tick.
             }
         }
         // 🆕 (2026-07-22) MAREADO: ignora TODOS los inputs; sale solo (o antes, si un

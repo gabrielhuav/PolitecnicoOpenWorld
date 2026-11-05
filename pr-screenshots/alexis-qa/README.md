@@ -1,5 +1,30 @@
 # QA de Alexis Syntaxis y calles estáticas — 2026-11-04
 
+## Actualización 2026-11-05: regresión reportada en combate
+
+El QA anterior no cubría suficientemente ataques aéreos, derribo, recuperación y KO.
+El alto vertical por sí solo tampoco garantiza proporciones iguales en una pose doblada.
+La receta calibra esas poses por cuerpo/cabeza y longitud horizontal; fall pasa de
+137–191 px de ancho a 105–110 px. AIR/THROWN/GET_UP ya no se inflan a altura erguida.
+HURT conserva el dibujo natural calibrado sin cambiar hurtScale; daño de pie mide
+82–95 px (pose comprimida), stun sigue en 100 px. Las 258 claves y cajas se conservan.
+
+- [Comparativa actualizada](postures-before-after.gif): idle, atlas previo y atlas nuevo,
+  a la misma escala. Es una vista de sprites, no una grabación del emulador.
+- [Medidas de todos los cuadros actuales](postures-alpha16.tsv), alfa >16.
+- Regresión de física: HURT, THROWN, KO y neutral interrumpidos en el aire aterrizan
+  en menos de 1,5 segundos simulados, con vy inicial -420/0/120. AIR conserva una sola
+  integración de gravedad; un lanzamiento extremo deja de acumular subida en el techo.
+- Mapas: CARTO/Google sin credenciales migran a OSM; opciones sin clave en Ajustes,
+  URL/zoom únicos para precarga y vista, respaldo a OSM ante error de capa.
+- [Probes HTTP reales](map-tile-probes.json) y [teselas revisadas](map-provider-probes.png):
+  OSM, Esri calles/satélite y OpenTopo devolvieron imágenes 256², HTTP 200, sin aviso de clave.
+- Tres pruebas de JS ejecutan el código Leaflet real con capas/eventos simulados:
+  fallback único, ausencia de reintento por frame y errores tardíos de la capa anterior.
+
+La evidencia y los números del 4 de noviembre que siguen son históricos.
+
+
 Código y assets probados: `282b69083c5961fc852d80327ab6b44a602683b9`.
 La actualización posterior añade evidencias, comentarios y protección `pipefail`
 al publicador de datos; no cambia el renderer ni los movimientos del combate.

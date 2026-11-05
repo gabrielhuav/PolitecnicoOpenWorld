@@ -1,0 +1,38 @@
+[
+  {
+    "provider": "osm",
+    "status": 200,
+    "size": [
+      256,
+      256
+    ],
+    "bytes": 14890
+  },
+  {
+    "provider": "esri-streets",
+    "status": 200,
+    "size": [
+      256,
+      256
+    ],
+    "bytes": 18737
+  },
+  {
+    "provider": "esri-satellite",
+    "status": 200,
+    "size": [
+      256,
+      256
+    ],
+    "bytes": 27012
+  },
+  {
+    "provider": "topo",
+    "status": 200,
+    "size": [
+      256,
+      256
+    ],
+    "bytes": 15729
+  }
+]

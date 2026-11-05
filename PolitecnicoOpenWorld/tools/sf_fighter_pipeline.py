@@ -49,13 +49,15 @@ def normalize_packed(atlas, data):
     return result
 
 
-def place(image, target_height=None, projectile=False):
+def place(image, target_height=None, projectile=False, target_width=None):
     image = image.copy()
     image.putalpha(image.getchannel("A").point(lambda alpha: alpha if alpha > 16 else 0))
     bbox = image.getchannel("A").getbbox()
     if bbox is None:
         raise ValueError("No se puede normalizar un cuadro vacio")
     image = image.crop(bbox)
+    if target_width is not None:
+        target_height = max(1, round(image.height * target_width / image.width))
     if target_height is not None:
         size = (max(1, round(image.width * target_height / image.height)), target_height)
         # RGBa premultiplica antes de interpolar; evita halos del fondo en el borde.
@@ -126,7 +128,8 @@ def build(recipe, output):
             image.putalpha(image.getchannel("A").point(lambda alpha: alpha if alpha > 16 else 0))
             target = recipe["replacement_heights"].get(key, 100)
         projectile = is_projectile(key)
-        normalized = place(image, target, projectile)
+        target = recipe.get("frame_heights", {}).get(key, target)
+        normalized = place(image, target, projectile, recipe.get("frame_widths", {}).get(key))
         result.alpha_composite(normalized, tuple(frame["src"][:2]))
         frame["origin"] = [128, 128] if projectile else [128, 224]
     result.save(images / (recipe["title"] + ".webp"), lossless=True, quality=100, method=6)
@@ -165,8 +168,14 @@ def check(recipe, assets, report):
             errors.append(key + ": arte toca el borde; posible recorte incompleto")
         if not projectile and bottom != 224:
             errors.append(key + ": pies fuera de y=224")
-        if key.startswith(UPRIGHT) and "turn" not in key and bottom - top != 100:
-            errors.append(key + ": altura erguida distinta de 100px")
+        expected_height = recipe.get("frame_heights", {}).get(key)
+        expected_width = recipe.get("frame_widths", {}).get(key)
+        if expected_height is None and key.startswith(UPRIGHT) and "turn" not in key:
+            expected_height = 100
+        if expected_height is not None and bottom - top != expected_height:
+            errors.append(key + ": altura distinta de la calibracion de cuerpo")
+        if expected_width is not None and abs(right - left - expected_width) > 1:
+            errors.append(key + ": longitud distinta de la calibracion de cuerpo")
         if key.startswith("talk-") and bottom - top < 80:
             errors.append(key + ": posible busto sin cuerpo completo")
         if abs((left + right) / 2 - 128) > 1 and not projectile:
