@@ -1056,7 +1056,7 @@ fun WorldMapScreen(
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Salir al menú principal",
+                    contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_exit_to_menu),
                     tint = Color.Black
                 )
             }
@@ -1180,7 +1180,7 @@ fun WorldMapScreen(
                 onDismissRequest = { showExitConfirmDialog = false },
                 title = {
                     Text(
-                        text = "Salir del juego",
+                        text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_exit_to_menu),
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp,
                         color = Color.White
@@ -1188,7 +1188,7 @@ fun WorldMapScreen(
                 },
                 text = {
                     Text(
-                        text = "¿Abandonar la partida y volver al menú principal?",
+                        text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_exit_confirm_message),
                         fontSize = 15.sp,
                         color = Color.White.copy(alpha = 0.85f)
                     )
@@ -1201,7 +1201,7 @@ fun WorldMapScreen(
                         }
                     ) {
                         Text(
-                            text = "Salir",
+                            text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_exit_to_menu),
                             color = Color(0xFFFFD54F),
                             fontWeight = FontWeight.Bold
                         )
@@ -1212,7 +1212,7 @@ fun WorldMapScreen(
                         onClick = { showExitConfirmDialog = false }
                     ) {
                         Text(
-                            text = "Seguir explorando",
+                            text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_keep_exploring),
                             color = Color.White.copy(alpha = 0.85f)
                         )
                     }
