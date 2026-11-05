@@ -8,7 +8,7 @@
   "loop": true,
   "pingPong": true,
   "slug": "cet1",
-  "source": "fondo_cet1_anim.webp",
+  "source": "CET1.png",
   "maxAtlasSide": 2048,
   "kenBurns": true,
   "logoApplied": true

@@ -39,6 +39,13 @@ import org.jetbrains.compose.resources.stringResource
 import ovh.gabrielhuav.pow.shared.recursos.Res
 import ovh.gabrielhuav.pow.shared.recursos.*
 
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+
 data class TutorialPage(
     val titleRes: StringResource,
     val bodyRes: StringResource,
@@ -75,18 +82,24 @@ fun ControlsTutorialOverlay(
     pages: List<TutorialPage>,
     onDismiss: () -> Unit,
 ) {
-    var pageIndex by remember { mutableIntStateOf(0) }
-    val page = pages[pageIndex.coerceIn(0, pages.lastIndex)]
+    val pagerState = rememberPagerState(pageCount = { pages.size })
+    val coroutineScope = rememberCoroutineScope()
+
     Box(
         Modifier.fillMaxSize().background(Color(0xCC000000))
             .clickable(remember { MutableInteractionSource() }, indication = null) {},
         contentAlignment = Alignment.Center,
     ) {
         Column(
-            Modifier.widthIn(max = 420.dp).fillMaxWidth(0.9f)
-                .background(Color(0xF21A1418), RoundedCornerShape(16.dp)).padding(20.dp),
+            Modifier
+                .widthIn(max = 440.dp)
+                .fillMaxWidth(0.92f)
+                .padding(vertical = 12.dp)
+                .background(Color(0xF21A1418), RoundedCornerShape(16.dp))
+                .padding(horizontal = 20.dp, vertical = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            // Cabecera fija: título y botón de cierre
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     stringResource(titleRes),
@@ -99,53 +112,109 @@ fun ControlsTutorialOverlay(
                     "✕",
                     color = Color.White,
                     fontSize = 20.sp,
-                    modifier = Modifier.clickable(onClick = onDismiss).padding(8.dp),
+                    modifier = Modifier
+                        .clickable(onClick = onDismiss)
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
                 )
             }
-            Spacer(Modifier.height(16.dp))
-            if (page.buttonLetter != null) {
-                Box(
-                    Modifier.size(72.dp).background(page.buttonColor, CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(page.buttonLetter, color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                }
-            } else {
-                Text(page.emoji, fontSize = 56.sp)
-            }
-            Spacer(Modifier.height(14.dp))
-            Text(
-                stringResource(page.titleRes),
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                textAlign = TextAlign.Center,
-            )
+
             Spacer(Modifier.height(8.dp))
-            Text(
-                stringResource(page.bodyRes),
-                color = Color(0xFFCCCCCC),
-                fontSize = 14.sp,
-                lineHeight = 19.sp,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+
+            // Contenido central deslizable horizontalmente (con soporte de scroll vertical en pantallas pequeñas)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false),
+            ) {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { pageIndex ->
+                    val page = pages[pageIndex.coerceIn(0, pages.lastIndex)]
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                            .padding(vertical = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        if (page.buttonLetter != null) {
+                            Box(
+                                Modifier.size(64.dp).background(page.buttonColor, CircleShape),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    page.buttonLetter,
+                                    color = Color.White,
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        } else {
+                            Text(page.emoji, fontSize = 48.sp)
+                        }
+
+                        Spacer(Modifier.height(10.dp))
+
+                        Text(
+                            stringResource(page.titleRes),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            textAlign = TextAlign.Center,
+                        )
+
+                        Spacer(Modifier.height(6.dp))
+
+                        Text(
+                            stringResource(page.bodyRes),
+                            color = Color(0xFFCCCCCC),
+                            fontSize = 14.sp,
+                            lineHeight = 19.sp,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // Indicadores de página clicables para saltar directamente a una sección
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(vertical = 4.dp),
+            ) {
                 pages.indices.forEach { index ->
+                    val isSelected = index == pagerState.currentPage
                     Box(
-                        Modifier.size(8.dp).background(
-                            if (index == pageIndex) Color(0xFFD4AF37) else Color(0xFF4A3A40),
-                            CircleShape,
-                        ),
+                        Modifier
+                            .size(if (isSelected) 10.dp else 8.dp)
+                            .clickable {
+                                coroutineScope.launch {
+                                    pagerState.animateScrollToPage(index)
+                                }
+                            }
+                            .background(
+                                if (isSelected) Color(0xFFD4AF37) else Color(0xFF4A3A40),
+                                CircleShape,
+                            ),
                     )
                 }
             }
-            Spacer(Modifier.height(16.dp))
+
+            Spacer(Modifier.height(10.dp))
+
+            // Botones de navegación inferior (Anterior y Siguiente/Entendido)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (pageIndex > 0) {
+                if (pagerState.currentPage > 0) {
                     OutlinedButton(
-                        onClick = { pageIndex-- },
-                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                            }
+                        },
+                        modifier = Modifier.weight(1f).height(44.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
                     ) {
                         Text(stringResource(Res.string.tutorial_prev), color = Color.White)
@@ -153,9 +222,15 @@ fun ControlsTutorialOverlay(
                 }
                 Button(
                     onClick = {
-                        if (pageIndex < pages.lastIndex) pageIndex++ else onDismiss()
+                        if (pagerState.currentPage < pages.lastIndex) {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                            }
+                        } else {
+                            onDismiss()
+                        }
                     },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).height(44.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF6B1C3A),
                         contentColor = Color.White,
@@ -163,7 +238,7 @@ fun ControlsTutorialOverlay(
                 ) {
                     Text(
                         stringResource(
-                            if (pageIndex < pages.lastIndex) {
+                            if (pagerState.currentPage < pages.lastIndex) {
                                 Res.string.tutorial_next
                             } else {
                                 Res.string.tutorial_done

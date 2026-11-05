@@ -60,6 +60,11 @@ APP_ASSETS = (
 DEFAULT_IMAGES_OUT = APP_ASSETS / "IMAGES"
 DEFAULT_SOUNDS_OUT = APP_ASSETS / "SOUNDS"
 DEFAULT_STATIC_OUT = REPO_ROOT / "additional_assets" / "STREETFIGHTER" / "generated_static_backgrounds"
+THEME_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "shared" / "src" / "commonMain" / "kotlin"
+    / "ovh" / "gabrielhuav" / "pow" / "features" / "streetfighter" / "data" / "SfTheme.kt"
+)
 
 # ---------------------------------------------------------------------------
 # Parámetros de pipeline (CAPADO PARA GAMA BAJA)
@@ -284,21 +289,21 @@ def resize_static(im: Image.Image, size: Tuple[int, int] = STATIC_SIZE) -> Image
 def save_thumb(im: Image.Image, out_path: Path, width: int = THUMB_WIDTH) -> Path:
     """
     Miniatura de UN frame (~width px de ancho, aspecto conservado, con logo ya
-    aplicado en `im`). Naming: <archivo sin .png>_thumb.png
+    aplicado en `im`). WebP estático, como espera el selector de escenarios.
     """
     w, h = im.size
     tw = width
     th = max(1, int(round(h * (tw / max(1, w)))))
     thumb = im.convert("RGB").resize((tw, th), Image.Resampling.LANCZOS)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    thumb.save(out_path, format="PNG", optimize=True)
+    thumb.save(out_path, format="WEBP", lossless=True, quality=100, method=6)
     thumb.close()
     return out_path
 
 
 def thumb_path_for(main_asset: Path) -> Path:
-    """fondo_foo_anim.webp -> fondo_foo_anim_thumb.png."""
-    return main_asset.with_name(main_asset.stem + "_thumb.png")
+    """fondo_foo_anim.webp -> fondo_foo_anim_thumb.webp (contrato del runtime)."""
+    return main_asset.with_name(main_asset.stem + "_thumb.webp")
 
 
 def load_logo(logo_path: Path) -> Optional[Image.Image]:
@@ -860,7 +865,7 @@ def print_summary(stats: BuildStats) -> None:
     log(f"CAP atlas ≤ {MAX_ATLAS_SIDE}px | frame {TARGET_FRAME_WIDTH}x{TARGET_FRAME_HEIGHT}")
     log("PING-PONG: embebido en cada atlas (frameCount ≈ 2*únicos - 2).")
     log("LOGO: aplicado abajo-derecha en cada frame del atlas y en cada estático.")
-    log("THUMB: <archivo>_thumb.png (~256 px) para el selector de mapa.")
+    log("THUMB: <archivo>_thumb.webp (~256 px) para el selector de mapa.")
 
 
 def parse_theme_backgrounds() -> List[str]:
@@ -868,26 +873,12 @@ def parse_theme_backgrounds() -> List[str]:
     Extrae los `file` de SfTheme.fullBackgrounds desde SfTheme.kt
     (sin compilar; solo regex). Orden de aparición en el tema.
     """
-    theme_path = (
-        Path(__file__).resolve().parents[1]
-        / "app"
-        / "src"
-        / "main"
-        / "java"
-        / "ovh"
-        / "gabrielhuav"
-        / "pow"
-        / "features"
-        / "streetfighter"
-        / "data"
-        / "SfTheme.kt"
-    )
-    if not theme_path.is_file():
-        log(f"AVISO: no se encontró SfTheme.kt en {theme_path}")
-        return []
-    text = theme_path.read_text(encoding="utf-8")
+    text = THEME_PATH.read_text(encoding="utf-8")
     # SfStageBg("fondo_....webp", "Nombre")
-    return re.findall(r'SfStageBg\(\s*"([^"]+\.(?:png|webp))"', text)
+    files = re.findall(r'SfStageBg\(\s*"([^"]+\.(?:png|webp))"', text)
+    if not files:
+        raise ValueError(f"no se encontraron escenarios SfStageBg en {THEME_PATH}")
+    return files
 
 
 def diagnose_theme_backgrounds(images_out: Path) -> List[str]:
@@ -896,10 +887,15 @@ def diagnose_theme_backgrounds(images_out: Path) -> List[str]:
       - el atlas .webp (o el legado .png) existe
       - si es atlas (_anim): ≤2048 por lado + JSON consistente
         (cols*frameW == ancho, rows*frameH == alto, cols*rows >= frameCount)
-      - miniatura _thumb.png existe (aviso si falta)
+      - miniatura _thumb.webp existe y se puede decodificar como WebP estático
     Devuelve lista de fallos (strings).
     """
-    files = parse_theme_backgrounds()
+    try:
+        files = parse_theme_backgrounds()
+    except (OSError, ValueError) as error:
+        failure = f"SfTheme.fullBackgrounds: {error}"
+        log(f"  FAIL  {failure}")
+        return [failure]
     log("\n" + "=" * 100)
     log(f"DIAGNÓSTICO SfTheme.fullBackgrounds ({len(files)} escenarios) — cap {MAX_ATLAS_SIDE}")
     log("=" * 100)
@@ -955,6 +951,16 @@ def diagnose_theme_backgrounds(images_out: Path) -> List[str]:
 
         if not thumb.is_file():
             issues.append("thumb ausente")
+        else:
+            try:
+                with Image.open(thumb) as thumbnail:
+                    thumbnail.load()
+                    if thumbnail.format != "WEBP":
+                        issues.append(f"thumb no es WebP ({thumbnail.format})")
+                    elif getattr(thumbnail, "n_frames", 1) != 1:
+                        issues.append("thumb debe ser estática")
+            except Exception as error:
+                issues.append(f"thumb inválida ({error})")
 
         if issues:
             fails.append(f"{fname}: {'; '.join(issues)}")
@@ -1039,7 +1045,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         log(f"ERROR: no existe el directorio de entrada: {input_dir}")
         return 1
 
-    require_ffmpeg()
+    videos, images = collect_inputs(input_dir)
+    if videos:
+        require_ffmpeg()
 
     logo_img = load_logo(logo_path)
     if logo_img is None:
@@ -1047,7 +1055,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     else:
         log(f"  logo size = {logo_img.size} mode={logo_img.mode}")
 
-    videos, images = collect_inputs(input_dir)
     log(f"\nEncontrados: {len(videos)} video(s), {len(images)} estático(s) sin video")
 
     stats = BuildStats()

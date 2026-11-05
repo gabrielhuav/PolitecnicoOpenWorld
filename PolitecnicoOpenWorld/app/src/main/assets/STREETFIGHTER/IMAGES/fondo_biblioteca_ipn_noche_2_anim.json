@@ -1,0 +1,15 @@
+{
+  "frameWidth": 480,
+  "frameHeight": 270,
+  "cols": 4,
+  "rows": 7,
+  "frameCount": 28,
+  "fps": 6.0,
+  "loop": true,
+  "pingPong": true,
+  "slug": "biblioteca_ipn_noche_2",
+  "source": "Biblioteca IPN Noche 2.webp",
+  "maxAtlasSide": 2048,
+  "kenBurns": true,
+  "logoApplied": true
+}

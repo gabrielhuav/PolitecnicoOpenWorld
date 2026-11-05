@@ -24,7 +24,7 @@ class MainMenuViewModel @javax.inject.Inject constructor() : ViewModel() {
     fun onStartGame() { }
 
     fun setMapProvider(provider: MapProvider) {
-        _state.update { it.copy(selectedProvider = provider) }
+        _state.update { it.copy(selectedProvider = provider.keyFreeProvider) }
     }
 
     // Funciones para sincronizar widgets

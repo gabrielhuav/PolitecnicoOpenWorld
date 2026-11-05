@@ -64,7 +64,7 @@ fun buildHtml(
 
         var map = L.map('map', {
             zoomControl: false,
-            attributionControl: false,
+            attributionControl: true,
             dragging: true,   // arrastre SIEMPRE disponible: paridad con los mapas nativos
             touchZoom: true,  // pinch (dos dedos) SIEMPRE disponible: paridad con nativo
             doubleClickZoom: false,
@@ -77,7 +77,7 @@ fun buildHtml(
         //   cargado → menos teselas grises al moverte). updateWhenIdle:false → cargar teselas
         //   MIENTRAS te mueves (no solo al detenerte, que es el default en móvil y causaba el
         //   tirón al parar). updateWhenZooming:false evita churn de teselas a mitad de zoom.
-        var currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom: 22, maxNativeZoom: 18, keepBuffer: 3, updateWhenIdle: false, updateWhenZooming: false }).addTo(map);
+        var currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom: 22, maxNativeZoom: 19, keepBuffer: 3, updateWhenIdle: false, updateWhenZooming: false, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
         map.createPane('landmarkPane');
         map.getPane('landmarkPane').style.zIndex = 300;
         map.createPane('doorPane');
@@ -296,16 +296,30 @@ fun buildHtml(
         // (CARTO sirve hasta z20 → más nitidez; OSM solo z19). Si cambia, hay que
         // recrear la capa (Leaflet no permite cambiar maxNativeZoom en caliente).
         // Guard por URL: antes setUrl corría CADA frame y redibujaba la capa entera.
+        var requestedTileUrl = null, requestedMaxNative = null;
         function changeTileUrl(url, maxNative) {
             if (!currentTileLayer) return;
-            maxNative = maxNative || 18;
-            if (currentTileLayer._url === url && currentTileLayer.options.maxNativeZoom === maxNative) return;
-            if (currentTileLayer.options.maxNativeZoom !== maxNative) {
-                map.removeLayer(currentTileLayer);
-                currentTileLayer = L.tileLayer(url, { maxZoom: 22, maxNativeZoom: maxNative, keepBuffer: 3, updateWhenIdle: false, updateWhenZooming: false }).addTo(map);
-            } else {
-                currentTileLayer.setUrl(url);
-            }
+            maxNative = maxNative || 19;
+            // A failed provider must not be retried every UI frame.
+            if (requestedTileUrl === url && requestedMaxNative === maxNative) return;
+            requestedTileUrl = url; requestedMaxNative = maxNative;
+            map.removeLayer(currentTileLayer);
+            var layer = L.tileLayer(url, {
+                maxZoom: 22, maxNativeZoom: maxNative, keepBuffer: 3,
+                updateWhenIdle: false, updateWhenZooming: false,
+                attribution: '&copy; OpenStreetMap contributors' + (url.indexOf('arcgisonline') >= 0 ? ', Esri' : '') +
+                    (url.indexOf('opentopomap') >= 0 ? ', OpenTopoMap (CC-BY-SA)' : '')
+            });
+            layer.on('tileerror', function() {
+                if (currentTileLayer !== layer || url.indexOf('tile.openstreetmap.org') >= 0) return;
+                map.removeLayer(layer);
+                currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 22, maxNativeZoom: 19, keepBuffer: 3,
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(map);
+            });
+            currentTileLayer = layer;
+            layer.addTo(map);
         }
         function setRoadNetworkReady(ready) { window.roadNetworkReady = ready; }
         function exitExplorationMode() { isExplorationMode = false; }

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gallery_title">Multimedia</string>
+    <string name="gallery_back">Volver al menú</string>
+    <string name="gallery_characters">Personajes</string>
+    <string name="gallery_maps">Mapas</string>
+    <string name="gallery_designs">Diseños</string>
+    <string name="gallery_image_unavailable">Imagen no disponible</string>
+    <string name="gallery_prankedy">Prankedy</string>
+    <string name="gallery_prankedy_description">Vista del personaje en reposo. Sprite del mundo abierto.</string>
+    <string name="gallery_charro">Charro Negro</string>
+    <string name="gallery_charro_description">Diseño del personaje en reposo. Recurso original del juego.</string>
+    <string name="gallery_escom_stage">Escenario ESCOM</string>
+    <string name="gallery_escom_stage_description">Vista previa del escenario diurno de ESCOM para combate.</string>
+    <string name="gallery_cecyt9_stage">Escenario CECyT 9</string>
+    <string name="gallery_cecyt9_stage_description">Vista previa del escenario diurno de CECyT 9 para combate.</string>
+    <string name="gallery_escom_building">Edificio de ESCOM</string>
+    <string name="gallery_escom_building_description">Diseño del edificio utilizado en el mundo del juego.</string>
+    <string name="gallery_cic_building">Edificios del CIC</string>
+    <string name="gallery_cic_building_description">Arte de los edificios del Centro de Investigación en Computación.</string>
+</resources>
