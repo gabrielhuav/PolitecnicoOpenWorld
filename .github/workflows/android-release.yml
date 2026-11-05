@@ -5,7 +5,9 @@ on:
   # lanzar el flujo (p. ej. el workflow de main estaba inválido) o para relanzar una subida.
   workflow_dispatch:
   # Al MERGEAR un PR a main: APK debug + GitHub Release + AAB firmado → Play (prueba cerrada).
-  pull_request:
+  # pull_request no recibe secrets si el PR procede de un fork, incluso al cerrarlo.
+  # Solo se ejecuta tras el merge y se compila el commit ya integrado en este repo.
+  pull_request_target:
     branches:
       - main
     types:
@@ -13,6 +15,15 @@ on:
     paths:
       - 'PolitecnicoOpenWorld/**'
 
+permissions:
+  contents: read
+
+env:
+  RELEASE_SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+
+# checkout v7 también bloquea el SHA ya integrado de un PR de fork en
+# pull_request_target. El opt-in de los tres checkouts solo se habilita tras
+# el merge; RELEASE_SHA sigue fijado al commit integrado del repositorio base.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: false
@@ -38,6 +49,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          persist-credentials: false
+          allow-unsafe-pr-checkout: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merged == true }}
 
       # Causa RAÍZ de los rechazos 1 y 2: sin gh-pages, las dos URLs dan 404.
       - name: gh-pages debe existir (es infraestructura de cumplimiento, no una rama cualquiera)
@@ -112,13 +127,17 @@ jobs:
 
   # ── 1) MERGE de PR → APK debug + GitHub Release ───────────────────────────
   release:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request_target' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          persist-credentials: false
+          allow-unsafe-pr-checkout: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merged == true }}
       - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
@@ -162,7 +181,8 @@ jobs:
 
             PR: #${{ github.event.pull_request.number }}
             Autor: @${{ env.PR_AUTHOR }}
-            Commit: ${{ github.sha }}
+            Commit: ${{ env.RELEASE_SHA }}
+          target_commitish: ${{ env.RELEASE_SHA }}
           make_latest: true
           draft: false
           prerelease: false
@@ -179,6 +199,32 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          persist-credentials: false
+          allow-unsafe-pr-checkout: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merged == true }}
+      - name: Validar secrets de firma y Play
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          MANUAL_PLAY_UPLOAD: ${{ contains(github.event.pull_request.labels.*.name, 'manual-play-upload') }}
+        shell: bash
+        run: |
+          MISSING=0
+          for NAME in RELEASE_KEYSTORE_BASE64 RELEASE_STORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
+            if [ -z "${!NAME}" ]; then
+              echo "::error::El secret $NAME no está disponible. Revisa su configuración y el evento del workflow; esto no demuestra que el keystore esté corrupto."
+              MISSING=1
+            fi
+          done
+          if [ "$MANUAL_PLAY_UPLOAD" != "true" ] && [ -z "$PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::error::El secret PLAY_SERVICE_ACCOUNT_JSON no está disponible para publicar en Play."
+            MISSING=1
+          fi
+          exit "$MISSING"
       - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
@@ -212,8 +258,10 @@ jobs:
             echo "Sin GOOGLE_SERVICES_JSON: build sin Firebase (multijugador deshabilitado)."
           fi
       - name: Decodificar keystore (.jks) desde el secret base64
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         run: |
-          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > "$GITHUB_WORKSPACE/PolitecnicoOpenWorld/app/release-keystore.jks"
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/PolitecnicoOpenWorld/app/release-keystore.jks"
       # 🆕 Pre-vuelo de firma: si el keystore está corrupto o la contraseña/alias no casan, el
       # fallo real queda oculto dentro de `signReleaseBundle` ("A failure occurred..."). Aquí lo
       # sacamos a la luz ANTES de compilar 5 min, sin filtrar secretos (keytool no imprime la clave).

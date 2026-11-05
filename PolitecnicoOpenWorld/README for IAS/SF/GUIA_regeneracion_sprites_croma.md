@@ -1,5 +1,10 @@
 # GUÍA · Regeneración de sprites por HOJAS CROMA (SF + mundo, un solo arte) — 2026-07-16
 
+**Caches históricas consolidadas (2026-11-04):** los directorios GEN antiguos citados
+en el historial conservan sus variantes únicas y referencias a los duplicados retirados.
+El packer y slicer resuelven esas referencias. Para herramientas externas, exportar
+una cache física con `tools/sf_gen_cache.py materialize`; ver `newSFAssets/README_GEN.md`.
+
 > **Qué es:** el procedimiento VIGENTE para regenerar el arte de un peleador de
 > "TITULACIÓN POR COMBATE" **y** su set del mundo abierto desde CERO con ChatGPT Images,
 > usando hojas con **fondo croma verde #00FF00** y 2 grupos de animación por hoja.

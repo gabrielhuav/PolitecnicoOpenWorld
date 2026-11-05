@@ -2,7 +2,17 @@
 
 > Referencia rápida: qué audio tiene cada peleadór, cómo se reproduce, qué es global y qué se
 > puede borrar. Script: `tools/sf_audio_review.sh` (inventario; `--mp3` convierte las voces a mp3
-> para escucharlas). Todo vive en `app/src/main/assets/STREETFIGHTER/SOUNDS/`.
+> para escucharlas). Las voces y efectos del motor SF viven en `app/src/main/assets/STREETFIGHTER/SOUNDS/`;
+> los tres anuncios Android de ronda/resultado usan `app/src/main/assets/AUDIO/`, como se indica abajo.
+
+## Anuncios Android de ronda y resultado — PR #170
+
+- `AUDIO/start_round_effect.mp3` suena una vez al terminar el intro de una ronda activa; no se dispara en el selector, durante la cuenta atrás ni mientras se espera al rival.
+- `AUDIO/victory_effect.mp3` y `AUDIO/lose_effect.wav` se disparan al abrir el resultado del combate (`showEndMenu`), no al terminar cada ronda. Offline/IA vs IA usan la perspectiva de P1; online respetan si el jugador local es anfitrión (P1) o invitado (P2).
+- `SoundManager` espera el callback de carga de `SoundPool` antes de reproducir. La espera se cancela con el efecto de la pantalla y termina si la carga falla, se libera el pool o pasan cinco segundos. Al salir de la pantalla se detiene el anuncio que siga sonando.
+- Derrota conserva sus 6,04 s como WAV mono de 44,1 kHz (532.480 bytes PCM), para que su sample decodificado quede por debajo de 1 MB. El MP3 estéreo original superaba ese tamaño; el recorte automático de `SoundPool` podía perder el final. Los otros dos clips duran 4,2/4,4 s y permanecen en MP3.
+- Los vídeos de QA se conservan como adjuntos del PR; no se empaquetan en `assets/DOCS`. Tampoco hay copias de estos tres anuncios en `STREETFIGHTER/SOUNDS`.
+- Regresiones automatizadas: 14 casos JVM cubren selector, intro provisional con cuenta cero, rondas sucesivas, fin de combate, invitado/anfitrión y espera/cancelación de carga. La validación de audio audible en dispositivo sigue pendiente.
 
 ## 🆕 AUDIT MP3→OGG retomado (2026-07-20, Fable) — `tools/sf_audio_audit.py`
 
@@ -63,11 +73,11 @@ Fuente de verdad: `sfVoicePacks` (packs por evento con frase) + fallback `specia
 
 | Peleadór (id) | Evento → archivo `.ogg` | Poder especial (fallback) |
 |---|---|---|
-| **Policía CDMX** (mujer, `POLICIA_CDMX`) | attack ×2 = `special_pol_m_attack_1/2` (segmentos 0-1s y 1-3s) · hurt = `special_pol_m_hurt` · win = `special_policia_cdmx_win` | (no tiene; fallback hadouken) |
+| **Policía CDMX** (mujer, `POLICIA_CDMX`) | attack ×2 = `special_pol_m_attack_1/2` (segmentos 0-1s y 1-3s) · hurt = `special_pol_m_hurt` · win = `special_policia_cdmx_win` | power = `special_power_siren` (sirena, compartido; 🆕 2026-09-24) · subtítulo `(Sirena)` / `(Siren)` |
 | **Policía CDMX Hombre** (`POLICIA_CDMX_HOMBRE`) | intro = `special_pol_h_intro` · attack = `special_pol_h_attack` (30% chance) / fallback = `special_male_attack_grunt` · win = `special_pol_h_win` | `special_policia_cdmx_hombre` |
-| **Granadero Hombre** (`POLICIA_GRANADERO_HOMBRE`) | intro/attack = policía hombre · win = **diana** `special_granadero_win` | (no tiene; fallback hadouken) |
-| **Granadera** (`POLICIA_GRANADERO_MUJER`) | attack/hurt = policía mujer · win = **diana** `special_granadero_win` | (no tiene; fallback hadouken) |
-| **Granadero** (`GRANADERO`) | = Granadero Hombre · win = `special_granadero_win` | (no tiene; fallback hadouken) |
+| **Granadero Hombre** (`POLICIA_GRANADERO_HOMBRE`) | intro/attack = policía hombre · win = **diana** `special_granadero_win` | power = `special_power_siren` (sirena, compartido; 🆕 2026-09-24) · subtítulo `(Sirena)` / `(Siren)` |
+| **Granadera** (`POLICIA_GRANADERO_MUJER`) | attack/hurt = policía mujer · win = **diana** `special_granadero_win` | power = `special_power_siren` (sirena, compartido; 🆕 2026-09-24) · subtítulo `(Sirena)` / `(Siren)` |
+| **Granadero** (`GRANADERO`) | = Granadero Hombre · win = `special_granadero_win` | power = `special_power_siren` (hereda el pack de Granadero Hombre; no es seleccionable) · subtítulo `(Sirena)` / `(Siren)` |
 | **Paparazzi 1** (`PAPARAZZI_1`) | power (su ataque ESPECIAL) = `special_paparazzi_5` · hurt ×3 = `special_papz1_hurt_1/2/3` | (usa el power) |
 | **La Llorona** (`LA_LLORONA`) | power = `special_llorona_power` · attack = `special_llorona_attack` (seg 7-11 del fuente) · hurt = `special_llorona_hurt` | (usa el power) |
 | **La Tzitzimime** (`LA_TZITZIMIME`) | attack (golpe normal) = `special_la_tzitzimime_attack` (90% de duración del original) | (no tiene; fallback hadouken) |

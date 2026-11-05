@@ -5,6 +5,8 @@ import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.media.SoundPool
 import android.util.Log
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 class SoundManager private constructor(context: Context) {
     private var soundPool: SoundPool? = null
@@ -30,6 +32,7 @@ class SoundManager private constructor(context: Context) {
     private var punchSoundId = -1
     private var itemSoundId = -1
     private var zombieSoundId = -1
+    private var hornSoundId = -1
 
     // Story Sounds
     private var flashSoundId = -1
@@ -56,18 +59,20 @@ class SoundManager private constructor(context: Context) {
     // y en algunos equipos deja un loop HUÉRFANO (sin streamId capturado) → "siempre se escuchan pasos".
     // Solo lanzamos un loop cuando su sample ya cargó (ver OnLoadCompleteListener). (2026-06-22)
     private val loadedSounds = java.util.Collections.synchronizedSet(mutableSetOf<Int>())
+    private val oneShotLoads = OneShotSoundLoadGate()
+    private var roundSoundStreamId = 0
+    @Volatile private var inBackground = false
 
     // Story Streams
     private var storyStreamIds = mutableListOf<Int>()
     private var storyRunningStreamId = -1
     private var police2StreamId = -1
-    
+
     private var startRoundSoundId = -1
     private var victorySoundId = -1
     private var loseSoundId = -1
 
     init {
-        
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_GAME)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -82,6 +87,7 @@ class SoundManager private constructor(context: Context) {
         // de loop (caminar/correr/carro) no reproducen hasta que su sample esté aquí.
         soundPool?.setOnLoadCompleteListener { _, sampleId, status ->
             if (status == 0) loadedSounds.add(sampleId)
+            oneShotLoads.onLoadComplete(sampleId, status)
         }
 
         try {
@@ -93,6 +99,7 @@ class SoundManager private constructor(context: Context) {
             punchSoundId = soundPool?.load(assetManager.openFd("AUDIO/golpemano.mp3"), 1) ?: -1
             itemSoundId = soundPool?.load(assetManager.openFd("AUDIO/items.mpeg"), 1) ?: -1
             zombieSoundId = soundPool?.load(assetManager.openFd("AUDIO/zombie.mpeg"), 1) ?: -1
+            hornSoundId = soundPool?.load(assetManager.openFd("AUDIO/claxon.wav"), 1) ?: -1
 
             // Load Story Sounds
             flashSoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/CamaraFlash.mp3"), 1) ?: -1
@@ -114,9 +121,9 @@ class SoundManager private constructor(context: Context) {
             misionCumplidaSoundId = soundPool?.load(assetManager.openFd("AUDIO/MisionCumplida.mp3"), 1) ?: -1
             zombiesAreComingSoundId = soundPool?.load(assetManager.openFd("AUDIO/zombiesAreComing.mp3"), 1) ?: -1
 
-            startRoundSoundId = soundPool?.load(assetManager.openFd("AUDIO/start_round_effect.mp3"), 1) ?: -1
-            victorySoundId = soundPool?.load(assetManager.openFd("AUDIO/victory_effect.mp3"), 1) ?: -1
-            loseSoundId = soundPool?.load(assetManager.openFd("AUDIO/lose_effect.mp3"), 1) ?: -1
+            startRoundSoundId = assetManager.openFd("AUDIO/start_round_effect.mp3").use { soundPool?.load(it, 1) ?: -1 }
+            victorySoundId = assetManager.openFd("AUDIO/victory_effect.mp3").use { soundPool?.load(it, 1) ?: -1 }
+            loseSoundId = assetManager.openFd("AUDIO/lose_effect.wav").use { soundPool?.load(it, 1) ?: -1 }
         } catch (e: Exception) {
             Log.e("SoundManager", "Error loading sounds", e)
         }
@@ -266,6 +273,11 @@ class SoundManager private constructor(context: Context) {
 
     fun playZombieNear() {
         soundPool?.play(zombieSoundId, sfxVolume, sfxVolume, 1, 0, 1f)
+    }
+
+    fun playHorn() {
+        if (hornSoundId <= 0 || hornSoundId !in loadedSounds) return
+        soundPool?.play(hornSoundId, sfxVolume, sfxVolume, 2, 0, 1f)
     }
 
     // Story Methods
@@ -443,6 +455,7 @@ class SoundManager private constructor(context: Context) {
      * Recuerda qué pistas estaban activas para reanudarlas en [resumeAllFromBackground].
      */
     fun pauseAllForBackground() {
+        inBackground = true
         // SFX/streams (caminar, correr, sonidos de historia en loop, etc.)
         soundPool?.autoPause()
         // Música de fondo
@@ -461,32 +474,38 @@ class SoundManager private constructor(context: Context) {
 
     /** Reanuda el audio que se pausó al ir a segundo plano (Activity.onResume). */
     fun resumeAllFromBackground() {
+        inBackground = false
         soundPool?.autoResume()
         pausedForBackground.forEach { mp ->
             try { mp.start() } catch (e: Exception) { Log.e("SoundManager", "Error resuming music", e) }
         }
         pausedForBackground.clear()
     }
-    
-    fun playStartRound(){
-        if(startRoundSoundId > 0  ) {
-            soundPool?.play(startRoundSoundId, sfxVolume, sfxVolume, 1, 0, 1f)
-        }
+
+    suspend fun playStartRound(): Boolean = playRoundSound(startRoundSoundId)
+
+    suspend fun playVictory(): Boolean = playRoundSound(victorySoundId)
+
+    suspend fun playLose(): Boolean = playRoundSound(loseSoundId)
+
+    private suspend fun playRoundSound(sampleId: Int): Boolean {
+        if (!oneShotLoads.awaitReady(sampleId)) return false
+        currentCoroutineContext().ensureActive()
+        if (inBackground) return false
+        stopRoundSounds()
+        val streamId = soundPool?.play(sampleId, sfxVolume, sfxVolume, 1, 0, 1f) ?: 0
+        roundSoundStreamId = streamId
+        return streamId > 0
     }
 
-    fun playVictory(){
-        if (victorySoundId > 0 ) {
-            soundPool?.play(victorySoundId, sfxVolume, sfxVolume, 1, 0, 1f)
-        }
-    }
-
-    fun playLose(){
-        if(loseSoundId > 0 ) {
-            soundPool?.play(loseSoundId, sfxVolume, sfxVolume, 1, 0, 1f)
-        }
+    fun stopRoundSounds() {
+        if (roundSoundStreamId > 0) soundPool?.stop(roundSoundStreamId)
+        roundSoundStreamId = 0
     }
 
     fun release() {
+        oneShotLoads.release()
+        stopRoundSounds()
         soundPool?.release()
         soundPool = null
         investigarMediaPlayer?.release()
