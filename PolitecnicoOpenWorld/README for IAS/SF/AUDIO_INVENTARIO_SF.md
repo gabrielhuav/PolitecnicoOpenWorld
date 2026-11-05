@@ -12,7 +12,8 @@
 - `SoundManager` espera el callback de carga de `SoundPool` antes de reproducir. La espera se cancela con el efecto de la pantalla y termina si la carga falla, se libera el pool o pasan cinco segundos. Al salir de la pantalla se detiene el anuncio que siga sonando.
 - Derrota conserva sus 6,04 s como WAV mono de 44,1 kHz (532.480 bytes PCM), para que su sample decodificado quede por debajo de 1 MB. El MP3 estéreo original superaba ese tamaño; el recorte automático de `SoundPool` podía perder el final. Los otros dos clips duran 4,2/4,4 s y permanecen en MP3.
 - Los vídeos de QA se conservan como adjuntos del PR; no se empaquetan en `assets/DOCS`. Tampoco hay copias de estos tres anuncios en `STREETFIGHTER/SOUNDS`.
-- Regresiones automatizadas: 18 casos JVM cubren selector, intro provisional con cuenta cero, rondas sucesivas, reinicio de la primera ronda, pausa/restauración, metamorfosis, fin de combate, invitado/anfitrión y espera/cancelación de carga. La validación de audio audible en dispositivo sigue pendiente.
+- Regresiones automatizadas: 18 casos JVM cubren selector, intro provisional con cuenta cero, rondas sucesivas, reinicio de la primera ronda, pausa/restauración, metamorfosis, fin de combate, invitado/anfitrión y espera/cancelación de carga.
+- Una prueba instrumentada en Pixel 9 / API 36 verifica la carga fría real y que `SoundPool` acepta streams de inicio, victoria y derrota. Esta comprobación no sustituye una revisión auditiva del volumen y la mezcla en un dispositivo físico.
 
 ## 🆕 AUDIT MP3→OGG retomado (2026-07-20, Fable) — `tools/sf_audio_audit.py`
 
