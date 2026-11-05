@@ -47,6 +47,12 @@ Los nombres deben permitir extraer el número de hoja; verifica el contrato `SHE
 Después usa el slicer y packer existentes y normaliza el atlas final. Los intermedios se
 quedan en `<output>/GEN`, fuera de `app/src`. No se borra la caché histórica.
 
+Las caches GEN antiguas comparten ahora 432 archivos con el canónico mediante
+`newSFAssets/gen_duplicates.json`. El packer las materializa temporalmente para leerlas;
+las variantes locales prevalecen. Ver `newSFAssets/README_GEN.md` para exportarlas a una
+carpeta nueva si otra herramienta necesita archivos físicos. El CI valida las referencias
+y reconstruye dos atlas históricos contra sus hashes anteriores a la limpieza.
+
 Para rescatar un PR que solo trae un atlas, usa `mode: "atlas-repair"`, como
 `sf_fighters/alexis_syntaxis.json`: conserva el atlas/JSON importados, la hoja nueva,
 su rejilla y el mapa explícito celda → clave. **No permite inventar píxeles perdidos con

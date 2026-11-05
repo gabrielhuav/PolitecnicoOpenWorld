@@ -49,6 +49,11 @@ en el mismo PR y continuar sin confirmaciones adicionales. No se ha autorizado m
 - Nuevo ignore de ese ZIP. Sesión antigua archivada íntegra, sin perder gotchas.
 - `PROPUESTA_LIMPIEZA_2026-11-04.md` detalla medición SHA-256 y qué se conservó.
 - No borrar GEN canónico ni las carpetas antiguas enteras: contienen variantes únicas.
+- Segunda limpieza autorizada: 432 copias idénticas retiradas (14,49 MiB), con manifiesto
+  `newSFAssets/gen_duplicates.json`. Se conservan las 1.836 variantes físicas restantes.
+  Packer/slicer/importador resuelven referencias; exportación física con `sf_gen_cache.py`.
+  Los 2.268 archivos lógicos antiguos conservan exactamente sus bytes. Atlas/JSON de
+  La Llorona y Prankedy iguales a los anteriores; reconstrucción de Alexis también exacta.
 - `PR_DESCRIPTION.md` ya estaba sin seguimiento al arrancar: no mezclar su texto viejo.
 
 ## Verificación

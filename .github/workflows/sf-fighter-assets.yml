@@ -27,7 +27,9 @@ jobs:
       - name: Instalar herramientas de recorte
         run: python -m pip install -r PolitecnicoOpenWorld/tools/requirements-sf.txt
       - name: Probar el validador
-        run: python -m unittest discover -s PolitecnicoOpenWorld/tools/tests -p 'test_sf_fighter_pipeline.py'
+        run: |
+          python -m unittest discover -s PolitecnicoOpenWorld/tools/tests -p 'test_sf_*.py'
+          python PolitecnicoOpenWorld/tools/sf_gen_cache.py check
       - name: Exigir receta para assets de peleadores modificados
         if: github.event_name == 'pull_request'
         env:

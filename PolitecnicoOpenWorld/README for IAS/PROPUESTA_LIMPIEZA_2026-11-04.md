@@ -17,7 +17,21 @@ y se añadió `/detekt-cli.zip` a `.gitignore`. Se conserva `detekt-cli-1.23.8/`
 los comandos locales documentados siguen funcionando. Se revisaron referencias y
 `git diff --stat`. Autorizado por el dueño en esta sesión.
 
-## Lo que requiere más trabajo antes de borrar
+## Lote 2 ejecutado: 432 duplicados GEN
+
+El dueño autorizó expresamente retirar estos duplicados y ajustar referencias.
+Se retiraron 432 archivos, 15.192.173 bytes (14,49 MiB), conservando el GEN canónico
+y las 1.836 variantes físicas restantes. El manifiesto `newSFAssets/gen_duplicates.json`
+registra cada ruta eliminada, destino canónico, SHA-256 y tamaño. Las herramientas
+resuelven referencias para lectura, sin redirigir escrituras al canónico.
+
+Se verificaron los 2.268 archivos lógicos antes/después: mismos bytes, incluidas las
+variantes únicas. El packer reconstruye La Llorona y Prankedy con atlas y JSON idénticos
+a los anteriores a la limpieza; esos hashes quedan en `gen_dedup_verification.json`
+y en una prueba de CI. El slicer mantiene conteo y orden; Alexis sigue reproducible.
+Uso y exportación para otras herramientas en `newSFAssets/README_GEN.md`.
+
+### Medición original (conservada como referencia)
 
 `newSFAssets/` ocupa **1.037,7 MiB / 9.589 archivos versionados** antes de esta reparación.
 El GEN canónico `GEN_prankedy_senortienda_rey_paparazzi_fullcombat_intermedio/` tiene
@@ -39,8 +53,8 @@ Comparación SHA-256 contra el contenido del GEN canónico:
 Hay **432 archivos / ~14,49 MiB** cuyo contenido aparece en el canónico, pero ninguna
 de esas carpetas es completamente redundante. Borrarlas enteras perdería variantes.
 Además, tener el mismo hash no demuestra que una ruta se pueda quitar: los scripts
-históricos pueden necesitar su nombre y ubicación. Una segunda fase necesitaría
-un manifiesto archivo → sustituto, ajuste de referencias y prueba de reconstrucción.
+históricos pueden necesitar su nombre y ubicación. El manifiesto, los ajustes de lectura
+y las pruebas del lote 2 conservan ese contrato sin guardar las copias físicas.
 
 Los 11 PNG sueltos de la raíz **no tienen copia byte-idéntica versionada**, comprobado
 por tamaño y SHA-256. No se consideran duplicados ni se propone borrarlos.
