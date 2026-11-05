@@ -36,7 +36,8 @@ class RoadNetworkCache(private val dao: RoadNetworkDao) {
 
     companion object {
         private const val CACHE_TTL_MS    = 1000L * 60 * 60 * 24 * 7  // 7 días
-        private const val CELL_SIZE_DEG   = 0.02                        // ~2km x 2km
+        // ⚠️ Lo comparten los archivos estáticos de la rama `datos-calles` (ver [celdaDeCalles]).
+        internal const val CELL_SIZE_DEG  = 0.02                        // ~2km x 2km
         private const val MAX_ZONES       = 20
     }
 
@@ -147,9 +148,18 @@ class RoadNetworkCache(private val dao: RoadNetworkDao) {
         }
     }
 
-    private fun cellKey(lat: Double, lon: Double): String {
-        val cLat = floor(lat / CELL_SIZE_DEG).toInt()
-        val cLon = floor(lon / CELL_SIZE_DEG).toInt()
-        return "${cLat}_${cLon}"
-    }
+    private fun cellKey(lat: Double, lon: Double): String = celdaDeCalles(lat, lon)
+}
+
+/**
+ * Clave de la celda de ~2 km que contiene (lat, lon): `"<floor(lat/0.02)>_<floor(lon/0.02)>"`.
+ *
+ * ⚠️ Es ADEMÁS el nombre de archivo de las celdas publicadas en la rama `datos-calles`
+ * (`tools/calles/generar_celdas.py` hace el mismo `floor`). Si cambias el tamaño o el formato
+ * aquí, la app pedirá archivos que no existen y caerá siempre a Overpass.
+ */
+internal fun celdaDeCalles(lat: Double, lon: Double): String {
+    val cLat = floor(lat / RoadNetworkCache.CELL_SIZE_DEG).toInt()
+    val cLon = floor(lon / RoadNetworkCache.CELL_SIZE_DEG).toInt()
+    return "${cLat}_${cLon}"
 }

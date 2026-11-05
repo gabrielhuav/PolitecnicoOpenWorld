@@ -1,0 +1,16 @@
+{
+  "GEN_lallorona_intermedio": {
+    "character": "lallorona",
+    "title": "LaLlorona",
+    "frames": 123,
+    "json_sha256": "8761a58bae87bb5bf247ccf3f3e38990c976971ff8b3111afd2e7b6fdabb88e6",
+    "rgba_sha256": "231bacdc67a13e406f9aa6412b747d6ea140cb9b5b2ed6e88e3bbefa12736fb6"
+  },
+  "GEN_prankedy_senortienda_rey_paparazzi_uniform_intermedio": {
+    "character": "prankedy",
+    "title": "Prankedy",
+    "frames": 82,
+    "json_sha256": "18da335bcf634c09633a7aaf0671d186c5cb5bb0982a56af8505c7f6acc94033",
+    "rgba_sha256": "adfb628cfbb895c8ff5c2528705640baa521affad8bb6986961fa1194a2c5939"
+  }
+}

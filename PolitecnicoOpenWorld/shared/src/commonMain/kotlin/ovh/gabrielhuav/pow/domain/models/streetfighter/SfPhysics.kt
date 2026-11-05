@@ -23,6 +23,16 @@ object SfPhysics {
         return nf
     }
 
+    /** HURT/THROWN/KO siguen cayendo aunque hayan interrumpido un salto.
+     * Los estados JUMP/AIR ya integran gravedad en su manejador: no duplicarla.
+     */
+    fun applyInterruptedGravity(f: SfFighter, dt: Float): SfFighter = when {
+        f.isAirborne -> f
+        f.y < SfConstants.STAGE_FLOOR -> f.copy(velocityY = f.velocityY + SfConstants.GRAVITY * dt)
+        f.velocityY != 0f -> f.copy(velocityY = 0f)
+        else -> f
+    }
+
     /** Tope de AIRE por encima del piso (el salto no sube más que esto). */
     const val STAGE_AIR_CEILING = 220f
 
@@ -43,6 +53,7 @@ object SfPhysics {
         x = x.coerceIn(SfConstants.STAGE_X_MIN, SfConstants.STAGE_X_MAX)
         // No permitir caer bajo el piso; el salto puede subir pero con tope de aire
         y = y.coerceIn(SfConstants.STAGE_FLOOR - STAGE_AIR_CEILING, SfConstants.STAGE_FLOOR)
+        if (y <= SfConstants.STAGE_FLOOR - STAGE_AIR_CEILING && velocityY < 0f) velocityY = 0f
         return if (x != f.x || y != f.y || velocityX != f.velocityX || velocityY != f.velocityY) {
             f.copy(x = x, y = y, velocityX = velocityX, velocityY = velocityY)
         } else {

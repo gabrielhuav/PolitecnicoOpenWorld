@@ -98,3 +98,6 @@ PolitecnicoOpenWorld/tools/sf_voice_scrape/out_v3/
 # Entorno de Python que instalan las herramientas de sprites (numpy/scipy, ~188 MB).
 # Se regenera solo; nunca debe entrar al repo.
 .sf-python-deps/
+
+# El instalador de detekt se descarga en CI; la CLI local extraida sigue disponible.
+/detekt-cli.zip

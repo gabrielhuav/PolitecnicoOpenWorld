@@ -30,6 +30,7 @@ class SoundManager private constructor(context: Context) {
     private var punchSoundId = -1
     private var itemSoundId = -1
     private var zombieSoundId = -1
+    private var hornSoundId = -1
 
     // Story Sounds
     private var flashSoundId = -1
@@ -88,6 +89,7 @@ class SoundManager private constructor(context: Context) {
             punchSoundId = soundPool?.load(assetManager.openFd("AUDIO/golpemano.mp3"), 1) ?: -1
             itemSoundId = soundPool?.load(assetManager.openFd("AUDIO/items.mpeg"), 1) ?: -1
             zombieSoundId = soundPool?.load(assetManager.openFd("AUDIO/zombie.mpeg"), 1) ?: -1
+            hornSoundId = soundPool?.load(assetManager.openFd("AUDIO/claxon.wav"), 1) ?: -1
 
             // Load Story Sounds
             flashSoundId = soundPool?.load(assetManager.openFd("AUDIO/COMIC/CamaraFlash.mp3"), 1) ?: -1
@@ -257,6 +259,11 @@ class SoundManager private constructor(context: Context) {
 
     fun playZombieNear() {
         soundPool?.play(zombieSoundId, sfxVolume, sfxVolume, 1, 0, 1f)
+    }
+
+    fun playHorn() {
+        if (hornSoundId <= 0 || hornSoundId !in loadedSounds) return
+        soundPool?.play(hornSoundId, sfxVolume, sfxVolume, 2, 0, 1f)
     }
 
     // Story Methods
