@@ -47,6 +47,35 @@ class SfPhysicsTest {
         assertEquals(0f, r.slideFriction, 0.01f)
     }
 
+    @Test
+    fun interrupted_jump_hurt_throw_and_ko_reach_floor_with_gravity() {
+        for (state in listOf(SfFighterState.HURT_HEAD_HEAVY, SfFighterState.HURT_BODY_LIGHT,
+            SfFighterState.THROWN, SfFighterState.KO, SfFighterState.IDLE)) {
+            for (initialVy in listOf(-420f, 0f, 120f)) {
+                var f = fighter(y = SfConstants.STAGE_FLOOR - 180f, vy = initialVy).copy(state = state)
+                repeat(90) {
+                    f = SfPhysics.clampToStage(SfPhysics.step(SfPhysics.applyInterruptedGravity(f, 1f / 60f), 1f / 60f))
+                }
+                assertEquals(SfConstants.STAGE_FLOOR, f.y, "interrupted $state vy=$initialVy must land within 1.5s")
+                assertEquals(0f, f.velocityY)
+            }
+        }
+    }
+
+    @Test
+    fun normal_air_attacks_do_not_receive_gravity_twice() {
+        for (state in listOf(SfFighterState.JUMP_UP, SfFighterState.AIR_PUNCH, SfFighterState.AIR_KICK)) {
+            val f = fighter(y = 100f, vy = -200f).copy(state = state)
+            assertEquals(f, SfPhysics.applyInterruptedGravity(f, 1f / 60f))
+        }
+    }
+
+    @Test
+    fun upward_launch_stops_at_ceiling_instead_of_waiting_for_velocity_to_decay() {
+        val f = fighter(y = -500f, vy = -3000f)
+        assertEquals(0f, SfPhysics.clampToStage(f).velocityY)
+    }
+
     // ── 🆕 (Fase 2b) clampToStage: límites del mundo + rescate de coordenadas rotas ──
 
     @Test

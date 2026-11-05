@@ -12,6 +12,13 @@
 
 ---
 
+**2026-11-05 · PR #158:** Alexis Syntaxis: corrected body scale during damage, aerial
+attacks, knockdowns and KO; interrupted jumps keep falling. Maps default to OpenStreetMap
+and fall back from unavailable web layers; credentialed services are excluded from the
+key-free selector. / Escala corregida en daño, ataques aéreos, derribos y KO; los saltos
+interrumpidos siguen cayendo. Mapas sin marcas de clave: OpenStreetMap por defecto,
+respaldo ante fallos y selector de servicios sin credenciales.
+
 ## 🇬🇧 English Version
 
 **Politécnico Open World (POW)** is an Android 2D top-down exploration app built on top of real-world maps. The player navigates the actual streets of their surroundings (with initial focus on the ESCOM / Zacatenco area in Mexico City) using **OpenStreetMap** cartographic data, sharing the world with procedural NPCs (pedestrians and vehicles) and with other players connected to a real-time server. The ESCOM campus also hosts an embedded zombie survival minigame with interior buildings, melee/ranged combat and a power-up system — now backed by its own authoritative server.
@@ -19,6 +26,9 @@
 The project is built entirely with **Kotlin + Jetpack Compose**, follows a strict **MVVM** pattern organized by *features*, and delegates persistent-world logic to **two standalone Node.js servers**: one for the open world and a new dedicated one for the zombie minigame.
 
 ### 🔄 Recent Changes
+
+- **Alexis Syntaxis asset repair and fighter CI (2026-11-04)** — damage/stun sprites now follow the 100 px standing-height standard, with corrected feet anchors. Four talking poses and ten clipped action poses were regenerated. A reproducible asset workflow builds previews, checks geometry and compares committed assets with their sources. See the [fighter CI tutorial](PolitecnicoOpenWorld/README%20for%20IAS/SF/CI_CD_agregar_peleador.md).
+- **Static CDMX streets (2026-11-04)** — integrates the static-cell approach from PR #182 ahead of Overpass, and rejects malformed/HTML responses so gateway errors are retried through the fallback instead of accepted as empty streets.
 
 The latest integration work centers on the **multiplayer back end**, which now spans two servers, plus the previously bundled feature/performance PRs:
 
@@ -346,6 +356,9 @@ The detailed checklist lives in **`plan.artifact.md` §11**. In short, on every 
 El proyecto está construido íntegramente en **Kotlin + Jetpack Compose**, sigue un patrón **MVVM** estricto organizado por *features* y delega la lógica de mundo persistente a **dos servidores Node.js independientes**: uno para el open world y uno nuevo, dedicado, para el minijuego de zombis.
 
 ### 🔄 Cambios Recientes
+
+- **Alexis Syntaxis: sprites corregidos y CI de peleadores (2026-11-04)** — los cuadros de daño/aturdimiento cumplen la altura erguida de 100 px y se corrigen los anclajes de pies. Se regeneraron cuatro poses de hablar y diez poses de acción cortadas. Un workflow reproducible genera previews, valida geometría y compara los assets versionados con sus fuentes. Ver [tutorial de CI](PolitecnicoOpenWorld/README%20for%20IAS/SF/CI_CD_agregar_peleador.md).
+- **Calles estáticas de CDMX (2026-11-04)** — integra el enfoque de celdas estáticas del PR #182 antes de Overpass y rechaza respuestas HTML o malformadas para que los errores del servidor activen el respaldo en vez de aceptarse como calles vacías.
 
 El último trabajo de integración se centra en el **back end multijugador**, que ahora abarca dos servidores, además de los PRs de funcionalidad/rendimiento previos:
 

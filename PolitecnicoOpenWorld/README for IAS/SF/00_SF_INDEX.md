@@ -15,7 +15,17 @@
 > `PowModo.HUELUM_VS_GOYA`, ahora `PowModo.STREET_FIGHTER` — se renombró precisamente para que el
 > siguiente cambio de nombre no toque código.
 
+**Corrección 2026-11-05 / PR #158:** las poses aéreas, derribos y recuperación conservan
+su escala natural. Alexis calibra también longitud de KO y tamaño de cuerpo en daño y
+poses dobladas, con objetivos explícitos en su receta y guardas del pipeline. La gravedad
+de HURT/THROWN/KO continúa tras interrumpir un salto y THROWN espera el piso para levantarse.
+No modificar `hurtScale` para compensar arte incorrecto.
+
 ## Por dónde empezar
+
+**CI de peleadores (2026-11-04):** [Tutorial de recortes, QA y GitHub Actions](CI_CD_agregar_peleador.md).
+Las recetas versionadas viven en `tools/sf_fighters/`; el workflow exige reconstrucción
+reproducible para atlas modificados. Alexis / PR #158 incluye fuentes de reparación.
 
 1. `../09_CONVENTIONS_GOTCHAS.md` — convenciones OBLIGATORIAS (MVVM, estado inmutable
    `_state.update { it.copy(...) }`, strings ES+EN con paridad, CRLF en `.kt`).

@@ -1,0 +1,3 @@
+--------- beginning of main
+11-05 07:39:47.131  2480 18210 D TileDebug_WebView: 🔴 MISS (Red): https://tile.openstreetmap.org/19/117752/233173.png
+11-05 07:39:47.178  2480 18210 D TileDebug_WebView: Código HTTP 200 al descargar https://tile.openstreetmap.org/19/117752/233173.png

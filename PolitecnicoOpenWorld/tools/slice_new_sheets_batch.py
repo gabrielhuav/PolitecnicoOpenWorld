@@ -16,6 +16,7 @@ USO:
 """
 from __future__ import annotations
 
+from sf_gen_cache import resolve_file
 import argparse
 import glob
 import os
@@ -70,7 +71,7 @@ def main() -> None:
         if not os.path.isdir(char_dir):
             print(f"[SKIP] {folder}: no existe {char_dir}")
             continue
-        if not os.path.exists(os.path.join(args.gen, key, "_scale.json")):
+        if not os.path.exists(resolve_file(os.path.join(args.gen, key, "_scale.json"))):
             print(f"[SKIP] {key}: falta _scale.json (procesa antes su hoja 01)")
             continue
         print(f"\n=== {folder} ({key}) ===")

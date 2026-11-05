@@ -23,7 +23,7 @@ low-end performance) or doc drift.
 >
 > | Archivo | Líneas | Antes decía |
 > |---|---:|---:|
-> | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` | 2460 | 2422 |
+> | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` | 2466 | 2422 |
 > | `features/streetfighter/ui/StreetFighterScreen.kt` | 1999 | 1801 |
 > | `features/map_exterior/viewmodel/WorldMapViewModel.kt` | 1612 | 1603 |
 > | `features/map_exterior/ui/WorldMapScreen.kt` | 1463 | 1463 |
@@ -31,7 +31,7 @@ low-end performance) or doc drift.
 > | `features/interiores/zombies/ui/ZombieGameScreen.kt` | 1350 | 1343 |
 > | `AppNavGraph.kt` | 1182 | 1173 |
 > | `features/interiores/zombies/viewmodel/ZombieInteriorViewModel.kt` | 1165 | 1165 |
-> | `features/streetfighter/ui/SfSceneRenderer.kt` | 1226 | 1089 |
+> | `features/streetfighter/ui/SfSceneRenderer.kt` | 1230 | 1089 |
 > | `domain/models/ai/NpcAiManager.kt` | 1048 | (no estaba en la tabla) |
 >
 > **🆕 (2026-09-23) `StreetFighterCpuAi.kt` se partió en cuatro.** Había llegado a **1094 líneas**
