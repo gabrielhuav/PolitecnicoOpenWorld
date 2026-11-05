@@ -342,6 +342,7 @@
     <string name="zhud_inv_test">Probar</string>
     <string name="wm_inv_readonly_hint">Objetos de misión. Se usan en su lugar de la historia; aquí solo los consultas.</string>
     <string name="zhud_inv_discard">Desechar</string>
+    <string name="zhud_inv_slot">Casilla %1$d del inventario</string>
     <string name="zgame_key_prompt">🔑 Hay una llave — pulsa ACCIÓN para inspeccionarla</string>
     <string name="zgame_objective_investigate">Objetivo: Investiga qué pasó</string>
     <!-- ─── Diálogos de guardar/cargar (MainActivity) ─── -->

@@ -2,6 +2,7 @@ package ovh.gabrielhuav.pow.features.interiores.zombies.ui
 
 import android.content.res.Configuration
 import android.graphics.BitmapFactory
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -13,7 +14,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,11 +52,14 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -79,7 +83,6 @@ import ovh.gabrielhuav.pow.ui.components.WithShoulderTriggers
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
 import ovh.gabrielhuav.pow.features.settings.models.ControlType
-import androidx.compose.animation.animateColorAsState//Agregado5
 
 @Composable
 fun ZombieHud(
@@ -100,7 +103,7 @@ fun ZombieHud(
     // PUZZLE Misión 1: probar / desechar la llave del inventario (assetPath).
     onTestKey: (String) -> Unit = {},
     onDiscardKey: (String) -> Unit = {},
-    onSelectSlot: (Int) -> Unit = {}//Agregado4.2
+    onSelectSlot: (Int) -> Unit = {}
 ) {
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
@@ -245,30 +248,24 @@ fun ZombieHud(
                         // Slots USABLES dinámicos: 1 al inicio; TODOS al recuperar la mochila de
                         // Prankedy (Misión 2). Lo decide el VM (state.inventoryUnlockedSlots).
                         val unlockedSlots = state.inventoryUnlockedSlots
-                        //Agregado5
                         for (i in 0 until totalSlots) {
                             val unlocked = i < unlockedSlots
                             val heldKey = state.inventoryKeys.getOrNull(i)
-
-                            // NUEVO: Se agregó una variable para saber si esta casilla es la que está seleccionada actualmente.
                             val isSelected = state.selectedInventorySlot == i
-
-                            // NUEVO: Se reemplazaron los colores fijos por 'animateColorAsState' para que 
-                            // la transición de color de fondo (al seleccionar o desbloquear) sea suave y animada.
+                            val slotDescription = stringResource(R.string.zhud_inv_slot, i + 1)
                             val slotBackground by animateColorAsState(
                                 targetValue = when {
                                     !unlocked -> Color(0x55B71C1C)
-                                    isSelected -> Color(0xFF2E7D32) // Color verde oscuro si la casilla está seleccionada
+                                    isSelected -> Color(0xFF2E7D32)
                                     else -> Color(0xFF2A2A33)
                                 },
                                 label = "inventorySlotBackground"
                             )
 
-                            // NUEVO: Al igual que el fondo, el borde ahora también cambia de color de forma animada.
                             val slotBorder by animateColorAsState(
                                 targetValue = when {
                                     !unlocked -> Color(0xFFB71C1C)
-                                    isSelected -> Color(0xFF69F0AE) // Verde brillante si la casilla está seleccionada
+                                    isSelected -> Color(0xFF69F0AE)
                                     else -> Color(0xFFD4AF37)
                                 },
                                 label = "inventorySlotBorder"
@@ -278,36 +275,30 @@ fun ZombieHud(
                                 modifier = Modifier
                                     .size(56.dp)
                                     .background(
-                                        slotBackground, // NUEVO: Ahora usa el color de fondo animado en lugar del fijo.
+                                        slotBackground,
                                         RoundedCornerShape(10.dp)
                                     )
                                     .border(
-                                        // NUEVO: El grosor del borde aumenta a 3.dp cuando la casilla está seleccionada.
                                         if (isSelected) 3.dp else 2.dp,
-                                        slotBorder, // NUEVO: Ahora usa el color de borde animado en lugar del fijo.
+                                        slotBorder,
                                         RoundedCornerShape(10.dp)
                                     )
-                                    // NUEVO: Se quitó el modificador condicional '.then()' y se usa '.pointerInput' directo.
-                                    // Ahora se le pasan (i, heldKey, unlocked) como 'keys' para que se actualice si alguno cambia.
-                                    .pointerInput(i, heldKey, unlocked) {
-                                        detectTapGestures(
-                                            // NUEVO: Se añadió el evento 'onPress' para que al tocar la casilla se seleccione (onSelectSlot),
-                                            // asegurándose primero de que la casilla esté desbloqueada.
-                                            onPress = {
-                                                if (unlocked) {
-                                                    onSelectSlot(i)
-                                                }
-                                            },
-                                            // MANTENER PULSADA la llave = DESECHARLA (el VM decide si se permite:
-                                            // incorrecta siempre; la correcta solo tras usarla para abrir la puerta).
-                                            onLongPress = {
-                                                // NUEVO: Se agregó la condición 'if (unlocked)' por seguridad, para 
-                                                // evitar desechar llaves o lanzar eventos si la casilla está bloqueada.
-                                                if (unlocked) {
-                                                    heldKey?.let { onDiscardKey(it) }
-                                                }
+                                    .combinedClickable(
+                                        enabled = unlocked,
+                                        role = Role.Button,
+                                        onClick = { onSelectSlot(i) },
+                                        onLongClickLabel = stringResource(R.string.zhud_inv_discard),
+                                        // El VM conserva las restricciones de descarte de los objetos de misión.
+                                        onLongClick = if (heldKey != null) {
+                                            {
+                                                onSelectSlot(i)
+                                                onDiscardKey(heldKey)
                                             }
-                                        )
+                                        } else null
+                                    )
+                                    .semantics {
+                                        contentDescription = slotDescription
+                                        selected = isSelected
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
@@ -320,7 +311,7 @@ fun ZombieHud(
                                     else -> {}
                                 }
                             }
-                        }//Agregado5Final
+                        }
                     }
                     Text(
                         if (state.inventoryKeys.isEmpty()) stringResource(R.string.zhud_inv_empty)

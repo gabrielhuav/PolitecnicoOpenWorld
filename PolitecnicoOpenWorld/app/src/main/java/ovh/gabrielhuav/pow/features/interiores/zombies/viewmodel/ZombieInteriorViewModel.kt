@@ -994,7 +994,7 @@ class ZombieInteriorViewModel @dagger.assisted.AssistedInject constructor(
     // ─── CONTROLES (interiores) ────────────────────────────
     // Y: MANTENER abre el INVENTARIO. A: TOCAR alterna correr; MANTENER abre el menú de ARMAS.
     private var aPressStartMs = 0L
-    
+
     //Agregado2
     fun selectInventorySlot(index: Int) {
         if (index !in 0 until _state.value.inventoryUnlockedSlots) return
