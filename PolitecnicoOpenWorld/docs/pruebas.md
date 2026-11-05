@@ -7,8 +7,9 @@
 
 - Rama actualizada con `main` (`48c3f6ee`, incluye #158), sin conflictos.
 - El botón de salida conserva el callback existente de navegación: desconecta multijugador, detiene los audios y vuelve al menú; en campaña se usa el guardado existente.
-- Los textos del botón y del diálogo usan recursos en español e inglés. Los casos siguientes corresponden a la revisión original; no se repitió su QA manual en esta actualización.
-- Compilación local: `:app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest` correcta; **129 tests de app + 279 de shared, sin fallos**. APK instalado correctamente en Pixel 9 API 36; recorrido visual pendiente.
+- Los textos del botón y del diálogo usan recursos en español e inglés. Los casos siguientes corresponden a la revisión original.
+- Compilación local: `:app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest` correcta; **129 tests de app + 279 de shared, sin fallos**. APK instalado correctamente en Pixel 9 API 36.
+- Prueba manual adicional en Pixel 9 API 36, interfaz en inglés: Mundo Libre carga; el botón abre el diálogo; `Keep exploring` vuelve al mapa; `Exit to menu` vuelve al menú; se puede entrar de nuevo a Mundo Libre. Sin cierre inesperado en ese recorrido. No se repitieron las pruebas de campaña, multijugador, TalkBack ni todos los tamaños de pantalla.
 - detekt con el baseline del repositorio y la guarda de nombres Kotlin/Native: correctos. Los tres tests de respaldo de proveedores Leaflet pasan.
 - Publicación: el run de #158 recibió credenciales vacías por usar `pull_request` desde un fork (keystore de 0 bytes). `android-release.yml` pasa a `pull_request_target` solo con `closed` y jobs condicionados a `merged`, compilando explícitamente el commit integrado, sin checkout del head del fork.
 - actionlint correcto. La validación de secrets se ejecutó con datos sintéticos: credenciales presentes, todas ausentes, entrega manual sin cuenta Play y entrega manual sin keystore; los cuatro casos dieron el resultado esperado sin imprimir valores.
