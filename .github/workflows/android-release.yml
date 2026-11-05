@@ -21,6 +21,9 @@ permissions:
 env:
   RELEASE_SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
 
+# checkout v7 también bloquea el SHA ya integrado de un PR de fork en
+# pull_request_target. El opt-in de los tres checkouts solo se habilita tras
+# el merge; RELEASE_SHA sigue fijado al commit integrado del repositorio base.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: false
@@ -49,6 +52,7 @@ jobs:
         with:
           ref: ${{ env.RELEASE_SHA }}
           persist-credentials: false
+          allow-unsafe-pr-checkout: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merged == true }}
 
       # Causa RAÍZ de los rechazos 1 y 2: sin gh-pages, las dos URLs dan 404.
       - name: gh-pages debe existir (es infraestructura de cumplimiento, no una rama cualquiera)
@@ -133,6 +137,7 @@ jobs:
         with:
           ref: ${{ env.RELEASE_SHA }}
           persist-credentials: false
+          allow-unsafe-pr-checkout: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merged == true }}
       - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
@@ -197,6 +202,7 @@ jobs:
         with:
           ref: ${{ env.RELEASE_SHA }}
           persist-credentials: false
+          allow-unsafe-pr-checkout: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merged == true }}
       - name: Validar secrets de firma y Play
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
