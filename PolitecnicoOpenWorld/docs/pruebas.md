@@ -7,7 +7,7 @@
 
 - Rama actualizada con `main` (`48c3f6ee`, incluye #158), sin conflictos.
 - El botón de salida conserva el callback existente de navegación: desconecta multijugador, detiene los audios y vuelve al menú; en campaña se usa el guardado existente.
-- Los textos del botón y del diálogo usan recursos en español e inglés. Las capturas y los casos siguientes corresponden a la revisión original; no se repitió su QA manual en esta actualización.
+- Los textos del botón y del diálogo usan recursos en español e inglés. Los casos siguientes corresponden a la revisión original; no se repitió su QA manual en esta actualización.
 - Compilación local: `:app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest` correcta; **129 tests de app + 279 de shared, sin fallos**. APK instalado correctamente en Pixel 9 API 36; recorrido visual pendiente.
 - detekt con el baseline del repositorio y la guarda de nombres Kotlin/Native: correctos. Los tres tests de respaldo de proveedores Leaflet pasan.
 - Publicación: el run de #158 recibió credenciales vacías por usar `pull_request` desde un fork (keystore de 0 bytes). `android-release.yml` pasa a `pull_request_target` solo con `closed` y jobs condicionados a `merged`, compilando explícitamente el commit integrado, sin checkout del head del fork.
@@ -28,19 +28,6 @@
 - **Resultado esperado:** Se abre el diálogo modal de confirmación y, al pulsar "Salir", la aplicación finaliza la sesión del mapa y regresa limpiamente al menú principal.
 - **Resultado real:** El cuadro de diálogo se muestra correctamente y la app redirige de forma fluida al menú principal.
 - **Estado:** ✅ Aprobado
-- **Evidencias del recorrido:**
-
-1. **Estado Anterior (Sin opción de salida en Mundo Libre):**
-   ![Antes](images/01_antes_sin_boton.png)
-
-2. **Estado Actual (Con el botón de salida implementado arriba de Ajustes):**
-   ![Después](images/02_despues_con_boton.png)
-
-3. **Cuadro de diálogo de confirmación ("Salir del juego"):**
-   ![Aviso](images/03_aviso_dialogo.png)
-
-4. **Retorno exitoso al Menú Principal:**
-   ![Menú](images/04_menu_principal.png)
 
 ---
 
