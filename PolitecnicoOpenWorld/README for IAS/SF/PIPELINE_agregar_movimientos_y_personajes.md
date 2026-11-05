@@ -7,6 +7,10 @@
 
 ## Antes de empezar
 
+**Automatización (2026-11-04):** [CI_CD_agregar_peleador.md](CI_CD_agregar_peleador.md)
+añade recetas versionadas, recortes en GitHub Actions, validación del atlas final y
+comparación contra producción. Las fases de revisión visual de este documento siguen vigentes.
+
 Lee, en este orden: `../09_CONVENTIONS_GOTCHAS.md` (convenciones obligatorias), `00_SF_INDEX.md`
 ("reglas que más caro han salido" — todas se descubrieron a golpes, no las repitas), y
 `DISENO_ARCADE_SF_POW.md` (estado actual del roster y el moveset). Si el trabajo toca las dos

@@ -6,7 +6,7 @@ import ovh.gabrielhuav.pow.features.settings.models.SettingsCategory
 
 data class SettingsState(
     val selectedCategory: SettingsCategory = SettingsCategory.Map,
-    val mapProvider: MapProvider = MapProvider.CARTO_VOYAGER, // Default: CARTO Voyager (web; sirve z20 → calles más nítidas que OSM Web)
+    val mapProvider: MapProvider = MapProvider.OSM_WEB, // Default sin credenciales ni marcas de agua
     val showCacheWidget: Boolean = true,
     val showFpsWidget: Boolean = false,
     val showZoomWidget: Boolean = false, // widget de nivel de zoom (Interfaz)

@@ -26,6 +26,7 @@ Varias claves = la MISMA imagen se escribe en todas (una pose que ocupa varios c
 """
 from __future__ import annotations
 
+from sf_gen_cache import resolve_file
 import argparse
 import io
 import json
@@ -170,9 +171,9 @@ def main() -> None:
 
     gen_dir = os.path.join(args.gen, args.char)
     scale_file = os.path.join(gen_dir, "_scale.json")
-    if not os.path.exists(scale_file):
+    if not os.path.exists(resolve_file(scale_file)):
         raise SystemExit("falta %s (procesa antes la hoja 01)" % scale_file)
-    scale = json.load(open(scale_file, encoding="utf-8"))["scale"]
+    scale = json.load(open(resolve_file(scale_file), encoding="utf-8"))["scale"]
 
     fig = cut_chroma(args.imagen)
     bh = body_height(fig)

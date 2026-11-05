@@ -1,0 +1,24 @@
+{
+  "tested_code_assets_sha": "269e7a864b0bd61b3bbfe8fdd6dbb482b29b1367",
+  "detekt": "passed",
+  "kmp_test_names": "passed",
+  "python_fighter_cache_tests": 12,
+  "leaflet_fallback_tests": 3,
+  "github_workflow_runs": [
+    41985641876,
+    41985641893,
+    41985641874
+  ],
+  "app": {
+    "tests": 129,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "shared": {
+    "tests": 279,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  }
+}

@@ -158,6 +158,15 @@
     <string name="sf_mode_arcade_desc">Campaña: derrota a todos y desbloquea peleadores</string>
     <string name="sf_mode_combos">COMBOS Y TUTORIAL</string>
     <string name="sf_mode_combos_desc">Aprende todos los controles y combos, y practícalos</string>
+    <!-- 🆕 EXAMEN EXTRAORDINARIO: práctica de los Extraordinarios (remates de fin de combate) -->
+    <string name="sf_mode_extraordinario">EXAMEN EXTRAORDINARIO</string>
+    <string name="sf_mode_extraordinario_desc">Practica los Extraordinarios: el rival ya reprobó y no hay límite de tiempo</string>
+    <string name="sf_extra_pick_fighter">¿Quién presenta el extraordinario?</string>
+    <string name="sf_extra_steps">PASOS</string>
+    <string name="sf_extra_hide_steps">OCULTAR</string>
+    <string name="sf_extra_range">Distancia: %1$s</string>
+    <string name="sf_extra_aprobado">¡APROBADO!</string>
+    <string name="sf_extra_reprobado">¡REPROBADO! Otra vez…</string>
     <string name="sf_mode_multiplayer">MULTIJUGADOR</string>
     <string name="sf_mode_practice">PRÁCTICA</string>
     <string name="sf_mp_accept">ACEPTAR</string>
@@ -217,7 +226,6 @@
     <!-- Ajustes compartidos (2026-07-29) -->
     <string name="menu_back">VOLVER</string>
     <string name="settings_back">Volver</string>
-    <string name="settings_exit_to_menu">SALIR AL MENÚ</string>
     <string name="settings_cache_widget">Widget de caché</string>
     <string name="settings_cache_widget_desc">Muestra fuente de datos</string>
     <string name="settings_cat_account">Cuenta</string>
@@ -379,4 +387,5 @@
     <string name="sf_records_col_wins">V</string>
     <string name="sf_records_col_losses">D</string>
     <string name="sf_records_col_rate">Efect.</string>
+    <string name="settings_exit_to_menu">SALIR AL MENÚ</string>
 </resources>

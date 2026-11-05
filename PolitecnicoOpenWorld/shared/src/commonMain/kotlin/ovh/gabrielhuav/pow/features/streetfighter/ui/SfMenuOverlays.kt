@@ -158,6 +158,7 @@ fun SfModeMenuOverlay(
     onPractice: () -> Unit,
     onAiVsAi: () -> Unit,
     onCombos: () -> Unit, // 🆕 (2026-07-21) hoja de combos + tutorial interactivo
+    onExtraordinario: () -> Unit, // 🆕 EXAMEN EXTRAORDINARIO: práctica de Extraordinarios
     onMultiplayer: () -> Unit,
     onGauntletAll: () -> Unit,
     onGauntletArcade: () -> Unit,
@@ -253,6 +254,22 @@ fun SfModeMenuOverlay(
                     textAlign = TextAlign.Center,
                 )
             }
+            // 🆕 EXAMEN EXTRAORDINARIO: practicar los Extraordinarios (remates de fin de combate)
+            // sin tener que ganar dos rondas. Visible SIEMPRE, como Combos.
+            Spacer(modifier = Modifier.height(10.dp))
+            PowButton(
+                text = stringResource(Res.string.sf_mode_extraordinario),
+                onClick = onExtraordinario,
+                color = Color(0xFF6B4E16),
+                modifier = Modifier.fillMaxWidth(0.68f),
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = stringResource(Res.string.sf_mode_extraordinario_desc),
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 11.sp,
+                textAlign = TextAlign.Center,
+            )
             // 🆕 AUTOJUEGO / SHOWCASE: QA interno, SOLO con Modo Desarrollador (Ajustes).
             if (devMode) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -489,7 +506,15 @@ fun CharacterSelectOverlay(
         modifier = Modifier.fillMaxSize().background(powMenuBg),
         contentAlignment = Alignment.Center,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // 🛠️ FIX (overflow vertical / accesibilidad): con fuente del sistema muy grande, el
+        // contenido de esta pantalla (título + cards + Confirm + Other modes) es más alto que la
+        // pantalla y, al no haber scroll, los elementos de abajo (ej. "Other modes") quedaban
+        // fuera del área visible sin forma de alcanzarlos. Se agrega verticalScroll, mismo patrón
+        // ya usado en SfModeMenuOverlay.
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.verticalScroll(rememberScrollState()).padding(vertical = 16.dp),
+        ) {
             Text(
                 text = stringResource(Res.string.sf_choose_fighter),
                 color = Color(0xFFD4AF37),
@@ -575,8 +600,28 @@ fun CharacterSelectOverlay(
                 }
             }
             onBack?.let {
-                TextButton(onClick = it) {
-                    Text(backText ?: stringResource(Res.string.sf_back), color = Color(0xFFD4AF37))
+                // 🛠️ FIX (accesibilidad / recorte de texto, mismo problema que PowButton):
+                // con fuente del sistema muy grande este label ("↕ Otros modos") se desbordaba
+                // fuera de la pantalla. Igual que PowButton: se fija un ancho ACOTADO
+                // (fillMaxWidth(0.68f), mismo patrón ya usado en SfModeMenuOverlay) y se usa
+                // BasicText + TextAutoSize para que el texto se achique hasta caber en una sola línea.
+                TextButton(onClick = it, modifier = Modifier.fillMaxWidth(0.68f)) {
+                    BasicText(
+                        text = backText ?: stringResource(Res.string.sf_back),
+                        style = TextStyle(
+                            color = Color(0xFFD4AF37),
+                            fontSize = 16.sp,
+                            textAlign = TextAlign.Center,
+                        ),
+                        maxLines = 1,
+                        softWrap = false,
+                        autoSize = TextAutoSize.StepBased(
+                            minFontSize = 8.sp,
+                            maxFontSize = 16.sp,
+                            stepSize = 0.5.sp,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
         }

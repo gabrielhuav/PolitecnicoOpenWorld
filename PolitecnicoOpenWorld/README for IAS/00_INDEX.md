@@ -16,6 +16,9 @@
 
 ## Cómo usar / How to use
 
+**2026-11-04:** para agregar peleadores, consultar [`SF/CI_CD_agregar_peleador.md`](SF/CI_CD_agregar_peleador.md).
+La medición y el alcance de limpieza están en [`PROPUESTA_LIMPIEZA_2026-11-04.md`](PROPUESTA_LIMPIEZA_2026-11-04.md).
+
 **ES (ORDEN DE LECTURA para una IA nueva — sobre todo si es poco potente):**
 1. `GUIA_mantenimiento_no_senior.md` ← EMPIEZA AQUÍ (las 7 reglas + chuleta + qué NO hacer).
 2. **`10_ARQUITECTURA_SEPARACION.md`** (dónde vive cada cosa) + `09_CONVENTIONS_GOTCHAS.md` COMPLETO.
