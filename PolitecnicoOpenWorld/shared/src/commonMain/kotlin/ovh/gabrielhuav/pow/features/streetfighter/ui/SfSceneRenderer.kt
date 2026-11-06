@@ -891,6 +891,10 @@ internal const val TARGET_BODY_CONTENT_H = 100f
 internal fun SfFighterState.keepsNaturalHeight(): Boolean = when (this) {
     SfFighterState.CROUCH, SfFighterState.CROUCH_DOWN, SfFighterState.CROUCH_UP,
     SfFighterState.CROUCH_TURN,
+    SfFighterState.CROUCH_PUNCH, SfFighterState.CROUCH_KICK,
+    SfFighterState.CROUCH_HEAVY_PUNCH, SfFighterState.SWEEP,
+    SfFighterState.AIR_PUNCH, SfFighterState.AIR_KICK,
+    SfFighterState.THROWN, SfFighterState.GET_UP,
     SfFighterState.KO,
     SfFighterState.JUMP_START, SfFighterState.JUMP_UP,
     SfFighterState.JUMP_FORWARD, SfFighterState.JUMP_BACKWARD,
