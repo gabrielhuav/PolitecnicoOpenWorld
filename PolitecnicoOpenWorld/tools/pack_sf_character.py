@@ -12,6 +12,9 @@ import json
 import sys
 import argparse
 import re
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from sf_gen_cache import aliases, materialize
 from PIL import Image, ImageChops, ImageStat
 
 TARGET_BODY_H = 100.0
@@ -503,6 +506,18 @@ def reference_frame_key(key):
     return key, True
 
 def pack_character(char_name, char_title, gen_root=GEN_DIR):
+    # Las caches historicas conservan variantes propias y referencias a bytes canonicos.
+    source = Path(gen_root).resolve()
+    if any(Path(__file__).resolve().parents[2].joinpath(*Path(name).parts[:2]) == source
+           for name in aliases()):
+        with TemporaryDirectory(prefix="pow-gen-") as folder:
+            complete = Path(folder) / "GEN"
+            materialize(source, complete)
+            return _pack_character(char_name, char_title, str(complete))
+    return _pack_character(char_name, char_title, gen_root)
+
+
+def _pack_character(char_name, char_title, gen_root=GEN_DIR):
     print(f"Packing character: {char_name} ({char_title})")
     
     char_gen_dir = os.path.join(gen_root, char_name)

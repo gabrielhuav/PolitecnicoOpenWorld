@@ -282,6 +282,8 @@
     <string name="wm_mission_failed">MISIÓN\nFALLIDA</string>
     <string name="wm_retry_mission">REINTENTAR MISIÓN</string>
     <string name="wm_exit_to_menu">Salir al menú</string>
+    <string name="wm_exit_confirm_message">¿Abandonar la partida y volver al menú principal?</string>
+    <string name="wm_keep_exploring">Seguir explorando</string>
     <string name="wm_tip_carjack">Presiona Y cerca de un auto para subirte a el.</string>
     <string name="wm_opt_save_game">Guardar partida</string>
     <!-- ─── Widget de objetivo (campaña) ─── -->
@@ -340,6 +342,7 @@
     <string name="zhud_inv_test">Probar</string>
     <string name="wm_inv_readonly_hint">Objetos de misión. Se usan en su lugar de la historia; aquí solo los consultas.</string>
     <string name="zhud_inv_discard">Desechar</string>
+    <string name="zhud_inv_slot">Casilla %1$d del inventario</string>
     <string name="zgame_key_prompt">🔑 Hay una llave — pulsa ACCIÓN para inspeccionarla</string>
     <string name="zgame_objective_investigate">Objetivo: Investiga qué pasó</string>
     <!-- ─── Diálogos de guardar/cargar (MainActivity) ─── -->

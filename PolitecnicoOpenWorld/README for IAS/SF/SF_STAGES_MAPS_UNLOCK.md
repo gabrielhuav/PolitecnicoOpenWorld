@@ -118,4 +118,30 @@ Flujo UI: **peleador → Fácil/Medio/Difícil** (`ArcadeDifficultyOverlay`) →
 
 ---
 
-*Actualizado 2026-07-18h — asignación dueño + REY_GRUPERO → FES Aragón.*
+## 5. Escenarios extra fuera del catálogo de arcade
+
+Estos escenarios se registran en `SfTheme.kt` → `fullBackgrounds`, fuera de
+`SfStageCatalog.ALL_STAGES` y de la asignación peleador → mapa hogar. No cambian la
+escalera arcade ni los mapas que se desbloquean al ganar una pelea.
+
+| Familia | Día | Noche | Noche tenebrosa |
+|---------|-----|-------|----------------|
+| Planetario IPN | `fondo_planetario_anim.webp` | `fondo_planetario_noche_1_anim.webp` | `fondo_planetario_noche_2_anim.webp` |
+| CET 1 Walter Cross Buchanan | `fondo_cet1_anim.webp` | `fondo_cet1_noche_1_anim.webp` | `fondo_cet1_noche_2_anim.webp` |
+
+- Sin Modo Desarrollador, permanecen bloqueados en el selector y quedan fuera de la
+  selección aleatoria filtrada por `unlockedMaps()`.
+- Con Modo Desarrollador activo, el selector compartido recibe `unlockedMaps = null`
+  y permite elegir las tres variantes, tanto en Android como en iOS.
+- Cada variante incluye atlas WebP de 480×270 por cuadro, 28 cuadros en cuadrícula
+  4×7 (1920×1890, por debajo del límite de 2048), JSON a 6 fps y miniatura
+  `*_anim_thumb.webp`. El movimiento de cámara está embebido en el atlas con vuelta
+  ping-pong; no se usa el formato WebP animado.
+- Las fuentes CET 1 y sus instrucciones de generación viven fuera del paquete Android,
+  en `additional_assets/STREETFIGHTER/cet1/`. El pipeline
+  `tools/build_map_backgrounds.py` añade el logo POW después del paneo para mantenerlo
+  fijo y evitar duplicarlo en los cuadros.
+
+---
+
+*Actualizado 2026-11-05 — CET 1 completo con día, noche y noche tenebrosa; se conserva Planetario IPN.*

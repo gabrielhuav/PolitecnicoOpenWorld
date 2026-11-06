@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import ovh.gabrielhuav.pow.features.audio.SoundManager
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerSkin
 
 // Opción del selector de personaje de PARTIDA NUEVA: skin + etiqueta de rol mostrada al jugador.
@@ -106,7 +107,10 @@ fun NewGameCharacterDialog(
                         CharacterCard(
                             opt = opt,
                             preview = previews[opt.skin],
-                            onClick = { onPick(opt.skin) }
+                            onClick = {
+                                SoundManager.getInstance(context).playItem()
+                                onPick(opt.skin)
+                            }
                         )
                     }
                 }
