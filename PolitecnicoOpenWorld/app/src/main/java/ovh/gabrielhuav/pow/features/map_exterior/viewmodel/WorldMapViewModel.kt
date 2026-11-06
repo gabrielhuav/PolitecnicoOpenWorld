@@ -486,6 +486,8 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     internal var myPlayerUUID = "Player_${UUID.randomUUID()}"
     internal var myPlayerDisplayName = ""
     internal val remoteEntities = ConcurrentHashMap<String, Npc>()
+    /** Contactos jugador-vehículo vigentes: el impacto (💥/miedo/log) se emite una vez por contacto. */
+    internal val vehicleContactLatch = ovh.gabrielhuav.pow.domain.models.map.VehicleContactLatch()
 
     fun connectToMultiplayer(serverUrl: String, playerName: String) {
         myPlayerDisplayName = playerName
