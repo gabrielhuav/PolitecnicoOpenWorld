@@ -24,17 +24,46 @@ Desde `PolitecnicoOpenWorld/`:
 
 Las pruebas de integración cubren registro, rutas, densidad de mundo libre, reutilización del pack y fallback de audio, aparición de La Planchada antes de los tres jefes, mapas ESM según dificultad y ausencia de desbloqueo gratuito. La auditoría de campaña verifica que existen atlas, datos, escenarios y audios para todos los rivales. El gate `SF Fighter Assets` reconstruye el atlas con la receta versionada y comprueba geometría y reproducibilidad.
 
-Los resultados ejecutados deben registrarse con su comando y SHA en el PR. Este plan no afirma que se haya ejecutado QA en dispositivo.
+## Resultados ejecutados
 
-## Recorrido manual pendiente
+Fecha: **2026-11-06**. Código y assets evaluados: **`ef3f6372`**, después de incorporar `main` en `4956f286`. APK debug **1.0.0.22**. Entorno: AVD **Medium_Phone_API_35**, Android **15 / API 35**, emulador headless.
 
-| Caso | Pasos | Resultado esperado |
-|---|---|---|
-| Mundo libre | Elegir La Planchada; alternar idle, caminar, correr y especial; cambiar de dirección e ingresar a un interior. | Identidad coherente, pies alineados, cuerpo completo, tamaño estable y recortes sin halo. |
-| Selector y persistencia | Elegir la skin, reiniciar la app y volver al mapa. | Se restaura La Planchada; una selección inválida vuelve a Lázaro. |
-| Progresión | Comenzar una campaña nueva y alcanzar el grupo de leyendas. | La Planchada aparece una vez antes de los tres jefes; no está desbloqueada inicialmente. |
-| Desbloqueo | Vencerla en Medio o Difícil. | Se desbloquean el peleador y la iluminación correspondiente de ESM. En Difícil también se aplica el coleccionable existente. |
-| Combate completo | Probar golpes, agachado, daño, saltos, ataques aéreos, bloqueo, parry, agarre, derribo, recuperación, súper y KO a ambos lados. | Poses completas y específicas, sin crecimiento corporal ni cuadros de otro personaje. |
-| Audio | Conectar ataques, recibir daño, usar poder y ganar. | Suenan los cuatro audios reutilizados de La Llorona; el poder evita el hadouken genérico. |
-| ESM | Abrir día, noche y apocalipsis; combatir con ambos personajes. | Fondo a escala del resto de escenarios, suelo continuo y sprites legibles. |
-| Regresión | Elegir estudiantes y Alexis; continuar una campaña antigua guardada. | El roster anterior y el recorrido guardado siguen disponibles. |
+- `:app:assembleDebug :app:testDebugUnitTest :shared:testAndroidHostTest`: **PASS**. **441 pruebas** aprobadas: **155 de app + 286 de shared**, sin fallos, errores ni omitidas. Incluye la auditoría completa de campaña y las pruebas nuevas de audio de `main`.
+- Detekt sobre `app/src/main/java` y `shared/src/commonMain/kotlin`, con configuración y baseline del repositorio: **PASS**.
+- `tools/check_kmp_test_names.sh`: **PASS**, nombres compatibles con Kotlin/Native. No se ejecutó una compilación de iOS.
+- Se instaló este APK en el emulador y se abrió el selector, el showcase y una práctica con **La Planchada contra Escomboy en ESM**. Se observaron las dos orientaciones en showcase, guardia, patada y daño corporal; en práctica se verificaron carga del escenario, combate con CPU, agachado y una pose aérea, sin crecimiento corporal visible.
+- El proceso seguía activo al terminar. El registro filtrado del proceso no presentó errores `AndroidRuntime` ni `MediaPlayer`: [registro de ejecución](../pr-screenshots/la-planchada/runtime-check.txt).
+- El showcase auditó los datos y los cuatro archivos de voz de La Planchada sin avisos de ese personaje. El [diagnóstico completo](../pr-screenshots/la-planchada/showcase-audit.txt) incluye un aviso de `bonusPower3` de **La Tzitzimime**, cuyo poder está retirado en el catálogo existente; no pertenece a esta integración.
+- **No se realizó escucha del audio**: el emulador se inició con `-no-audio`. La evidencia comprueba registro, archivos, rutas y ausencia de errores de carga; no certifica calidad sonora ni balance de volumen.
+
+### QA estático del arte
+
+Se revisaron visualmente las secuencias de **258 cuadros / 58 animaciones** del atlas y los **25 recortes derivados** de mundo libre. El pipeline SF y el validador de mundo libre reportaron **0 errores**; las **21 pruebas SF** pasaron. La [receta reproducible](../PolitecnicoOpenWorld/tools/sf_fighters/laplanchada.json) y la [fuente documentada](../newSFAssets/LaPlanchada/README.md) permiten reconstruirlos. Esta inspección de imágenes se distingue de la prueba de ejecución Android.
+
+### Evidencia final de Android
+
+| Evidencia | Captura |
+|---|---|
+| Selector con La Planchada | [Selector](../pr-screenshots/la-planchada/05-final-selector.png) |
+| Carga de práctica en ESM | [Inicio de práctica](../pr-screenshots/la-planchada/06-final-practice-esm.png) |
+| Combate sin overlay de showcase | [Combate](../pr-screenshots/la-planchada/07-final-practice-esm-combat.png) |
+| Agachado con anatomía a la misma escala | [Agachado](../pr-screenshots/la-planchada/08-final-practice-crouch.png) |
+| Pose aérea de práctica | [Aéreo parcial](../pr-screenshots/la-planchada/10-final-practice-airborne.png) |
+| Orientaciones izquierda y derecha | [Guardia espejo](../pr-screenshots/la-planchada/02-final-showcase-idle.png) |
+| Patada y daño corporal | [Patada](../pr-screenshots/la-planchada/03-final-showcase-kick.png), [Daño corporal](../pr-screenshots/la-planchada/04-final-showcase-body-hurt.png) |
+
+Las capturas de showcase conservan sus controles de QA. La captura aérea demuestra una pose en ejecución; no prueba por sí sola toda la secuencia de salto ni todos los ataques aéreos.
+
+## Cobertura manual verificada y pendiente
+
+| Caso | Estado y alcance |
+|---|---|
+| Selector de combate | **Verificado** en Android: La Planchada se selecciona en práctica y su atlas carga. La prueba usó modo desarrollador para acceder al roster completo. |
+| Práctica diurna ESM | **Verificado**: combate contra Escomboy, agachado, pose aérea parcial, daños recibidos y tamaño corporal coherente. |
+| Showcase | **Parcial**: se ejecutó el personaje y se capturaron guardia, patada, daño corporal y ambas orientaciones. Falta una revisión manual aislada de cada variante de daño, KO, recuperación, agarres, contraataques y súper. |
+| Audios reutilizados | **Registro y carga verificados**, sin escucha ni revisión de volumen. |
+| Mundo libre e interiores | **QA estático verificado** para los 25 derivados. Pendiente elegir la skin en el mapa, caminar/correr/especial, entrar a un interior y comprobar persistencia tras reiniciar. |
+| Progresión y desbloqueo | **Pruebas automatizadas aprobadas**. Pendiente vencer a La Planchada en una campaña real en Medio/Difícil y comprobar la recompensa. |
+| ESM nocturno y apocalipsis | **QA estático y catálogo verificados**. Pendiente jugar ambas variantes en Android. |
+| Regresión del roster y guardados | **Pruebas automatizadas aprobadas**. Pendiente recorrido manual con Alexis, estudiantes y una campaña antigua guardada. |
+| Accesibilidad, ciclo de vida e iOS | **Pendiente**: fuentes grandes, pausa/reanudación prolongada, cambios de configuración y prueba en dispositivo iOS. |
