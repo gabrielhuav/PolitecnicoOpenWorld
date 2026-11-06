@@ -1,0 +1,15 @@
+{
+  "frameWidth": 480,
+  "frameHeight": 270,
+  "cols": 4,
+  "rows": 7,
+  "frameCount": 28,
+  "fps": 6.0,
+  "loop": true,
+  "pingPong": true,
+  "slug": "esm_noche_2",
+  "source": "ESM Noche 2.png",
+  "maxAtlasSide": 2048,
+  "kenBurns": true,
+  "logoApplied": true
+}

@@ -1,0 +1,7 @@
+POW — Diagnóstico IA vs IA (autojuego)
+Peleas: 18/20
+Rondas por KO: 0
+Rondas por tiempo: 0
+Problemas: 1
+
+FALTA ANIM LA_TZITZIMIME: bonusPower3

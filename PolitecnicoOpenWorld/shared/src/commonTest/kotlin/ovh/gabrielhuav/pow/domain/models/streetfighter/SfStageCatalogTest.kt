@@ -45,7 +45,7 @@ class SfStageCatalogTest {
     }
 
     @Test
-    fun elCatalogoTieneDiecisieteEscenariosBase() {
-        assertEquals(17, SfStageCatalog.ALL_STAGES.size)
+    fun elCatalogoTieneDieciochoEscenariosBase() {
+        assertEquals(18, SfStageCatalog.ALL_STAGES.size)
     }
 }

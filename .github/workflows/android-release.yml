@@ -310,7 +310,8 @@ jobs:
           APP_VERSION_CODE: ${{ env.APP_VERSION_CODE }}
         # --stacktrace: si la firma vuelve a fallar, muestra la causa REAL (p. ej. "Cannot recover
         # key" = RELEASE_KEY_PASSWORD incorrecta) en vez del genérico "A failure occurred...".
-        run: gradle :app:bundleRelease --stacktrace
+        # Zipflinger agotó los 2 GB al firmar el AAB; ampliar solo este build y conservar UTF-8.
+        run: gradle :app:bundleRelease '-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8' --stacktrace
       - name: Validar tamaño máximo de Play Store
         shell: bash
         run: |
