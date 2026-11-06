@@ -27,6 +27,8 @@ The project is built entirely with **Kotlin + Jetpack Compose**, follows a stric
 
 ### 🔄 Recent Changes
 
+- **Unified Collectibles gallery** — Multimedia is now part of Collectibles, keeping its burgundy and gold design with exactly two tabs: Fighters and Maps. Fighters contains the Titulación por Combate roster, including source animation frames for fighters with runtime sheets. Maps contains combat stages and their day/night/apocalypse variants, interiors and transit maps. A separate image viewer supports pinch zoom, bounded panning, zoom buttons and fit-to-window, using the original asset instead of its thumbnail. No image files are duplicated.
+
 - **Alexis Syntaxis asset repair and fighter CI (2026-11-04)** — damage/stun sprites now follow the 100 px standing-height standard, with corrected feet anchors. Four talking poses and ten clipped action poses were regenerated. A reproducible asset workflow builds previews, checks geometry and compares committed assets with their sources. See the [fighter CI tutorial](PolitecnicoOpenWorld/README%20for%20IAS/SF/CI_CD_agregar_peleador.md).
 - **Static CDMX streets (2026-11-04)** — integrates the static-cell approach from PR #182 ahead of Overpass, and rejects malformed/HTML responses so gateway errors are retried through the fallback instead of accepted as empty streets.
 
@@ -229,6 +231,8 @@ The map is populated with editable buildings: a JSON asset catalog (`buildings_c
 
 ### 🎁 Collectibles System
 
+The `collectibles` destination hosts the Fighters/Maps gallery. Its catalog and UI live under `shared/src/commonMain/kotlin/ovh/gabrielhuav/pow/features/main_menu/` (`gallery/`, `ui/CollectiblesGallery.kt` and `ui/GalleryZoomViewer.kt`); there is no separate Multimedia menu or route. Browsing does not unlock playable fighters or modify collected objects. The previous Objects tab, general world-character gallery and Designs tab are not displayed. Images load off the UI thread with bounded thumbnails and a screen-scoped cache; the viewer keeps one higher-resolution image outside that cache. Only resources packaged with each platform are discoverable.
+
 Six lore-themed collectibles are seeded into Room. The game loop spawns one uncollected item every ~1 s within 300–600 m of the player, snapped to roads. Approaching within 15 m shows a pickup prompt; pressing X collects it and shows a themed dialog. The inventory reads from a `Flow<List<CollectibleEntity>>`. A special **Zombie Hand** item only spawns inside the ESCOM bounding box and triggers a cutscene into the zombie minigame.
 
 ### 🚶 NPCs and Vehicles
@@ -356,6 +360,8 @@ The detailed checklist lives in **`plan.artifact.md` §11**. In short, on every 
 El proyecto está construido íntegramente en **Kotlin + Jetpack Compose**, sigue un patrón **MVVM** estricto organizado por *features* y delega la lógica de mundo persistente a **dos servidores Node.js independientes**: uno para el open world y uno nuevo, dedicado, para el minijuego de zombis.
 
 ### 🔄 Cambios Recientes
+
+- **Galería integrada en Coleccionables** — Multimedia ahora forma parte de Coleccionables, conservando el diseño guinda y dorado con exactamente dos pestañas: Peleadores y Mapas. Peleadores contiene el roster de Titulación por Combate, incluidos los fotogramas fuente de los personajes cuyo atlas se arma en ejecución. Mapas incluye escenarios de combate y variantes de día/noche/apocalipsis, interiores y mapas de transporte. El visor independiente permite ampliar con dos dedos o botones, arrastrar con límites y ajustar la imagen a la ventana, cargando el recurso original en lugar de su miniatura. No se duplican archivos de imagen.
 
 - **Alexis Syntaxis: sprites corregidos y CI de peleadores (2026-11-04)** — los cuadros de daño/aturdimiento cumplen la altura erguida de 100 px y se corrigen los anclajes de pies. Se regeneraron cuatro poses de hablar y diez poses de acción cortadas. Un workflow reproducible genera previews, valida geometría y compara los assets versionados con sus fuentes. Ver [tutorial de CI](PolitecnicoOpenWorld/README%20for%20IAS/SF/CI_CD_agregar_peleador.md).
 - **Calles estáticas de CDMX (2026-11-04)** — integra el enfoque de celdas estáticas del PR #182 antes de Overpass y rechaza respuestas HTML o malformadas para que los errores del servidor activen el respaldo en vez de aceptarse como calles vacías.
@@ -496,6 +502,8 @@ El jugador no puede salirse de las vías: cada movimiento se valida contra un **
 Edificios editables con catálogo JSON (`buildings_catalog.json`), colocaciones persistidas (posición, rotación 0-360°, escala 0.05-3.0×) y un **Modo Diseñador** con movimiento fino, sliders de rotación/escala e import/export JSON. `assets/default_landmarks.json` siembra el campus de ESCOM al primer arranque.
 
 ### 🎁 Sistema de Coleccionables
+
+La ruta `collectibles` contiene la galería Peleadores/Mapas. Su catálogo y UI viven en `shared/src/commonMain/kotlin/ovh/gabrielhuav/pow/features/main_menu/` (`gallery/`, `ui/CollectiblesGallery.kt` y `ui/GalleryZoomViewer.kt`); ya no hay menú ni ruta independiente de Multimedia. Consultar la galería no desbloquea peleadores jugables ni modifica los objetos recogidos. No se muestran la pestaña anterior de Objetos, el catálogo general de personajes del mundo abierto ni la pestaña Diseños. Las imágenes cargan fuera del hilo de UI, con miniaturas acotadas y una caché de pantalla; el visor mantiene una sola imagen de mayor resolución fuera de esa caché. Solo se descubren recursos empaquetados en cada plataforma.
 
 Seis coleccionables de lore sembrados en Room. El game loop spawnea uno no recogido cada ~1 s en 300–600 m del jugador, ajustado a las calles. A menos de 15 m aparece el prompt; al pulsar X se recoge y se muestra un diálogo temático. El inventario lee de un `Flow<List<CollectibleEntity>>`. Una **Mano Zombi** especial solo aparece dentro del bounding box de ESCOM y dispara la cinemática hacia el minijuego.
 

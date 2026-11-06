@@ -114,7 +114,7 @@ app/src/main/java/ovh/gabrielhuav/pow/
 | `story_outro` | `StoryIntroScreen` (visor de cómic con `sequenceId = StoryComicCatalog.ENCB_OUTRO_ID`: 2ª parte de la intro, `IntroPOW9..11.webp`). Oculta la UI de juego; al terminar/saltar → `world_map` (mundo de la campaña) |
 | `settings` | `SettingsScreen` |
 | `world_map` | `WorldMapScreen` (open world) |
-| `collectibles` | `CollectiblesScreen` |
+| `collectibles` | `CollectiblesScreen`: galería con solo Peleadores de Titulación por Combate y Mapas, con visor ampliable (único destino; sustituye `multimedia`) |
 | `interior_auditorio` … `interior_canchas_futbol` | 7 interiores ESCOM (`InteriorScreenBase`, paquete `interiores.escom.ui`) |
 | `interior_deportivo_beis`, `interior_deportivo_futbol` | Interiores deportivos (`interiores.escom.ui`) |
 | `interior_fes` | Interior FES Aragón simple (`FesInteriorScreen`, `interiores.escom.ui`). **Existe pero la puerta YA NO lo usa**: la puerta "Entrada FES Aragón" entra al motor de Interiores en su sala propia (`interiores_zombies?startRoom=fes_interior`). Reservado. |

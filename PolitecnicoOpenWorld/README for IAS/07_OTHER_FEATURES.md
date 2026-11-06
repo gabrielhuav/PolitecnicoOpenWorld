@@ -804,20 +804,39 @@ elegida. A diferencia de `updateInitialLocation` (gateada por `isLoadingLocation
 ## Coleccionables / Collectibles (`features/main_menu/`)
 
 > 🍏 **Multiplataforma desde 2026-07-29.** `CollectiblesViewModel`, `CollectibleRepository`, la
-> pantalla y el diálogo viven en `shared/commonMain`; Android conserva un adaptador Hilt pequeño.
+> pantalla y los diálogos viven en `shared/commonMain`; Android conserva un adaptador Hilt pequeño.
 >
-> ⚠️ **Dos trampas ya pagadas en esta pantalla:**
-> 1. **El sembrado NO puede ser `@Insert(REPLACE)`**: borraría el progreso del jugador. Solo
->    actualiza la columna de la ruta, conservando `isCollected`. Hay 5 tests que lo fijan.
-> 2. **Las tarjetas de PELEADOR no se pintan con `Image(atlas)`.** Su `assetPath` es un atlas de
->    combate de hasta 2560×7680; encogido a 64 dp da un cuadro de puntos. Se recorta la celda 0 con
->    `FighterPortrait`.
+> ⚠️ El sembrado NO puede ser `@Insert(REPLACE)`: borraría el progreso del jugador. Solo
+> actualiza la columna de la ruta, conservando `isCollected`. Hay 5 tests que lo fijan.
+> Las tarjetas de peleador recortan la primera celda de 256²; nunca encogen todo el atlas de combate
+> a tamaño de retrato. La hoja completa se consulta en el visor ampliable.
 
-- **`viewmodel/CollectiblesViewModel.kt`**: lee
-  `CollectibleRepository.allCollectiblesFlow` → inventario reactivo.
-- **`ui/CollectiblesScreen.kt`**: pantalla de inventario (ruta `collectibles`). El botón inferior dice
-  **"VOLVER"** (`R.string.menu_back`, antes `menu_return` = "VOLVER AL MENÚ"); diseño `Button` rojo
-  (`0xFF6B1C3A`) con `CutCornerShape(16,16)` — el MISMO que reusa el botón "VOLVER" de Ajustes.
+- **`viewmodel/CollectiblesViewModel.kt`** conserva la inicialización y el flujo de inventario;
+  `gallery` expone carga/error/catálogo. `loadGallery()` descubre recursos con `PowAssets.listar`
+  en `Dispatchers.Default`, al entrar a Coleccionables.
+- **`ui/CollectiblesScreen.kt`** conserva el degradado guinda/negro, dorado y formas de esquinas
+  recortadas. La ruta `collectibles` tiene exactamente **Peleadores** y **Mapas**. Ya no muestra
+  Objetos, Personajes generales ni Diseños; tampoco existe un botón/ruta `multimedia` separado.
+  Se mantiene el botón **VOLVER** (`menu_back`). El progreso de Room y los desbloqueos no cambian.
+- **`gallery/GalleryCatalog.kt`** (commonMain) limita Peleadores a `SfFighterId`: roster de
+  **Titulación por Combate**. Incluye los atlas dedicados y los fotogramas Idle/Walk/Run/Special
+  de los peleadores compartidos cuyo atlas se genera en ejecución. No incluye otros NPCs,
+  jugadores o zombis. Mapas reúne escenarios de combate y variantes día/noche/apocalipsis,
+  interiores y mapas de Metro/Metrobús. Atlas y miniatura comparten tarjeta; también se conserva
+  el arte de escenarios que solo existe como miniatura. `GalleryAssetsTest` verifica todos los
+  peleadores, mapas empaquetados y variantes de iluminación, así como las rutas de sus imágenes.
+- **`ui/CollectiblesGallery.kt`** añade búsqueda, retratos y detalle; **`ui/GalleryZoomViewer.kt`**
+  abre una ventana amplia para los fotogramas o mapas. Permite pellizcar para ampliar de 1× a 12×,
+  desplazar sin perder la imagen, usar botones de zoom y ajustar a la ventana. Los fotogramas
+  individuales de peleadores compartidos conservan anterior/siguiente dentro del visor.
+  Textos ES/EN; pestaña, búsqueda y selección usan `rememberSaveable`. `GalleryZoomTest` verifica
+  el punto de anclaje y los límites de desplazamiento/escala.
+- **`gallery/GalleryImageLoader.kt`** carga fuera del hilo de UI y serializa la decodificación.
+  La caché conserva 12 miniaturas de hasta 512²; el visor carga el original en una única imagen
+  fuera de esa caché, con lado máximo 4096 y área máxima de 6 Mi píxeles (24 MiB RGBA).
+  Android usa muestreo al decodificar y recorta retratos con `BitmapRegionDecoder`; iOS usa el
+  decodificador Skia existente (su buffer nativo puede ser mayor durante la reducción).
+  Solo se listan recursos presentes en el bundle; no se copian imágenes ni se amplía el bundle iOS.
 - **Lógica de spawn/recogida** está en el open world: `WorldMapCollectiblesLogic.kt` (ver 04). 6
   coleccionables de lore sembrados en Room (`CollectibleRepository`). Una **Mano Zombi** especial solo
   aparece dentro del bounding box de ESCOM y dispara la cinemática al minijuego.
