@@ -42,7 +42,7 @@ data class PoliceShot(
     val at: Long
 )
 
-enum class RoadSource { LOADING, LOCAL_DB, NETWORK }
+enum class RoadSource { LOADING, LOCAL_DB, NETWORK, OFFLINE_FALLBACK }
 enum class TileSource  { LOCAL_OSM, LOCAL_CACHE, NETWORK }
 
 // Herramienta activa del EDITOR del Debug Interiores. Define qué geometría se dibuja

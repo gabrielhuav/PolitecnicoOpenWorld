@@ -4,6 +4,9 @@ import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.CollisionResolution
+import ovh.gabrielhuav.pow.domain.models.map.resolveNpcPath
+import ovh.gabrielhuav.pow.domain.models.map.usesVehicleFootprint
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -286,7 +289,7 @@ internal fun NpcAiManager.moveNpc(npc: Npc, network: List<MapWay>, now: Long, sp
             return npc.copy(targetNodeIndex = fixedIndex, commitmentTicks = newCommitmentTicks)
         }
 
-        if (npc.type == NpcType.CAR) {
+        if (npc.type.usesVehicleFootprint()) {
             for (landmark in cachedNavLandmarks.get()) {
                 val navGraph = landmark.navGraph ?: continue
                 if (navGraph.entryWays.isEmpty()) continue
@@ -526,28 +529,6 @@ internal fun NpcAiManager.moveNpc(npc: Npc, network: List<MapWay>, now: Long, sp
         return null
     }
 
-    var canMove = true
-    exteriorCollisions?.let { config ->
-        for (poly in config.polygons) {
-            if (poly.contains(tLat, tLon)) {
-                canMove = false
-                break
-            }
-        }
-        if (canMove) {
-            for (wall in config.walls) {
-                if (wall.didHitWall(npc.location.latitude, npc.location.longitude, tLat, tLon)) {
-                    canMove = false
-                    break
-                }
-            }
-        }
-    }
-
-    if (!canMove) {
-        return npc.copy(speed = 0.0, isMoving = false)
-    }
-
     // FIX "rara vez me rebasan / dan vueltas en círculos": cuando el coche esquiva
     // al jugador persigue un carrot LOCAL (~9 m), así que `dist` nunca baja de
     // actualSpeed y el `targetNodeIndex` NO avanzaba → al apagarse el esquive el
@@ -558,12 +539,23 @@ internal fun NpcAiManager.moveNpc(npc: Npc, network: List<MapWay>, now: Long, sp
     val stepLon = cos(moveRad) * actualSpeed
     val newLat = npc.location.latitude + stepLat
     val newLon = npc.location.longitude + stepLon
+    val nextLocation = if (dist < actualSpeed) GeoPoint(tLat, tLon) else GeoPoint(newLat, newLon)
+    val staticResolution = exteriorCollisions?.resolveNpcPath(
+        type = npc.type,
+        carModel = npc.carModel,
+        from = npc.location,
+        to = nextLocation,
+        headingDegrees = (smoothedAngle + 90f) % 360f,
+    ) ?: CollisionResolution(nextLocation, null)
+    if (!staticResolution.reachedTarget) {
+        return npc.copy(location = staticResolution.position, speed = 0.0, isMoving = false)
+    }
     val passedBaseNode = avoidingPlayer &&
         ((baseTarget.lat - newLat) * stepLat + (baseTarget.lon - newLon) * stepLon) < 0.0
 
     return if (dist < actualSpeed || passedBaseNode) {
-        npc.copy(currentWay = way, location = if (dist < actualSpeed) GeoPoint(tLat, tLon) else GeoPoint(newLat, newLon), targetNodeIndex = nodeIndex + direction, moveDirection = direction, rotationAngle = smoothedAngle, facingRight = isFacingRight, isMoving = moving)
+        npc.copy(currentWay = way, location = nextLocation, targetNodeIndex = nodeIndex + direction, moveDirection = direction, rotationAngle = smoothedAngle, facingRight = isFacingRight, isMoving = moving)
     } else {
-        npc.copy(currentWay = way, targetNodeIndex = nodeIndex, moveDirection = direction, location = GeoPoint(newLat, newLon), rotationAngle = smoothedAngle, facingRight = isFacingRight, isMoving = moving)
+        npc.copy(currentWay = way, targetNodeIndex = nodeIndex, moveDirection = direction, location = nextLocation, rotationAngle = smoothedAngle, facingRight = isFacingRight, isMoving = moving)
     }
 }

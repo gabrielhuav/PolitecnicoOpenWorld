@@ -91,6 +91,7 @@
 
     <!-- ─── Mapa Exterior (features/map_exterior) ─── -->
     <string name="wm_loading_streets">Cargando calles...</string>
+    <string name="wm_chip_offline_fallback">Malla local</string>
     <string name="wm_designer">DISEÑADOR</string>
     <string name="wm_designer_exit">ABANDONAR DISEÑADOR</string>
     <string name="wm_designer_continue">Seguir editando</string>

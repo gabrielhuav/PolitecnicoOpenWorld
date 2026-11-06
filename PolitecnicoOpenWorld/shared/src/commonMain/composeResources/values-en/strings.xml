@@ -366,6 +366,7 @@
     <string name="toast_error_escom_missing">Error: ESCOM is not on the map</string>
     <string name="toast_error_escom_navgraph">Error reading escom_navgraph.json</string>
     <string name="wm_carjack_warning">They're pulling you out of the car! Accelerate!</string>
+    <string name="wm_vehicle_exit_blocked">There is no free space to exit the vehicle.</string>
     <string name="wm_horde_approaching">🧟 A HORDE IS APPROACHING!</string>
     <string name="wm_prankedy_down">🎭 Prankedy fell! He will return later…</string>
     <string name="wm_press_x_activate_zombie">PRESS X TO ACTIVATE ZOMBIE MODE</string>

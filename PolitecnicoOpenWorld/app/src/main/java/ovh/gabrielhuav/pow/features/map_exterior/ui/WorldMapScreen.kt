@@ -394,6 +394,7 @@ fun WorldMapScreen(
     val lastWebIpOn = remember { booleanArrayOf(false) }
     val lastWebIpLm = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.map.Landmark>>(1) }
     val lastWebIpColl = remember { arrayOfNulls<ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig>(1) }
+    val lastPlayerVisualDebug = remember { arrayOfNulls<String>(1) }
     val nativeMapRef = remember { mutableStateOf<MapView?>(null) }
 
     // ─── ESTADO DEL MENÚ DE OPCIONES (con submenús anidados) ──────────────────
@@ -685,6 +686,14 @@ fun WorldMapScreen(
             }
         }
 
+        if (ovh.gabrielhuav.pow.BuildConfig.DEBUG) {
+            val playerLayer = "composePlayer=${!uiState.isUserPanningMap} driving=${uiState.isDriving} " +
+                "panning=${uiState.isUserPanningMap} rotation=${uiState.vehicleRotation}"
+            if (lastPlayerVisualDebug[0] != playerLayer) {
+                android.util.Log.d("VehicleViewport", playerLayer)
+                lastPlayerVisualDebug[0] = playerLayer
+            }
+        }
         if (!uiState.isUserPanningMap) {
             // MUERTE: al morir, el jugador queda como "fantasmita" (semitransparente),
             // igual que en el modo zombis.
@@ -697,8 +706,9 @@ fun WorldMapScreen(
         LowHealthAura(health = viewModel.playerHealth)
 
         // ─── 💥 FX DE IMPACTO/COLISIÓN ───────────────────────────────────────────
-        // Destello de "💥" en el centro (posición del jugador) cuando un NPC te golpea
-        // o cuando atropellas a alguien, para que la colisión se NOTE.
+        // Destello de "💥" en el centro cuando un NPC te golpea o cuando atropellas a alguien.
+        // Solo equivale a la posición del jugador mientras la cámara lo sigue; al panear se
+        // oculta para no fingir una colisión en una coordenada distinta.
         val impactScale = remember { androidx.compose.animation.core.Animatable(0f) }
         LaunchedEffect(viewModel.impactEffectTrigger) {
             if (viewModel.impactEffectTrigger > 0) {
@@ -707,7 +717,7 @@ fun WorldMapScreen(
                 impactScale.animateTo(0f, animationSpec = androidx.compose.animation.core.tween(280))
             }
         }
-        if (impactScale.value > 0.01f) {
+        if (impactScale.value > 0.01f && shouldRenderPlayerAnchoredImpact(uiState.isUserPanningMap)) {
             Text(
                 text = "💥",
                 fontSize = 56.sp,

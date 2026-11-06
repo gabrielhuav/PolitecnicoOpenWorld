@@ -1101,11 +1101,12 @@ internal fun NativeOsmMap(
                         interiorPathCache.add(polygon)
                         view.overlays.add(polygon)
                     }
-                    // 2) BARDAS (líneas rojas gruesas).
+                    // 2) Barreras (rojo grueso) y guías de navegación (azul fino, no físicas).
                     uiState.exteriorCollisions?.walls?.forEach { wall ->
+                        val isGuide = wall.effectiveRole == ovh.gabrielhuav.pow.domain.models.map.CollisionRole.NAV_GUIDE
                         val line = Polyline().apply {
-                            outlinePaint.color = android.graphics.Color.argb(230, 220, 0, 0)
-                            outlinePaint.strokeWidth = 7f
+                            outlinePaint.color = if (isGuide) android.graphics.Color.argb(230, 22, 131, 216) else android.graphics.Color.argb(230, 220, 0, 0)
+                            outlinePaint.strokeWidth = if (isGuide) 4f else 7f
                             outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
                             outlinePaint.isAntiAlias = true
                             setPoints(listOf(GeoPoint(wall.lat1, wall.lon1), GeoPoint(wall.lat2, wall.lon2)))

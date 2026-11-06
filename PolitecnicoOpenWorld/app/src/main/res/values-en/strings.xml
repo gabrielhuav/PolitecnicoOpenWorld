@@ -89,6 +89,7 @@
 
     <!-- ─── Exterior Map (features/map_exterior) ─── -->
     <string name="wm_loading_streets">Loading streets...</string>
+    <string name="wm_chip_offline_fallback">Local grid</string>
     <string name="wm_designer">DESIGNER</string>
     <string name="wm_designer_exit">EXIT DESIGNER</string>
     <string name="wm_designer_continue">Keep editing</string>

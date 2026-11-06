@@ -1,13 +1,22 @@
 package ovh.gabrielhuav.pow.domain.models.map
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class ExteriorCollisionsConfig(
     val polygons: List<CollisionPolygon> = emptyList(),
     val walls: List<CollisionWall> = emptyList()
 )
 
+/** Define si una forma del diseñador participa en física o solo guía la navegación. */
+@Serializable
+enum class CollisionRole { BARRIER, NAV_GUIDE }
+
+@Serializable
 data class CollisionPolygon(
     val name: String,
-    val nodes: List<GeoNode>
+    val nodes: List<GeoNode>,
+    val role: CollisionRole = CollisionRole.BARRIER,
 ) {
     // 🧠 ALGORITMO RAY-CASTING: Verifica si una coordenada está DENTRO del polígono
     fun contains(lat: Double, lon: Double): Boolean {
@@ -28,11 +37,17 @@ data class CollisionPolygon(
     }
 }
 
+@Serializable
 data class CollisionWall(
     val name: String,
     val lat1: Double, val lon1: Double,
-    val lat2: Double, val lon2: Double
+    val lat2: Double, val lon2: Double,
+    val role: CollisionRole = CollisionRole.BARRIER,
 ) {
+    /** Compatibilidad de datos: los carriles heredados nunca fueron barreras visuales. */
+    val effectiveRole: CollisionRole
+        get() = if (name.startsWith("CARRIL_")) CollisionRole.NAV_GUIDE else role
+
     // 🧠 ALGORITMO INTERSECCIÓN: Verifica si el paso que dio la entidad "cruza" la barda
     fun didHitWall(oldLat: Double, oldLon: Double, newLat: Double, newLon: Double): Boolean {
         val s1x = newLon - oldLon
@@ -51,4 +66,5 @@ data class CollisionWall(
     }
 }
 
+@Serializable
 data class GeoNode(val lat: Double, val lon: Double)

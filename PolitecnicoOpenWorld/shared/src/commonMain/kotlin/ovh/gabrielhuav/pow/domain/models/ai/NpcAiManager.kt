@@ -11,6 +11,7 @@ import ovh.gabrielhuav.pow.domain.models.map.Landmark
 import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.canPlaceVehicleWithoutCoveringPoint
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.random.Random
@@ -523,8 +524,10 @@ class NpcAiManager {
                     if (numToSpawn > 0) {
                         var timerOffset = Random.nextLong(PARKING_WAKE_MIN_MS, PARKING_WAKE_MAX_MS)
                         availableSlots.shuffled().take(numToSpawn).forEach { slot ->
-                            serverNpcs.add(spawnParkedCar(landmark, slot.first, slot.second, timerOffset))
-                            dbgSpawned++
+                            spawnParkedCar(landmark, slot.first, slot.second, timerOffset, playerLocation)?.let {
+                                serverNpcs.add(it)
+                                dbgSpawned++
+                            }
                             timerOffset += Random.nextLong(20000L, 40000L)
                         }
                     }
@@ -843,7 +846,13 @@ class NpcAiManager {
         }
     }
 
-    private fun spawnParkedCar(landmark: Landmark, way: ovh.gabrielhuav.pow.domain.models.ai.LocalWay, node: ovh.gabrielhuav.pow.domain.models.ai.LocalNode, delayMs: Long): Npc {
+    private fun spawnParkedCar(
+        landmark: Landmark,
+        way: ovh.gabrielhuav.pow.domain.models.ai.LocalWay,
+        node: ovh.gabrielhuav.pow.domain.models.ai.LocalNode,
+        delayMs: Long,
+        playerLocation: GeoPoint,
+    ): Npc? {
         val globalPos = landmark.toGlobalGeoPoint(node.localX, node.localY)
         val newCarId = "PARKED_CAR_${ahoraMs()}_${Random.nextInt(1000)}"
 
@@ -854,6 +863,14 @@ class NpcAiManager {
         val dLon = globalPos.longitude - globalPrev.longitude
         val dLat = globalPos.latitude - globalPrev.latitude
         val angle = -((atan2(dLat, dLon)) * 180.0 / PI).toFloat()
+        val carModel = CarModel.entries.random()
+        if (!canPlaceVehicleWithoutCoveringPoint(
+                center = globalPos,
+                headingDegrees = (angle + 90f) % 360f,
+                dimensions = carModel.collisionDimensions,
+                occupiedPoint = playerLocation,
+            )
+        ) return null
 
         parkedTimers[newCarId] = ahoraMs() + delayMs
 
@@ -863,7 +880,7 @@ class NpcAiManager {
             location = globalPos,
             rotationAngle = angle,
             speed = 0.0,
-            carModel = CarModel.entries.random(),
+            carModel = carModel,
             carColor = colorArgb(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256)),
             navState = ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED,
             currentLandmark = landmark,

@@ -16,10 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
-import ovh.gabrielhuav.pow.domain.models.map.CarModel
-import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
-import java.util.UUID
 
 // Sube el nivel de búsqueda (con tope) y reinicia el contador de impunidad. Delega en el manager;
 // el guard del APOCALIPSIS se queda aquí porque necesita globalZombieMode (del estado del VM).
@@ -69,25 +66,7 @@ internal fun WorldMapViewModel.handleCarjack(driving: Boolean, aggressorAdjacent
 
 // Baja al jugador del coche a la fuerza (deja el auto abandonado en su sitio).
 internal fun WorldMapViewModel.forceExitVehicle() {
-    if (!_uiState.value.isDriving) return
-    val loc = _uiState.value.currentLocation ?: return
-    val abandonedCar = Npc(
-        id = UUID.randomUUID().toString(),
-        type = NpcType.CAR,
-        location = loc,
-        rotationAngle = (_uiState.value.vehicleRotation + 270f) % 360f,
-        speed = 0.0,
-        isMoving = false,
-        carModel = _uiState.value.currentVehicleModel ?: CarModel.SEDAN,
-        carColor = _uiState.value.currentVehicleColor ?: 0xFFFFFFFF.toInt(),
-        isFirstTimeBoarded = _uiState.value.vehicleIsFirstTimeBoarded,
-        // Conserva el skin de patrulla si te bajaron a la fuerza de una patrulla robada.
-        isPoliceSkin = _uiState.value.isDrivingPoliceCar
-    )
-    remoteEntities[abandonedCar.id] = abandonedCar
-    _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true, isDrivingPoliceCar = false) }
-    prankedyManager.onVehicleInteraction()
-    updateNpcsState()
+    exitVehicle(forced = true)
 }
 
 // Simula y difunde la policía PROPIA (el dueño del nivel de búsqueda). Se llama cada
@@ -110,7 +89,8 @@ internal fun WorldMapViewModel.runPoliceTick(location: GeoPoint) {
         pathfind = { from, to -> findRoadRoute(from, to) },   // A* real por calles
         prankedyLoc = prankedyManager.location,
         isPrankedyFighting = prankedyManager.location != null && prankedyManager.phase != ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.DEAD &&
-                             (prankedyManager.animState == ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.ATTACK || prankedyManager.animState == ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.RUN_TANQUE)
+                             (prankedyManager.animState == ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.ATTACK || prankedyManager.animState == ovh.gabrielhuav.pow.domain.models.ai.PrankedyAnimState.RUN_TANQUE),
+        collisions = exteriorCollisions,
     )
 
     // BALAS VISIBLES: guardamos los disparos nuevos con su timestamp y purgamos los
