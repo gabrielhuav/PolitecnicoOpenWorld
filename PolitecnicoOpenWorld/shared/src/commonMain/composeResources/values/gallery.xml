@@ -1,4 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="menu_multimedia">MULTIMEDIA</string>
+    <string name="gallery_maps">Mapas</string>
+    <string name="gallery_search">Buscar en esta categoría</string>
+    <string name="gallery_count">%1$d resultados</string>
+    <string name="gallery_empty">No se encontraron resultados.</string>
+    <string name="gallery_load_failed">No se pudo cargar el catálogo.</string>
+    <string name="gallery_retry">Reintentar</string>
+    <string name="gallery_image_unavailable">Imagen no disponible</string>
+    <string name="gallery_image_count">Imagen %1$d de %2$d</string>
+    <string name="gallery_previous">Anterior</string>
+    <string name="gallery_next">Siguiente</string>
+    <string name="gallery_close">Cerrar</string>
+    <string name="gallery_sheet">Ver todos los fotogramas</string>
+    <string name="gallery_fighters">Peleadores</string>
+    <string name="gallery_stages">Escenarios de combate</string>
+    <string name="gallery_interiors">Interiores</string>
+    <string name="gallery_transit">Metro y Metrobús</string>
+    <string name="gallery_day">Día</string>
+    <string name="gallery_night">Noche</string>
+    <string name="gallery_apocalypse">Apocalipsis</string>
+    <string name="gallery_combat">Titulación por Combate</string>
+    <string name="gallery_zoom_open">Ampliar mapa</string>
+    <string name="gallery_zoom_hint">Separa dos dedos para ampliar y arrastra para explorar.</string>
+    <string name="gallery_zoom_out">Reducir</string>
+    <string name="gallery_zoom_in">Ampliar</string>
+    <string name="gallery_zoom_reset">Ajustar</string>
+    <string name="gallery_zoom_level">Zoom: %1$d%%</string>
 </resources>
