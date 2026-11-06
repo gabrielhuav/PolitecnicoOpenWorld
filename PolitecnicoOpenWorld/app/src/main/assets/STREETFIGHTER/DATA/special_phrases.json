@@ -78,6 +78,14 @@
       "audio": "special_paramedico.m4a",
       "subtitle_ms": 5100,
       "tier": "authentic_voice"
+    },
+    "CHARRO_NEGRO": {
+      "phrase_es": "¡Tu destino quedó marcado en negro... ¡Muere!",
+      "phrase_en": "Your fate has been marked in black... Die!",
+      "phrase_hud": "TU DESTINO QUEDO MARCADO EN NEGRO MUERE",
+      "audio": "special_charro_negro.m4a",
+      "subtitle_ms": 3500,
+      "tier": "authentic_voice"
     }
   }
 }
