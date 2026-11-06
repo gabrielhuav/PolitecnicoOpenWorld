@@ -27,6 +27,7 @@ The project is built entirely with **Kotlin + Jetpack Compose**, follows a stric
 
 ### 🔄 Recent Changes
 
+- **CET 1: day, night and ominous-night stages (2026-11-05)** — three animated backgrounds of the Walter Cross Buchanan campus join the Titulación por Combate stage selector. They remain extra stages outside the Arcade ladder and are playable with Developer Mode enabled. Each variant has a WebP atlas, animation metadata and a separate selector thumbnail.
 - **Alexis Syntaxis asset repair and fighter CI (2026-11-04)** — damage/stun sprites now follow the 100 px standing-height standard, with corrected feet anchors. Four talking poses and ten clipped action poses were regenerated. A reproducible asset workflow builds previews, checks geometry and compares committed assets with their sources. See the [fighter CI tutorial](PolitecnicoOpenWorld/README%20for%20IAS/SF/CI_CD_agregar_peleador.md).
 - **Static CDMX streets (2026-11-04)** — integrates the static-cell approach from PR #182 ahead of Overpass, and rejects malformed/HTML responses so gateway errors are retried through the fallback instead of accepted as empty streets.
 
