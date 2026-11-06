@@ -76,7 +76,10 @@
     <string name="zhud_zone">ZONE: %1$s</string>
     <string name="zhud_zombies">ZOMBIES: %1$d/%2$d</string>
     <string name="zhud_players">PLAYERS: %1$d</string>
-    <string name="zhud_mode">MODE: %1$s  (hold Y)</string>
+    <string name="zhud_mode">MODE: %1$s · %2$s</string>
+    <string name="zhud_attack_melee_hint">B: punch</string>
+    <string name="zhud_attack_ranged_hint">B: shoot</string>
+    <string name="zhud_inventory_open_hint">Hold Y: inventory</string>
     <string name="zhud_mode_melee">MELEE</string>
     <string name="zhud_mode_ranged">WEAPON</string>
     <string name="zhud_combat_mode">COMBAT MODE</string>
@@ -558,6 +561,7 @@
     <string name="sf_lan_section">LOCAL SERVER (same Wi-Fi)</string>
     <string name="sf_lan_host">CREATE SERVER</string>
     <string name="sf_lan_ip_label">Host IP</string>
+    <string name="sf_lan_ip_invalid">Invalid IP. Example: 192.168.1.5</string>
     <string name="sf_lan_host_title">LOCAL SERVER</string>
     <string name="sf_lan_host_sub">Your room is open. Share this address with your rival (same Wi-Fi network or your hotspot):\n\n%1$s</string>
     <string name="sf_lan_no_ip">No local network detected: join a Wi-Fi network or turn on your hotspot and retry.</string>

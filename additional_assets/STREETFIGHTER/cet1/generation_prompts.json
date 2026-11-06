@@ -1,0 +1,21 @@
+{
+  "tool": "built-in image_gen",
+  "generated_at": "2026-11-05",
+  "campus": "CET 1 Walter Cross Buchanan",
+  "inputs": {
+    "day": "../legacy_static_backgrounds_pre_webp/fondo_cet1_dia.png",
+    "night": "../legacy_static_backgrounds_pre_webp/fondo_cet1_noche.png",
+    "ominous_style_reference": "../../../nuevoMaterial25SEP/Planetario Noche 2.jpg"
+  },
+  "prompts": {
+    "ominous_night": "Use case: lighting-weather.\nAsset type: production pixel-art background for the 2D fighting game Politécnico Open World, CET 1 Walter Cross Buchanan campus, third \"Noche tenebrosa\" stage variant.\nInput images: Image 1 is the edit target (CET 1 normal night); Image 2 is only a mood/style reference from the game's existing ominous-night stage. Do not copy the planetarium building or its large figure.\nPrimary request: transform ONLY the atmosphere and environmental condition of Image 1 into the game's ominous horror-night variant. Keep this exact CET 1 campus recognizable: the low green school facade, flat grey patterned roofline, doors/windows, left monument, aligned tall cypress trees, right covered walkway, paved foreground, same camera and building proportions.\nLighting/mood: deep violet and burgundy cloudy night sky, a restrained red moon, subtle drifting low purple mist, desaturated green facade, cold rim lighting, a few dim warm windows. Suggest abandonment with a few modest facade cracks and dark windows, keeping the structure and the unobstructed level fighting ground intact and readable. Match the crisp outlined retro pixel-art finish of the target rather than photorealism.\nComposition/framing: one continuous wide landscape illustration, preserve the target's very wide approximately 2.25:1 framing and all important landmarks; clear flat open foreground for fighters, no characters or foreground obstacles.\nConstraints: preserve the existing POW logo at the bottom-right, without redesigning it or adding another logo. Preserve all architecture and spatial layout. No HUD, fighters, monsters, giant figures, gore, extra buildings, captions, decorative frame, collage or contact sheet. Output only the complete final stage illustration.",
+    "remove_baked_logo": "Use case: precise-object-edit.\nAsset type: source illustration for the existing CET 1 pixel-art fighting-game stage.\nInput image 1 is the edit target.\nPrimary request: remove ONLY the large POW logo at the bottom-right, reconstructing the paved ground and any small background elements that it obscures. The game asset pipeline will place the canonical logo once after animation is generated.\nConstraints: keep the rest of the illustration unchanged: exact campus facade, doors, windows, trees, monument, covered walkway, paving, sky, lighting, palette, pixel-art outlines and wide 1552:688 framing. This is a precise logo-removal edit, not a redesign. Do not add any characters, text, new logos, objects, border or watermark. Keep the floor clear and continuous. Output the entire landscape illustration, not a cropped detail."
+  },
+  "final_sources": [
+    "CET1.png",
+    "CET1 Noche 1.png",
+    "CET1 Noche 2.png"
+  ],
+  "workflow": "Generate the ominous variant from the original normal-night source and style reference. Apply the precise logo-removal edit to day, normal night and ominous night. Package the clean sources using build_map_backgrounds.py; it stamps the canonical POW logo once per frame.",
+  "invariants": "Preserve the CET1 campus facade, entrance, monument, trees, paved fighting ground and wide framing. Normal/day imagery is not redesigned. Ominous-night changes atmosphere and modest wear only; no new fighting characters."
+}

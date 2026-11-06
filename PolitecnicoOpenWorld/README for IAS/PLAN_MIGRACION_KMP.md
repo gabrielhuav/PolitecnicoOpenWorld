@@ -16,6 +16,12 @@
 >
 > **Dónde está lo vigente:** estado vivo en `_SESION_ACTUAL.md` · dónde tocar cada cosa en
 > `11_SEPARACION_IOS_ANDROID.md` · el proyecto Xcode en `iosApp/README.md`.
+
+> **Coleccionables (2026-11-05):** la galería de Multimedia se integra en la pantalla compartida.
+> Solo hay dos pestañas: Peleadores de Titulación por Combate y Mapas. Catálogo y búsqueda viven
+> en `features/main_menu/gallery` y `ui/CollectiblesGallery.kt`; `ui/GalleryZoomViewer.kt` permite
+> ampliar y desplazar fotogramas/mapas. Solo la decodificación usa `expect/actual`. Se descubre el arte incluido en cada
+> bundle sin ampliar el empaquetado iOS ni modificar progreso. Detalles en `07_OTHER_FEATURES.md`.
 > **Este documento se conserva por su §1–§8: las MEDIDAS y las decisiones**, no como lista de tareas.
 
 > Todo lo que aquí se afirma con un número **viene de un comando que se ejecutó** (los comandos están
