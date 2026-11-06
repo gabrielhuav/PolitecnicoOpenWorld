@@ -78,10 +78,142 @@ def place(image, target_height=None, projectile=False, target_width=None):
     return canvas
 
 
+def source_file(name):
+    path = (ROOT / name).resolve()
+    if not path.is_relative_to(ROOT.resolve()) or not path.is_file():
+        raise ValueError("Fuente inexistente o fuera del repositorio: " + name)
+    return path
+
+
+def grid_sheet_data(recipe):
+    """Read only metadata and new art; no imported fighter pixels are needed."""
+    data = json.loads(source_file(recipe["source_data"]).read_text(encoding="utf-8"))
+    frames = data["frames"]
+    mapping = recipe["frame_cells"]
+    if not frames or set(mapping) != set(frames):
+        missing = sorted(set(frames) - set(mapping))
+        extra = sorted(set(mapping) - set(frames))
+        raise ValueError(f"El mapa debe cubrir todos los cuadros: faltan={missing}, sobran={extra}")
+    for field in ("frame_rects", "frame_components"):
+        if set(recipe.get(field, {})) - set(frames):
+            raise ValueError("Recorte fuente de un cuadro inexistente: " + field)
+    for name in ("frame_heights", "frame_widths"):
+        values = recipe.get(name, {})
+        if set(values) - set(frames) or any(type(n) is not int or n < 1 for n in values.values()):
+            raise ValueError("Calibracion de cuadros invalida: " + name)
+    if set(recipe.get("frame_heights", {})) & set(recipe.get("frame_widths", {})):
+        raise ValueError("Usa altura o ancho por pose, no ambos")
+    sheets = []
+    for item in recipe["sheets"]:
+        grid = item["grid"]
+        if len(grid) != 2 or any(type(n) is not int or n < 1 for n in grid):
+            raise ValueError("Rejilla invalida")
+        with Image.open(source_file(item["path"])) as source:
+            if "A" not in source.getbands() and "transparency" not in source.info:
+                raise ValueError("La hoja fuente necesita transparencia real: " + item["path"])
+            image = source.convert("RGBA")
+        if image.width % grid[0] or image.height % grid[1]:
+            raise ValueError("La hoja no se divide en celdas enteras: " + item["path"])
+        sheets.append((image, grid))
+    used = set()
+    used_rects = set()
+    for key, location in mapping.items():
+        if (not isinstance(location, list) or len(location) != 2
+                or any(type(n) is not int or n < 0 for n in location)):
+            raise ValueError(key + ": ubicacion de celda invalida")
+        sheet, index = location
+        if sheet >= len(sheets) or index >= sheets[sheet][1][0] * sheets[sheet][1][1]:
+            raise ValueError(key + ": celda fuera de la rejilla")
+        if tuple(location) in used:
+            raise ValueError(key + ": celda fuente compartida; se exige arte por cuadro")
+        used.add(tuple(location))
+        if key in recipe.get("frame_rects", {}):
+            rect = recipe["frame_rects"][key]
+            image = sheets[sheet][0]
+            if (not isinstance(rect, list) or len(rect) != 4
+                    or any(type(n) is not int for n in rect)
+                    or not (0 <= rect[0] < rect[2] <= image.width
+                            and 0 <= rect[1] < rect[3] <= image.height)):
+                raise ValueError(key + ": rectangulo fuente invalido")
+            signature = (sheet, *rect)
+            if signature in used_rects:
+                raise ValueError(key + ": rectangulo fuente compartido")
+            used_rects.add(signature)
+        if key in recipe.get("frame_components", {}):
+            points = recipe["frame_components"][key]
+            image = sheets[sheet][0]
+            if not points or any(not isinstance(point, list) or len(point) != 2
+                    or any(type(n) is not int for n in point)
+                    or not (0 <= point[0] < image.width and 0 <= point[1] < image.height)
+                    for point in points):
+                raise ValueError(key + ": semillas de islas fuente invalidas")
+        if (not key.startswith(UPRIGHT) or "turn" in key) and not any(
+                key in recipe.get(name, {}) for name in ("frame_heights", "frame_widths")):
+            raise ValueError(key + ": falta calibracion explicita de la pose")
+    return data, sheets
+
+
+def build_grid_sheets(recipe, images, data_dir):
+    data, sheets = grid_sheet_data(recipe)
+    columns = recipe.get("atlas_columns", 10)
+    if type(columns) is not int or columns < 1:
+        raise ValueError("Columnas de atlas invalidas")
+    result = Image.new("RGBA", (columns * 256, ((len(data["frames"]) + columns - 1) // columns) * 256))
+    component_maps = {}
+    claimed_components = set()
+    for index, (key, frame) in enumerate(data["frames"].items()):
+        sheet_index, cell_index = recipe["frame_cells"][key]
+        sheet, (cols, rows) = sheets[sheet_index]
+        width, height = sheet.width // cols, sheet.height // rows
+        x, y = cell_index % cols * width, cell_index // cols * height
+        rect = recipe.get("frame_rects", {}).get(key, [x, y, x + width, y + height])
+        image = sheet.crop(rect)
+        if key in recipe.get("frame_components", {}):
+            # Explicit alpha-island seeds separate a pose's detached aura from a
+            # neighbouring pose. Original RGB and alpha values stay untouched.
+            import numpy as np
+            from scipy import ndimage
+            if sheet_index not in component_maps:
+                visible = np.array(sheet.getchannel("A")) > 16
+                component_maps[sheet_index] = ndimage.label(visible, np.ones((3, 3)))[0]
+            labels = component_maps[sheet_index]
+            points = recipe["frame_components"][key]
+            if any(not (rect[0] <= x < rect[2] and rect[1] <= y < rect[3]) for x, y in points):
+                raise ValueError(key + ": semilla fuera del recorte fuente")
+            ids = {int(labels[y, x]) for x, y in points}
+            if 0 in ids:
+                raise ValueError(key + ": semilla fuera del arte visible")
+            if any((sheet_index, ident) in claimed_components for ident in ids):
+                raise ValueError(key + ": isla fuente compartida por dos cuadros")
+            claimed_components.update((sheet_index, ident) for ident in ids)
+            alpha = np.array(image.getchannel("A"))
+            keep = np.isin(labels[rect[1]:rect[3], rect[0]:rect[2]], list(ids))
+            alpha[~keep] = 0
+            image.putalpha(Image.fromarray(alpha))
+        width, height = image.size
+        visible = image.getchannel("A").point(lambda alpha: 255 if alpha > 16 else 0).getbbox()
+        if visible is None:
+            raise ValueError(key + ": celda fuente vacia")
+        if visible[0] == 0 or visible[1] == 0 or visible[2] == width or visible[3] == height:
+            raise ValueError(key + ": arte toca el borde de la celda fuente; revisar recorte")
+        target = recipe.get("frame_heights", {}).get(key, 100)
+        image = place(image, target, is_projectile(key), recipe.get("frame_widths", {}).get(key))
+        x, y = index % columns * 256, index // columns * 256
+        result.alpha_composite(image, (x, y))
+        frame["src"] = [x, y, 256, 256]
+        frame["origin"] = [128, 128] if is_projectile(key) else [128, 224]
+    result.save(images / (recipe["title"] + ".webp"), lossless=True, quality=100, method=6)
+    (data_dir / (recipe["character"] + ".json")).write_text(
+        json.dumps(data, separators=(",", ":")), encoding="utf-8")
+
+
 def build(recipe, output):
     images, data_dir = output / "IMAGES", output / "DATA"
     images.mkdir(parents=True, exist_ok=True)
     data_dir.mkdir(parents=True, exist_ok=True)
+    if recipe["mode"] == "grid-sheets":
+        build_grid_sheets(recipe, images, data_dir)
+        return
     if recipe["mode"] == "chroma":
         gen = output / "GEN"
         for sheet in recipe["sheets"]:

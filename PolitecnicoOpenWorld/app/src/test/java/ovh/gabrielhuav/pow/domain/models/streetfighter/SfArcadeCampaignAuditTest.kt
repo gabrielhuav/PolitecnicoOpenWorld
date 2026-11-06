@@ -33,11 +33,11 @@ class SfArcadeCampaignAuditTest {
         val easy = SfArcadeLadder.build(SfFighterId.ESCOMBOY, SfCpuDifficulty.BASICA, Random(1))
         assertEquals(SfCpuDifficulty.NORMAL, SfArcadeLadder.difficultyForStep(SfCpuDifficulty.BASICA, easy[0]))
         assertEquals(SfCpuDifficulty.AVANZADA, SfArcadeLadder.difficultyForStep(SfCpuDifficulty.BASICA, easy[12]))
-        assertEquals(SfCpuDifficulty.PESADILLA, SfArcadeLadder.difficultyForStep(SfCpuDifficulty.BASICA, easy[14]))
+        assertEquals(SfCpuDifficulty.PESADILLA, SfArcadeLadder.difficultyForStep(SfCpuDifficulty.BASICA, easy.last()))
 
         val medium = SfArcadeLadder.build(SfFighterId.ESCOMGIRL, SfCpuDifficulty.NORMAL, Random(2))
         assertEquals(SfCpuDifficulty.PESADILLA, SfArcadeLadder.difficultyForStep(SfCpuDifficulty.NORMAL, medium[12]))
-        assertEquals(SfCpuDifficulty.PESADILLA, SfArcadeLadder.difficultyForStep(SfCpuDifficulty.NORMAL, medium[14]))
+        assertEquals(SfCpuDifficulty.PESADILLA, SfArcadeLadder.difficultyForStep(SfCpuDifficulty.NORMAL, medium.last()))
 
         assertEquals(0.35f, SfArcadeLadder.intensityForStep(1, SfArcadeLadder.TOTAL_FIGHTS), FLOAT_TOLERANCE)
         assertEquals(1f, SfArcadeLadder.intensityForStep(SfArcadeLadder.TOTAL_FIGHTS, SfArcadeLadder.TOTAL_FIGHTS), FLOAT_TOLERANCE)
@@ -62,7 +62,7 @@ class SfArcadeCampaignAuditTest {
         assertEquals(SfArcadeLadder.TOTAL_FIGHTS, ladder.size)
         assertEquals((1..SfArcadeLadder.TOTAL_FIGHTS).toList(), ladder.map { it.index })
         assertEquals(SfFighterId.PARAMEDICO_CRUZ_ROJA, ladder.first().rival)
-        // 🆕 (2026-07-25) Orden invertido de jefes finales: La Presidenta (14) y YOALLI FINAL (15).
+        // 🆕 (2026-07-25) Orden invertido de jefes finales: La Presidenta (15) y YOALLI FINAL (16).
         assertEquals(SfFighterId.LA_PRESIDENTA, ladder[ladder.size - 2].rival)
         assertEquals(SfFighterId.YOALLI_EHECATL, ladder.last().rival)
         assertTrue(ladder.last().isFinal)
@@ -166,7 +166,10 @@ class SfArcadeCampaignAuditTest {
             )
             SfFighterId.PARAMEDICO -> emptyList()
             SfFighterId.ALEXIS_SYNTAXIS -> emptyList()
-            SfFighterId.CALVO_CON_CAPA -> emptyList()
+            SfFighterId.LA_PLANCHADA -> listOf(
+                "special_llorona_attack.ogg", "special_llorona_hurt.ogg",
+                "special_llorona_power.ogg", "special_llorona_win.ogg"
+            )
         }.map { it.removeSuffix(".ogg") + ".m4a" }
     }
 

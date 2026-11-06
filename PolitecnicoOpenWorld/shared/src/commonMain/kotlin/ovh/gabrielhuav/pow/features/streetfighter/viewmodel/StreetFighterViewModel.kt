@@ -20,7 +20,6 @@ import kotlinx.coroutines.yield
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_HURT_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BONUS_POWER_STATES
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SF_BLOCK_STATES
-import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAnimFrame
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfAnimation
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfDamage
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfCamera
@@ -178,12 +177,8 @@ open class StreetFighterViewModel(
             // Paramédico Cruz Roja = WIN. (Su special_<id> también suena en su poder por fallback.)
             // 🆕 (2026-07-18t) La Llorona: pack COMPLETO con audios dedicados del dueño
             // (special/power, attack recortado seg 7-11, hurt).
-            SfFighterId.LA_LLORONA to SfVoicePack(
-                attack = listOf(SfVoiceLine("special_llorona_attack")),
-                hurt = listOf(SfVoiceLine("special_llorona_hurt")),
-                power = listOf(SfVoiceLine("special_llorona_power")),
-                win = listOf(SfVoiceLine("special_llorona_win")),
-            ),
+            SfFighterId.LA_LLORONA to sfLegendVoicePacks.getValue(SfFighterId.LA_LLORONA),
+            SfFighterId.LA_PLANCHADA to sfLegendVoicePacks.getValue(SfFighterId.LA_PLANCHADA),
             SfFighterId.LA_TZITZIMIME to SfVoicePack(
                 attack = listOf(SfVoiceLine("special_la_tzitzimime_attack")),
                 hurt = listOf(SfVoiceLine("special_la_tzitzimime_hurt")),
@@ -300,17 +295,20 @@ open class StreetFighterViewModel(
         SfFighterId.PRANKEDY, SfFighterId.SENOR_TIENDA, SfFighterId.PAPARAZZI_1, SfFighterId.PAPARAZZI_5,
         SfFighterId.REY_GRUPERO, SfFighterId.ESCOMBOY, SfFighterId.CHARRO_NEGRO, SfFighterId.LAZARO,
         SfFighterId.POLICIA_CDMX_HOMBRE, SfFighterId.POLICIA_GRANADERO_HOMBRE, SfFighterId.GRANADERO,
-        SfFighterId.PARAMEDICO_CRUZ_ROJA, SfFighterId.PARAMEDICO, SfFighterId.ALEXIS_SYNTAXIS, SfFighterId.CALVO_CON_CAPA,
+        SfFighterId.PARAMEDICO_CRUZ_ROJA, SfFighterId.PARAMEDICO, SfFighterId.ALEXIS_SYNTAXIS,
     )
 
     // 🆕 (2026-07-18s) Peleadores SIN voz a propósito (special_<id>.m4a borrado por el dueño):
     // su poder especial suena con el hadouken genérico. La auditoría NO los marca como faltantes.
     internal val sfVoicelessFighters = setOf(
-        SfFighterId.LAZARO, SfFighterId.PARAMEDICO, SfFighterId.PRANKEDY, SfFighterId.ALEXIS_SYNTAXIS, SfFighterId.CALVO_CON_CAPA,
+        SfFighterId.LAZARO, SfFighterId.PARAMEDICO, SfFighterId.PRANKEDY, SfFighterId.ALEXIS_SYNTAXIS,
     )
 
-    // Alexis Syntaxis no reproduce voz al ganar; conserva la regla incorporada en main.
-    internal val sfNoWinVoiceFighters = setOf(SfFighterId.ALEXIS_SYNTAXIS)
+    // 🆕 (2026-10-15) Peleadores que NO emiten ningún sonido de voz al ganar (ni su pack WIN
+    // ni el fallback al special). Ver emitWinVoice.
+    internal val sfNoWinVoiceFighters = setOf(
+        SfFighterId.ALEXIS_SYNTAXIS,
+    )
 
     /** Emite un clip de voz `special_<name>.m4a` si el asset existe. true = se emitió. */
     internal val voiceSubtitlesEnabled = environment.showVoiceSubtitles
@@ -1071,28 +1069,7 @@ open class StreetFighterViewModel(
     // Animación por frames (setAnimationFrame / updateAnimation del JS)
     // ------------------------------------------------------------------
 
-    /** Devuelve la fuente de datos (data propia o del fallback ALPHA si este estado no tiene arte propia). */
-    internal fun activeDataFor(f: SfFighter): SfFighterData {
-        val own = dataFor(f)
-        if (!own.animations[f.state.jsKey].isNullOrEmpty()) return own
-        val fallbackId = alphaFallbackId(f.id)
-        if (fallbackId != f.id) {
-            val fallback = dataCache.getOrPut(fallbackId) { SfFrameCatalog.load(fallbackId) }
-            if (!fallback.animations[f.state.jsKey].isNullOrEmpty()) return fallback
-        }
-        return own
-    }
-
-    internal fun animOf(f: SfFighter): List<SfAnimFrame> {
-        val data = activeDataFor(f)
-        return data.animations[f.state.jsKey]
-            ?: dataFor(f).animations[f.state.jsKey]
-            ?: data.animations[SfFighterState.IDLE.jsKey]
-            ?: dataFor(f).animations[SfFighterState.IDLE.jsKey]
-            ?: data.animations.values.firstOrNull()
-            ?: dataFor(f).animations.values.firstOrNull()
-            ?: listOf(SfAnimFrame("idle-1", 4))
-    }
+    internal fun animOf(f: SfFighter) = dataFor(f).animations.getValue(f.state.jsKey)
 
     // 🆕 (2026-07-22, Fase 2a) La lógica de avance de animación vive en SfAnimation (puro,
     // testeable en JVM). Estas funciones quedan como ENVOLTORIOS que pasan animOf(f):

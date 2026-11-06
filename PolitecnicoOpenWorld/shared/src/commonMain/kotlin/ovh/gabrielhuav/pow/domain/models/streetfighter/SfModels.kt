@@ -268,9 +268,9 @@ enum class SfFighterId(
         "Alexis Syntaxis", "SYNTAXIS",
         "STREETFIGHTER/DATA/alexis_syntaxis.json", "STREETFIGHTER/IMAGES/AlexisSyntaxis.webp",
     ),
-    CALVO_CON_CAPA(
-        "El Calvo con Capa", "CALVO",
-        "STREETFIGHTER/DATA/calvoconcapa.json", "STREETFIGHTER/IMAGES/CalvoConCapa.webp",
+    LA_PLANCHADA(
+        "La Planchada", "PLANCHADA",
+        "STREETFIGHTER/DATA/laplanchada.json", "STREETFIGHTER/IMAGES/LaPlanchada.webp",
     ),
 }
 

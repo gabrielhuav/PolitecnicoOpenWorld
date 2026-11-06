@@ -216,10 +216,10 @@ enum class PlayerSkin(
         specialBodyFraction = 0.703125f,
         uniform512Canvas = true
     ),
-    CALVO_CON_CAPA(
-        displayName = "Calvo con Capa",
-        skinFolder  = "CalvoConCapa/",
-        skinPrefix  = "ccc_",
+    LA_PLANCHADA(
+        displayName = "La Planchada",
+        skinFolder  = "LaPlanchada/",
+        skinPrefix  = "lpl_",
         basePath    = "SPRITES/NPC/",
         idleFrames = 6, walkFrames = 6, runFrames = 8, specialFrames = 5,
         walkBodyFraction = 0.703125f,

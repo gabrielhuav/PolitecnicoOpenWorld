@@ -8,19 +8,22 @@ import kotlin.test.assertTrue
 class PlayerSkinTest {
 
     @Test
-    fun calvoConCapaSkinEstaRegistradaYEsValida() {
-        val skin = PlayerSkin.valueOf("CALVO_CON_CAPA")
+    fun laPlanchadaSkinEstaRegistradaYEsValida() {
+        val skin = PlayerSkin.valueOf("LA_PLANCHADA")
         assertNotNull(skin)
-        assertEquals("Calvo con Capa", skin.displayName)
-        assertEquals("CalvoConCapa/", skin.skinFolder)
-        assertEquals("ccc_", skin.skinPrefix)
+        assertEquals("La Planchada", skin.displayName)
+        assertEquals("LaPlanchada/", skin.skinFolder)
+        assertEquals("lpl_", skin.skinPrefix)
         assertEquals("SPRITES/NPC/", skin.basePath)
         assertEquals(6, skin.idleFrames)
         assertEquals(6, skin.walkFrames)
         assertEquals(8, skin.runFrames)
         assertEquals(5, skin.specialFrames)
         assertTrue(skin.uniform512Canvas)
-        assertEquals("SPRITES/NPC/CalvoConCapa/Idle/ccc_i_1.webp", skin.previewAsset)
+        PlayerAction.entries.forEach { action ->
+            assertEquals(PlayerSkin.WORLD_BODY_CANVAS_FRACTION, skin.bodyFraction(action))
+        }
+        assertEquals("SPRITES/NPC/LaPlanchada/Idle/lpl_i_1.webp", skin.previewAsset)
     }
 
     @Test
@@ -31,13 +34,13 @@ class PlayerSkinTest {
     }
 
     @Test
-    fun calvoConCapaFighterEstaRegistradoEnModoCombate() {
-        val fighter = ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId.valueOf("CALVO_CON_CAPA")
+    fun laPlanchadaFighterEstaRegistradoEnModoCombate() {
+        val fighter = ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId.valueOf("LA_PLANCHADA")
         assertNotNull(fighter)
-        assertEquals("El Calvo con Capa", fighter.displayName)
-        assertEquals("CALVO", fighter.shortName)
-        assertEquals("STREETFIGHTER/DATA/calvoconcapa.json", fighter.jsonAsset)
-        assertEquals("STREETFIGHTER/IMAGES/CalvoConCapa.webp", fighter.spriteAsset)
+        assertEquals("La Planchada", fighter.displayName)
+        assertEquals("PLANCHADA", fighter.shortName)
+        assertEquals("STREETFIGHTER/DATA/laplanchada.json", fighter.jsonAsset)
+        assertEquals("STREETFIGHTER/IMAGES/LaPlanchada.webp", fighter.spriteAsset)
     }
 
     @Test

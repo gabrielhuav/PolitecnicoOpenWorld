@@ -13,7 +13,6 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfConstants
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfDirection
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighter
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
-import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFrameDef
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHitSplash
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHurtArea
@@ -36,27 +35,7 @@ import ovh.gabrielhuav.pow.domain.streetfighter.SfSuperHitReaction
 // (ver 09 §0, el gotcha miembro-vs-extensión que ya costó caro en este repo).
 // ────────────────────────────────────────────────────────────────────────────
 
-internal fun StreetFighterViewModel.frameDef(f: SfFighter): SfFrameDef {
-    val anim = animOf(f)
-    val fallback = SfFrameDef(src = listOf(0, 0, 0, 0), origin = listOf(0, 0), push = listOf(0, 0, 0, 0))
-    val data = activeDataFor(f)
-    val ownData = dataFor(f)
-    if (anim.isEmpty()) {
-        return data.frames["idle-1"]
-            ?: ownData.frames["idle-1"]
-            ?: data.frames.values.firstOrNull()
-            ?: ownData.frames.values.firstOrNull()
-            ?: fallback
-    }
-    val frameKey = anim[f.animationFrame.coerceIn(0, anim.size - 1)].frameKey
-    return data.frames[frameKey]
-        ?: ownData.frames[frameKey]
-        ?: data.frames["idle-1"]
-        ?: ownData.frames["idle-1"]
-        ?: data.frames.values.firstOrNull()
-        ?: ownData.frames.values.firstOrNull()
-        ?: fallback
-}
+internal fun StreetFighterViewModel.frameDef(f: SfFighter) = dataFor(f).frames.getValue(animOf(f)[f.animationFrame.coerceIn(0, animOf(f).size - 1)].frameKey)
 
 internal fun StreetFighterViewModel.pushBoxWorld(f: SfFighter): SfBox = SfBox.fromList(frameDef(f).push).toWorld(f.x, f.y, f.direction)
 

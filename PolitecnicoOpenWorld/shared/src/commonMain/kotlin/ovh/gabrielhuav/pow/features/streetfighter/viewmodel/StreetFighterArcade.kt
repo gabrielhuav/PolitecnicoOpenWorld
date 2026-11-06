@@ -10,7 +10,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfStageCatalog
 // PARCIAL de StreetFighterViewModel: 🕹️ MODO ARCADE (escalera, dificultad por escalón, sesión guardada)
 //
 // Extraído de StreetFighterViewModel.kt en el refactor de tamaño de la Fase 5.
-// Aquí vive la escalera de 15 rivales: arrancar, avanzar de escalón, la dificultad que sube en
+// Aquí vive la escalera de 16 rivales: arrancar, avanzar de escalón, la dificultad que sube en
 // los jefes, continuar/reintentar/salir, y la SESIÓN a medias que se guarda al pausar o minimizar.
 // ⚠️ La sesión se guarda SOLO en forcePause y al salir, nunca por frame: en gama baja un write
 // por tick se nota. Lo que se persiste es mínimo (ids + marcador), no la simulación.

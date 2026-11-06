@@ -85,6 +85,33 @@ jobs:
               committed = Image.open(assets / 'IMAGES' / name).convert('RGBA')
               assert generated.size == committed.size and generated.tobytes() == committed.tobytes(), 'Atlas no reproducible'
           PY
+      - name: Validar recortes de mundo de La Planchada
+        run: |
+          python - <<'PY'
+          import json, pathlib, sys
+          from PIL import Image
+          sys.path.insert(0, 'PolitecnicoOpenWorld/tools')
+          from build_la_planchada import build_world, check_world
+          # Reutiliza el atlas que acaba de reconstruir el paso anterior.
+          output = pathlib.Path('.codex-tmp/sf-ci/laplanchada')
+          count = build_world(output)
+          errors = check_world(output)
+          assert count == 25, f'Se esperaban 25 recortes de mundo, se generaron {count}'
+          assert not errors, '\n'.join(errors)
+          generated_root = output / 'SPRITES/NPC/LaPlanchada'
+          production_root = pathlib.Path('PolitecnicoOpenWorld/app/src/main/assets/SPRITES/NPC/LaPlanchada')
+          generated_paths = {p.relative_to(generated_root) for p in generated_root.rglob('*.webp')}
+          production_paths = {p.relative_to(production_root) for p in production_root.rglob('*.webp')}
+          assert len(generated_paths) == 25 and generated_paths == production_paths, 'Faltan o sobran recortes de mundo'
+          for path in sorted(generated_paths):
+              generated = Image.open(generated_root / path).convert('RGBA')
+              committed = Image.open(production_root / path).convert('RGBA')
+              assert generated.size == committed.size == (512, 512), f'Lienzo de mundo incorrecto: {path}'
+              assert generated.tobytes() == committed.tobytes(), f'Recorte de mundo no reproducible: {path}'
+          report = {'world_frames': count, 'errors': errors, 'production_pixels_match': True}
+          (output / 'qa/laplanchada-world-report.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
+          print('La Planchada: 25 recortes de mundo reproducibles y anclados correctamente')
+          PY
       - name: Publicar atlas, recortes y QA para revision
         if: always()
         uses: actions/upload-artifact@v7
