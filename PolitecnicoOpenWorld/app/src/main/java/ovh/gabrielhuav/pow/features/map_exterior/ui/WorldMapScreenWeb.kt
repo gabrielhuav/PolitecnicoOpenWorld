@@ -122,26 +122,8 @@ internal fun WebMapLayer(
                         wv.evaluateJavascript("if(typeof setMapOversize==='function')setMapOversize(${uiState.isDriving});", null)
                         val mapRot = if (uiState.isDriving) -uiState.vehicleRotation else 0f
                         wv.evaluateJavascript("if(typeof setMapRotation==='function')setMapRotation(${mapRot});", null)
-                        val tileUrl = when (uiState.mapProvider) {
-                            MapProvider.CARTO_VOYAGER  -> "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                            MapProvider.CARTO_DB_DARK  -> "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                            MapProvider.CARTO_DB_LIGHT -> "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                            MapProvider.ESRI           -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
-                            MapProvider.ESRI_SATELLITE -> "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                            MapProvider.OPEN_TOPO      -> "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-                            MapProvider.OSM_WEB        -> "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-                            else -> "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
-                        }
-                        // Zoom máximo REAL de cada proveedor: a partir de ahí Leaflet escala
-                        // (over-zoom). CARTO sirve z20 → más detalle de calles que OSM (z19).
-                        val tileMaxNative = when (uiState.mapProvider) {
-                            MapProvider.CARTO_VOYAGER, MapProvider.CARTO_DB_DARK,
-                            MapProvider.CARTO_DB_LIGHT -> 20
-                            MapProvider.OSM_WEB        -> 19
-                            MapProvider.ESRI, MapProvider.ESRI_SATELLITE -> 19
-                            MapProvider.OPEN_TOPO      -> 17
-                            else -> 20 // Google Web
-                        }
+                        val tileUrl = uiState.mapProvider.webTileTemplate
+                        val tileMaxNative = uiState.mapProvider.tileMaxNativeZoom
                         wv.evaluateJavascript("if(typeof changeTileUrl==='function')changeTileUrl('$tileUrl', $tileMaxNative);", null)
                         wv.evaluateJavascript("if(typeof setRoadNetworkReady==='function')setRoadNetworkReady(${uiState.isRoadNetworkReady});", null)
 

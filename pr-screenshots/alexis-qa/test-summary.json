@@ -1,0 +1,19 @@
+{
+  "app": {
+    "tests": 129,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "shared": {
+    "tests": 273,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "tested_code_assets_sha": "282b69083c5961fc852d80327ab6b44a602683b9",
+  "detekt": "passed",
+  "kmp_test_names": "passed",
+  "python_fighter_gate": 4,
+  "python_street_generator": 4
+}

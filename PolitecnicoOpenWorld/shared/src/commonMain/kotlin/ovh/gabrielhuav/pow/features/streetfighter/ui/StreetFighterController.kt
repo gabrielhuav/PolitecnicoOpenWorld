@@ -48,6 +48,9 @@ interface StreetFighterController {
     fun tutorialRestartLesson()
     fun exitTutorial()
     fun startTutorial(id: SfFighterId)
+    // 🆕 EXAMEN EXTRAORDINARIO: práctica de Extraordinarios (solo peleadores que tienen uno).
+    fun extraordinarioFighters(): List<SfFighterId>
+    fun startExtraordinario(playerId: SfFighterId, rivalId: SfFighterId)
     fun comboSheet(id: SfFighterId): List<Triple<String, String, List<String>>>
 
     fun backToCharacterSelect()

@@ -36,7 +36,7 @@ import ovh.gabrielhuav.pow.shared.recursos.*
 @Composable
 internal fun SettingsSectionMap(state: SettingsState, controller: SettingsController) {
     var expanded by remember { mutableStateOf(false) }
-    var pending by remember(state.mapProvider) { mutableStateOf(state.mapProvider) }
+    var pending by remember(state.mapProvider) { mutableStateOf(state.mapProvider.keyFreeProvider) }
     val changed = pending != state.mapProvider
     Column {
         Text(
@@ -63,7 +63,7 @@ internal fun SettingsSectionMap(state: SettingsState, controller: SettingsContro
                 onDismissRequest = { expanded = false },
                 modifier = Modifier.background(Color(0xFF2A1C21)),
             ) {
-                MapProvider.entries.forEach { provider ->
+                MapProvider.entries.filter { it.keyFreeProvider == it }.forEach { provider ->
                     DropdownMenuItem(
                         text = { Text(provider.displayName, color = Color.White) },
                         onClick = { pending = provider; expanded = false },

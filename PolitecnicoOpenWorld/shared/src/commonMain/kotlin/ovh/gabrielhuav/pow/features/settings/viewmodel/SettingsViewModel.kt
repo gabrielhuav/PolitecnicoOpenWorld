@@ -51,7 +51,7 @@ open class SettingsViewModel(
     override val state: StateFlow<SettingsState> = _state.asStateFlow()
 
     override fun selectCategory(category: SettingsCategory) { _state.update { it.copy(selectedCategory = category) } }
-    override fun changeMapProvider(provider: MapProvider) { _state.update { it.copy(mapProvider = provider) } }
+    override fun changeMapProvider(provider: MapProvider) { _state.update { it.copy(mapProvider = provider.keyFreeProvider) } }
     override fun toggleCacheWidget(enabled: Boolean) { _state.update { it.copy(showCacheWidget = enabled) } }
     override fun toggleFpsWidget(enabled: Boolean) { _state.update { it.copy(showFpsWidget = enabled) } }
     override fun toggleZoomWidget(enabled: Boolean) {
