@@ -30,6 +30,16 @@ jobs:
         run: |
           python -m unittest discover -s PolitecnicoOpenWorld/tools/tests -p 'test_sf_*.py'
           python PolitecnicoOpenWorld/tools/sf_gen_cache.py check
+      - name: Validar escenarios y miniaturas
+        run: |
+          python -m unittest discover -s PolitecnicoOpenWorld/tools/tests -p 'test_map_backgrounds.py'
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, 'PolitecnicoOpenWorld/tools')
+          import build_map_backgrounds as backgrounds
+          failures = backgrounds.diagnose_theme_backgrounds(backgrounds.DEFAULT_IMAGES_OUT)
+          raise SystemExit(bool(failures))
+          PY
       - name: Exigir receta para assets de peleadores modificados
         if: github.event_name == 'pull_request'
         env:
