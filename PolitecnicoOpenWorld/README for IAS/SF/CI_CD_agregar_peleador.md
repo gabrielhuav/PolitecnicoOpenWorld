@@ -1,6 +1,6 @@
 # Agregar un peleador con recortes y GitHub Actions
 
-Actualizado: 2026-11-04. Ejecutar los comandos desde la **raíz del repositorio**.
+Actualizado: 2026-11-06. Ejecutar los comandos desde la **raíz del repositorio**.
 
 El flujo es: arte original → receta versionada → recortes en staging → atlas + JSON →
 QA automático y visual → integración → PR → release Android existente.
@@ -66,6 +66,29 @@ Para rescatar un PR que solo trae un atlas, usa `mode: "atlas-repair"`, como
 su rejilla y el mapa explícito celda → clave. **No permite inventar píxeles perdidos con
 un escalado:** las poses incompletas se regeneran y se revisan visualmente.
 
+### Arte original con cuadrículas transparentes
+
+Para arte nuevo, `mode: "grid-sheets"` consume hojas RGBA con transparencia real y
+un contrato de datos en `source_data`. Cada entrada de `sheets` declara su rejilla;
+`frame_cells` asigna cada cuadro a `[índice de hoja, índice de celda]`, ambos desde cero.
+La receta debe cubrir todos los cuadros sin compartir celdas. `frame_heights` o
+`frame_widths` calibran explícitamente las poses dobladas, aéreas, tumbadas y efectos.
+
+Cuando una pose sobresale de su celda nominal, `frame_rects` permite declarar su
+rectángulo real `[izquierda, arriba, derecha, abajo]` en píxeles de la hoja fuente.
+Si hay islas de alfa separadas, `frame_components` declara puntos semilla en esas
+mismas coordenadas para seleccionar explícitamente el cuerpo y sus efectos. Los
+recortes e islas se revisan visualmente; el pipeline rechaza bordes cortados, semillas
+inválidas, islas reutilizadas y cuadros vacíos. No rellena arte faltante.
+
+Consulta la [receta de La Planchada](../../tools/sf_fighters/laplanchada.json) y
+su [documentación de fuentes](../../../newSFAssets/LaPlanchada/README.md) como caso
+completo. Este modo conserva el mismo QA de geometría y comparación de píxeles/JSON
+reconstruidos contra producción. Los 25 recortes de mundo se derivan del atlas con
+un factor fijo **3.6**: el cuerpo erguido pasa de 100 a 360 px y las poses agachadas o
+inclinadas conservan su escala anatómica. El gate también compara sus 25 imágenes
+RGBA, dimensiones y anclajes contra `SPRITES/NPC/LaPlanchada/`.
+
 ## 3. Construir localmente sin tocar producción
 
 ```powershell
@@ -97,8 +120,8 @@ El workflow `.github/workflows/sf-fighter-assets.yml`:
 
 1. Prueba el validador con casos de regresión.
 2. Exige receta para JSON de peleador o atlas dedicado modificado en el PR.
-3. Construye todas las recetas registradas en staging. Por ahora la registrada es Alexis;
-   los peleadores históricos no se reprocesan salvo que se registren explícitamente.
+3. Construye todas las recetas registradas en staging; los peleadores históricos
+   no se reprocesan salvo que se registren explícitamente.
 4. Valida dimensiones, anclajes, altura erguida, transparencia, bordes, bustos y referencias.
 5. Compara JSON y píxeles reconstruidos contra los archivos versionados.
 6. Sube `sf-fighter-preview`, con QA y atlas, incluso si falla un paso posterior.
