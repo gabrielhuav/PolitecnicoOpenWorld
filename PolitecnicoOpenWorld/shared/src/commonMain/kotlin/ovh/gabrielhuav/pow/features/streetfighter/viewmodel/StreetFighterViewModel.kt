@@ -200,10 +200,14 @@ open class StreetFighterViewModel(
                     SfVoiceLine("special_charro_attack_2"),
                     SfVoiceLine("special_charro_attack_3")
                 ),
-                hurt = listOf(
-                    SfVoiceLine("special_charro_hurt_1"),
-                    SfVoiceLine("special_charro_hurt_2"),
-                    SfVoiceLine("special_charro_hurt_3")
+                // Daño: un solo audio nuevo ("¡Ay, duele... pero ese dolor te lo voy a multiplicar con creces!").
+                hurt = listOf(SfVoiceLine("special_charro_hurt_1")),
+                // Victoria (antes caía al fallback del poder especial y no decía nada propio).
+                win = listOf(
+                    SfVoiceLine(
+                        "special_charro_negro_win",
+                        "¡Uyy... devolver el alma de Beatriz? Eso no se va a poder... Ya me la llevé."
+                    )
                 )
             ),
             // 🆕 (2026-07-19) Señor de la Tienda: 2 gritos de ataque + 2 de daño (hurt_2 es "puerquito") + 1 de victoria
