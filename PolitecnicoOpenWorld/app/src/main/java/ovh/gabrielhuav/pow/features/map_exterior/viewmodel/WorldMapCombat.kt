@@ -16,11 +16,17 @@ import android.util.Log
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.CarModel
+import ovh.gabrielhuav.pow.domain.models.map.VehicleFootprint
+import ovh.gabrielhuav.pow.domain.models.map.offsetMeters
+import ovh.gabrielhuav.pow.domain.models.map.resolveTrafficImpact
+import ovh.gabrielhuav.pow.domain.models.map.TrafficImpactResolution
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -203,10 +209,15 @@ fun WorldMapViewModel.performPlayerAttack() {
 // ATROPELLO: estando al volante, los peatones dentro de RUN_OVER_RADIUS reciben
 // daño proporcional a la velocidad; mueren si llegan a 0 y, en cualquier caso, los
 // testigos se asustan. Solo el host simula NPCs, así que solo él aplica esto.
-internal fun WorldMapViewModel.runOverNpcs(playerLoc: GeoPoint, speed: Double, isAutoDodging: Boolean = false) {
-    if (!isServerDelegatedHost) return
+internal fun WorldMapViewModel.runOverNpcs(
+    previousPlayerLoc: GeoPoint,
+    playerLoc: GeoPoint,
+    speed: Double,
+): TrafficImpactResolution? {
+    // Colisión coche-coche: TODOS los clientes (un no-host no debe atravesar coches). Atropello de
+    // peatones/zombis, desplazar tráfico y miedo: solo el host, que es quien simula NPCs.
+    val isHost = isServerDelegatedHost
     val spd = kotlin.math.abs(speed)
-    if (spd < RUN_OVER_MIN_SPEED) return
     val damage = (spd / MAX_SPEED).toFloat().coerceIn(0f, 1f) * 120f
     val extreme = spd >= RUN_OVER_EXTREME_SPEED
     val now = System.currentTimeMillis()
@@ -214,6 +225,11 @@ internal fun WorldMapViewModel.runOverNpcs(playerLoc: GeoPoint, speed: Double, i
     val heading = Math.toRadians(_uiState.value.vehicleRotation.toDouble())
     val hdLat = cos(heading); val hdLon = sin(heading)
     val perpLat = -hdLon; val perpLon = hdLat
+    val playerFootprint = VehicleFootprint(
+        center = playerLoc,
+        headingDegrees = _uiState.value.vehicleRotation,
+        dimensions = (_uiState.value.currentVehicleModel ?: CarModel.SEDAN).collisionDimensions,
+    )
 
     fun killOrHurt(id: String, npc: Npc, giveStar: Boolean = false) {
         val newHealth = (npc.health - damage).coerceAtLeast(0f)
@@ -224,21 +240,19 @@ internal fun WorldMapViewModel.runOverNpcs(playerLoc: GeoPoint, speed: Double, i
             try { webSocketManager?.sendMessage(jsonOf(mapOf("type" to "NPC_DESTROY", "npcId" to id))) } catch (_: Exception) {}
         } else remoteEntities[id] = npc.copy(health = newHealth)
     }
-    // Empuja un NPC al lado HACIA EL QUE YA ESTÁ (lo saca del camino del coche).
-    fun shove(npc: Npc, dist: Double): GeoPoint {
-        val rel = (npc.location.latitude - playerLoc.latitude) * perpLat + (npc.location.longitude - playerLoc.longitude) * perpLon
-        val s = if (rel >= 0) 1.0 else -1.0
-        return GeoPoint(npc.location.latitude + perpLat * dist * s, npc.location.longitude + perpLon * dist * s)
-    }
-
     var changed = false
     var impactWorthy = false   // 💥 solo en atropello real o choque de auto, no al esquivar
+    var trafficImpact: TrafficImpactResolution? = null
+    var vehicleDisplaced = false
+    vehicleContactLatch.prune(now)
     for ((id, npc) in remoteEntities) {
+        if (!isHost) break
         if (!npc.displayName.isNullOrEmpty()) continue
         if (npc.isDying) continue
         val d = distance(playerLoc, npc.location)
         when (npc.type) {
             NpcType.PERSON -> {
+                if (spd < RUN_OVER_MIN_SPEED) continue
                 if (extreme && d <= RUN_OVER_RADIUS * 0.4) {
                     // Vas casi A FONDO (>= RUN_OVER_EXTREME_SPEED) → los reflejos no alcanzan, lo atropellas.
                     // Hitbox reducida (0.4) para que sea más difícil darles. Si los matas, obtienes 1 estrella.
@@ -264,28 +278,90 @@ internal fun WorldMapViewModel.runOverNpcs(playerLoc: GeoPoint, speed: Double, i
                 }
             }
             ovh.gabrielhuav.pow.domain.models.map.NpcType.ZOMBIE -> {
+                if (spd < RUN_OVER_MIN_SPEED) continue
                 if (d > RUN_OVER_RADIUS) continue
                 // Los zombis NO esquivan (shamblean): atropellables a cualquier velocidad.
                 killOrHurt(id, npc); changed = true; impactWorthy = true
             }
-            NpcType.CAR, ovh.gabrielhuav.pow.domain.models.map.NpcType.POLICE_CAR -> {
-                // Si estamos haciendo un rebase profesional suave, desactivamos la colisión
-                // para permitir pasar rozando.
-                if (isAutoDodging) continue
-                if (d > CAR_BUMP_RADIUS) continue
-                // CHOCAMOS: Si no hubo rebase suave (por ir muy rápido o giro brusco), chocamos.
-                // Empujas el auto a un lado (rebasas tipo Toretto) + 💥. Sin daño al jugador.
-                remoteEntities[id] = npc.copy(location = shove(npc, CAR_BUMP_RADIUS * 0.6))
-                changed = true; impactWorthy = true
-            }
+            // Coches y patrullas: se resuelven después, ordenados por id (ver más abajo).
+            NpcType.CAR, ovh.gabrielhuav.pow.domain.models.map.NpcType.POLICE_CAR -> continue
             else -> continue
         }
     }
-    if (changed) {
-        npcAiManager.triggerFear(playerLoc.latitude, playerLoc.longitude)
-        updateNpcsState()
+    // remoteEntities es un ConcurrentHashMap: ordenar por id hace reproducible el primer contacto.
+    fun footprintOf(npc: Npc) = VehicleFootprint(
+        center = npc.location,
+        headingDegrees = (npc.rotationAngle + 90f) % 360f,
+        dimensions = npc.carModel.collisionDimensions,
+    )
+    val vehicleIds = ArrayList<String>(4)
+    for ((id, npc) in remoteEntities) {
+        if ((npc.type == NpcType.CAR || npc.type == NpcType.POLICE_CAR) &&
+            npc.displayName.isNullOrEmpty() && !npc.isDying &&
+            distance(playerLoc, npc.location) <= VEHICLE_CONTACT_COARSE_RADIUS
+        ) vehicleIds.add(id)
     }
+    val hitId = firstContactingId(vehicleIds) { id ->
+        val other = remoteEntities[id]
+        other != null && resolveTrafficImpact(previousPlayerLoc, playerFootprint, footprintOf(other)) != null
+    }
+    val hitNpc = hitId?.let { remoteEntities[it] }
+    if (hitId != null && hitNpc != null) {
+        val trafficFootprint = footprintOf(hitNpc)
+        val impact = resolveTrafficImpact(previousPlayerLoc, playerFootprint, trafficFootprint)
+        if (impact != null) {
+            // Un coche estacionado es sólido (no se mueve); el tráfico en marcha se separa por vector mínimo.
+            if (isHost && shouldDisplaceTrafficAfterPlayerCollision(hitNpc.navState)) {
+                remoteEntities[hitId] = hitNpc.copy(
+                    location = hitNpc.location.offsetMeters(
+                        impact.trafficOffset.northMeters,
+                        impact.trafficOffset.eastMeters,
+                    ),
+                )
+                vehicleDisplaced = true
+            }
+            // La física se aplica en cada tick de contacto; el EVENTO solo al entrar en contacto.
+            trafficImpact = impact
+            if (vehicleContactLatch.registerContact("player|$hitId", now)) {
+                logVehicleCollision(
+                    "traffic npc=$hitId player=$playerLoc h=${_uiState.value.vehicleRotation} " +
+                        "${playerFootprint.dimensions} npc=${hitNpc.location} h=${trafficFootprint.headingDegrees} " +
+                        "${trafficFootprint.dimensions} separate=${impact.trafficOffset}",
+                )
+                if (isHost) changed = true
+                impactWorthy = true
+            }
+        }
+    }
+    if (trafficImpact == null) {
+        policeManager.activeUnits()
+            .asSequence()
+            .filter { it.type == NpcType.POLICE_CAR }
+            .sortedBy { it.id }
+            .forEach { patrol ->
+                if (trafficImpact != null) return@forEach
+                val footprint = VehicleFootprint(
+                    center = patrol.location,
+                    headingDegrees = (patrol.rotationAngle + 90f) % 360f,
+                    dimensions = patrol.carModel.collisionDimensions,
+                )
+                val impact = resolveTrafficImpact(previousPlayerLoc, playerFootprint, footprint) ?: return@forEach
+                policeManager.displaceVehicle(
+                    patrol.id,
+                    impact.trafficOffset.northMeters,
+                    impact.trafficOffset.eastMeters,
+                )
+                trafficImpact = impact
+                if (vehicleContactLatch.registerContact("player|patrol:${patrol.id}", now)) {
+                    impactWorthy = true
+                    logVehicleCollision("traffic patrol=${patrol.id} player=$playerLoc")
+                }
+            }
+    }
+    if (changed) npcAiManager.triggerFear(playerLoc.latitude, playerLoc.longitude)
+    if (changed || vehicleDisplaced) updateNpcsState()
     if (impactWorthy) viewModelScope.launch(Dispatchers.Main) { fireImpactEffect() } // 💥 (con throttle)
+    return trafficImpact
 }
 
 // GOLPE DE NPC AGRESIVO: los NPCs en estado de embestida (aggro) que tocan al
@@ -369,3 +445,6 @@ private fun WorldMapViewModel.startRelentlessAttacker(npcId: String) {
         relentlessNpcs.remove(npcId)
     }
 }
+
+// Radio grueso (~55 m, en grados) para pre-filtrar vehículos candidatos a contacto con el jugador.
+private const val VEHICLE_CONTACT_COARSE_RADIUS = 0.0005

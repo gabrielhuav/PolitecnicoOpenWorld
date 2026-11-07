@@ -19,13 +19,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -42,6 +46,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -49,13 +54,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import ovh.gabrielhuav.pow.R
+import ovh.gabrielhuav.pow.domain.streetfighter.SfLanIp
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtDevice
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanGame
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfRoomSummary
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.SfOnlineStatus
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterState
 import ovh.gabrielhuav.pow.ui.components.PowButton
-import ovh.gabrielhuav.pow.features.streetfighter.data.SfBtDevice
-import ovh.gabrielhuav.pow.features.streetfighter.data.SfLanGame
-import ovh.gabrielhuav.pow.features.streetfighter.data.SfRoomSummary
 
 // ────────────────────────────────────────────────────────────────────────────
 // 🌐 OVERLAYS de MULTIJUGADOR (online, sala pública, Bluetooth y LAN)
@@ -327,122 +333,149 @@ internal fun OnlineMenuOverlay(
         modifier = Modifier.fillMaxSize().background(Color(0xF0101018)),
         contentAlignment = Alignment.Center,
     ) {
-        // Con 3 secciones (online/BT/LAN) el menú puede exceder el alto en landscape → scroll
+        // Cancelar queda fuera del scroll para que el error de IP no lo oculte en landscape.
         Column(
-            modifier = Modifier.verticalScroll(rememberScrollState()).padding(vertical = 16.dp),
+            modifier = Modifier.fillMaxSize().imePadding().navigationBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(
-                text = stringResource(R.string.sf_mp_title),
-                color = Color(0xFFD4AF37),
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 3.sp,
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            PowButton(text = stringResource(R.string.sf_mp_public), onClick = onQuickMatch)
-            Spacer(modifier = Modifier.height(10.dp))
-            PowButton(text = stringResource(R.string.sf_mp_create), onClick = onCreate)
-            Spacer(modifier = Modifier.height(14.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = code,
-                    onValueChange = { code = it.uppercase().take(4) },
-                    label = { Text(stringResource(R.string.sf_mp_code_label)) },
-                    singleLine = true,
-                    modifier = Modifier.width(140.dp),
-                    // Paridad con el tema vino/dorado del modo (no el M3 default morado)
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFFD4AF37),
-                        unfocusedBorderColor = Color(0xFF6B1C3A),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        cursorColor = Color(0xFFD4AF37),
-                        focusedLabelColor = Color(0xFFD4AF37),
-                        unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
-                    ),
-                )
-                PowButton(
-                    text = stringResource(R.string.sf_mp_join),
-                    onClick = { if (code.length == 4) onJoin(code) },
-                    enabled = code.length == 4,
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            // ─── BLUETOOTH (sin internet): anfitrión visible / buscar al anfitrión ───
-            Text(
-                text = stringResource(R.string.sf_bt_section),
-                color = Color(0xFFD4AF37).copy(alpha = 0.8f),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                PowButton(text = stringResource(R.string.sf_bt_host), onClick = onBtHost)
-                PowButton(text = stringResource(R.string.sf_bt_scan), onClick = onBtScan)
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            // ─── 🆕 SERVIDOR LOCAL (LAN): el jugador hostea su sala en la misma red Wi-Fi ───
-            Text(
-                text = stringResource(R.string.sf_lan_section),
-                color = Color(0xFFD4AF37).copy(alpha = 0.8f),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            PowButton(text = stringResource(R.string.sf_lan_host), onClick = onLanHost)
-            Spacer(modifier = Modifier.height(10.dp))
-            // 🆕 (2026-07-26) AUTODESCUBRIMIENTO: partidas encontradas en la MISMA red Wi-Fi (sin
-            // teclear IP). Tocar una tarjeta se une directo por la IP de su baliza.
-            Text(
-                text = stringResource(R.string.sf_lan_discovered_label),
-                color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp, letterSpacing = 1.sp,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            if (lanDiscovered.isEmpty()) {
+            Column(
+                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 Text(
-                    text = stringResource(R.string.sf_lan_searching),
-                    color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp,
+                    text = stringResource(R.string.sf_mp_title),
+                    color = Color(0xFFD4AF37),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 3.sp,
                 )
-            } else {
-                lanDiscovered.forEach { game ->
-                    PowButton(text = "▶  ${game.name}", onClick = { onLanJoin(game.ip) })
-                    Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+                PowButton(text = stringResource(R.string.sf_mp_public), onClick = onQuickMatch)
+                Spacer(modifier = Modifier.height(10.dp))
+                PowButton(text = stringResource(R.string.sf_mp_create), onClick = onCreate)
+                Spacer(modifier = Modifier.height(14.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = code,
+                        onValueChange = { code = it.uppercase().take(4) },
+                        label = { Text(stringResource(R.string.sf_mp_code_label)) },
+                        singleLine = true,
+                        modifier = Modifier.width(140.dp),
+                        // Paridad con el tema vino/dorado del modo (no el M3 default morado)
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFFD4AF37),
+                            unfocusedBorderColor = Color(0xFF6B1C3A),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            cursorColor = Color(0xFFD4AF37),
+                            focusedLabelColor = Color(0xFFD4AF37),
+                            unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                        ),
+                    )
+                    PowButton(
+                        text = stringResource(R.string.sf_mp_join),
+                        onClick = { if (code.length == 4) onJoin(code) },
+                        enabled = code.length == 4,
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                // ─── BLUETOOTH (sin internet): anfitrión visible / buscar al anfitrión ───
+                Text(
+                    text = stringResource(R.string.sf_bt_section),
+                    color = Color(0xFFD4AF37).copy(alpha = 0.8f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PowButton(text = stringResource(R.string.sf_bt_host), onClick = onBtHost)
+                    PowButton(text = stringResource(R.string.sf_bt_scan), onClick = onBtScan)
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                // ─── 🆕 SERVIDOR LOCAL (LAN): el jugador hostea su sala en la misma red Wi-Fi ───
+                Text(
+                    text = stringResource(R.string.sf_lan_section),
+                    color = Color(0xFFD4AF37).copy(alpha = 0.8f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                PowButton(text = stringResource(R.string.sf_lan_host), onClick = onLanHost)
+                Spacer(modifier = Modifier.height(10.dp))
+                // 🆕 (2026-07-26) AUTODESCUBRIMIENTO: partidas encontradas en la MISMA red Wi-Fi (sin
+                // teclear IP). Tocar una tarjeta se une directo por la IP de su baliza.
+                Text(
+                    text = stringResource(R.string.sf_lan_discovered_label),
+                    color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp, letterSpacing = 1.sp,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                if (lanDiscovered.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.sf_lan_searching),
+                        color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp,
+                    )
+                } else {
+                    lanDiscovered.forEach { game ->
+                        PowButton(text = "▶  ${game.name}", onClick = { onLanJoin(game.ip) })
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.sf_lan_or_ip),
+                    color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                val lanIpValid = SfLanIp.esIpv4Valida(lanIp)
+                val lanIpShowError = SfLanIp.debeMostrarError(lanIp)
+                Row(
+                    modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = lanIp,
+                        onValueChange = { lanIp = SfLanIp.filtrarEntrada(it) },
+                        label = { Text(stringResource(R.string.sf_lan_ip_label)) },
+                        singleLine = true,
+                        isError = lanIpShowError,
+                        supportingText = if (lanIpShowError) {
+                            { Text(stringResource(R.string.sf_lan_ip_invalid)) }
+                        } else {
+                            null
+                        },
+                        modifier = Modifier.weight(1f).testTag("sf-lan-ip"),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFFD4AF37),
+                            unfocusedBorderColor = Color(0xFF6B1C3A),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            cursorColor = Color(0xFFD4AF37),
+                            focusedLabelColor = Color(0xFFD4AF37),
+                            unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                            errorBorderColor = Color(0xFFFF6B6B),
+                            errorTextColor = Color.White,
+                            errorLabelColor = Color(0xFFFF6B6B),
+                            errorSupportingTextColor = Color(0xFFFF6B6B),
+                            errorCursorColor = Color(0xFFFF6B6B),
+                        ),
+                    )
+                    PowButton(
+                        text = stringResource(R.string.sf_mp_join),
+                        onClick = { if (SfLanIp.esIpv4Valida(lanIp)) onLanJoin(lanIp) },
+                        enabled = lanIpValid,
+                        modifier = Modifier.width(112.dp).padding(top = 8.dp).testTag("sf-lan-join"),
+                    )
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.sf_lan_or_ip),
-                color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = lanIp,
-                    onValueChange = { lanIp = it.trim() },
-                    label = { Text(stringResource(R.string.sf_lan_ip_label)) },
-                    singleLine = true,
-                    modifier = Modifier.width(180.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFFD4AF37),
-                        unfocusedBorderColor = Color(0xFF6B1C3A),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        cursorColor = Color(0xFFD4AF37),
-                        focusedLabelColor = Color(0xFFD4AF37),
-                        unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
-                    ),
-                )
-                PowButton(
-                    text = stringResource(R.string.sf_mp_join),
-                    onClick = { if (lanIp.contains('.')) onLanJoin(lanIp) },
-                    enabled = lanIp.count { it == '.' } == 3, // IPv4 completa
-                )
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.padding(vertical = 8.dp).testTag("sf-online-cancel"),
+            ) {
+                Text(stringResource(R.string.sf_mp_cancel), color = Color(0xFFD4AF37))
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.sf_mp_cancel), color = Color(0xFFD4AF37)) }
         }
     }
 }

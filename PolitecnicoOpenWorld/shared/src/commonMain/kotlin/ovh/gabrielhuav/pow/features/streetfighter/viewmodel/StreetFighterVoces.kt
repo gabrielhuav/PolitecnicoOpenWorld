@@ -31,9 +31,25 @@ import kotlin.random.Random
  * (pipeline tools/scrape_sf_voices.py + pack_sf_character_sfx.py).
  * La View hace fallback a `hadouken` si falta el asset.
  */
-internal fun StreetFighterViewModel.specialSfxKey(id: SfFighterId): String = "special_${id.name.lowercase()}"
+internal fun sfSpecialSfxKey(id: SfFighterId): String = when (id) {
+    SfFighterId.LA_PLANCHADA -> "special_llorona_power"
+    else -> "special_${id.name.lowercase()}"
+}
 
-/** Frases special (ES/EN + HUD) de los 21 peleadores. Lazy desde assets. */
+internal fun StreetFighterViewModel.specialSfxKey(id: SfFighterId): String = sfSpecialSfxKey(id)
+
+/** La Planchada comparte los archivos de La Llorona sin duplicarlos en el APK. */
+internal val sfLegendVoicePacks: Map<SfFighterId, StreetFighterViewModel.SfVoicePack> = run {
+    val llorona = StreetFighterViewModel.SfVoicePack(
+        attack = listOf(StreetFighterViewModel.SfVoiceLine("special_llorona_attack")),
+        hurt = listOf(StreetFighterViewModel.SfVoiceLine("special_llorona_hurt")),
+        power = listOf(StreetFighterViewModel.SfVoiceLine("special_llorona_power")),
+        win = listOf(StreetFighterViewModel.SfVoiceLine("special_llorona_win")),
+    )
+    mapOf(SfFighterId.LA_LLORONA to llorona, SfFighterId.LA_PLANCHADA to llorona)
+}
+
+/** Frases special (ES/EN + HUD) de los peleadores. Lazy desde assets. */
 
 internal fun StreetFighterViewModel.emitVoiceClip(name: String): Boolean {
     if (!sfAssetExists("STREETFIGHTER/SOUNDS/$name.m4a")) return false

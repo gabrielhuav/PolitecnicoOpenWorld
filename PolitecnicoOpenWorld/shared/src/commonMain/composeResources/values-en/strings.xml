@@ -25,6 +25,10 @@
     <string name="menu_local_mode">Local mode (no account)</string>
     <string name="menu_mp_connect">Connect</string>
     <string name="menu_mp_dialog_title">Connect to Server</string>
+    <string name="menu_mp_username_counter">%1$d/%2$d</string>
+    <string name="menu_mp_username_invalid_chars">Only letters, numbers, spaces and _ - .</string>
+    <string name="menu_mp_username_too_short">At least %1$d characters</string>
+    <string name="menu_mp_username_too_long">At most %1$d characters</string>
     <string name="menu_mp_username_label">Username</string>
     <string name="menu_multiplayer">MULTIPLAYER</string>
     <string name="menu_retry">RETRY</string>
@@ -366,6 +370,7 @@
     <string name="toast_error_escom_missing">Error: ESCOM is not on the map</string>
     <string name="toast_error_escom_navgraph">Error reading escom_navgraph.json</string>
     <string name="wm_carjack_warning">They're pulling you out of the car! Accelerate!</string>
+    <string name="wm_vehicle_exit_blocked">There is no free space to exit the vehicle.</string>
     <string name="wm_horde_approaching">🧟 A HORDE IS APPROACHING!</string>
     <string name="wm_prankedy_down">🎭 Prankedy fell! He will return later…</string>
     <string name="wm_press_x_activate_zombie">PRESS X TO ACTIVATE ZOMBIE MODE</string>

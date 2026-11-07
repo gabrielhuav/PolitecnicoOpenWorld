@@ -2,19 +2,17 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import ovh.gabrielhuav.pow.data.json.jsonOf
 
-
+import android.util.Log
+import ovh.gabrielhuav.pow.BuildConfig
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
-import ovh.gabrielhuav.pow.domain.models.map.CarModel
 import ovh.gabrielhuav.pow.domain.models.map.InteriorBuilding
-import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import ovh.gabrielhuav.pow.domain.models.map.ShineCTOLocation
-import java.util.UUID
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Interacciones del jugador (intenciones de UI) extraídas de WorldMapViewModel.kt:
@@ -71,6 +69,7 @@ internal fun WorldMapViewModel.onInteractButtonPressed() {
                 // Si el coche traía skin de patrulla (una patrulla que abandonaste), al
                 // re-subirte vuelves a conducirla con el skin de policía.
                 _uiState.update { it.copy(isDriving = true, currentVehicleModel = carNpc.carModel, currentVehicleColor = carNpc.carColor, vehicleRotation = (carNpc.rotationAngle + 90f) % 360f, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = false, isDrivingPoliceCar = carNpc.isPoliceSkin) }
+                logVehicleVisualTransition("board-civil")
                 // H (Modo Historia): si Prankedy es tu ACOMPAÑANTE (escolta), debe SUBIR contigo: corre
                 // hasta tu posición y el coche NO avanza hasta que se sube (lo completa runPrankedyTick).
                 if (prankedyManager.phase == ovh.gabrielhuav.pow.domain.models.ai.PrankedyPhase.HIRED &&
@@ -111,33 +110,28 @@ internal fun WorldMapViewModel.onInteractButtonPressed() {
                         vehicleIsFirstTimeBoarded = false,
                         isDrivingPoliceCar = true
                     ) }
+                    logVehicleVisualTransition("board-patrol")
                     prankedyManager.onVehicleInteraction()
                     updateNpcsState()
                 }
             }
         } else {
-            lastVehicleToggleMs = nowMs
-            val abandonedCar = Npc(
-                id = UUID.randomUUID().toString(),
-                type = NpcType.CAR,
-                location = loc,
-                rotationAngle = (_uiState.value.vehicleRotation + 270f) % 360f,
-                speed = 0.0,
-                isMoving = false,
-                carModel = _uiState.value.currentVehicleModel ?: CarModel.SEDAN,
-                carColor = _uiState.value.currentVehicleColor ?: 0xFFFFFFFF.toInt(),
-                isFirstTimeBoarded = _uiState.value.vehicleIsFirstTimeBoarded,
-                // Si te bajas de una PATRULLA robada, el coche que queda conserva el skin de
-                // patrulla (sigue siendo tipo CAR para que la IA lo conduzca como tráfico).
-                isPoliceSkin = _uiState.value.isDrivingPoliceCar,
-                navState = if (isInsideEscom(loc.latitude, loc.longitude)) ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED else ovh.gabrielhuav.pow.domain.models.map.NpcNavState.MACRO_OSM
-            )
-            remoteEntities[abandonedCar.id] = abandonedCar
-            _uiState.update { it.copy(isDriving = false, currentVehicleModel = null, currentVehicleColor = null, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = true, isDrivingPoliceCar = false, prankedyBoarding = false) }
-            prankedyManager.onVehicleInteraction()
-            updateNpcsState()
+            if (exitVehicle(forced = false)) {
+                lastVehicleToggleMs = nowMs
+            }
         }
     }
+
+/** Traza la frontera VM → renderer sin contaminar los builds release ni el game loop. */
+internal fun WorldMapViewModel.logVehicleVisualTransition(source: String) {
+    if (!BuildConfig.DEBUG) return
+    val state = _uiState.value
+    Log.d(
+        "VehicleViewport",
+        "vm=$source driving=${state.isDriving} loc=${state.currentLocation} zoom=${state.zoomLevel} " +
+            "rotation=${state.vehicleRotation} panning=${state.isUserPanningMap}",
+    )
+}
 
     /**
      * Interacción con la mano: en lugar de entrar a un interior concreto, marca

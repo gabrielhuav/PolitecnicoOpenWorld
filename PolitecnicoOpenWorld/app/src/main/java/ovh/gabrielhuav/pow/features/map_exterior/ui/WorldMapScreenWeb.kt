@@ -6,6 +6,7 @@ import ovh.gabrielhuav.pow.data.json.jsonArrayOf
 import ovh.gabrielhuav.pow.data.json.jsonOf
 
 import android.content.Context
+import android.util.Log
 import android.webkit.WebView
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -28,7 +29,10 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.VehicleSpriteMana
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapState
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
+import ovh.gabrielhuav.pow.BuildConfig
 import kotlin.math.roundToInt
+
+private const val VEHICLE_VIEWPORT_TAG = "VehicleViewport"
 
 /**
  * CAPA 1 (MAPA) — rama **WEB** (Leaflet en `WebView`) extraída de `WorldMapScreen.kt` para reducir
@@ -70,6 +74,7 @@ internal fun WebMapLayer(
     lastWebPoliceHolder: BooleanArray,
     lastWebZombieHolder: BooleanArray,
 ) {
+    val lastAppliedDriving = remember { arrayOfNulls<Boolean>(1) }
                 val collectiblesJson = remember(allCollectibles) { PowJson.encodeToString(allCollectibles) }
                 AndroidView(
                     factory = { ctx ->
@@ -100,12 +105,46 @@ internal fun WebMapLayer(
                     update = { wv ->
                         webViewRef.value = wv
                         val timeMs = System.currentTimeMillis()
-                        if (!uiState.isUserPanningMap) {
+                        val vehiclePlan = webVehicleRenderPlan(
+                            isDriving = uiState.isDriving,
+                            previousDriving = lastAppliedDriving[0],
+                            vehicleRotation = uiState.vehicleRotation,
+                            isUserPanningMap = uiState.isUserPanningMap,
+                        )
+                        val location = uiState.currentLocation
+                        if (BuildConfig.DEBUG && vehiclePlan.shouldRecenterAfterResize) {
+                            Log.d(
+                                VEHICLE_VIEWPORT_TAG,
+                                "js=resize->invalidate->recenter->rotate driving=${uiState.isDriving} " +
+                                    "loc=$location zoom=${uiState.zoomLevel} rotation=${uiState.vehicleRotation} " +
+                                    "panning=${uiState.isUserPanningMap}",
+                            )
+                        }
+                        // El viewport del WebView debe cambiar ANTES de mover marcadores/sprites:
+                        // Leaflet recalcula su centro tras crecer para la rotación del vehículo.
+                        val latitude = location?.latitude?.toString() ?: "null"
+                        val longitude = location?.longitude?.toString() ?: "null"
+                        wv.evaluateJavascript(
+                            "if(typeof applyVehicleViewport==='function')applyVehicleViewport(" +
+                                "${uiState.isDriving},$latitude,$longitude,${uiState.zoomLevel}," +
+                                "${vehiclePlan.rotationDegrees},${vehiclePlan.shouldRecenterAfterResize});",
+                        ) { jsResult ->
+                            if (shouldCommitVehicleViewportTransition(jsResult, location != null)) {
+                                lastAppliedDriving[0] = uiState.isDriving
+                            }
+                            if (BuildConfig.DEBUG && vehiclePlan.shouldRecenterAfterResize) {
+                                Log.d(VEHICLE_VIEWPORT_TAG, "viewport aplicado=$jsResult")
+                                wv.evaluateJavascript(
+                                    "if(typeof vehicleViewportDebug==='function')vehicleViewportDebug();",
+                                ) { debug -> Log.d(VEHICLE_VIEWPORT_TAG, "leaflet=$debug") }
+                            }
+                        }
+                        if (!uiState.isUserPanningMap && !vehiclePlan.shouldRecenterAfterResize) {
                             // Zoom SIN truncar (.toInt() peleaba con syncZoom cuando el estado
                             // queda en medios pasos tras un pinch, p. ej. 21.5 vs 21).
-                            uiState.currentLocation?.let { wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel});", null) }
+                            location?.let { wv.evaluateJavascript("if(typeof updateMapView==='function')updateMapView(${it.latitude}, ${it.longitude}, ${uiState.zoomLevel});", null) }
                         }
-                        uiState.currentLocation?.let { wv.evaluateJavascript("if(typeof updatePlayerMarker==='function')updatePlayerMarker(${it.latitude}, ${it.longitude}, ${uiState.isUserPanningMap});", null) }
+                        location?.let { wv.evaluateJavascript("if(typeof updatePlayerMarker==='function')updatePlayerMarker(${it.latitude}, ${it.longitude}, ${vehiclePlan.showAuxiliaryPlayerMarker});", null) }
                         // Zoom automático por estado: sync explícito e incondicional (el JS
                         // decide si aplica; respeta el pinch reciente del usuario).
                         wv.evaluateJavascript("if(typeof syncZoom==='function')syncZoom(${uiState.zoomLevel});", null)
@@ -448,7 +487,7 @@ internal fun WebMapLayer(
                                     mapOf("id" to "blk_$i", "nodes" to poly.nodes.map { mapOf("lat" to it.lat, "lng" to it.lon) })
                                 } ?: emptyList()
                                 val walls = cfg?.walls?.mapIndexed { i, wl ->
-                                    mapOf("id" to "wl_$i", "nodes" to listOf(
+                                    mapOf("id" to "wl_$i", "guide" to (wl.effectiveRole == ovh.gabrielhuav.pow.domain.models.map.CollisionRole.NAV_GUIDE), "nodes" to listOf(
                                         mapOf("lat" to wl.lat1, "lng" to wl.lon1),
                                         mapOf("lat" to wl.lat2, "lng" to wl.lon2)
                                     ))

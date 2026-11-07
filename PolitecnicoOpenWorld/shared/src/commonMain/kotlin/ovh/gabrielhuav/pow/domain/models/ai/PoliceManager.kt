@@ -4,6 +4,9 @@ import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig
+import ovh.gabrielhuav.pow.domain.models.map.resolveNpcPath
+import ovh.gabrielhuav.pow.domain.models.map.offsetMeters
 import ovh.gabrielhuav.pow.platform.concurrencia.PowMapaConcurrente
 import kotlin.concurrent.Volatile
 import kotlin.time.TimeSource
@@ -103,6 +106,13 @@ class PoliceManager {
     }
 
     fun activeUnits(): List<Npc> = units.valores.toList()
+
+    /** Ajuste arcade aplicado tras un choque del jugador contra una patrulla en marcha. */
+    fun displaceVehicle(id: String, northMeters: Double, eastMeters: Double) {
+        val unit = units[id] ?: return
+        if (unit.type != NpcType.POLICE_CAR || !unit.isMoving || unit.policeDisembarked) return
+        units[id] = unit.copy(location = unit.location.offsetMeters(northMeters, eastMeters))
+    }
 
     // El jugador golpea: daña a los policías a pie dentro del radio. Devuelve los ids de
     // los que cayeron (para difundir POLICE_DESTROY). Las patrullas no se dañan a golpes.
@@ -204,6 +214,29 @@ class PoliceManager {
         return Triple(placed, rot, facing)
     }
 
+    /** Patrullas y policías frenan en el último punto seguro sin abortar su tick de IA. */
+    private fun placeAfterStaticCollision(
+        unit: Npc,
+        target: GeoPoint,
+        rotation: Float,
+        facing: Boolean,
+        collisions: ExteriorCollisionsConfig?,
+    ): Npc {
+        val resolution = collisions?.resolveNpcPath(
+            type = unit.type,
+            carModel = unit.carModel,
+            from = unit.location,
+            to = target,
+            headingDegrees = (rotation + 90f) % 360f,
+        )
+        return unit.copy(
+            location = resolution?.position ?: target,
+            rotationAngle = rotation,
+            facingRight = facing,
+            isMoving = resolution?.reachedTarget ?: true,
+        )
+    }
+
     fun update(
         playerLat: Double,
         playerLon: Double,
@@ -215,7 +248,8 @@ class PoliceManager {
         snap: ((GeoPoint) -> GeoPoint)? = null,
         pathfind: ((GeoPoint, GeoPoint) -> List<GeoPoint>)? = null,
         prankedyLoc: GeoPoint? = null,
-        isPrankedyFighting: Boolean = false
+        isPrankedyFighting: Boolean = false,
+        collisions: ExteriorCollisionsConfig? = null,
     ): PoliceTick {
         // ─── RETIRADA ───────────────────────────────────────────────────────────
         if (wantedLevel <= 0) {
@@ -232,7 +266,7 @@ class PoliceManager {
                 val awayLat = unit.location.latitude + (unit.location.latitude - playerLat)
                 val awayLon = unit.location.longitude + (unit.location.longitude - playerLon)
                 val (loc, rot, facing) = stepOnRoad(unit.location, awayLat, awayLon, spd, snap)
-                units[unit.id] = unit.copy(location = loc, rotationAngle = rot, facingRight = facing, isMoving = true)
+                units[unit.id] = placeAfterStaticCollision(unit, loc, rot, facing, collisions)
             }
             return PoliceTick(units.valores.toList(), 0f, 0f, false, destroyed, false)
         }
@@ -289,7 +323,7 @@ class PoliceManager {
                     } else {
                         // Persecución con RUTA por las calles (pathfinding + anti-atasco).
                         val (loc, rot, facing) = advanceAlong(unit, playerLat, playerLon, CAR_SPEED, now, snap, pathfind)
-                        units[unit.id] = unit.copy(location = loc, rotationAngle = rot, facingRight = facing, isMoving = true)
+                        units[unit.id] = placeAfterStaticCollision(unit, loc, rot, facing, collisions)
                     }
                 }
 
@@ -314,7 +348,7 @@ class PoliceManager {
                                 // Vuelven a la patrulla por la calle (ruta + anti-atasco).
                                 val (loc, rot, facing) = advanceAlong(unit,
                                     car.location.latitude, car.location.longitude, COP_SPEED, now, snap, pathfind)
-                                units[unit.id] = unit.copy(location = loc, rotationAngle = rot, facingRight = facing, isMoving = true)
+                                units[unit.id] = placeAfterStaticCollision(unit, loc, rot, facing, collisions)
                             }
                         }
                         continue
@@ -331,7 +365,7 @@ class PoliceManager {
                         // Persiguen por la calle (ruta + anti-atasco): no atraviesan edificios
                         // pero tampoco se quedan trabados.
                         val (loc, rot, facing) = advanceAlong(unit, playerLat, playerLon, COP_SPEED, now, snap, pathfind)
-                        units[unit.id] = unit.copy(location = loc, rotationAngle = rot, facingRight = facing, isMoving = true)
+                        units[unit.id] = placeAfterStaticCollision(unit, loc, rot, facing, collisions)
                     } else {
                         units[unit.id] = unit.copy(isMoving = false)
                     }

@@ -268,6 +268,10 @@ enum class SfFighterId(
         "Alexis Syntaxis", "SYNTAXIS",
         "STREETFIGHTER/DATA/alexis_syntaxis.json", "STREETFIGHTER/IMAGES/AlexisSyntaxis.webp",
     ),
+    LA_PLANCHADA(
+        "La Planchada", "PLANCHADA",
+        "STREETFIGHTER/DATA/laplanchada.json", "STREETFIGHTER/IMAGES/LaPlanchada.webp",
+    ),
 }
 
 /** Fuerza del ataque (fighter.js FighterAttackBaseData; slide ya en px/s). */
