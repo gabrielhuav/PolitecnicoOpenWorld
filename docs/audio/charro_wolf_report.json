@@ -1,0 +1,32 @@
+{
+  "source_ref": "b191a6f8ddec7d6bf4fa0b3b03c4b8b89b656301",
+  "clips": [
+    {
+      "file": "special_charro_hurt_1.m4a",
+      "source_sha256": "87d1cb5de2af9713627732f5cc5846bf36a0835644747d49552b2f2d9e4f9c0e",
+      "output_sha256": "24f2e43333a1985ba59004c3b76e0b9640ce734508855df2c59fb34368bd1f8a",
+      "source_seconds": 4.519002,
+      "output_seconds": 4.519002,
+      "lufs": -15.88,
+      "true_peak_dbtp": -1.93
+    },
+    {
+      "file": "special_charro_negro.m4a",
+      "source_sha256": "07758a96b8b32e72162ccba3bc957936720fb6acb77a3d38c3341cc8f123801b",
+      "output_sha256": "1270408d370510b9d31566d0de775337f69fa2cdb420d827e0b0cacad9f06875",
+      "source_seconds": 3.604898,
+      "output_seconds": 3.605011,
+      "lufs": -16.21,
+      "true_peak_dbtp": -1.86
+    },
+    {
+      "file": "special_charro_negro_win.m4a",
+      "source_sha256": "7602162eadadda03e13748edb3b59f3750ab6cfc43219a90e7d250fab51d67c9",
+      "output_sha256": "66c48aa7797aad1c46f3e8651e22abc52e44536a922f41993935bf921e497231",
+      "source_seconds": 7.026939,
+      "output_seconds": 7.027007,
+      "lufs": -16.26,
+      "true_peak_dbtp": -1.83
+    }
+  ]
+}
