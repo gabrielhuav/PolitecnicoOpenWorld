@@ -46,17 +46,19 @@ def loudness(path: Path) -> dict:
 def render(source: Path, target: Path, work: Path) -> dict:
     info = probe(source)
     duration = float(info["format"]["duration"])
-    # Speech carries articulation; a quieter, lower, rough throat layer supplies
-    # the growl. Rubber Band preserves tempo and shifts formants with the pitch.
+    # The user prefers a very bestial voice over clear articulation. A dominant
+    # throat layer and a rasp layer roughen the lower speech. All keep the tempo.
     graph = (
-        "[0:a]aresample=44100,highpass=f=65,asplit=2[speech][throat];"
-        "[speech]rubberband=pitch=0.81:tempo=1:formant=shifted,"
-        "equalizer=f=2400:t=q:w=0.8:g=2[voice];"
-        "[throat]rubberband=pitch=0.53:tempo=1:formant=shifted,"
-        "highpass=f=75,lowpass=f=1350,volume=3,asoftclip=type=tanh,"
-        "tremolo=f=32:d=0.38[growl];"
-        "[voice][growl]amix=inputs=2:weights='0.83 0.23':normalize=0,"
-        "highpass=f=65,lowpass=f=9500,"
+        "[0:a]aresample=44100,highpass=f=65,asplit=3[speech][throat][rasp];"
+        "[speech]rubberband=pitch=0.70:tempo=1:formant=shifted,"
+        "lowpass=f=5000[voice];"
+        "[throat]rubberband=pitch=0.47:tempo=1:formant=shifted,"
+        "highpass=f=65,lowpass=f=1800,volume=5,asoftclip=type=tanh,"
+        "tremolo=f=37:d=0.68[growl];"
+        "[rasp]rubberband=pitch=0.88:tempo=1:formant=shifted,"
+        "highpass=f=550,lowpass=f=3800,volume=6,asoftclip=type=tanh[snarl];"
+        "[voice][growl][snarl]amix=inputs=3:weights='0.40 0.60 0.18':normalize=0,"
+        "highpass=f=65,lowpass=f=7000,"
         f"apad,atrim=duration={duration:.9f},"
         f"afade=t=in:d=0.008,afade=t=out:st={max(0, duration-0.025):.9f}:d=0.025[out]"
     )
@@ -105,7 +107,7 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    report = {"source_ref": args.source_ref, "clips": []}
+    report = {"source_ref": args.source_ref, "profile": "very_bestial", "clips": []}
     with tempfile.TemporaryDirectory(prefix="charro-wolf-") as temporary:
         work = Path(temporary)
         for filename in FILES:
