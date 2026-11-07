@@ -295,13 +295,13 @@ open class StreetFighterViewModel(
         SfFighterId.PRANKEDY, SfFighterId.SENOR_TIENDA, SfFighterId.PAPARAZZI_1, SfFighterId.PAPARAZZI_5,
         SfFighterId.REY_GRUPERO, SfFighterId.ESCOMBOY, SfFighterId.CHARRO_NEGRO, SfFighterId.LAZARO,
         SfFighterId.POLICIA_CDMX_HOMBRE, SfFighterId.POLICIA_GRANADERO_HOMBRE, SfFighterId.GRANADERO,
-        SfFighterId.PARAMEDICO_CRUZ_ROJA, SfFighterId.PARAMEDICO, SfFighterId.ALEXIS_SYNTAXIS,
+        SfFighterId.PARAMEDICO_CRUZ_ROJA, SfFighterId.PARAMEDICO, SfFighterId.ALEXIS_SYNTAXIS, SfFighterId.ESTUDIANTE_IPN,
     )
 
     // 🆕 (2026-07-18s) Peleadores SIN voz a propósito (special_<id>.m4a borrado por el dueño):
     // su poder especial suena con el hadouken genérico. La auditoría NO los marca como faltantes.
     internal val sfVoicelessFighters = setOf(
-        SfFighterId.LAZARO, SfFighterId.PARAMEDICO, SfFighterId.PRANKEDY, SfFighterId.ALEXIS_SYNTAXIS,
+        SfFighterId.LAZARO, SfFighterId.PARAMEDICO, SfFighterId.PRANKEDY, SfFighterId.ALEXIS_SYNTAXIS, SfFighterId.ESTUDIANTE_IPN,
     )
 
     // 🆕 (2026-10-15) Peleadores que NO emiten ningún sonido de voz al ganar (ni su pack WIN
@@ -374,7 +374,7 @@ open class StreetFighterViewModel(
      * (RYU/KEN se eliminaron del juego; ver SfFighterId.)
      */
     fun selectableFighters(): List<SfFighterId> {
-        if (devUnlockAll()) return SfArcadeLadder.ALL_PARTICIPANTS
+        if (devUnlockAll()) return SfArcadeLadder.ALL_PARTICIPANTS + SfArcadeLadder.DEV_ONLY_FIGHTERS
         val unlocked = unlockedIds()
         return SfArcadeLadder.ALL_PARTICIPANTS.filter { it in unlocked }
     }

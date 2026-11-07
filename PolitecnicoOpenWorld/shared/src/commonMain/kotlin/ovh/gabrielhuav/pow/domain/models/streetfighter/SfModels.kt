@@ -272,6 +272,11 @@ enum class SfFighterId(
         "La Planchada", "PLANCHADA",
         "STREETFIGHTER/DATA/laplanchada.json", "STREETFIGHTER/IMAGES/LaPlanchada.webp",
     ),
+    // NPC de interiores reutilizado como peleador ALPHA, exclusivo del modo desarrollador.
+    ESTUDIANTE_IPN(
+        "Estudiante IPN", "IPN", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/EstudianteIpn.png",
+        isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "NPCS/NPCSIPN/Ipn3/", "ipn3_"),
+    ),
 }
 
 /** Fuerza del ataque (fighter.js FighterAttackBaseData; slide ya en px/s). */

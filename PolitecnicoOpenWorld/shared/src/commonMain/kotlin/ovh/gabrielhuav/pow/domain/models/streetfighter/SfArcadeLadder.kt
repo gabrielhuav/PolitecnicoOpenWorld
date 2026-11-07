@@ -49,6 +49,12 @@ object SfArcadeLadder {
         SfFighterId.ALEXIS_SYNTAXIS,
     )
 
+    /**
+     * Peleadores que NO forman parte del arcade (no se desbloquean jugando) y solo aparecen en el
+     * selector con Modo Desarrollador. Van aparte para no pintarlos con candado 🔒 a todos.
+     */
+    val DEV_ONLY_FIGHTERS = listOf(SfFighterId.ESTUDIANTE_IPN)
+
     /** Un escalón: rival, mapa (null = conservar el anterior), si es jefe y si es el FINAL. */
     data class Step(
         val index: Int,               // 1..TOTAL (para HUD "PELEA N / T")
