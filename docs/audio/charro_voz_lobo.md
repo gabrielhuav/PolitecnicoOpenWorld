@@ -1,19 +1,27 @@
 # Charro Negro: voces lupinas
 
-Las tres voces nuevas del PR #188 usan el perfil `very_bestial`, solicitado
-por el usuario: domina el gruñido lupino y se sacrifica claridad al hablar.
-El procesamiento mezcla una voz a 0.70 veces el tono original con una capa
-de garganta a 0.47, filtrada, saturada y modulada a 37 Hz. Una tercera capa
-rasposa a 0.88 refuerza el rugido. Los pesos respectivos son 0.40, 0.60 y
-0.18. Todas mantienen el tempo. No se usan muestras externas de animales.
+Las tres voces nuevas del PR #188 usan el perfil
+`wolf_vocoder_and_vocalizations`. El usuario pidió una voz muy bestial y
+señaló que la primera mezcla no parecía un lobo. Esta versión usa aullidos
+reales del U.S. Fish and Wildlife Service y gruñidos de diseño sonoro CC0
+de SFXMint. La voz hablada pierde claridad de forma deliberada.
+
+Un vocoder de diez bandas transfiere la articulación de las frases al
+aullido, conservando el tono natural del animal. Los gruñidos siguen la
+envolvente de las sílabas. Se expone el aullido al principio y al final de
+cada clip dentro de su duración original. La voz humana baja ligeramente
+de tono (factor 0.88) y queda como capa de apoyo. La mezcla evita el
+subgrave extremo y el trémolo de la versión anterior.
+
+Fuentes, licencias y modificaciones: `newSFAssets/CharroNegro/audio_sources/README.md`.
 
 Se sustituyen únicamente estos archivos en `STREETFIGHTER/SOUNDS`:
 
 | Archivo | Evento | Duración final | LUFS | Pico verdadero |
 | --- | --- | ---: | ---: | ---: |
-| `special_charro_hurt_1.m4a` | Daño | 4.519002 s | -15.90 | -2.00 dBTP |
-| `special_charro_negro.m4a` | Especial | 3.605011 s | -15.89 | -2.00 dBTP |
-| `special_charro_negro_win.m4a` | Victoria | 7.027007 s | -16.01 | -2.01 dBTP |
+| `special_charro_hurt_1.m4a` | Daño | 4.519002 s | -16.50 | -1.86 dBTP |
+| `special_charro_negro.m4a` | Especial | 3.605011 s | -16.37 | -2.01 dBTP |
+| `special_charro_negro_win.m4a` | Victoria | 7.027007 s | -16.06 | -1.96 dBTP |
 
 Los nombres, las frases ES/EN y su registro en el juego permanecen como en
 el PR #188. La diferencia de duración es inferior a 0.2 ms. La codificación
@@ -22,10 +30,11 @@ antes de medir nuevamente el archivo AAC final.
 
 ## Reproducir
 
-Desde la raíz del repositorio, con FFmpeg (filtro `rubberband`) y ffprobe:
+Desde la raíz del repositorio, con FFmpeg (filtro `rubberband`), ffprobe,
+NumPy y SciPy:
 
 ```powershell
-python PolitecnicoOpenWorld/tools/process_charro_wolf.py --output-dir .codex-tmp/charro-wolf/bestial
+python PolitecnicoOpenWorld/tools/process_charro_wolf.py --output-dir .codex-tmp/charro-wolf/lobo-v3
 ```
 
 El script recupera los originales del commit
