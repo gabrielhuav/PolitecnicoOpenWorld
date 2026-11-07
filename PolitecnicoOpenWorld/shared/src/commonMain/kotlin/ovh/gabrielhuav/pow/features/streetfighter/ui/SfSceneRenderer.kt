@@ -58,6 +58,7 @@ import ovh.gabrielhuav.pow.data.json.getDouble
 import ovh.gabrielhuav.pow.data.json.getInt
 import ovh.gabrielhuav.pow.data.json.powJsonObjeto
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFrameDef
+import ovh.gabrielhuav.pow.features.streetfighter.data.SfSharedSheets
 import ovh.gabrielhuav.pow.features.streetfighter.data.SfTheme
 import ovh.gabrielhuav.pow.platform.assets.PowAssets
 import ovh.gabrielhuav.pow.platform.imagen.PowImagen
@@ -232,7 +233,7 @@ fun DrawScope.drawScene(
                 if (victimFx != null) fighter.copy(y = fighter.y - victimFx.victimLiftPx) else fighter,
                 t, showHitboxes, contentH,
                 silhouette = side == 0 && playerSilhouette,
-                sheetScale = sheetScale,
+                sheetScale = SfSharedSheets.sheetScaleFor(fighter.id, sheetScale),
                 tint = victimFx?.takeIf { it.victimTintAmount > 0f }
                     ?.let { Color(it.victimTint).copy(alpha = it.victimTintAmount.coerceIn(0f, 1f)) },
                 alpha = victimFx?.victimAlpha?.coerceIn(0f, 1f) ?: 1f,

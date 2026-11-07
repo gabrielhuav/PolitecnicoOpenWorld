@@ -165,6 +165,7 @@ class SfArcadeCampaignAuditTest {
                 "special_pol_h_intro.ogg", "special_pol_h_attack.ogg", "special_granadero_win.ogg"
             )
             SfFighterId.PARAMEDICO -> emptyList()
+            SfFighterId.ESTUDIANTE_IPN -> emptyList()
             SfFighterId.ALEXIS_SYNTAXIS -> emptyList()
             SfFighterId.LA_PLANCHADA -> listOf(
                 "special_llorona_attack.ogg", "special_llorona_hurt.ogg",
