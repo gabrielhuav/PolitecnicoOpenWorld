@@ -1,0 +1,2 @@
+--------- beginning of main
+11-04 19:59:27.347 16114 16164 D OverpassRepository: Calles estáticas OK (975_-4958): 3427 ways

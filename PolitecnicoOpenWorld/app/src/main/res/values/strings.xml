@@ -78,7 +78,10 @@
     <string name="zhud_zone">ZONA: %1$s</string>
     <string name="zhud_zombies">ZOMBIS: %1$d/%2$d</string>
     <string name="zhud_players">JUGADORES: %1$d</string>
-    <string name="zhud_mode">MODO: %1$s  (mantén Y)</string>
+    <string name="zhud_mode">MODO: %1$s · %2$s</string>
+    <string name="zhud_attack_melee_hint">B: golpear</string>
+    <string name="zhud_attack_ranged_hint">B: disparar</string>
+    <string name="zhud_inventory_open_hint">Mantén Y: inventario</string>
     <string name="zhud_mode_melee">GOLPE</string>
     <string name="zhud_mode_ranged">ARMA</string>
     <string name="zhud_combat_mode">MODO DE COMBATE</string>
@@ -282,6 +285,8 @@
     <string name="wm_mission_failed">MISIÓN\nFALLIDA</string>
     <string name="wm_retry_mission">REINTENTAR MISIÓN</string>
     <string name="wm_exit_to_menu">Salir al menú</string>
+    <string name="wm_exit_confirm_message">¿Abandonar la partida y volver al menú principal?</string>
+    <string name="wm_keep_exploring">Seguir explorando</string>
     <string name="wm_tip_carjack">Presiona Y cerca de un auto para subirte a el.</string>
     <string name="wm_opt_save_game">Guardar partida</string>
     <!-- ─── Widget de objetivo (campaña) ─── -->
@@ -340,6 +345,7 @@
     <string name="zhud_inv_test">Probar</string>
     <string name="wm_inv_readonly_hint">Objetos de misión. Se usan en su lugar de la historia; aquí solo los consultas.</string>
     <string name="zhud_inv_discard">Desechar</string>
+    <string name="zhud_inv_slot">Casilla %1$d del inventario</string>
     <string name="zgame_key_prompt">🔑 Hay una llave — pulsa ACCIÓN para inspeccionarla</string>
     <string name="zgame_objective_investigate">Objetivo: Investiga qué pasó</string>
     <!-- ─── Diálogos de guardar/cargar (MainActivity) ─── -->
@@ -556,6 +562,7 @@
     <string name="sf_lan_section">SERVIDOR LOCAL (misma red Wi-Fi)</string>
     <string name="sf_lan_host">CREAR SERVIDOR</string>
     <string name="sf_lan_ip_label">IP del anfitrión</string>
+    <string name="sf_lan_ip_invalid">IP no válida. Ejemplo: 192.168.1.5</string>
     <string name="sf_lan_host_title">SERVIDOR LOCAL</string>
     <string name="sf_lan_host_sub">Tu sala está abierta. Comparte esta dirección con tu rival (misma red Wi-Fi o tu hotspot):\n\n%1$s</string>
     <string name="sf_lan_no_ip">No se detectó red local: conéctate a una red Wi-Fi o enciende tu hotspot y reintenta.</string>

@@ -177,12 +177,8 @@ open class StreetFighterViewModel(
             // Paramédico Cruz Roja = WIN. (Su special_<id> también suena en su poder por fallback.)
             // 🆕 (2026-07-18t) La Llorona: pack COMPLETO con audios dedicados del dueño
             // (special/power, attack recortado seg 7-11, hurt).
-            SfFighterId.LA_LLORONA to SfVoicePack(
-                attack = listOf(SfVoiceLine("special_llorona_attack")),
-                hurt = listOf(SfVoiceLine("special_llorona_hurt")),
-                power = listOf(SfVoiceLine("special_llorona_power")),
-                win = listOf(SfVoiceLine("special_llorona_win")),
-            ),
+            SfFighterId.LA_LLORONA to sfLegendVoicePacks.getValue(SfFighterId.LA_LLORONA),
+            SfFighterId.LA_PLANCHADA to sfLegendVoicePacks.getValue(SfFighterId.LA_PLANCHADA),
             SfFighterId.LA_TZITZIMIME to SfVoicePack(
                 attack = listOf(SfVoiceLine("special_la_tzitzimime_attack")),
                 hurt = listOf(SfVoiceLine("special_la_tzitzimime_hurt")),
@@ -299,13 +295,19 @@ open class StreetFighterViewModel(
         SfFighterId.PRANKEDY, SfFighterId.SENOR_TIENDA, SfFighterId.PAPARAZZI_1, SfFighterId.PAPARAZZI_5,
         SfFighterId.REY_GRUPERO, SfFighterId.ESCOMBOY, SfFighterId.CHARRO_NEGRO, SfFighterId.LAZARO,
         SfFighterId.POLICIA_CDMX_HOMBRE, SfFighterId.POLICIA_GRANADERO_HOMBRE, SfFighterId.GRANADERO,
-        SfFighterId.PARAMEDICO_CRUZ_ROJA, SfFighterId.PARAMEDICO,
+        SfFighterId.PARAMEDICO_CRUZ_ROJA, SfFighterId.PARAMEDICO, SfFighterId.ALEXIS_SYNTAXIS,
     )
 
     // 🆕 (2026-07-18s) Peleadores SIN voz a propósito (special_<id>.m4a borrado por el dueño):
     // su poder especial suena con el hadouken genérico. La auditoría NO los marca como faltantes.
     internal val sfVoicelessFighters = setOf(
-        SfFighterId.LAZARO, SfFighterId.PARAMEDICO, SfFighterId.PRANKEDY,
+        SfFighterId.LAZARO, SfFighterId.PARAMEDICO, SfFighterId.PRANKEDY, SfFighterId.ALEXIS_SYNTAXIS,
+    )
+
+    // 🆕 (2026-10-15) Peleadores que NO emiten ningún sonido de voz al ganar (ni su pack WIN
+    // ni el fallback al special). Ver emitWinVoice.
+    internal val sfNoWinVoiceFighters = setOf(
+        SfFighterId.ALEXIS_SYNTAXIS,
     )
 
     /** Emite un clip de voz `special_<name>.m4a` si el asset existe. true = se emitió. */
@@ -1294,7 +1296,7 @@ open class StreetFighterViewModel(
     /** Cola común del update: posición, slide, animación, límites y colisión de ataque. */
     private fun finishFighterUpdate(sim: Sim, idx: Int, now: Long, dt: Float) {
         // 🆕 (2026-07-22, Fase 1) cinemática de un tick (posición + slide) extraída a SfPhysics (puro).
-        sim.setFighter(idx, clampFighterToStage(SfPhysics.step(sim.fighter(idx), dt)))
+        sim.setFighter(idx, clampFighterToStage(SfPhysics.step(SfPhysics.applyInterruptedGravity(sim.fighter(idx), dt), dt)))
 
         // Aterrizaje en el MISMO tick en que se cruza el piso. Antes dependía del tick siguiente;
         // un valor de velocidad roto podía dejar un estado JUMP/AIR clavado y parecer que el NPC

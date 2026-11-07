@@ -2,6 +2,7 @@ package ovh.gabrielhuav.pow.features.interiores.zombies.ui
 
 import android.content.res.Configuration
 import android.graphics.BitmapFactory
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -13,7 +14,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,11 +52,14 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -75,6 +79,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.ActionButtonsCont
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.CoordsWidget
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.DPadController
 import ovh.gabrielhuav.pow.ui.components.JoystickController
+import ovh.gabrielhuav.pow.ui.components.ControllerBaseSize
 import ovh.gabrielhuav.pow.ui.components.WithShoulderTriggers
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.Direction
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.GameAction
@@ -98,7 +103,8 @@ fun ZombieHud(
     onDismissInventory: () -> Unit,
     // PUZZLE Misión 1: probar / desechar la llave del inventario (assetPath).
     onTestKey: (String) -> Unit = {},
-    onDiscardKey: (String) -> Unit = {}
+    onDiscardKey: (String) -> Unit = {},
+    onSelectSlot: (Int) -> Unit = {}
 ) {
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
@@ -130,13 +136,20 @@ fun ZombieHud(
                 }
             }
             PlayerHealthBarFixed(health = state.playerHealth)
-            Text(
-                text = stringResource(R.string.zhud_mode, if (state.combatMode == CombatMode.MELEE) stringResource(R.string.zhud_mode_melee) else stringResource(R.string.zhud_mode_ranged)),
-                color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .background(Color(0xFF2A1C21).copy(alpha = 0.85f), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-            )
+            if (!state.showInventory) {
+                val melee = state.combatMode == CombatMode.MELEE
+                Text(
+                    text = stringResource(
+                        R.string.zhud_mode,
+                        stringResource(if (melee) R.string.zhud_mode_melee else R.string.zhud_mode_ranged),
+                        stringResource(if (melee) R.string.zhud_attack_melee_hint else R.string.zhud_attack_ranged_hint)
+                    ),
+                    color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .background(Color(0xFF2A1C21).copy(alpha = 0.85f), RoundedCornerShape(20.dp))
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+            }
             if (state.activeEffects.isNotEmpty()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     state.activeEffects.forEach { ae ->
@@ -169,6 +182,8 @@ fun ZombieHud(
         val bottomPadding = if (isPortrait) 32.dp else 20.dp
         val maxScale = if (isPortrait) 0.95f else 1.3f
         val scale = state.controlsScale.coerceIn(0.6f, maxScale)
+        // scale dibuja fuera del tamaño medido: deja libre el borde superior para la ayuda.
+        val actionHintGap = 4.dp + ControllerBaseSize * ((scale - 1f).coerceAtLeast(0f) / 2f)
 
         Row(
             modifier = Modifier
@@ -177,7 +192,7 @@ fun ZombieHud(
                 .padding(bottom = bottomPadding, start = sidePadding, end = sidePadding)
                 .systemBarsPadding(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Bottom
         ) {
             val movement = @Composable {
                 // 🆕 (2026-07-26) Gatillos L1/L2/R1/R2 opcionales (Ajustes → Interfaz, OFF por defecto).
@@ -193,17 +208,26 @@ fun ZombieHud(
                 // 🆕 (2026-07-26) Gatillos L1/L2/R1/R2 opcionales (Ajustes → Interfaz, OFF por defecto).
             // Con la opción apagada esto no dibuja NADA extra y el HUD queda igual que siempre.
                 WithShoulderTriggers(isLeft = state.swapControls, scale = scale) {
-                    ActionButtonsController(
-                        modifier = Modifier.scale(scale),
-                        onActionChanged = { action, pressed ->
-                            when (action) {
-                                GameAction.A -> onRun(pressed)
-                                GameAction.X -> if (pressed) onInteract()
-                                GameAction.B -> onSpecial(pressed)
-                                GameAction.Y -> if (pressed) onSecondaryPressed() else onSecondaryReleased()
-                            }
-                        },
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (!state.showInventory) {
+                            Text(
+                                text = stringResource(R.string.zhud_inventory_open_hint),
+                                color = Color.White, fontSize = 10.sp, textAlign = TextAlign.Center,
+                                modifier = Modifier.width(ControllerBaseSize).padding(bottom = actionHintGap)
+                            )
+                        }
+                        ActionButtonsController(
+                            modifier = Modifier.scale(scale),
+                            onActionChanged = { action, pressed ->
+                                when (action) {
+                                    GameAction.A -> onRun(pressed)
+                                    GameAction.X -> if (pressed) onInteract()
+                                    GameAction.B -> onSpecial(pressed)
+                                    GameAction.Y -> if (pressed) onSecondaryPressed() else onSecondaryReleased()
+                                }
+                            },
+                        )
+                    }
                 }
             }
             if (state.swapControls) { actions(); movement() } else { movement(); actions() }
@@ -213,6 +237,7 @@ fun ZombieHud(
         // Un solo menú: arriba el MODO DE GOLPE (cuerpo a cuerpo / disparar) y abajo el INVENTARIO.
         // Varios slots; por ahora solo el 1º DESBLOQUEADO (1 llave); el resto en ROJO bloqueados.
         if (state.showInventory) {
+            val closeInventoryLabel = stringResource(R.string.zhud_close)
             Box(
                 modifier = Modifier.fillMaxSize().background(Color(0x88000000)),
                 contentAlignment = Alignment.Center
@@ -246,30 +271,63 @@ fun ZombieHud(
                         for (i in 0 until totalSlots) {
                             val unlocked = i < unlockedSlots
                             val heldKey = state.inventoryKeys.getOrNull(i)
+                            val isSelected = state.selectedInventorySlot == i
+                            val slotDescription = stringResource(R.string.zhud_inv_slot, i + 1)
+                            val slotBackground by animateColorAsState(
+                                targetValue = when {
+                                    !unlocked -> Color(0x55B71C1C)
+                                    isSelected -> Color(0xFF2E7D32)
+                                    else -> Color(0xFF2A2A33)
+                                },
+                                label = "inventorySlotBackground"
+                            )
+
+                            val slotBorder by animateColorAsState(
+                                targetValue = when {
+                                    !unlocked -> Color(0xFFB71C1C)
+                                    isSelected -> Color(0xFF69F0AE)
+                                    else -> Color(0xFFD4AF37)
+                                },
+                                label = "inventorySlotBorder"
+                            )
+
                             Box(
                                 modifier = Modifier
                                     .size(56.dp)
                                     .background(
-                                        if (unlocked) Color(0xFF2A2A33) else Color(0x55B71C1C),
+                                        slotBackground,
                                         RoundedCornerShape(10.dp)
                                     )
                                     .border(
-                                        2.dp,
-                                        if (unlocked) Color(0xFFD4AF37) else Color(0xFFB71C1C),
+                                        if (isSelected) 3.dp else 2.dp,
+                                        slotBorder,
                                         RoundedCornerShape(10.dp)
                                     )
-                                    // MANTENER PULSADA la llave = DESECHARLA (el VM decide si se permite:
-                                    // incorrecta siempre; la correcta solo tras usarla para abrir la puerta).
-                                    .then(
-                                        if (heldKey != null) Modifier.pointerInput(heldKey) {
-                                            detectTapGestures(onLongPress = { onDiscardKey(heldKey) })
-                                        } else Modifier
-                                    ),
+                                    .combinedClickable(
+                                        enabled = unlocked,
+                                        role = Role.Button,
+                                        onClick = { onSelectSlot(i) },
+                                        onLongClickLabel = stringResource(R.string.zhud_inv_discard),
+                                        // El VM conserva las restricciones de descarte de los objetos de misión.
+                                        onLongClick = if (heldKey != null) {
+                                            {
+                                                onSelectSlot(i)
+                                                onDiscardKey(heldKey)
+                                            }
+                                        } else null
+                                    )
+                                    .semantics {
+                                        contentDescription = slotDescription
+                                        selected = isSelected
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 when {
                                     !unlocked -> Text("🔒", fontSize = 24.sp)
-                                    heldKey != null -> InventoryKeyIcon(KeyDrop.entryAsset(heldKey), modifier = Modifier.size(46.dp))
+                                    heldKey != null -> InventoryKeyIcon(
+                                        KeyDrop.entryAsset(heldKey),
+                                        modifier = Modifier.size(46.dp)
+                                    )
                                     else -> {}
                                 }
                             }
@@ -301,7 +359,8 @@ fun ZombieHud(
                         .padding(6.dp)
                         .size(32.dp)
                         .background(Color(0x66000000), CircleShape)
-                        .clickable { onDismissInventory() },
+                        .clickable(role = Role.Button) { onDismissInventory() }
+                        .semantics { contentDescription = closeInventoryLabel },
                     contentAlignment = Alignment.Center
                 ) { Text("✕", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold) }
               }

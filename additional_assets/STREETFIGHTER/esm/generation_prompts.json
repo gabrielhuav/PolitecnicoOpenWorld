@@ -1,0 +1,23 @@
+{
+  "mode": "built-in image_gen.imagegen",
+  "reference": "User-provided photograph of the Escuela Superior de Medicina IPN entrance (2026-11-06). Architecture reference only; editorial overlays omitted.",
+  "prompts": [
+    {
+      "output": "ESM.png",
+      "intent": "generate",
+      "prompt": "Use case: stylized-concept. Asset type: finished 16:9 pixel-art fighting game stage background, 1536x864 or wider 16:9 composition. Image 1 is an ARCHITECTURAL REFERENCE ONLY: Escuela Superior de Medicina, Instituto Politecnico Nacional, Mexico. Create new art from scratch, not a photograph. Preserve the recognizable tall cream concrete trapezoid/wedge entrance tower, circular ESM crest high on the facade, recessed dark glass entrance under the broad canopy, lower white academic building extending left, mature leafy trees framing the scene, paved campus forecourt. Show from a near-frontal three-quarter view with the entire tower visible. Camera level for a classic side-view 2D fighting game, broad empty flat fighting floor covering lower 27 percent, unobstructed horizontally. Detailed clean pixel art matching a polished 1990s arcade stage: crisp clustered pixels, hand-drawn outlines, limited coherent warm cream/green/blue palette, tiled pavement, architecture sharp. Sunny clear blue daytime sky, soft clouds, leafy trees, welcoming campus, no people. Building lettering may read ESM and ESCUELA SUPERIOR DE MEDICINA; avoid tiny illegible filler. Remove all editorial photo overlays: absolutely no 87 anniversary badge, no date, no March calendar, no maroon footer/banner, no photo frame, no watermark, no POW logo (pipeline adds it). Wide landscape full-bleed background only. No character, fighter, nurse, ghosts, HUD, menus, labels, grid, filmstrip."
+    },
+    {
+      "output": "ESM Noche 1.png",
+      "intent": "lighting-weather edit",
+      "reference": "ESM.png",
+      "prompt": "Use case: lighting-weather. Asset type: 16:9 classic pixel-art fighting game stage. Edit target Image 1 is the finished ESM campus daytime background. Change ONLY illumination and sky to a calm ordinary NIGHT variant. Preserve exactly architecture, building size, footprint, perspective, pavement layout, trees, crest, readable building lettering, and all framing. Deep navy blue sky with a small moon and sparse stars; cool blue leafy tree shading; warm amber canopy lights and softly lit medical-school windows; balanced readability in the empty flat foreground. Retain the same refined clustered pixel-art style and proportions. No people, no nurses, no ghosts, no new structures, no text overlays or logos, no HUD, no banners or frames. Full-bleed landscape, original dimensions."
+    },
+    {
+      "output": "ESM Noche 2.png",
+      "intent": "lighting-weather edit",
+      "reference": "ESM.png",
+      "prompt": "Use case: lighting-weather. Asset type: 16:9 classic pixel-art fighting game stage. Edit target Image 1 is the finished ESM campus daytime background. Change ONLY illumination, sky and atmospheric mood into a supernatural ominous NIGHT variant for the legend of La Planchada. Preserve exactly architecture, building size, footprint, perspective, pavement layout, trees, crest, readable building lettering and all framing. Desaturated midnight teal and dark violet sky, dramatic moon behind thin clouds, faint emerald light glowing inside the entrance, dim cold canopy lights, pale low ground mist in the BACK of the courtyard, bare forecourt still clearly readable for fighters. Retain the same refined clustered pixel-art style, crisp silhouette and proportions. Eerie abandoned medical campus, restrained horror atmosphere without destruction. No people, no nurses, no ghosts, no monsters, no corpses, no new structures, no text overlays or logos, no HUD, no banners or frames. Full-bleed landscape, original dimensions."
+    }
+  ]
+}

@@ -11,13 +11,13 @@ import kotlin.random.Random
  * Estructura (2026-07-17, dada por el dueño; ≤16 peleas):
  *   1     : PARAMEDICO_CRUZ_ROJA (siempre)
  *   2-4   : PAPARAZZI_1, PAPARAZZI_5, SENOR_TIENDA (orden ALEATORIO)
- *   5-6   : REY_GRUPERO, PRANKEDY (orden ALEATORIO) — 2 peleas para quedar en <16
+ *   5-6   : REY_GRUPERO, PRANKEDY (orden ALEATORIO) — 2 peleas
  *   7-10  : POLICIA_CDMX_HOMBRE, POLICIA_CDMX (mujer), POLICIA_GRANADERO_HOMBRE,
  *           POLICIA_GRANADERO_MUJER (orden FIJO)
- *   11-12 : CHARRO_NEGRO, LA_LLORONA (orden ALEATORIO)
- *   13    : LA_TZITZIMIME (jefe)
- *   14    : LA_PRESIDENTA (jefe)
- *   15    : YOALLI_EHECATL (FINAL; a ≤1/4 de vida se metamorfosea en La Presidenta — 2ª vida)
+ *   11-13 : CHARRO_NEGRO, LA_LLORONA, LA_PLANCHADA (orden ALEATORIO)
+ *   14    : LA_TZITZIMIME (jefe)
+ *   15    : LA_PRESIDENTA (jefe)
+ *   16    : YOALLI_EHECATL (FINAL; a ≤1/4 de vida se metamorfosea en La Presidenta — 2ª vida)
  *
  * Mapas: cada RIVAL tiene su escenario de día (`SfStageCatalog.homeStage`); la iluminación
  * (día / noche / apocalipsis) la elige la dificultad del arcade (Fácil/Medio/Difícil).
@@ -28,12 +28,14 @@ object SfArcadeLadder {
     const val MAP_FIRST = "fondo_queso_ipn_anim.webp"
     const val MAP_FINAL = "fondo_zocalo_anim.webp"
 
-    /** Los 3 estudiantes desbloqueados de arranque; el jugador elige uno (NO son enemigos). */
-    val STARTERS = listOf(SfFighterId.ESCOMBOY, SfFighterId.ESCOMGIRL, SfFighterId.ROBOT)
+    /** Los tres estudiantes desbloqueados de arranque (NO son enemigos). */
+    val STARTERS = listOf(
+        SfFighterId.ESCOMBOY, SfFighterId.ESCOMGIRL, SfFighterId.ROBOT,
+    )
 
     /**
      * TODOS los personajes del arcade (estudiantes + enemigos). Lo usa el selector para pintar
-     * los bloqueados con candado 🔒. (La Llorona entra cuando tenga assets.)
+     * los bloqueados con candado 🔒.
      */
     val ALL_PARTICIPANTS = listOf(
         SfFighterId.ESCOMBOY, SfFighterId.ESCOMGIRL, SfFighterId.ROBOT,
@@ -41,8 +43,10 @@ object SfArcadeLadder {
         SfFighterId.SENOR_TIENDA, SfFighterId.REY_GRUPERO, SfFighterId.PRANKEDY,
         SfFighterId.POLICIA_CDMX_HOMBRE, SfFighterId.POLICIA_CDMX,
         SfFighterId.POLICIA_GRANADERO_HOMBRE, SfFighterId.POLICIA_GRANADERO_MUJER,
-        SfFighterId.CHARRO_NEGRO, SfFighterId.LA_LLORONA, SfFighterId.LA_TZITZIMIME,
+        SfFighterId.CHARRO_NEGRO, SfFighterId.LA_LLORONA, SfFighterId.LA_PLANCHADA, SfFighterId.LA_TZITZIMIME,
         SfFighterId.YOALLI_EHECATL, SfFighterId.LA_PRESIDENTA,
+        // 🆕 (2026-09-30) Invitado: desbloqueado de arranque (no es rival de la escalera).
+        SfFighterId.ALEXIS_SYNTAXIS,
     )
 
     /** Un escalón: rival, mapa (null = conservar el anterior), si es jefe y si es el FINAL. */
@@ -51,11 +55,11 @@ object SfArcadeLadder {
         val rival: SfFighterId,
         val mapFile: String?,         // null = TBD (el VM conserva el mapa vigente)
         val isBoss: Boolean = false,  // jefes (Tzitzímime/Yoalli/Presidenta) → dificultad tope
-        val isFinal: Boolean = false, // La Presidenta → PESADILLA + banner especial
+        val isFinal: Boolean = false, // Yoalli Ehécatl → PESADILLA + banner especial
     )
 
-    /** Total de peleas (15). */
-    const val TOTAL_FIGHTS = 15
+    /** Total de peleas (16). */
+    const val TOTAL_FIGHTS = 16
 
     /**
      * Dificultad real de la IA de una pelea del arcade.
@@ -65,9 +69,9 @@ object SfArcadeLadder {
      * **sube con el avance** (antes casi no cambiaba: solo los jefes subían). Curva:
      *  - peleas 1-4  : +1  (Fácil→NORMAL, Medio→AVANZADA, Difícil→PESADILLA)
      *  - peleas 5-9  : +1
-     *  - peleas 10-12: +2
-     *  - jefes 13-14 : +2
-     *  - FINAL 15    : +3 (tope PESADILLA)
+     *  - peleas 10-13: +2
+     *  - jefes 14-15 : +2
+     *  - FINAL 16    : +3 (tope PESADILLA)
      * La ILUMINACIÓN del mapa sigue usando la dificultad ELEGIDA (SfStageCatalog.
      * lightingForArcadeDifficulty), así que este bump NO cambia día/noche/apocalipsis.
      */
@@ -112,13 +116,15 @@ object SfArcadeLadder {
             SfFighterId.POLICIA_CDMX_HOMBRE, SfFighterId.POLICIA_CDMX,
             SfFighterId.POLICIA_GRANADERO_HOMBRE, SfFighterId.POLICIA_GRANADERO_MUJER,
         )
-        rivals += listOf(SfFighterId.CHARRO_NEGRO, SfFighterId.LA_LLORONA).shuffled(rng) // 11-12
-        rivals += SfFighterId.LA_TZITZIMIME  // 13
+        rivals += listOf(
+            SfFighterId.CHARRO_NEGRO, SfFighterId.LA_LLORONA, SfFighterId.LA_PLANCHADA,
+        ).shuffled(rng) // 11-13
+        rivals += SfFighterId.LA_TZITZIMIME  // 14
         // 🆕 (2026-07-25, decisión del dueño) Orden invertido de los 2 jefes finales: primero
-        // LA PRESIDENTA (14) y el jefe FINAL es YOALLI EHÉCATL (15), que a ≤1/4 de vida se
+        // LA PRESIDENTA (15) y el jefe FINAL es YOALLI EHÉCATL (16), que a ≤1/4 de vida se
         // METAMORFOSEA en La Presidenta (segunda vida) — la dirección inversa a la de antes.
-        rivals += SfFighterId.LA_PRESIDENTA  // 14
-        rivals += SfFighterId.YOALLI_EHECATL // 15 (FINAL; se transforma en La Presidenta)
+        rivals += SfFighterId.LA_PRESIDENTA  // 15
+        rivals += SfFighterId.YOALLI_EHECATL // 16 (FINAL; se transforma en La Presidenta)
 
         val total = rivals.size
         return rivals.mapIndexed { i, rival ->
@@ -129,7 +135,7 @@ object SfArcadeLadder {
                 // Mapa = hogar del RIVAL + iluminación por dificultad (Fácil/Medio/Difícil)
                 mapFile = SfStageCatalog.mapForRival(rival, difficulty),
                 isBoss = n >= total - 2, // los 3 últimos: Tzitzímime, Yoalli, Presidenta
-                isFinal = n == total,    // La Presidenta
+                isFinal = n == total,    // Yoalli Ehécatl
             )
         }
     }

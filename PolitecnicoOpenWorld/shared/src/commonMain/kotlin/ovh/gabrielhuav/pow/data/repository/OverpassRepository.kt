@@ -2,6 +2,7 @@ package ovh.gabrielhuav.pow.data.repository
 
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
@@ -10,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.concurrent.Volatile
 import kotlin.coroutines.cancellation.CancellationException
+import ovh.gabrielhuav.pow.data.cache.celdaDeCalles
 import ovh.gabrielhuav.pow.data.json.optJSONArray
 import ovh.gabrielhuav.pow.data.json.optLong
 import ovh.gabrielhuav.pow.data.json.optDouble
@@ -22,9 +24,9 @@ import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import ovh.gabrielhuav.pow.platform.log.powLog
 
 /**
- * Repositorio que consulta la Overpass API para obtener la red de calles.
+ * Repositorio de calles: archivos estaticos de CDMX primero, Overpass como respaldo.
  *
- * RESPONSABILIDAD ÚNICA: Solo sabe hablar con Overpass. No decide si hay que
+ * RESPONSABILIDAD ÚNICA: Descargar y parsear la red de calles. No decide si hay que
  * descargar o no — esa decisión la toma WorldMapViewModel usando RoadNetworkCache.
  *
  * Radio de 2000 m y timeout de lectura de 45 s: se descarga más por petición para hacer muchas
@@ -42,6 +44,12 @@ import ovh.gabrielhuav.pow.platform.log.powLog
  * `overpass-api.de` se saturaba o nos limitaba (429/504) una instalación nueva —sin calles en
  * caché— se quedaba para siempre en el 25 % de la carga del mundo abierto: el VM reintenta cada
  * 3 s contra el MISMO servidor. Ahora cada intento recorre la lista hasta que uno responda.
+ *
+ * 🆕 (2026-10-29) **Primero las calles ESTÁTICAS** ([CallesEstaticas]): la CDMX ya recortada en
+ * celdas, publicada en la rama `datos-calles` por la GitHub Action `calles-cdmx.yml`. Ni con seis
+ * servidores bastó: en horas pico TODOS los públicos respondían 502/504 ("at capacity"), y
+ * Overpass pide expresamente que las apps no usen su endpoint público. Overpass queda solo para
+ * celdas fuera de la cobertura (respuesta 404) o si GitHub no responde.
  */
 class OverpassRepository {
 
@@ -63,6 +71,9 @@ class OverpassRepository {
          * Un solo cliente para toda la vida del proceso. Crear un `HttpClient` por petición
          * levanta (y tira) un pool de conexiones cada vez.
          */
+        private const val USER_AGENT =
+            "PolitecnicoOpenWorld/1.0 (educational game; contact: dev@pow.ovh)"
+
         /** Índice en [OverpassServidores.URLS] del último que respondió bien. */
         @Volatile
         private var indiceUltimoBueno = 0
@@ -80,7 +91,7 @@ class OverpassRepository {
     }
 
     /**
-     * Descarga la red de calles alrededor de (lat, lon) desde Overpass.
+     * Descarga la red de calles alrededor de (lat, lon), primero estatica y luego Overpass.
      * Retorna lista vacía en caso de cualquier error — el caller decide qué hacer.
      */
     suspend fun fetchRoadNetwork(lat: Double, lon: Double): List<MapWay> =
@@ -98,6 +109,8 @@ class OverpassRepository {
             out skel qt;
         """.trimIndent()
 
+            descargarEstaticas(lat, lon)?.let { return@withContext it }
+
             val datos = codificarUrl(query)
             val orden = OverpassServidores.ordenDesde(indiceUltimoBueno)
             for (base in orden) {
@@ -111,16 +124,41 @@ class OverpassRepository {
         }
 
     /**
+     * La celda de (lat, lon) desde la rama `datos-calles`. `null` = no hay archivo (fuera de la
+     * cobertura → 404) o GitHub no respondió: el caller sigue con Overpass.
+     */
+    private suspend fun descargarEstaticas(lat: Double, lon: Double): List<MapWay>? = try {
+        val url = CallesEstaticas.url(lat, lon)
+        val respuesta = http.get(url) {
+            header("User-Agent", USER_AGENT)
+            timeout {
+                connectTimeoutMillis = 5_000L
+                requestTimeoutMillis = 8_000L
+            }
+        }
+        val cuerpo = if (respuesta.status.isSuccess()) respuesta.bodyAsText() else null
+        if (cuerpo != null && !OverpassServidores.esErrorDelServidor(cuerpo)) {
+            val parsed = parseOverpassJson(cuerpo)
+            powLog(TAG, "Calles estáticas OK (${celdaDeCalles(lat, lon)}): ${parsed.size} ways")
+            parsed
+        } else {
+            // 404 = celda fuera de la cobertura; no es un error.
+            powLog(TAG, "Sin calles estáticas para ${celdaDeCalles(lat, lon)} (HTTP ${respuesta.status.value})")
+            null
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        powLog(TAG, "Calles estáticas no disponibles: ${e.message}")
+        null
+    }
+
+    /**
      * Una petición a UN servidor. `null` = falló (pasar al siguiente); lista (aunque vacía) =
      * respuesta válida. Una zona sin calles es una respuesta válida: no se pregunta a los demás.
      */
     private suspend fun intentar(base: String, datos: String): List<MapWay>? = try {
-        val respuesta = http.get("$base?data=$datos") {
-            header(
-                "User-Agent",
-                "PolitecnicoOpenWorld/1.0 (educational game; contact: dev@pow.ovh)"
-            )
-        }
+        val respuesta = http.get("$base?data=$datos") { header("User-Agent", USER_AGENT) }
         val cuerpo = if (respuesta.status.isSuccess()) respuesta.bodyAsText() else null
         when {
             cuerpo == null -> {
@@ -166,7 +204,11 @@ class OverpassRepository {
 
     // ─── PARSING ─────────────────────────────────────────────────────────────────
 
-    private fun parseOverpassJson(jsonString: String): List<MapWay> {
+    /**
+     * Parsea el JSON de Overpass. Las celdas estáticas usan EXACTAMENTE este formato (lo escribe
+     * `generar_celdas.py`), así que un solo parser sirve para las dos fuentes.
+     */
+    internal fun parseOverpassJson(jsonString: String): List<MapWay> {
         val root = powJsonObjeto(jsonString)
         if (!root.has("elements")) return emptyList()
 
@@ -247,10 +289,31 @@ internal object OverpassServidores {
      * dejaba la carga atorada igual que un 504.
      */
     fun esErrorDelServidor(cuerpo: String): Boolean {
-        val remark = runCatching { powJsonObjeto(cuerpo).optString("remark", "") }.getOrNull()
+        val root = runCatching { powJsonObjeto(cuerpo) }.getOrNull()
             ?: return true // ni siquiera es JSON: página de error del proxy/servidor
+        // PowJson es laxo por compatibilidad con saves: HTML puede convertirse en objeto vacio.
+        // Exigir el esquema de red aqui evita aceptar ese error como una zona sin calles.
+        if (root.optJSONArray("elements") == null) return true
+        val remark = root.optString("remark", "")
         return remark.contains("error", ignoreCase = true) ||
             remark.contains("timed out", ignoreCase = true) ||
             remark.contains("out of memory", ignoreCase = true)
     }
+}
+
+/**
+ * Calles de la CDMX ya recortadas en celdas de ~2 km ([celdaDeCalles]), una por archivo, en la
+ * rama huérfana `datos-calles` de este mismo repo. Las genera y publica la GitHub Action
+ * `.github/workflows/calles-cdmx.yml` desde el extracto de OpenStreetMap de Geofabrik (© OSM,
+ * ODbL). Cada archivo trae su celda **más un margen** (ver `MARGEN_DEG` en el generador), así que
+ * cerca del borde no faltan las calles de la celda vecina.
+ *
+ * Se sirven por `raw.githubusercontent.com` y no por GitHub Pages porque Pages publica UNA sola
+ * rama por repo, y aquí es `gh-pages` (políticas de Play). raw sirve cualquier rama, con gzip.
+ */
+internal object CallesEstaticas {
+    const val RAMA = "datos-calles"
+    const val BASE = "https://raw.githubusercontent.com/gabrielhuav/PolitecnicoOpenWorld/$RAMA/v1/celdas"
+
+    fun url(lat: Double, lon: Double): String = "$BASE/${celdaDeCalles(lat, lon)}.json"
 }

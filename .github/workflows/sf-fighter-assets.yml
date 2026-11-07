@@ -1,0 +1,123 @@
+name: SF Fighter Assets
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sf-assets-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fighter-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Instalar herramientas de recorte
+        run: python -m pip install -r PolitecnicoOpenWorld/tools/requirements-sf.txt
+      - name: Probar el validador
+        run: |
+          python -m unittest discover -s PolitecnicoOpenWorld/tools/tests -p 'test_sf_*.py'
+          python PolitecnicoOpenWorld/tools/sf_gen_cache.py check
+      - name: Validar escenarios y miniaturas
+        run: |
+          python -m unittest discover -s PolitecnicoOpenWorld/tools/tests -p 'test_map_backgrounds.py'
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, 'PolitecnicoOpenWorld/tools')
+          import build_map_backgrounds as backgrounds
+          failures = backgrounds.diagnose_theme_backgrounds(backgrounds.DEFAULT_IMAGES_OUT)
+          raise SystemExit(bool(failures))
+          PY
+      - name: Exigir receta para assets de peleadores modificados
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          python - <<'PY'
+          import json, os, pathlib, subprocess
+          recipes = pathlib.Path('PolitecnicoOpenWorld/tools/sf_fighters').glob('*.json')
+          entries = [json.loads(p.read_text()) for p in recipes]
+          registered = {p for r in entries for p in (
+              f"PolitecnicoOpenWorld/app/src/main/assets/STREETFIGHTER/DATA/{r['character']}.json",
+              f"PolitecnicoOpenWorld/app/src/main/assets/STREETFIGHTER/IMAGES/{r['title']}.webp")}
+          changed = subprocess.check_output(['git', 'diff', '--name-only', '--diff-filter=AMR',
+                                            os.environ['BASE_SHA'], 'HEAD'], text=True).splitlines()
+          for name in changed:
+              path = pathlib.Path(name)
+              if '/STREETFIGHTER/DATA/' in name and path.suffix == '.json' and path.is_file():
+                  if 'frames' in json.loads(path.read_text()) and name not in registered:
+                      raise SystemExit(f'Falta receta reproducible de peleador: {name}')
+              if '/STREETFIGHTER/IMAGES/' in name and path.suffix.lower() in {'.webp', '.png'}:
+                  # Los atlas dedicados tienen una referencia desde SfModels.
+                  models = pathlib.Path('PolitecnicoOpenWorld/shared/src/commonMain/kotlin/ovh/gabrielhuav/pow/domain/models/streetfighter/SfModels.kt').read_text()
+                  if f'STREETFIGHTER/IMAGES/{path.name}' in models and name not in registered:
+                      raise SystemExit(f'Falta receta reproducible de atlas: {name}')
+          PY
+      - name: Recortar, empaquetar, validar y comparar con produccion
+        run: |
+          python - <<'PY'
+          import json, pathlib, subprocess, sys
+          from PIL import Image
+          tool = 'PolitecnicoOpenWorld/tools/sf_fighter_pipeline.py'
+          assets = pathlib.Path('PolitecnicoOpenWorld/app/src/main/assets/STREETFIGHTER')
+          for recipe in sorted(pathlib.Path('PolitecnicoOpenWorld/tools/sf_fighters').glob('*.json')):
+              config = json.loads(recipe.read_text())
+              output = pathlib.Path('.codex-tmp/sf-ci') / config['character']
+              report = output / 'qa'
+              subprocess.run([sys.executable, tool, 'build', str(recipe), '--output', str(output), '--report', str(report)], check=True)
+              subprocess.run([sys.executable, tool, 'check', str(recipe), '--report', str(report / 'production')], check=True)
+              name = config['character'] + '.json'
+              assert json.loads((output / 'DATA' / name).read_text()) == json.loads((assets / 'DATA' / name).read_text()), 'JSON no reproducible'
+              name = config['title'] + '.webp'
+              generated = Image.open(output / 'IMAGES' / name).convert('RGBA')
+              committed = Image.open(assets / 'IMAGES' / name).convert('RGBA')
+              assert generated.size == committed.size and generated.tobytes() == committed.tobytes(), 'Atlas no reproducible'
+          PY
+      - name: Validar recortes de mundo de La Planchada
+        run: |
+          python - <<'PY'
+          import json, pathlib, sys
+          from PIL import Image
+          sys.path.insert(0, 'PolitecnicoOpenWorld/tools')
+          from build_la_planchada import build_world, check_world
+          # Reutiliza el atlas que acaba de reconstruir el paso anterior.
+          output = pathlib.Path('.codex-tmp/sf-ci/laplanchada')
+          count = build_world(output)
+          errors = check_world(output)
+          assert count == 25, f'Se esperaban 25 recortes de mundo, se generaron {count}'
+          assert not errors, '\n'.join(errors)
+          generated_root = output / 'SPRITES/NPC/LaPlanchada'
+          production_root = pathlib.Path('PolitecnicoOpenWorld/app/src/main/assets/SPRITES/NPC/LaPlanchada')
+          generated_paths = {p.relative_to(generated_root) for p in generated_root.rglob('*.webp')}
+          production_paths = {p.relative_to(production_root) for p in production_root.rglob('*.webp')}
+          assert len(generated_paths) == 25 and generated_paths == production_paths, 'Faltan o sobran recortes de mundo'
+          for path in sorted(generated_paths):
+              generated = Image.open(generated_root / path).convert('RGBA')
+              committed = Image.open(production_root / path).convert('RGBA')
+              assert generated.size == committed.size == (512, 512), f'Lienzo de mundo incorrecto: {path}'
+              assert generated.tobytes() == committed.tobytes(), f'Recorte de mundo no reproducible: {path}'
+          report = {'world_frames': count, 'errors': errors, 'production_pixels_match': True}
+          (output / 'qa/laplanchada-world-report.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
+          print('La Planchada: 25 recortes de mundo reproducibles y anclados correctamente')
+          PY
+      - name: Publicar atlas, recortes y QA para revision
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sf-fighter-preview
+          path: .codex-tmp/sf-ci/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
