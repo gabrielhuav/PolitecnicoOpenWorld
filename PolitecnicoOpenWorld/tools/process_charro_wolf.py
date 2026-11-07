@@ -44,7 +44,7 @@ def probe(path: Path) -> dict:
 def loudness(path: Path) -> dict:
     result = subprocess.run(
         ["ffmpeg", "-hide_banner", "-i", str(path), "-af",
-         "loudnorm=I=-16:TP=-2:LRA=11:print_format=json", "-f", "null", "-"],
+         "loudnorm=I=-16:TP=-3:LRA=11:print_format=json", "-f", "null", "-"],
         check=True, capture_output=True, text=True,
     )
     return json.loads(re.search(r'\{[^{}]*"input_i"[^{}]*\}', result.stderr).group())
@@ -78,27 +78,35 @@ def tile_crossfade(samples: np.ndarray, length: int) -> np.ndarray:
 
 def animal_voice(source: Path, duration: float, index: int) -> np.ndarray:
     count = round(duration * SR)
-    speech = decode(source, "rubberband=pitch=0.88:tempo=1:formant=shifted")
+    speech = decode(source, "rubberband=pitch=0.80:tempo=1:formant=shifted")
     speech = np.pad(speech, (0, max(0, count-len(speech))))[:count]
     speech = rms_match(speech, .14)
-    recording = decode(ANIMALS / "wolf_howls_fws.ogg", "highpass=f=120,lowpass=f=7000")
+    recording = decode(
+        ANIMALS / "wolf_howls_fws.ogg",
+        "rubberband=pitch=0.68:tempo=1:formant=shifted,highpass=f=75,"
+        "equalizer=f=240:t=q:w=0.7:g=4,"
+        "equalizer=f=2800:t=q:w=0.8:g=-4,lowpass=f=4500",
+    )
     start = int((.15, 5.0, 12.0)[index] * SR)
     howl = rms_match(recording[start:start+count], .14)
     growl = decode(ANIMALS / f"wolf_growl_{'03' if index == 1 else '02'}.mp3",
-                   "highpass=f=90,lowpass=f=6000")
+                   "rubberband=pitch=0.78:tempo=1:formant=shifted,highpass=f=65,"
+                   "equalizer=f=220:t=q:w=0.8:g=3,lowpass=f=3400")
     growl = rms_match(tile_crossfade(growl, count), .14)
     articulation = np.clip(envelope(speech) / .11, 0, 1.7)
 
     # A filter-bank vocoder transfers the phrase's changing resonances onto the
-    # actual howl. The carrier retains a wolf's natural pitch and harmonics.
+    # actual howl. The carrier is lowered with its formants for an adult timbre;
+    # upper bands are reduced so normalization does not exaggerate thin whines.
     vocoded = np.zeros(count)
-    edges = (120, 200, 320, 500, 800, 1200, 1800, 2600, 3800, 5500, 8000)
+    edges = (75, 140, 240, 400, 650, 1000, 1500, 2200, 3100, 4200, 5500)
     for low, high in zip(edges, edges[1:]):
         band = butter(2, (low, high), btype="bandpass", fs=SR, output="sos")
         modulator = envelope(sosfilt(band, speech))
         carrier = sosfilt(band, howl)
         carrier /= max(.003, np.sqrt(np.mean(carrier ** 2)))
-        vocoded += carrier * modulator
+        band_weight = min(1.0, 1400 / np.sqrt(low * high))
+        vocoded += carrier * modulator * band_weight
     vocoded = rms_match(vocoded, .14)
 
     # The howl remains exposed briefly at both ends to make the species audible;
@@ -106,8 +114,8 @@ def animal_voice(source: Path, duration: float, index: int) -> np.ndarray:
     seconds = np.arange(count) / SR
     exposed = np.maximum(np.clip((.85-seconds)/.45, 0, 1),
                          np.clip((seconds-(duration-.75))/.40, 0, 1))
-    mix = (.22 * speech + .65 * vocoded + .55 * growl * articulation
-           + howl * (.22 * articulation + .95 * exposed))
+    mix = (.22 * speech + .55 * vocoded + .75 * growl * articulation
+           + howl * (.22 * articulation + .85 * exposed))
     fade_in = min(round(.012 * SR), count)
     fade_out = min(round(.030 * SR), count)
     mix[:fade_in] *= np.linspace(0, 1, fade_in)
@@ -120,16 +128,21 @@ def animal_voice(source: Path, duration: float, index: int) -> np.ndarray:
 def render(source: Path, target: Path, work: Path) -> dict:
     info = probe(source)
     duration = float(info["format"]["duration"])
+    raw = work / "raw.wav"
     wet = work / "wet.wav"
     samples = animal_voice(source, duration, FILES.index(target.name))
-    with wave.open(str(wet), "wb") as output_wav:
+    with wave.open(str(raw), "wb") as output_wav:
         output_wav.setnchannels(1)
         output_wav.setsampwidth(2)
         output_wav.setframerate(SR)
         output_wav.writeframes((samples * 32767).astype("<i2").tobytes())
+    # Tame the deeper howl's peaks before loudness normalization and AAC encoding.
+    run("ffmpeg", "-y", "-v", "error", "-i", str(raw), "-af",
+        "acompressor=threshold=0.12:ratio=3:attack=8:release=120:makeup=1.4",
+        "-c:a", "pcm_f32le", str(wet))
     measured = loudness(wet)
     normalization = (
-        "loudnorm=I=-16:TP=-2:LRA=11:linear=true:"
+        "loudnorm=I=-16:TP=-3:LRA=11:linear=true:"
         f"measured_I={measured['input_i']}:measured_TP={measured['input_tp']}:"
         f"measured_LRA={measured['input_lra']}:measured_thresh={measured['input_thresh']}:"
         f"offset={measured['target_offset']}"
@@ -170,7 +183,8 @@ def main() -> None:
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     report = {
-        "source_ref": args.source_ref, "profile": "wolf_vocoder_and_vocalizations",
+        "source_ref": args.source_ref, "profile": "adult_wolf_vocoder_and_vocalizations",
+        "pitch_factors": {"speech": .80, "howl": .68, "growl": .78},
         "animal_sources": {
             name: hashlib.sha256((ANIMALS / name).read_bytes()).hexdigest()
             for name in ("wolf_howls_fws.ogg", "wolf_growl_02.mp3", "wolf_growl_03.mp3")

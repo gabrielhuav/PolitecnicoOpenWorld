@@ -1,6 +1,11 @@
 {
   "source_ref": "b191a6f8ddec7d6bf4fa0b3b03c4b8b89b656301",
-  "profile": "wolf_vocoder_and_vocalizations",
+  "profile": "adult_wolf_vocoder_and_vocalizations",
+  "pitch_factors": {
+    "speech": 0.8,
+    "howl": 0.68,
+    "growl": 0.78
+  },
   "animal_sources": {
     "wolf_howls_fws.ogg": "98129d715778d3a46476784090d92c1ff3a74957838ec88de187d6ab603188fd",
     "wolf_growl_02.mp3": "427ee2bf319c30e334aa058eee805b3c482224418c6189bb7809c03dee85674c",
@@ -10,29 +15,29 @@
     {
       "file": "special_charro_hurt_1.m4a",
       "source_sha256": "87d1cb5de2af9713627732f5cc5846bf36a0835644747d49552b2f2d9e4f9c0e",
-      "output_sha256": "627bc0f03de48bcad60c178e684a808da1170f8410bba147d527bcdc318ecdfe",
+      "output_sha256": "d8592c78a8e474068b47ddc7f71ca27379bb5221f53ae136cc050ebac7f8bc2a",
       "source_seconds": 4.519002,
       "output_seconds": 4.519002,
-      "lufs": -16.5,
-      "true_peak_dbtp": -1.86
+      "lufs": -16.45,
+      "true_peak_dbtp": -1.61
     },
     {
       "file": "special_charro_negro.m4a",
       "source_sha256": "07758a96b8b32e72162ccba3bc957936720fb6acb77a3d38c3341cc8f123801b",
-      "output_sha256": "f23d1e415c428b31de37a18cdb9b30d93d2ac66ba12fdf078c56dc3b05aa5641",
+      "output_sha256": "1c2c9f9728ae7183797343ca2823889649a7fcae2955fa6c0ef26034d5676b62",
       "source_seconds": 3.604898,
       "output_seconds": 3.605011,
-      "lufs": -16.37,
-      "true_peak_dbtp": -2.01
+      "lufs": -16.16,
+      "true_peak_dbtp": -2.89
     },
     {
       "file": "special_charro_negro_win.m4a",
       "source_sha256": "7602162eadadda03e13748edb3b59f3750ab6cfc43219a90e7d250fab51d67c9",
-      "output_sha256": "0e80016839e6dd30a72290f75190ba89f8927797873fadaa6738798080cb5493",
+      "output_sha256": "7015949dc4dd4cae26de8f4047192be27b83355efe514f56acdd277cfaf25c20",
       "source_seconds": 7.026939,
       "output_seconds": 7.027007,
-      "lufs": -16.06,
-      "true_peak_dbtp": -1.96
+      "lufs": -16.08,
+      "true_peak_dbtp": -2.97
     }
   ]
 }

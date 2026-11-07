@@ -14,7 +14,8 @@ Los tres M4A finales se distribuyen en `STREETFIGHTER/SOUNDS`.
 - SHA-1 verificado contra la ficha: `44ce16c609c16ce8ae05b4da61179bf6c9c4ce09`.
 - Cambios: recorte, filtrado, ajuste de nivel y uso como portadora de un
   vocoder controlado por la frase del Charro; también aullido expuesto en
-  los extremos. Se conserva el tono natural de la grabación.
+  los extremos. El tono y los formantes se bajan a un factor 0.68, con el
+  mismo tempo, para darle un timbre más grave y corpulento.
 
 ## Gruñidos de diseño sonoro
 
@@ -26,8 +27,9 @@ Los tres M4A finales se distribuyen en `STREETFIGHTER/SOUNDS`.
   https://sfxmint.com/dl/wolf-growl-03.mp3
 - Licencia declarada: CC0 1.0 Universal, permite modificar y redistribuir.
 - Referencia de licencia: https://creativecommons.org/publicdomain/zero/1.0/
-- Cambios: filtrado, repetición con fundidos, ajuste de nivel y modulación
-  de amplitud siguiendo las sílabas del Charro.
+- Cambios: tono y formantes a factor 0.78 manteniendo tempo, filtrado,
+  repetición con fundidos, ajuste de nivel y modulación de amplitud
+  siguiendo las sílabas del Charro.
 
 Procedencia y licencias consultadas el 6 de noviembre de 2026. Los hashes
 SHA-256 de las tres fuentes y de los resultados están en
