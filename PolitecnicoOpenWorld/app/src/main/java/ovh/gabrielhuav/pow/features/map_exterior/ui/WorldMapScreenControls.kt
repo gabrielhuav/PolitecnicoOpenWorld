@@ -141,7 +141,8 @@ fun BoxScope.WorldMapControls(
                     onHandbrake = { viewModel.brake(it) },
                     onExit = { isPressed ->
                         if (isPressed) viewModel.onInteractButtonPressed()
-                    }
+                    },
+                    onHorn = { viewModel.honkHorn() }
                 )
             }
             // El control de la DERECHA (segundo) recibe el desplazamiento.

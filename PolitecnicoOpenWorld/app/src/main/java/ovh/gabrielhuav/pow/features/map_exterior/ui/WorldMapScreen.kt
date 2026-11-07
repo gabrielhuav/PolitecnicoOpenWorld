@@ -50,6 +50,7 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -99,6 +100,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuGroup
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionMenuItem
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.OptionsMenu
 import ovh.gabrielhuav.pow.features.map_exterior.ui.components.PlayerCharacter
+import ovh.gabrielhuav.pow.features.map_exterior.util.stationMatchesQuery
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.DebugEditTool
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.MapProvider
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapViewModel
@@ -392,11 +394,13 @@ fun WorldMapScreen(
     val lastWebIpOn = remember { booleanArrayOf(false) }
     val lastWebIpLm = remember { arrayOfNulls<List<ovh.gabrielhuav.pow.domain.models.map.Landmark>>(1) }
     val lastWebIpColl = remember { arrayOfNulls<ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig>(1) }
+    val lastPlayerVisualDebug = remember { arrayOfNulls<String>(1) }
     val nativeMapRef = remember { mutableStateOf<MapView?>(null) }
 
     // ─── ESTADO DEL MENÚ DE OPCIONES (con submenús anidados) ──────────────────
     var optionsExpanded by remember { mutableStateOf(false) }
     var optionsOpenGroup by remember { mutableStateOf<String?>(null) }
+    var showExitConfirmDialog by remember { mutableStateOf(false) }
     // NOTA: el menú de Opciones in-game NO cambia la orientación (el juego va SIEMPRE en
     // horizontal). Solo los menús de RUTA (Ajustes, etc.) permiten rotar — lo gestiona
     // MainActivity por destino de navegación. Ver 09.
@@ -682,6 +686,14 @@ fun WorldMapScreen(
             }
         }
 
+        if (ovh.gabrielhuav.pow.BuildConfig.DEBUG) {
+            val playerLayer = "composePlayer=${!uiState.isUserPanningMap} driving=${uiState.isDriving} " +
+                "panning=${uiState.isUserPanningMap} rotation=${uiState.vehicleRotation}"
+            if (lastPlayerVisualDebug[0] != playerLayer) {
+                android.util.Log.d("VehicleViewport", playerLayer)
+                lastPlayerVisualDebug[0] = playerLayer
+            }
+        }
         if (!uiState.isUserPanningMap) {
             // MUERTE: al morir, el jugador queda como "fantasmita" (semitransparente),
             // igual que en el modo zombis.
@@ -694,8 +706,9 @@ fun WorldMapScreen(
         LowHealthAura(health = viewModel.playerHealth)
 
         // ─── 💥 FX DE IMPACTO/COLISIÓN ───────────────────────────────────────────
-        // Destello de "💥" en el centro (posición del jugador) cuando un NPC te golpea
-        // o cuando atropellas a alguien, para que la colisión se NOTE.
+        // Destello de "💥" en el centro cuando un NPC te golpea o cuando atropellas a alguien.
+        // Solo equivale a la posición del jugador mientras la cámara lo sigue; al panear se
+        // oculta para no fingir una colisión en una coordenada distinta.
         val impactScale = remember { androidx.compose.animation.core.Animatable(0f) }
         LaunchedEffect(viewModel.impactEffectTrigger) {
             if (viewModel.impactEffectTrigger > 0) {
@@ -704,7 +717,7 @@ fun WorldMapScreen(
                 impactScale.animateTo(0f, animationSpec = androidx.compose.animation.core.tween(280))
             }
         }
-        if (impactScale.value > 0.01f) {
+        if (impactScale.value > 0.01f && shouldRenderPlayerAnchoredImpact(uiState.isUserPanningMap)) {
             Text(
                 text = "💥",
                 fontSize = 56.sp,
@@ -1047,6 +1060,17 @@ fun WorldMapScreen(
         // sueltos que se sobrepongan con el mapa. Acordeón: abrir un submenú cierra
         // el otro. Al arrastrar el mapa, se abre solo en el submenú "Mapa".
         Column(modifier = Modifier.align(Alignment.TopEnd).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.End) {
+            // Botón para salir de Mundo Libre y volver al Menú Principal
+            IconButton(
+                onClick = { showExitConfirmDialog = true },
+                modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_exit_to_menu),
+                    tint = Color.Black
+                )
+            }
             IconButton(onClick = onNavigateToSettings, modifier = Modifier.background(Color.White.copy(alpha = 0.8f), CircleShape)) { Icon(Icons.Default.Settings, "Ajustes", tint = Color.Black) }
             OptionsMenu(
                 expanded = optionsExpanded,
@@ -1162,6 +1186,52 @@ fun WorldMapScreen(
                 }
             )
         }
+        if (showExitConfirmDialog) {
+            AlertDialog(
+                onDismissRequest = { showExitConfirmDialog = false },
+                title = {
+                    Text(
+                        text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_exit_to_menu),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        color = Color.White
+                    )
+                },
+                text = {
+                    Text(
+                        text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_exit_confirm_message),
+                        fontSize = 15.sp,
+                        color = Color.White.copy(alpha = 0.85f)
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showExitConfirmDialog = false
+                            onNavigateToMainMenu()
+                        }
+                    ) {
+                        Text(
+                            text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_exit_to_menu),
+                            color = Color(0xFFFFD54F),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showExitConfirmDialog = false }
+                    ) {
+                        Text(
+                            text = androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_keep_exploring),
+                            color = Color.White.copy(alpha = 0.85f)
+                        )
+                    }
+                },
+                containerColor = Color(0xFF221A22),
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
 
         // Cuando se está apuntando un waypoint, solo se muestra la cruz central; el
         // confirmar/cancelar vive en el menú anidado (Mapa) para no tapar los controles.
@@ -1220,15 +1290,17 @@ fun WorldMapScreen(
                     var metrobusExpanded by remember { mutableStateOf(false) }
                     var metroQuery by remember { mutableStateOf("") }
                     var metrobusQuery by remember { mutableStateOf("") }
+                    // Bug corregido (examen QA): antes se usaba `.contains(q, ignoreCase = true)`,
+                    // que solo ignora mayúsculas/minúsculas, no acentos — "pantitlan" no
+                    // encontraba "Pantitlán". stationMatchesQuery normaliza ambos lados antes de
+                    // comparar, preservando la ñ como letra distinta de la n.
                     val filteredMetro = remember(metroQuery, uiState.metroStations) {
-                        val q = metroQuery.trim()
-                        val sorted = uiState.metroStations.sortedBy { it.name }
-                        if (q.isEmpty()) sorted else sorted.filter { it.name.contains(q, ignoreCase = true) }
+                        uiState.metroStations.sortedBy { it.name }
+                            .filter { stationMatchesQuery(it.name, metroQuery) }
                     }
                     val filteredMetrobus = remember(metrobusQuery, uiState.metrobusStations) {
-                        val q = metrobusQuery.trim()
-                        val sorted = uiState.metrobusStations.sortedBy { it.name }
-                        if (q.isEmpty()) sorted else sorted.filter { it.name.contains(q, ignoreCase = true) }
+                        uiState.metrobusStations.sortedBy { it.name }
+                            .filter { stationMatchesQuery(it.name, metrobusQuery) }
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_tp_subtitle), fontSize = 14.sp)

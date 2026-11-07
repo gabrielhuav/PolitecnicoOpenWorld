@@ -76,7 +76,10 @@
     <string name="zhud_zone">ZONE: %1$s</string>
     <string name="zhud_zombies">ZOMBIES: %1$d/%2$d</string>
     <string name="zhud_players">PLAYERS: %1$d</string>
-    <string name="zhud_mode">MODE: %1$s  (hold Y)</string>
+    <string name="zhud_mode">MODE: %1$s · %2$s</string>
+    <string name="zhud_attack_melee_hint">B: punch</string>
+    <string name="zhud_attack_ranged_hint">B: shoot</string>
+    <string name="zhud_inventory_open_hint">Hold Y: inventory</string>
     <string name="zhud_mode_melee">MELEE</string>
     <string name="zhud_mode_ranged">WEAPON</string>
     <string name="zhud_combat_mode">COMBAT MODE</string>
@@ -89,6 +92,7 @@
 
     <!-- ─── Exterior Map (features/map_exterior) ─── -->
     <string name="wm_loading_streets">Loading streets...</string>
+    <string name="wm_chip_offline_fallback">Local grid</string>
     <string name="wm_designer">DESIGNER</string>
     <string name="wm_designer_exit">EXIT DESIGNER</string>
     <string name="wm_designer_continue">Keep editing</string>
@@ -280,6 +284,8 @@
     <string name="wm_mission_failed">MISSION\nFAILED</string>
     <string name="wm_retry_mission">RETRY MISSION</string>
     <string name="wm_exit_to_menu">Exit to menu</string>
+    <string name="wm_exit_confirm_message">Leave the game and return to the main menu?</string>
+    <string name="wm_keep_exploring">Keep exploring</string>
     <string name="wm_tip_carjack">Press Y near a car to enter.</string>
     <string name="wm_opt_save_game">Save game</string>
     <!-- ─── Objective widget (campaign) ─── -->
@@ -338,6 +344,7 @@
     <string name="zhud_inv_test">Test</string>
     <string name="wm_inv_readonly_hint">Mission items. They are used at their story location; here you can only view them.</string>
     <string name="zhud_inv_discard">Discard</string>
+    <string name="zhud_inv_slot">Inventory slot %1$d</string>
     <string name="zgame_key_prompt">🔑 There\'s a key — press ACTION to inspect it</string>
     <string name="zgame_objective_investigate">Objective: Investigate what happened</string>
     <!-- ─── Save/load dialogs (MainActivity) ─── -->
@@ -554,6 +561,7 @@
     <string name="sf_lan_section">LOCAL SERVER (same Wi-Fi)</string>
     <string name="sf_lan_host">CREATE SERVER</string>
     <string name="sf_lan_ip_label">Host IP</string>
+    <string name="sf_lan_ip_invalid">Invalid IP. Example: 192.168.1.5</string>
     <string name="sf_lan_host_title">LOCAL SERVER</string>
     <string name="sf_lan_host_sub">Your room is open. Share this address with your rival (same Wi-Fi network or your hotspot):\n\n%1$s</string>
     <string name="sf_lan_no_ip">No local network detected: join a Wi-Fi network or turn on your hotspot and retry.</string>

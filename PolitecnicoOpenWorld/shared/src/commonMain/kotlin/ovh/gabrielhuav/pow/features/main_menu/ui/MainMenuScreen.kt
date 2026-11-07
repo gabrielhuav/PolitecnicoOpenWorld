@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import ovh.gabrielhuav.pow.domain.multiplayer.PlayerNameRules
 import ovh.gabrielhuav.pow.domain.platform.PowModo
 import ovh.gabrielhuav.pow.shared.recursos.Res
 import ovh.gabrielhuav.pow.shared.recursos.*
@@ -103,10 +104,9 @@ fun MainMenuScreen(
     // (2026-07-15) "TITULACIÓN POR COMBATE" ya es PÚBLICO: el botón se muestra siempre. Lo que ahora
     // gatea el Modo Desarrollador son RYU y KEN dentro del selector (ver StreetFighterViewModel).
     LaunchedEffect(Unit) {
-        if (state.playerName.isBlank()) {
-            val saved = controller.nombreGuardado()
-            if (saved.isNotBlank()) controller.updatePlayerName(saved)
-        }
+        val initialName = state.playerName.ifBlank { controller.nombreGuardado() }
+        val normalized = PlayerNameRules.sanitizeInput(initialName)
+        if (normalized != state.playerName) controller.updatePlayerName(normalized)
     }
 
     val bg = Brush.verticalGradient(listOf(Color(0xFF3B0D1B), Color(0xFF0D0D11)))
@@ -138,7 +138,7 @@ fun MainMenuScreen(
                         onNavigateToCollectibles = onNavigateToCollectibles,
                         onNavigateToStory = onNavigateToStory,
                         onMultiplayerClick = onMultiplayer,
-                        onNavigateToStreetFighter = onNavigateToStreetFighter
+                        onNavigateToStreetFighter = onNavigateToStreetFighter,
                     )
                 }
             }
@@ -158,7 +158,7 @@ fun MainMenuScreen(
                     onNavigateToCollectibles = onNavigateToCollectibles,
                     onNavigateToStory = onNavigateToStory,
                     onMultiplayerClick = onMultiplayer,
-                    onNavigateToStreetFighter = onNavigateToStreetFighter
+                    onNavigateToStreetFighter = onNavigateToStreetFighter,
                 )
             }
         }
@@ -188,24 +188,61 @@ fun MainMenuScreen(
 
         // ─── Diálogo de nombre del jugador (solo aparece tras warmup OK) ──
         if (state.showMultiplayerDialog) {
+            val nameProblem = PlayerNameRules.validate(state.playerName)
+            LaunchedEffect(Unit) {
+                val normalized = PlayerNameRules.sanitizeInput(state.playerName)
+                if (normalized != state.playerName) controller.updatePlayerName(normalized)
+            }
             AlertDialog(
                 onDismissRequest = { controller.updateShowMultiplayerDialog(false) },
                 title = { Text(stringResource(Res.string.menu_mp_dialog_title)) },
                 text = {
                     OutlinedTextField(
                         value = state.playerName,
-                        onValueChange = { controller.updatePlayerName(it) },
+                        onValueChange = { controller.updatePlayerName(PlayerNameRules.sanitizeInput(it)) },
                         label = { Text(stringResource(Res.string.menu_mp_username_label)) },
-                        singleLine = true
+                        singleLine = true,
+                        isError = nameProblem != null,
+                        supportingText = {
+                            Row(modifier = Modifier.fillMaxWidth()) {
+                                if (nameProblem == null) {
+                                    Spacer(Modifier.weight(1f))
+                                } else {
+                                    Text(
+                                        text = when (nameProblem) {
+                                            PlayerNameRules.Problem.TOO_SHORT -> stringResource(
+                                                Res.string.menu_mp_username_too_short, PlayerNameRules.MIN_LENGTH
+                                            )
+                                            PlayerNameRules.Problem.TOO_LONG -> stringResource(
+                                                Res.string.menu_mp_username_too_long, PlayerNameRules.MAX_LENGTH
+                                            )
+                                            PlayerNameRules.Problem.INVALID_CHARS ->
+                                                stringResource(Res.string.menu_mp_username_invalid_chars)
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                                Text(
+                                    text = stringResource(
+                                        Res.string.menu_mp_username_counter, state.playerName.length, PlayerNameRules.MAX_LENGTH
+                                    ),
+                                    modifier = Modifier.padding(start = 8.dp)
+                                )
+                            }
+                        }
                     )
                 },
                 confirmButton = {
                     TextButton(
+                        enabled = nameProblem == null,
                         onClick = {
-                            controller.updateShowMultiplayerDialog(false)
                             // "Jugador_" es un id generado de respaldo (no es texto de UI traducible).
-                            val finalName = state.playerName.ifBlank { "Jugador_${(1000..9999).random()}" }
-                            controller.guardarNombre(finalName)   // recuérdalo para la próxima vez
+                            val finalName = PlayerNameRules.finalName(state.playerName) {
+                                "Jugador_${(1000..9999).random()}"
+                            } ?: return@TextButton
+                            controller.updatePlayerName(finalName)
+                            controller.guardarNombre(finalName)
+                            controller.updateShowMultiplayerDialog(false)
                             onNavigateToMap(true, finalName)
                         }
                     ) { Text(stringResource(Res.string.menu_mp_connect)) }
@@ -308,7 +345,7 @@ fun MenuButtonsList(
     onNavigateToCollectibles: () -> Unit,
     onNavigateToStory: () -> Unit,
     onMultiplayerClick: () -> Unit = { controller.onMultiplayerPressed() },
-    onNavigateToStreetFighter: () -> Unit = {}
+    onNavigateToStreetFighter: () -> Unit = {},
 ) {
     // 🍏 Qué botones se pintan lo decide el catálogo de `:shared` (`PowModo.sePinta()`), no esta
     // pantalla: así la regla es UNA y se testea sin necesidad de un Mac. En Android `disponible()`
@@ -689,3 +726,4 @@ private fun WarmupDialog(secondsElapsed: Int, onCancel: () -> Unit) {
         }
     }
 }
+

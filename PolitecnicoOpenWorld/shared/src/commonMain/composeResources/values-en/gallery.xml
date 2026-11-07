@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gallery_maps">Maps</string>
+    <string name="gallery_search">Search this category</string>
+    <string name="gallery_count">%1$d results</string>
+    <string name="gallery_empty">No results found.</string>
+    <string name="gallery_load_failed">The catalog could not be loaded.</string>
+    <string name="gallery_retry">Retry</string>
+    <string name="gallery_image_unavailable">Image unavailable</string>
+    <string name="gallery_image_count">Image %1$d of %2$d</string>
+    <string name="gallery_previous">Previous</string>
+    <string name="gallery_next">Next</string>
+    <string name="gallery_close">Close</string>
+    <string name="gallery_sheet">View all frames</string>
+    <string name="gallery_fighters">Fighters</string>
+    <string name="gallery_stages">Combat stages</string>
+    <string name="gallery_interiors">Interiors</string>
+    <string name="gallery_transit">Metro and Metrobús</string>
+    <string name="gallery_day">Day</string>
+    <string name="gallery_night">Night</string>
+    <string name="gallery_apocalypse">Apocalypse</string>
+    <string name="gallery_combat">Titulación por Combate</string>
+    <string name="gallery_zoom_open">Enlarge map</string>
+    <string name="gallery_zoom_hint">Pinch to zoom and drag to explore.</string>
+    <string name="gallery_zoom_out">Zoom out</string>
+    <string name="gallery_zoom_in">Zoom in</string>
+    <string name="gallery_zoom_reset">Fit</string>
+    <string name="gallery_zoom_level">Zoom: %1$d%%</string>
+</resources>

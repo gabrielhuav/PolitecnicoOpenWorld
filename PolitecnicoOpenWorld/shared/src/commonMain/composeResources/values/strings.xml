@@ -25,6 +25,10 @@
     <string name="menu_local_mode">Modo local (sin sesión)</string>
     <string name="menu_mp_connect">Conectar</string>
     <string name="menu_mp_dialog_title">Conectar a Servidor</string>
+    <string name="menu_mp_username_counter">%1$d/%2$d</string>
+    <string name="menu_mp_username_invalid_chars">Solo letras, números, espacios y _ - .</string>
+    <string name="menu_mp_username_too_short">Mínimo %1$d caracteres</string>
+    <string name="menu_mp_username_too_long">Máximo %1$d caracteres</string>
     <string name="menu_mp_username_label">Nombre de Usuario</string>
     <string name="menu_multiplayer">MULTIJUGADOR</string>
     <string name="menu_retry">REINTENTAR</string>
@@ -158,6 +162,15 @@
     <string name="sf_mode_arcade_desc">Campaña: derrota a todos y desbloquea peleadores</string>
     <string name="sf_mode_combos">COMBOS Y TUTORIAL</string>
     <string name="sf_mode_combos_desc">Aprende todos los controles y combos, y practícalos</string>
+    <!-- 🆕 EXAMEN EXTRAORDINARIO: práctica de los Extraordinarios (remates de fin de combate) -->
+    <string name="sf_mode_extraordinario">EXAMEN EXTRAORDINARIO</string>
+    <string name="sf_mode_extraordinario_desc">Practica los Extraordinarios: el rival ya reprobó y no hay límite de tiempo</string>
+    <string name="sf_extra_pick_fighter">¿Quién presenta el extraordinario?</string>
+    <string name="sf_extra_steps">PASOS</string>
+    <string name="sf_extra_hide_steps">OCULTAR</string>
+    <string name="sf_extra_range">Distancia: %1$s</string>
+    <string name="sf_extra_aprobado">¡APROBADO!</string>
+    <string name="sf_extra_reprobado">¡REPROBADO! Otra vez…</string>
     <string name="sf_mode_multiplayer">MULTIJUGADOR</string>
     <string name="sf_mode_practice">PRÁCTICA</string>
     <string name="sf_mp_accept">ACEPTAR</string>
@@ -217,7 +230,6 @@
     <!-- Ajustes compartidos (2026-07-29) -->
     <string name="menu_back">VOLVER</string>
     <string name="settings_back">Volver</string>
-    <string name="settings_exit_to_menu">SALIR AL MENÚ</string>
     <string name="settings_cache_widget">Widget de caché</string>
     <string name="settings_cache_widget_desc">Muestra fuente de datos</string>
     <string name="settings_cat_account">Cuenta</string>
@@ -358,6 +370,7 @@
     <string name="toast_error_escom_missing">Error: ESCOM no está en el mapa</string>
     <string name="toast_error_escom_navgraph">Error leyendo escom_navgraph.json</string>
     <string name="wm_carjack_warning">¡Te van a bajar del auto! ¡Acelera!</string>
+    <string name="wm_vehicle_exit_blocked">No hay espacio libre para bajar del vehículo.</string>
     <string name="wm_horde_approaching">🧟 ¡UNA HORDA SE ACERCA!</string>
     <string name="wm_prankedy_down">🎭 ¡Prankedy cayó! Volverá más tarde…</string>
     <string name="wm_press_x_activate_zombie">PRESIONA X PARA ACTIVAR MODO ZOMBI</string>
@@ -379,4 +392,5 @@
     <string name="sf_records_col_wins">V</string>
     <string name="sf_records_col_losses">D</string>
     <string name="sf_records_col_rate">Efect.</string>
+    <string name="settings_exit_to_menu">SALIR AL MENÚ</string>
 </resources>

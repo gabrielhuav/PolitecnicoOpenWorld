@@ -262,9 +262,17 @@ enum class SfFighterId(
         "Paramédico", "PARAMEDICO", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/Paramedico.png",
         isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "Paramedico/", "pmd_"),
     ),
-    // 🆕 Estudiante IPN (lentes, sudadera guinda): COMPARTIDO con el NPC de interiores del Modo
-    //    Historia (SPRITES/NPC/NPCS/NPCSIPN/Ipn3/, PlayerSkin.IPN_3). Mira a la DERECHA → sin flip.
-    //    Solo seleccionable con Modo Desarrollador (SfArcadeLadder.DEV_ONLY_FIGHTERS).
+    // 🆕 (2026-09-30) Alexis Syntaxis: hoja dedicada 2560x6656 (celdas 256², pies en 128,224)
+    // con la misma estructura de frames que escomboy.json.
+    ALEXIS_SYNTAXIS(
+        "Alexis Syntaxis", "SYNTAXIS",
+        "STREETFIGHTER/DATA/alexis_syntaxis.json", "STREETFIGHTER/IMAGES/AlexisSyntaxis.webp",
+    ),
+    LA_PLANCHADA(
+        "La Planchada", "PLANCHADA",
+        "STREETFIGHTER/DATA/laplanchada.json", "STREETFIGHTER/IMAGES/LaPlanchada.webp",
+    ),
+    // NPC de interiores reutilizado como peleador ALPHA, exclusivo del modo desarrollador.
     ESTUDIANTE_IPN(
         "Estudiante IPN", "IPN", "STREETFIGHTER/DATA/sf_template.json", "RUNTIME/EstudianteIpn.png",
         isAlpha = true, sharedSet = SfSharedSet("SPRITES/NPC/", "NPCS/NPCSIPN/Ipn3/", "ipn3_"),

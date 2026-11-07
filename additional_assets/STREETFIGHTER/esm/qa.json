@@ -1,0 +1,65 @@
+{
+  "date": "2026-11-06",
+  "pipelineTests": "5 passed",
+  "variants": [
+    {
+      "slug": "esm",
+      "atlas": [
+        1920,
+        1890
+      ],
+      "frame": [
+        480,
+        270
+      ],
+      "frames": 28,
+      "uniqueFrames": 15,
+      "fps": 6.0,
+      "thumb": [
+        256,
+        144
+      ],
+      "bytes": 471790
+    },
+    {
+      "slug": "esm_noche_1",
+      "atlas": [
+        1920,
+        1890
+      ],
+      "frame": [
+        480,
+        270
+      ],
+      "frames": 28,
+      "uniqueFrames": 15,
+      "fps": 6.0,
+      "thumb": [
+        256,
+        144
+      ],
+      "bytes": 449846
+    },
+    {
+      "slug": "esm_noche_2",
+      "atlas": [
+        1920,
+        1890
+      ],
+      "frame": [
+        480,
+        270
+      ],
+      "frames": 28,
+      "uniqueFrames": 15,
+      "fps": 6.0,
+      "thumb": [
+        256,
+        144
+      ],
+      "bytes": 388764
+    }
+  ],
+  "themeDiagnostic": "passed",
+  "deviceQA": "not executed"
+}
