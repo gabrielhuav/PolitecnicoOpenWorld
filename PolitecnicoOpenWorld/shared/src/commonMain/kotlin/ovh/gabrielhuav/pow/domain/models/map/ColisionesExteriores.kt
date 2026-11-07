@@ -30,8 +30,8 @@ const val RUTA_COLISIONES_EXTERIOR = "CONFIG/exterior_collisions.json"
 /**
  * ¿El paso de ([desdeLat], [desdeLon]) a ([hastaLat], [hastaLon]) choca con algo?
  *
- * Es la misma regla que aplica `WorldMapMovement.kt` en Android: se cruza un muro **o** el destino
- * cae dentro de un polígono bloqueado.
+ * Solo las formas `BARRIER` bloquean: los `NAV_GUIDE` conservan los carriles como guía visual y de
+ * navegación sin convertirlos en paredes. Android aplica la misma separación con su resolvedor.
  *
  * ⚠️ **Se comprueba el PASO, no solo el destino.** Con pasos grandes, mirar únicamente el punto
  * final dejaría atravesar una barda de un salto — el jugador aparecería al otro lado.
@@ -43,9 +43,11 @@ fun ExteriorCollisionsConfig.chocaAlMoverse(
     hastaLon: Double,
 ): Boolean {
     for (muro in walls) {
+        if (muro.effectiveRole != CollisionRole.BARRIER) continue
         if (muro.didHitWall(desdeLat, desdeLon, hastaLat, hastaLon)) return true
     }
     for (poligono in polygons) {
+        if (poligono.role != CollisionRole.BARRIER) continue
         if (poligono.contains(hastaLat, hastaLon)) return true
     }
     return false

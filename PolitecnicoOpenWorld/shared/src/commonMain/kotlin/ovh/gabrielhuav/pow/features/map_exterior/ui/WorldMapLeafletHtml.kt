@@ -267,15 +267,14 @@ fun buildHtml(
             map.setZoom(z, { animate: false });
         }
 
-        function setMapRotation(deg) { var wrapper = document.getElementById('map-wrapper'); if (wrapper) wrapper.style.transform = 'rotate(' + deg + 'deg)'; }
         // OPT FPS (gama baja): a pie el wrapper es del tamaño de la pantalla (≈45 teselas en vez
         // de ~350). Solo al CONDUCIR se agranda a un cuadrado del tamaño de la DIAGONAL de la
         // pantalla (en px), centrado, cuyo círculo inscrito cubre las esquinas en cualquier
-        // rotación. invalidateSize() recalcula el mapa al cambiar de tamaño (poco frecuente: solo
-        // al subir/bajar del vehículo). _driving evita trabajo redundante en llamadas repetidas.
+        // rotación. _driving evita trabajo redundante en llamadas repetidas. La invalidación se
+        // deja al coordinador atómico para que ocurra antes del recenter.
         function setMapOversize(driving) {
             var w = document.getElementById('map-wrapper'); if (!w) return;
-            if (w._driving === driving) return; w._driving = driving;
+            if (w._driving === driving) return false; w._driving = driving;
             if (driving) {
                 // Cuadrado del tamaño de la DIAGONAL de la pantalla, en PÍXELES (no vmax/calc, que
                 // no son fiables en WebViews viejas de Android 7-9 → de ahí los bordes negros al
@@ -290,8 +289,33 @@ fun buildHtml(
                 w.style.width = '100vw'; w.style.height = '100vh';
                 w.style.top = '0'; w.style.left = '0';
             }
-            if (typeof map !== 'undefined' && map) map.invalidateSize(false);
+            return true;
         }
+        /*
+         * Transición ATÓMICA peatón↔vehículo. Cambiar el tamaño del wrapper después de
+         * centrar Leaflet dejaba un frame con dos referencias visuales: el mapa rotado y el
+         * vehículo Compose ya centrado. El orden es parte del contrato: resize → invalidate →
+         * recenter → rotar. El caller la ejecuta antes de actualizar sprites/niebla.
+         */
+        function applyVehicleViewport(driving, lat, lng, zoom, rotation, recenter) {
+            var changed = setMapOversize(driving);
+            if (changed && typeof map !== 'undefined' && map) {
+                map.invalidateSize(false);
+            }
+            if (recenter && lat !== null && lng !== null && typeof map !== 'undefined' && map) {
+                map.setView([lat, lng], zoom, { animate: false });
+            }
+            setMapRotation(rotation);
+            return changed;
+        }
+        function vehicleViewportDebug() {
+            var wrapper = document.getElementById('map-wrapper');
+            var rect = wrapper ? wrapper.getBoundingClientRect() : null;
+            var center = (typeof map !== 'undefined' && map) ? map.getCenter() : null;
+            return JSON.stringify({ rect: rect ? [rect.left, rect.top, rect.width, rect.height] : null,
+                center: center ? [center.lat, center.lng] : null, rotation: wrapper ? wrapper.style.transform : null });
+        }
+        function setMapRotation(deg) { var wrapper = document.getElementById('map-wrapper'); if (wrapper) wrapper.style.transform = 'rotate(' + deg + 'deg)'; }
         // Cambia el proveedor de teselas. maxNative = zoom máximo REAL del proveedor
         // (CARTO sirve hasta z20 → más nitidez; OSM solo z19). Si cambia, hay que
         // recrear la capa (Leaflet no permite cambiar maxNativeZoom en caliente).
@@ -931,7 +955,8 @@ fun buildHtml(
         }
 
         // 🔧 DEBUG INTERIORES: caminos del navGraph (verde=peatonal, naranja=autos), zonas NO
-        // caminables (polígonos rojos, p. ej. el edificio ESCOM) y bardas (líneas rojas). Recibe
+        // caminables (polígonos rojos, p. ej. el edificio ESCOM), bardas (líneas rojas) y
+        // guías de navegación (líneas azules, no físicas). Recibe
         // un objeto {paths, blocks, walls} con coords lat/lng global; '{}' limpia todo.
         var interiorPathLayers = {};
         function updateInteriorPaths(jsonStr) {
@@ -939,7 +964,7 @@ fun buildHtml(
             var items = [];
             (data.paths || []).forEach(function(w){ items.push({ id:'p_'+w.id, kind:'path', walk:w.walk, nodes:w.nodes }); });
             (data.blocks || []).forEach(function(b){ items.push({ id:'b_'+b.id, kind:'block', nodes:b.nodes }); });
-            (data.walls || []).forEach(function(wl){ items.push({ id:'w_'+wl.id, kind:'wall', nodes:wl.nodes }); });
+            (data.walls || []).forEach(function(wl){ items.push({ id:'w_'+wl.id, kind:'wall', guide: wl.guide, nodes:wl.nodes }); });
             var currentIds = new Set(items.map(function(x){ return String(x.id); }));
             for (var id in interiorPathLayers) {
                 if (!currentIds.has(id)) { map.removeLayer(interiorPathLayers[id]); delete interiorPathLayers[id]; }
@@ -955,7 +980,7 @@ fun buildHtml(
                 if (x.kind === 'block') {
                     layer = L.polygon(latlngs, { color:'#C80000', weight:3, fillColor:'#DC2828', fillOpacity:0.35, interactive:false });
                 } else if (x.kind === 'wall') {
-                    layer = L.polyline(latlngs, { color:'#DC0000', weight:7, opacity:0.9, lineCap:'round', interactive:false });
+                    layer = L.polyline(latlngs, { color:x.guide ? '#1683D8' : '#DC0000', weight:x.guide ? 4 : 7, opacity:0.9, lineCap:'round', interactive:false });
                 } else {
                     var color = x.walk ? '#4CC850' : '#FF8C00';
                     var weight = x.walk ? 5 : 7;
