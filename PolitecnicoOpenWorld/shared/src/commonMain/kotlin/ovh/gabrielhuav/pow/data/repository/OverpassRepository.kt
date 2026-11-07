@@ -289,7 +289,11 @@ internal object OverpassServidores {
      * dejaba la carga atorada igual que un 504.
      */
     fun esErrorDelServidor(cuerpo: String): Boolean {
-        val root = runCatching { powJsonObjeto(cuerpo) }.getOrNull()
+        val json = cuerpo.trim()
+        // `powJsonObjeto` devuelve un objeto vacío ante texto inválido por diseño. Validar el
+        // contenedor aquí evita tratar una página HTML del proxy como una zona sin calles.
+        if (!json.startsWith('{') || !json.endsWith('}')) return true
+        val root = runCatching { powJsonObjeto(json) }.getOrNull()
             ?: return true // ni siquiera es JSON: página de error del proxy/servidor
         // PowJson es laxo por compatibilidad con saves: HTML puede convertirse en objeto vacio.
         // Exigir el esquema de red aqui evita aceptar ese error como una zona sin calles.

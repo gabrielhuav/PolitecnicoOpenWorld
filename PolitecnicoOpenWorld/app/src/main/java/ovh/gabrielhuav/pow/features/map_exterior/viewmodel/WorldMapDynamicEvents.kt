@@ -34,6 +34,13 @@ internal const val DYN_EVT_CONVO = 1
 internal const val DYN_EVT_CHASE = 2
 internal const val DYN_EVT_BROTE = 3
 
+/** Aviso efímero exclusivo de la fase de ataque del mini-brote. */
+internal const val DYNAMIC_EVENT_OUTBREAK_PROMPT = "🚨 ¡Un infectado atacó a alguien en la calle!"
+
+/** Al cerrar un evento, no borres un aviso más reciente de misión o interacción. */
+internal fun clearDynamicEventPrompt(prompt: String?): String? =
+    if (prompt == DYNAMIC_EVENT_OUTBREAK_PROMPT) null else prompt
+
 // Cadencia y duraciones.
 private const val DYN_NEXT_MIN_MS = 40_000L
 private const val DYN_NEXT_MAX_MS = 80_000L
@@ -126,6 +133,9 @@ internal fun WorldMapViewModel.clearDynamicEvent() {
     dynamicEventType = DYN_EVT_NONE
     dynamicEventStage = 0
     dynamicEventStageMs = 0L
+    _uiState.update { state ->
+        state.copy(interactionPrompt = clearDynamicEventPrompt(state.interactionPrompt))
+    }
     nextDynamicEventMs = System.currentTimeMillis() + DYN_NEXT_MIN_MS +
         (Math.random() * (DYN_NEXT_MAX_MS - DYN_NEXT_MIN_MS)).toLong()
 }
@@ -234,7 +244,7 @@ private fun WorldMapViewModel.tickDynBrote(now: Long) {
                     speed = DYN_ZOMBIE_SPEED, isMoving = true
                 )
             }
-            _uiState.update { it.copy(interactionPrompt = "🚨 ¡Un infectado atacó a alguien en la calle!") }
+            _uiState.update { it.copy(interactionPrompt = DYNAMIC_EVENT_OUTBREAK_PROMPT) }
             dynamicEventStage = 1
             dynamicEventStageMs = now
         }

@@ -1,8 +1,21 @@
 package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 
+import android.util.Log
 import kotlinx.coroutines.flow.update
+import ovh.gabrielhuav.pow.BuildConfig
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
+import ovh.gabrielhuav.pow.domain.models.map.CircleCollider
+import ovh.gabrielhuav.pow.domain.models.map.CollisionResolution
+import ovh.gabrielhuav.pow.domain.models.map.DynamicVehicleCollider
+import ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig
+import ovh.gabrielhuav.pow.domain.models.map.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.VehicleDimensions
+import ovh.gabrielhuav.pow.domain.models.map.VehicleFootprint
+import ovh.gabrielhuav.pow.domain.models.map.firstVehicleCircleContact
+import ovh.gabrielhuav.pow.domain.models.map.resolveCirclePath
+import ovh.gabrielhuav.pow.domain.models.map.resolveVehiclePath
+import ovh.gabrielhuav.pow.domain.models.map.usesVehicleFootprint
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -15,18 +28,72 @@ import kotlin.math.sin
 // en el ViewModel. startMovementAction/getNearestPointOnNetwork/centerOnPlayer son extensiones.
 // ─────────────────────────────────────────────────────────────────────────────
 
+internal const val PLAYER_FOOT_RADIUS_METERS = 0.35
+private val PLAYER_FOOT_COLLIDER = CircleCollider(radiusMeters = PLAYER_FOOT_RADIUS_METERS)
+
 internal fun WorldMapViewModel.isCollisionDetected(oldLat: Double, oldLon: Double, newLat: Double, newLon: Double): Boolean {
-        val config = exteriorCollisions ?: return false
-        // A) Revisar si pisa un edificio
-        for (poly in config.polygons) {
-            if (poly.contains(newLat, newLon)) return true
+    val config = exteriorCollisions ?: return false
+    return !config.resolveCirclePath(
+        from = GeoPoint(oldLat, oldLon),
+        to = GeoPoint(newLat, newLon),
+        collider = PLAYER_FOOT_COLLIDER,
+    ).reachedTarget
+}
+
+/** Los coches son sólidos para el jugador a pie; civiles siguen siendo atravesables. */
+internal fun WorldMapViewModel.worldVehicleColliders(): List<DynamicVehicleCollider> =
+    (remoteEntities.values + policeManager.activeUnits())
+        .filter { it.type.usesVehicleFootprint() }
+        .map { npc ->
+            DynamicVehicleCollider(
+                id = npc.id,
+                footprint = VehicleFootprint(
+                center = npc.location,
+                headingDegrees = (npc.rotationAngle + 90f) % 360f,
+                dimensions = npc.carModel.collisionDimensions,
+                ),
+                movable = npc.isMoving && npc.navState != ovh.gabrielhuav.pow.domain.models.map.NpcNavState.PARKED,
+            )
         }
-        // B) Revisar si choca con una barda
-        for (wall in config.walls) {
-            if (wall.didHitWall(oldLat, oldLon, newLat, newLon)) return true
+
+/** Conserva el mismo orden de resolución para botones y joystick: estático y después tráfico. */
+private fun WorldMapViewModel.isFootMoveBlocked(from: GeoPoint, target: GeoPoint): Boolean {
+    val staticResolution = exteriorCollisions?.resolveCirclePath(
+        from = from,
+        to = target,
+        collider = PLAYER_FOOT_COLLIDER,
+    )
+    if (staticResolution?.reachedTarget == false) {
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "WorldCollision",
+                "actor=player-foot collider=circle reason=${staticResolution.blockedBy?.name?.lowercase()} " +
+                    "blocked=$target",
+            )
         }
-        return false
+        return true
     }
+    val contact = firstVehicleCircleContact(from, target, PLAYER_FOOT_COLLIDER.radiusMeters, worldVehicleColliders())
+    if (contact != null) {
+        if (BuildConfig.DEBUG) Log.d("WorldCollision", "actor=player-foot collider=circle reason=traffic id=${contact.id} blocked=$target")
+        return true
+    }
+    return false
+}
+
+/** Colisión del cuerpo entero del coche, conservando el último punto seguro del barrido. */
+internal fun resolveVehicleStaticMovement(
+    config: ExteriorCollisionsConfig?,
+    from: GeoPoint,
+    roadAdjustedTarget: GeoPoint,
+    headingDegrees: Float,
+    dimensions: VehicleDimensions,
+): CollisionResolution = config?.resolveVehiclePath(
+    from = from,
+    to = roadAdjustedTarget,
+    headingDegrees = headingDegrees,
+    dimensions = dimensions,
+) ?: CollisionResolution(roadAdjustedTarget, null)
 
 internal fun WorldMapViewModel.moveCharacter(direction: Direction) {
         if (_uiState.value.showWastedScreen || _uiState.value.showMissionFailed) return // muerto/misión fallida: sin movimiento
@@ -53,7 +120,7 @@ internal fun WorldMapViewModel.moveCharacter(direction: Direction) {
         }
 
         // ADUANA DE CHOQUE A PIE
-        if (isCollisionDetected(loc.latitude, loc.longitude, temp.latitude, temp.longitude)) {
+        if (isFootMoveBlocked(loc, temp)) {
             return // CHOCÓ: Rompemos la función y el jugador no avanza
         }
 
@@ -133,7 +200,7 @@ internal fun WorldMapViewModel.moveCharacterByAngle(angleRad: Double) {
         )
 
         // ADUANA DE CHOQUE JOYSTICK
-        if (isCollisionDetected(loc.latitude, loc.longitude, temp.latitude, temp.longitude)) {
+        if (isFootMoveBlocked(loc, temp)) {
             return // CHOCÓ: Rompemos la función
         }
 

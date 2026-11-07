@@ -31,6 +31,7 @@ import ovh.gabrielhuav.pow.data.repository.SettingsRepository
 import ovh.gabrielhuav.pow.domain.models.ai.LandmarkNavGraph
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
+import ovh.gabrielhuav.pow.domain.models.map.CarModel
 import ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig
 import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import ovh.gabrielhuav.pow.domain.models.map.Npc
@@ -297,8 +298,6 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     // DELANTE del coche → da tiempo a animar el sidestep antes del contacto (no teletransporte).
     internal val DODGE_TRIGGER_RADIUS = 0.00007   // ~7-8 m por delante
     internal val DODGE_MS = 480L                  // duración del sidestep animado
-    // Radio de choque coche-coche: al pasar tan cerca de un auto NPC, 💥 + lo empujas (rebasas).
-    internal val CAR_BUMP_RADIUS = 0.000045
     internal val NPC_CONTACT_RADIUS = 0.00006     // ~6.6 m: golpe del NPC agresivo (holgado)
     internal val NPC_CONTACT_DAMAGE = 10f
     internal val NPC_CONTACT_COOLDOWN_MS = 900L
@@ -487,6 +486,8 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     internal var myPlayerUUID = "Player_${UUID.randomUUID()}"
     internal var myPlayerDisplayName = ""
     internal val remoteEntities = ConcurrentHashMap<String, Npc>()
+    /** Contactos jugador-vehículo vigentes: el impacto (💥/miedo/log) se emite una vez por contacto. */
+    internal val vehicleContactLatch = ovh.gabrielhuav.pow.domain.models.map.VehicleContactLatch()
 
     fun connectToMultiplayer(serverUrl: String, playerName: String) {
         myPlayerDisplayName = playerName
@@ -564,27 +565,26 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                 lastNetworkFetchLocation = initialLoc
             } else {
                 _uiState.update { it.copy(roadSource = RoadSource.LOADING) }
-                var retryMs = 1_000L
+                val network = kotlinx.coroutines.withTimeoutOrNull(12_000L) {
+                    overpassRepository.fetchRoadNetwork(initialLoc.latitude, initialLoc.longitude)
+                }.orEmpty()
+                if (network.isNotEmpty()) {
+                    _uiState.update { it.copy(roadSource = RoadSource.NETWORK) }
+                    applyRoadNetwork(network, initialLoc)
+                    lastNetworkFetchLocation = initialLoc
 
-                while (isActive && roadNetwork.isEmpty()) {
-                    val network = overpassRepository.fetchRoadNetwork(initialLoc.latitude, initialLoc.longitude)
-                    if (network.isNotEmpty()) {
-                        _uiState.update { it.copy(roadSource = RoadSource.NETWORK) }
-                        applyRoadNetwork(network, initialLoc)
-                        lastNetworkFetchLocation = initialLoc
-
-                        launch(kotlinx.coroutines.Dispatchers.IO) {
-                            roadNetworkCache.put(initialLoc.latitude, initialLoc.longitude, network)
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
-                            }
+                    launch(kotlinx.coroutines.Dispatchers.IO) {
+                        roadNetworkCache.put(initialLoc.latitude, initialLoc.longitude, network)
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            _uiState.update { it.copy(roadSource = RoadSource.LOCAL_DB) }
                         }
-                        break
-                    } else {
-                        _uiState.update { it.copy(isRoadNetworkReady = false) }
-                        kotlinx.coroutines.delay(retryMs)
-                        retryMs = (retryMs * 2).coerceAtMost(30_000L)
                     }
+                } else {
+                    // Una instalación nueva no puede quedar atrapada en la pantalla de carga por
+                    // un servicio público caído. Dejamos lastNetworkFetchLocation en null para
+                    // que maybeRefetchRoadNetwork reintente las calles reales en segundo plano.
+                    _uiState.update { it.copy(roadSource = RoadSource.OFFLINE_FALLBACK) }
+                    applyRoadNetwork(offlineRoadNetwork(initialLoc), initialLoc)
                 }
             }
 
@@ -817,23 +817,8 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                 isAutoCentering = true
                             }
 
-                            // 👇 ADUANA DE CHOQUE PARA EL COCHE 👇
-                            if (isCollisionDetected(location.latitude, location.longitude, tempLoc.latitude, tempLoc.longitude)) {
-                                // Retrocede un paso para no quedar pegado a la pared (knockback
-                                // suave). Así el jugador puede girar (el steering ya no requiere
-                                // speed != 0) y marcharse sin quedar atorado.
-                                val knockbackDist = 0.000003
-                                val bkLat = location.latitude - kotlin.math.sin(angleRad) * knockbackDist
-                                val bkLon = location.longitude - kotlin.math.cos(angleRad) * knockbackDist
-                                _uiState.update {
-                                    it.copy(
-                                        currentLocation = GeoPoint(bkLat, bkLon),
-                                        vehicleSpeed = 0.0,
-                                        vehicleRotation = (currentRotation + 360) % 360f
-                                    )
-                                }
-                            } else {
-                                // Lógica de 'main': Auto-centrado y límite dinámico de la calle
+                            val vehicleModel = _uiState.value.currentVehicleModel ?: CarModel.SEDAN
+                            // Lógica de 'main': Auto-centrado y límite dinámico de la calle
                                 val distToRoad = distance(tempLoc, nearestRoadPoint)
                                 // Radio expandido al rebasar REDUCIDO (0.00006 → 0.000045 ≈ 5 m): con el
                                 // anterior el coche se veía claramente FUERA de la carretera al esquivar.
@@ -865,22 +850,47 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                     )
                                 }
 
-                                _uiState.update {
-                                    it.copy(
-                                        currentLocation = finalLoc,
-                                        vehicleSpeed = currentSpeed,
-                                        vehicleRotation = (currentRotation + 360) % 360f
+                                // La aduana se aplica DESPUÉS del ajuste de carretera: ese ajuste no
+                                // puede empujar la carrocería a través de una barda o edificio.
+                                val staticResolution = resolveVehicleStaticMovement(
+                                    config = exteriorCollisions,
+                                    from = location,
+                                    roadAdjustedTarget = finalLoc,
+                                    headingDegrees = currentRotation,
+                                    dimensions = vehicleModel.collisionDimensions,
+                                )
+                                if (!staticResolution.reachedTarget) {
+                                    logVehicleCollision(
+                                        when (staticResolution.blockedBy) {
+                                            ovh.gabrielhuav.pow.domain.models.map.CollisionReason.BUILDING -> "building"
+                                            ovh.gabrielhuav.pow.domain.models.map.CollisionReason.WALL -> "wall"
+                                            null -> "unknown"
+                                        },
                                     )
-                                }
-
+                                    _uiState.update {
+                                        it.copy(
+                                            currentLocation = staticResolution.position,
+                                            vehicleSpeed = 0.0,
+                                            vehicleRotation = (currentRotation + 360) % 360f,
+                                        )
+                                    }
+                                } else {
                                 // ATROPELLO: Lógica de esquive de 'main'
                                 val isAutoDodging = dodgeOffsetX != 0.0 || dodgeOffsetY != 0.0
                                 if (isAutoDodging) lastDodgeTime = System.currentTimeMillis()
                                 // Cancelar inmunidad si el jugador gira voluntariamente (para permitir chocar intencionalmente)
                                 if (isSteeringSharply) lastDodgeTime = 0L
-                                val dodgeGrace = System.currentTimeMillis() - lastDodgeTime < 600L
-                                runOverNpcs(finalLoc, currentSpeed, dodgeGrace)
-                            }
+                                val trafficImpact = runOverNpcs(location, finalLoc, currentSpeed)
+                                val resolvedLocation = trafficImpact?.playerCenter ?: finalLoc
+                                if (trafficImpact != null) currentSpeed *= trafficImpact.playerSpeedMultiplier
+                                _uiState.update {
+                                    it.copy(
+                                        currentLocation = resolvedLocation,
+                                        vehicleSpeed = currentSpeed,
+                                        vehicleRotation = (currentRotation + 360) % 360f
+                                    )
+                                }
+                                }
                         }
 
                         // GOLPES/MORDIDAS por CONTACTO: NPCs agresivos en embestida y ZOMBIS cercanos
