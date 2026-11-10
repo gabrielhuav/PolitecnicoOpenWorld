@@ -36,6 +36,18 @@ internal fun selectVehicleExit(
     isWalkable: (GeoPoint) -> Boolean,
 ): GeoPoint? = candidates.firstOrNull(isWalkable)
 
+/**
+ * Salida del carjack: NUNCA devuelve null. Prefiere un punto transitable; si todo está bloqueado,
+ * el primero fuera de la carrocería; y en último caso el primer candidato (mejor bajar que quedarse dentro).
+ */
+internal fun selectForcedVehicleExit(
+    candidates: List<GeoPoint>,
+    isWalkable: (GeoPoint) -> Boolean,
+    isClearOfVehicle: (GeoPoint) -> Boolean,
+): GeoPoint = candidates.firstOrNull(isWalkable)
+    ?: candidates.firstOrNull(isClearOfVehicle)
+    ?: candidates.first()
+
 /** Salida obligada: después de las puertas, abre un anillo alrededor del vehículo. */
 internal fun forcedVehicleExitCandidates(
     center: GeoPoint,

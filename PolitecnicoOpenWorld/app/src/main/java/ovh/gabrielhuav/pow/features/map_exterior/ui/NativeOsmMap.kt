@@ -200,7 +200,8 @@ internal fun NativeOsmMap(
                 uiState.currentLocation?.let { view.controller.setCenter(it.toOsm()) }
             }
 
-            view.mapOrientation = if (uiState.isDriving) -uiState.vehicleRotation else 0f
+            // Cámara fija norte-arriba (estilo GTA Chinatown Wars): el mapa NO gira, el coche sí.
+            view.mapOrientation = 0f
 
             if (uiState.isUserPanningMap) {
                 @Suppress("UNCHECKED_CAST")
@@ -1409,9 +1410,6 @@ internal fun NativeOsmMap(
             // ─── NEBLINA ANCLADA AL JUGADOR ─────────────────────────────────────
             (view.getTag(ovh.gabrielhuav.pow.R.id.route_overlay_tag + 600) as? FogOverlay)?.let { fog ->
                 fog.player = uiState.currentLocation?.toOsm()
-                // Solo al conducir el mapa rota; a pie la neblina puede dibujarse con el rect
-                // exacto de pantalla (sin el enorme sobredimensionado por rotación).
-                fog.rotated = uiState.isDriving
                 val lat = uiState.currentLocation?.latitude ?: 19.5
                 val mpp = metersPerPixel(view.zoomLevelDouble, lat)
                 fog.revealPx = if (mpp.isFinite() && mpp > 0.0)
