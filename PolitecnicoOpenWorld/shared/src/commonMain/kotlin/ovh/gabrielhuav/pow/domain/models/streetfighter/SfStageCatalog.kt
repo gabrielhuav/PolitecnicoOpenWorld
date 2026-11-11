@@ -39,7 +39,8 @@ object SfStageCatalog {
         }
     }
 
-    // ---- Catálogo de mapas implementados (17 bases × 3 iluminaciones = 51) ----
+    // ---- Catálogo de mapas implementados (18 bases × 3 iluminaciones = 54) ----
+    val ESM = Stage("esm", "Escuela Superior de Medicina IPN", "fondo_esm_anim.webp")
     val ESCOM = Stage("escom", "ESCOM", "fondo_escom_anim.webp")
     val QUESO_IPN = Stage("queso_ipn", "Queso IPN", "fondo_queso_ipn_anim.webp")
     val ESIME_AZC = Stage("esime_azc", "ESIME Azcapotzalco", "fondo_esime_azc_anim.webp")
@@ -62,7 +63,7 @@ object SfStageCatalog {
         ESCOM, QUESO_IPN, ESIME_AZC, CECYT_9, CECYT_2,
         UNAM_CU, FES_ACATLAN, UAM_AZCAPO, ISLA_MUNECAS, MICTLÁN,
         AGAVE, FAC_MED, FES_ARAGON, PIRAMIDE, UAM_CUAJI, ZOCALO,
-        BIBLIOTECA_IPN,
+        BIBLIOTECA_IPN, ESM,
     )
 
     /**
@@ -74,7 +75,7 @@ object SfStageCatalog {
      * Compartidos:
      * - Zócalo: POLICIA_GRANADERO_HOMBRE + LA_PRESIDENTA
      *
-     * Los 17 mapas base tienen al menos un peleadór hogar.
+     * Los 18 mapas base tienen al menos un peleadór hogar.
      * Alpha/shared (LÁZARO, etc.): fallback solo para Modo Dev.
      */
     fun homeStage(id: SfFighterId): Stage = when (id) {
@@ -98,6 +99,7 @@ object SfStageCatalog {
         // ── Leyenda / jefes ──
         SfFighterId.CHARRO_NEGRO -> AGAVE
         SfFighterId.LA_LLORONA -> ISLA_MUNECAS
+        SfFighterId.LA_PLANCHADA -> ESM
         SfFighterId.LA_TZITZIMIME -> PIRAMIDE
         SfFighterId.YOALLI_EHECATL -> MICTLÁN
         SfFighterId.LA_PRESIDENTA -> ZOCALO // comparte con Granadero H
@@ -147,7 +149,7 @@ object SfStageCatalog {
         return ALL_STAGES.find { it.dayFile == base }
     }
 
-    /** Lista plana de los 51 fondos (día+noche+apocalipsis) para el selector de práctica. */
+    /** Lista plana de los 54 fondos (día+noche+apocalipsis) para el selector de práctica. */
     fun allBackgroundFiles(): List<String> = ALL_STAGES.flatMap { s ->
         listOf(s.file(Lighting.DAY), s.file(Lighting.NIGHT), s.file(Lighting.APOCALYPSE))
     }
