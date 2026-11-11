@@ -165,6 +165,7 @@ class CollectibleRepository(
             "ROBOT" to ("Escomrobot" to "STREETFIGHTER/IMAGES/Robot.webp"),
             "CHARRO_NEGRO" to ("Charro Negro" to "STREETFIGHTER/IMAGES/CharroNegro.webp"),
             "LA_LLORONA" to ("La Llorona" to "STREETFIGHTER/IMAGES/LaLlorona.webp"),
+            "LA_PLANCHADA" to ("La Planchada" to "STREETFIGHTER/IMAGES/LaPlanchada.webp"),
             "LA_TZITZIMIME" to ("La Tzitzimime" to "STREETFIGHTER/IMAGES/LaTzitzimime.webp"),
             "YOALLI_EHECATL" to ("Yoalli Ehécatl" to "STREETFIGHTER/IMAGES/YoalliEhecatl.webp"),
             "LA_PRESIDENTA" to ("La Presidenta" to "STREETFIGHTER/IMAGES/LaPresidenta.webp"),

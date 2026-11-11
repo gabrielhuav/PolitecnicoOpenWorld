@@ -182,6 +182,7 @@ internal fun StreetFighterViewModel.cpuStyle(id: SfFighterId): CpuStyle = when (
     SfFighterId.ROBOT,
     SfFighterId.CHARRO_NEGRO,
     SfFighterId.LA_LLORONA,
+    SfFighterId.LA_PLANCHADA,
     SfFighterId.LA_TZITZIMIME,
     SfFighterId.YOALLI_EHECATL,
     SfFighterId.LA_PRESIDENTA,

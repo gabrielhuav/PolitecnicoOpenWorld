@@ -29,7 +29,7 @@ low-end performance) or doc drift.
 > | `features/map_exterior/ui/WorldMapScreen.kt` | 1463 | 1463 |
 > | `features/map_exterior/ui/NativeOsmMap.kt` | 1472 | 1458 |
 > | `features/interiores/zombies/ui/ZombieGameScreen.kt` | 1350 | 1343 |
-> | `AppNavGraph.kt` | 1182 | 1173 |
+> | `AppNavGraph.kt` | 1174 (re-medido 2026-11-05, integración de Multimedia en Coleccionables) | 1182 |
 > | `features/interiores/zombies/viewmodel/ZombieInteriorViewModel.kt` | 1165 | 1165 |
 > | `features/streetfighter/ui/SfSceneRenderer.kt` | 1230 | 1089 |
 > | `domain/models/ai/NpcAiManager.kt` | 1048 | (no estaba en la tabla) |

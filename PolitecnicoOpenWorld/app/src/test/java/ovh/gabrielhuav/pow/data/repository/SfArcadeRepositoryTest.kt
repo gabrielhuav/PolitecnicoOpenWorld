@@ -8,6 +8,12 @@ import org.junit.Test
 class SfArcadeRepositoryTest {
 
     @Test
+    fun `La Planchada requiere desbloqueo y Alexis sigue disponible de inicio`() {
+        assertFalse("LA_PLANCHADA" in SfArcadeRepository.DEFAULT_FIGHTERS)
+        org.junit.Assert.assertTrue("ALEXIS_SYNTAXIS" in SfArcadeRepository.DEFAULT_FIGHTERS)
+    }
+
+    @Test
     fun `un snapshot V1 escrito por la version vieja se lee sin perder datos`() {
         val jsonViejo = """
             {

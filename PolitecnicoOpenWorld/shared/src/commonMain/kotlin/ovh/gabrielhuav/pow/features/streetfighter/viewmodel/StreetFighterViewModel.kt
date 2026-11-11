@@ -177,12 +177,8 @@ open class StreetFighterViewModel(
             // Paramédico Cruz Roja = WIN. (Su special_<id> también suena en su poder por fallback.)
             // 🆕 (2026-07-18t) La Llorona: pack COMPLETO con audios dedicados del dueño
             // (special/power, attack recortado seg 7-11, hurt).
-            SfFighterId.LA_LLORONA to SfVoicePack(
-                attack = listOf(SfVoiceLine("special_llorona_attack")),
-                hurt = listOf(SfVoiceLine("special_llorona_hurt")),
-                power = listOf(SfVoiceLine("special_llorona_power")),
-                win = listOf(SfVoiceLine("special_llorona_win")),
-            ),
+            SfFighterId.LA_LLORONA to sfLegendVoicePacks.getValue(SfFighterId.LA_LLORONA),
+            SfFighterId.LA_PLANCHADA to sfLegendVoicePacks.getValue(SfFighterId.LA_PLANCHADA),
             SfFighterId.LA_TZITZIMIME to SfVoicePack(
                 attack = listOf(SfVoiceLine("special_la_tzitzimime_attack")),
                 hurt = listOf(SfVoiceLine("special_la_tzitzimime_hurt")),
