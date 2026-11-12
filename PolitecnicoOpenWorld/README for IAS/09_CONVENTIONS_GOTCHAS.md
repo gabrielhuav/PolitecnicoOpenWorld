@@ -142,8 +142,8 @@ composables top-level); las extensiones del VM usadas se importan en el archivo 
 
 **🆕 Progreso (2026-06-20, 5ª pasada):** `WorldMapViewModel.kt` ~2584→**~2503** extrayendo dos parciales
 nuevos (extensiones, sin gemelo): `WorldMapCameraUi.kt` (zoom automático/manual, pinch `onMapZoomChanged`,
-`centerOnPlayer`/`zoomToPlayer`, pan, y toggles de widgets; campos `autoZoomMode`/`targetZoomLevel`
-pasados a `internal`) y `WorldMapSettings.kt` (densidad/LOD de NPCs + skin). Call-sites externos importan
+`centerOnPlayer`/`zoomToPlayer`, pan, y toggles de widgets; campos `lastAutoZoomTarget`/`targetZoomLevel`
+pasados a `internal`; `autoZoomMode` ya no existe) y `WorldMapSettings.kt` (densidad/LOD de NPCs + skin). Call-sites externos importan
 las extensiones (MainActivity, WorldMapScreen, NativeOsmMap, MapJsBridge). **Tope práctico de extracción
 fácil alcanzado:** lo que queda grande en el VM (startGameLoop ~440, handleMultiplayerMessage,
 addRemoteEntity, updateVisibleRoads, updateDestinationRoute, triggerWastedSequence) son **pares con
@@ -290,9 +290,9 @@ comprometido. / Control edits stay in `temp*`, commit only on SAVE.
 
 ## 4. Fog de guerra anclado al jugador / Player-anchored fog (por renderer)
 
-- **OSM nativo:** `FogOverlay` proyectado al jugador cada frame; rect = pantalla a pie, diagonal solo al
-  conducir (rotación). No rellenar ~10× el área cada frame.
-- **Web:** div `#fog` dentro de `#map-wrapper` (rota con el mapa); `drawFog` **cachea el gradiente** y no
+- **OSM nativo:** `FogOverlay` proyectado al jugador cada frame; rect = pantalla siempre (la cámara es
+  norte-arriba y el mapa ya no rota, así que no hace falta sobredimensionar). No rellenar ~10× el área cada frame.
+- **Web:** div `#fog` dentro de `#map-wrapper` (que ya no rota); `drawFog` **cachea el gradiente** y no
   re-rasteriza si no cambia.
 - **Compose `Canvas` fog:** **solo** para Google nativo.
 
@@ -388,11 +388,12 @@ px-por-metro), `PlayerCharacter` (jugador a pie/conduciendo). El sprite nativo u
 
 ## 7. Mapa web `#map-wrapper` / web map wrapper
 
-**Dinámico:** `100vw×100vh` a pie; al conducir crece a un cuadrado del tamaño de la **diagonal en
-PÍXELES** (NO `vmax`/`calc` — daban **esquinas negras** en WebViews viejas). Cambia vía
-`setMapOversize(driving)` (llama `map.invalidateSize`), invocado cada frame (JS no-opea repetidos vía
-`_driving`). **No** dejarlo permanentemente sobredimensionado: a `300vw×300vh` renderizaba ~9× los tiles
-(el costo dominante de FPS al moverse). Follow-camera con `map.panBy` (no `setView`).
+**Fijo:** `100vw×100vh` SIEMPRE (≈45 tiles). La cámara es **norte-arriba** (estilo GTA Chinatown Wars):
+el mapa no gira, solo gira el sprite del coche (`vehicleSpriteHeading`). Por eso ya no existen
+`setMapOversize`, `setMapRotation` ni `applyVehicleViewport`; sobredimensionar el wrapper solo hacía falta al
+rotar el mapa (con la diagonal en PÍXELES para evitar **esquinas negras** en WebViews viejas). **No** volver a
+agrandarlo: a `300vw×300vh` renderizaba ~9× los tiles (el costo dominante de FPS al moverse).
+Follow-camera con `map.panBy` (no `setView`).
 
 ## 8. Render web NPC types / web renderer NPC types
 
@@ -772,11 +773,12 @@ matrices por defecto son **border-only** hasta reemplazarse.
   Implementado en **OSM nativo** (`NativeOsmMap`: `Polygon`/`Polyline` cacheados, rebuild solo si cambian
   landmarks o colisiones) y **web** (`updateInteriorPaths` recibe `{paths, blocks, walls}`; el VM convierte
   `localX/localY → global` con `toGlobalGeoPoint`). Google nativo = pendiente (como el resto del overlay).
-- **Zoom automático por estado + SUAVIZADO:** `updateAutoZoom()` (miembro del VM, llamado cada tick del game
-  loop miembro) cambia `targetZoomLevel` SOLO en transiciones: a pie `ZOOM_ON_FOOT=22`, conduciendo
-  `ZOOM_DRIVING=21`, ≥85% MAX_SPEED `ZOOM_DRIVING_FAST=20` (vuelve a 21 bajo el 65%). El pinch del
-  usuario se respeta entre transiciones. **NO cambies `zoomLevel` directamente en transiciones;**
-  el game loop interpola `zoomLevel` hacia `targetZoomLevel` (~1 nivel por tick) para evitar el
+- **Zoom automático por estado + SUAVIZADO:** `updateAutoZoom()` (extensión del VM, llamada cada tick del game
+  loop) cambia `targetZoomLevel` SOLO cuando cambia `autoZoomTarget(isDriving)` (`WorldMapState.kt`): a pie
+  `ZOOM_ON_FOOT=22`, conduciendo `ZOOM_DRIVING=21`. Ya NO depende de la velocidad (no hay zoom 20 a alta
+  velocidad: la cámara es fija). El pinch del usuario se respeta entre transiciones (el VM guarda
+  `lastAutoZoomTarget`). **NO cambies `zoomLevel` directamente en transiciones;**
+  el game loop interpola `zoomLevel` hacia `targetZoomLevel` (10 % de la distancia restante por tick) para evitar el
   "shock" visual brusco al robar/salir de un auto. **GOTCHA:** cualquier acción que fije `zoomLevel`
   a mano (`zoomIn/zoomOut/onMapZoomChanged/zoomToPlayer`) DEBE fijar TAMBIÉN `targetZoomLevel`, o el
   `updateAutoZoom()` del siguiente tick arrastra el zoom de vuelta y "rebota" (era el bug de "Hacer
