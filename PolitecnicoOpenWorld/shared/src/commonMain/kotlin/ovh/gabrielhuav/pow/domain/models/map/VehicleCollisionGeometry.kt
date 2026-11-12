@@ -266,14 +266,21 @@ fun ExteriorCollisionsConfig.resolveVehiclePath(
     return CollisionResolution(to, null)
 }
 
-/** Distancia mínima del punto a cualquier barda/edificio con rol BARRIER (para la salida de solapes). */
+/**
+ * Distancia CON SIGNO del punto a cualquier barda/edificio con rol BARRIER (para la salida de solapes):
+ * positiva fuera del edificio y NEGATIVA si el punto está dentro de un polígono. Sin el signo, un coche
+ * cuyo centro quedó dentro de un edificio "se alejaba" del borde más cercano al internarse hacia el
+ * interior, y en cambio se bloqueaba al ir hacia la salida.
+ */
 private fun ExteriorCollisionsConfig.nearestBarrierDistanceMeters(center: GeoPoint): Double {
     val point = center.toMeters(center.latitude)
     var nearest = Double.POSITIVE_INFINITY
     for (polygon in polygons) {
         if (polygon.role != CollisionRole.BARRIER || polygon.nodes.size < 3) continue
         val vertices = polygon.nodes.map { GeoPoint(it.lat, it.lon).toMeters(center.latitude) }
-        for ((from, to) in edges(vertices)) nearest = min(nearest, pointToSegmentDistance(point, from, to))
+        var edgeDistance = Double.POSITIVE_INFINITY
+        for ((from, to) in edges(vertices)) edgeDistance = min(edgeDistance, pointToSegmentDistance(point, from, to))
+        nearest = min(nearest, if (polygon.contains(center.latitude, center.longitude)) -edgeDistance else edgeDistance)
     }
     for (wall in walls) {
         if (wall.effectiveRole != CollisionRole.BARRIER) continue
