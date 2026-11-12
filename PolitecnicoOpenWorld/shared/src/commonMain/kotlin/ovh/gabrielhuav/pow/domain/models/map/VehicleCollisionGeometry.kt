@@ -37,8 +37,16 @@ fun resolveTrafficImpact(
     traffic: VehicleFootprint,
 ): TrafficImpactResolution? {
     if (!playerAtImpact.intersects(traffic)) return null
+    val playerExit = playerAtImpact.separatingOffsetFrom(traffic)
+    // Penetraciones de centímetros (giro junto a un coche) no cuentan como choque: evita colisiones "fantasma".
+    val depth = sqrt(playerExit.northMeters * playerExit.northMeters + playerExit.eastMeters * playerExit.eastMeters) -
+        VEHICLE_SEPARATION_PADDING_METERS
+    if (depth <= CONTACT_SLOP_METERS) return null
+    // Si el punto previo YA solapa (p. ej. el giro lo metió en el coche), volver a él no libera al
+    // jugador y se congelaría; en ese caso sale por el vector mínimo de separación.
+    val previousOverlaps = playerAtImpact.copy(center = previousPlayerCenter).intersects(traffic)
     return TrafficImpactResolution(
-        playerCenter = previousPlayerCenter,
+        playerCenter = if (previousOverlaps) playerAtImpact.movedBy(playerExit).center else previousPlayerCenter,
         playerSpeedMultiplier = 0.35,
         trafficOffset = traffic.separatingOffsetFrom(playerAtImpact),
     )
@@ -235,18 +243,45 @@ fun ExteriorCollisionsConfig.resolveVehiclePath(
 ): CollisionResolution {
     val samples = max(1, ceil(from.distanceMetersTo(to) / VEHICLE_SWEEP_STEP_METERS).toInt())
     var lastSafe = from
+    // Si la carrocería YA solapa un obstáculo al iniciar (giro, spawn), se permite salir: cada paso
+    // debe alejarse del obstáculo más cercano; nunca se permite entrar más.
+    val startsOverlapping = obstacleAt(VehicleFootprint(from, headingDegrees, dimensions)) != null
+    var lastClearance = if (startsOverlapping) nearestBarrierDistanceMeters(from) else 0.0
     for (step in 1..samples) {
         val fraction = step.toDouble() / samples
         val point = GeoPoint(
             latitude = from.latitude + (to.latitude - from.latitude) * fraction,
             longitude = from.longitude + (to.longitude - from.longitude) * fraction,
         )
-        obstacleAt(VehicleFootprint(point, headingDegrees, dimensions))?.let { obstacle ->
-            return CollisionResolution(lastSafe, obstacle.toCollisionReason())
+        val obstacle = obstacleAt(VehicleFootprint(point, headingDegrees, dimensions))
+        if (obstacle != null) {
+            val clearance = if (startsOverlapping) nearestBarrierDistanceMeters(point) else 0.0
+            if (!startsOverlapping || clearance < lastClearance) {
+                return CollisionResolution(lastSafe, obstacle.toCollisionReason())
+            }
+            lastClearance = clearance
         }
         lastSafe = point
     }
     return CollisionResolution(to, null)
+}
+
+/** Distancia mínima del punto a cualquier barda/edificio con rol BARRIER (para la salida de solapes). */
+private fun ExteriorCollisionsConfig.nearestBarrierDistanceMeters(center: GeoPoint): Double {
+    val point = center.toMeters(center.latitude)
+    var nearest = Double.POSITIVE_INFINITY
+    for (polygon in polygons) {
+        if (polygon.role != CollisionRole.BARRIER || polygon.nodes.size < 3) continue
+        val vertices = polygon.nodes.map { GeoPoint(it.lat, it.lon).toMeters(center.latitude) }
+        for ((from, to) in edges(vertices)) nearest = min(nearest, pointToSegmentDistance(point, from, to))
+    }
+    for (wall in walls) {
+        if (wall.effectiveRole != CollisionRole.BARRIER) continue
+        val from = GeoPoint(wall.lat1, wall.lon1).toMeters(center.latitude)
+        val to = GeoPoint(wall.lat2, wall.lon2).toMeters(center.latitude)
+        nearest = min(nearest, pointToSegmentDistance(point, from, to))
+    }
+    return nearest
 }
 
 /** Misma física estática para tráfico y patrullas: el tipo decide círculo o carrocería. */
@@ -279,6 +314,8 @@ private const val METERS_PER_DEGREE_LATITUDE = 111_320.0
 private const val VEHICLE_SWEEP_STEP_METERS = 0.5
 private const val CIRCLE_SWEEP_STEP_METERS = 0.25
 private const val VEHICLE_SEPARATION_PADDING_METERS = 0.1
+/** Penetración máxima ignorada entre carrocerías: absorbe imprecisión de giro y de sprites. */
+private const val CONTACT_SLOP_METERS = 0.05
 private const val NPC_FOOT_COLLIDER_METERS = 0.3
 
 private data class MeterPoint(val east: Double, val north: Double)

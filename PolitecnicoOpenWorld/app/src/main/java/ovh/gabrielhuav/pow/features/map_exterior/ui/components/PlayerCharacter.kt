@@ -1,5 +1,6 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui.components
 
+import ovh.gabrielhuav.pow.domain.models.map.vehicleSpriteHeading
 import android.graphics.BitmapFactory
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
@@ -150,15 +151,19 @@ fun PlayerCharacter(
                 val carModel = uiState.currentVehicleModel ?: CarModel.SEDAN
                 val carColor = uiState.currentVehicleColor ?: 0xFFFFFFFF.toInt()
                 val isPoliceCar = uiState.isDrivingPoliceCar
-                val visualRotation = 270f
+                // Cámara norte-arriba: el mapa no gira, así que el sprite usa el rumbo real del coche.
+                val visualRotation = vehicleSpriteHeading(uiState.vehicleRotation)
 
                 // Usamos la densidad pura para generar un sprite nítido
                 val renderScale = density
 
                 // Si conduces una PATRULLA robada se usa el asset de policía (sin tinte),
                 // igual que las patrullas NPC; si no, el auto normal tintado por color/modelo.
-                val bitmapKey = if (isPoliceCar) "POLICE_${visualRotation}_$renderScale"
-                    else "${carModel.name}_${visualRotation}_${carColor}_$renderScale"
+                // La clave usa el FRAME (pasos de 360/frameCount), no el ángulo exacto: al girar 2° por tick
+                // no se vuelve a pedir el sprite hasta que cambia de frame.
+                val frameKey = Math.round(visualRotation / (360f / (if (isPoliceCar) 48 else carModel.frameCount)))
+                val bitmapKey = if (isPoliceCar) "POLICE_${frameKey}_$renderScale"
+                    else "${carModel.name}_${frameKey}_${carColor}_$renderScale"
                 var carImage by remember { mutableStateOf<ImageBitmap?>(null) }
                 var lastKey by remember { mutableStateOf("") }
 
