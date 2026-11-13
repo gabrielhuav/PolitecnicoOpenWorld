@@ -36,6 +36,20 @@ internal fun selectVehicleExit(
     isWalkable: (GeoPoint) -> Boolean,
 ): GeoPoint? = candidates.firstOrNull(isWalkable)
 
+/**
+ * Salida del carjack: NUNCA devuelve null. Prefiere un punto transitable; si todo está bloqueado,
+ * el primero fuera de la carrocería; y en último caso el primer candidato (mejor bajar que quedarse dentro).
+ * Los dos últimos recursos NO validan que el punto sea transitable (puede caer dentro de un edificio):
+ * por eso [forcedVehicleExitCandidates] abre anillos lejanos, para que casi siempre exista un caminable antes.
+ */
+internal fun selectForcedVehicleExit(
+    candidates: List<GeoPoint>,
+    isWalkable: (GeoPoint) -> Boolean,
+    isClearOfVehicle: (GeoPoint) -> Boolean,
+): GeoPoint = candidates.firstOrNull(isWalkable)
+    ?: candidates.firstOrNull(isClearOfVehicle)
+    ?: candidates.first()
+
 /** Salida obligada: después de las puertas, abre un anillo alrededor del vehículo. */
 internal fun forcedVehicleExitCandidates(
     center: GeoPoint,
@@ -45,7 +59,9 @@ internal fun forcedVehicleExitCandidates(
     val manual = vehicleExitCandidates(center, headingDegrees, dimensions)
     val baseRadius = maxOf(dimensions.lengthMeters / 2.0, dimensions.widthMeters / 2.0) + 0.9
     val ring = buildList {
-        for (radius in listOf(baseRadius, baseRadius + 1.0)) {
+        // Los anillos lejanos (hasta +4 m) cubren el coche rodeado de bardas/NPC: así el carjack encuentra un
+        // punto transitable real antes de caer al último recurso de selectForcedVehicleExit (que no valida).
+        for (radius in listOf(baseRadius, baseRadius + 1.0, baseRadius + 2.5, baseRadius + 4.0)) {
             for (step in 0 until 8) {
                 val radians = Math.toRadians(headingDegrees.toDouble() + step * 45.0)
                 add(center.offsetMeters(cos(radians) * radius, sin(radians) * radius))

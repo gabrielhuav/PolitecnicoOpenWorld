@@ -760,7 +760,7 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                             var dodgeOffsetX = 0.0
                             var dodgeOffsetY = 0.0
 
-                            for ((id, npc) in remoteEntities.entries.toList()) {
+                            for (npc in remoteEntities.values) { // sin copia: este bucle solo lee (sin allocations por tick)
                                 if (npc.type == NpcType.CAR || npc.type == ovh.gabrielhuav.pow.domain.models.map.NpcType.POLICE_CAR) {
                                     val vLat = npc.location.latitude - tempLoc.latitude
                                     val vLon = npc.location.longitude - tempLoc.longitude
@@ -881,7 +881,14 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                 // Cancelar inmunidad si el jugador gira voluntariamente (para permitir chocar intencionalmente)
                                 if (isSteeringSharply) lastDodgeTime = 0L
                                 val trafficImpact = runOverNpcs(location, finalLoc, currentSpeed)
-                                val resolvedLocation = trafficImpact?.playerCenter ?: finalLoc
+                                // La salida por vector mínimo puede empujar contra una barda: si es así, no avanzar.
+                                val pushedLocation = trafficImpact?.playerCenter ?: finalLoc
+                                val resolvedLocation = if (
+                                    trafficImpact != null && pushedLocation != location &&
+                                    !resolveVehicleStaticMovement(
+                                        exteriorCollisions, location, pushedLocation, currentRotation, vehicleModel.collisionDimensions,
+                                    ).reachedTarget
+                                ) location else pushedLocation
                                 if (trafficImpact != null) currentSpeed *= trafficImpact.playerSpeedMultiplier
                                 _uiState.update {
                                     it.copy(
@@ -1337,14 +1344,12 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     internal var currentInteriorLab1KeyFound: Boolean = false
 
     // REFACTOR: toggles de widgets + zoom/cámara movidos a WorldMapCameraUi.kt (extensiones del VM,
-    // mismo paquete). Los campos de interpolación (autoZoomMode/targetZoomLevel) siguen aquí (internal).
+    // mismo paquete). Los campos de interpolación (lastAutoZoomTarget/targetZoomLevel) siguen aquí (internal).
 
-    // ─── ZOOM AUTOMÁTICO POR ESTADO (a pie / conduciendo / conduciendo rápido) ───
-    // A pie 22; al subir a un vehículo 21; a MUY alta velocidad (≥85% de MAX_SPEED)
-    // baja a 20, y vuelve a 21 por debajo del 65% (histéresis anti-parpadeo). Solo
-    // actúa en TRANSICIONES de modo, así el pinch manual del usuario se respeta
-    // hasta el siguiente cambio de estado.
-    internal var autoZoomMode = 0 // 0 = a pie, 1 = conduciendo, 2 = conduciendo rápido
+    // ─── ZOOM AUTOMÁTICO (autoZoomTarget) ───
+    // A pie 22; manejando 21, sin depender de la velocidad. Solo se reasigna targetZoomLevel
+    // cuando CAMBIA el objetivo automático, así el pinch manual se respeta hasta el siguiente cambio.
+    internal var lastAutoZoomTarget = ZOOM_ON_FOOT // último objetivo AUTOMÁTICO de la cámara (autoZoomTarget)
     internal var targetZoomLevel = ZOOM_ON_FOOT // Zoom objetivo para interpolación suave (usado por WorldMapCameraUi.kt)
 
     // updateAutoZoom / zoomIn / zoomOut / onMapZoomChanged / centerOnPlayer / zoomToPlayer /
