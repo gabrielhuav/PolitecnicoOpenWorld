@@ -61,9 +61,10 @@ con marcas de agua; no se elimina la caché ni los datos del usuario.
 | ESCOM (puertas, ousted driver) | `viewmodel/WorldMapEscom.kt` |
 | Coleccionables (lógica) | `viewmodel/WorldMapCollectiblesLogic.kt` |
 | Misc (startMovementAction, secuencia WASTED, timer barra de vida) | `viewmodel/WorldMapMisc.kt` |
-| 🆕 Cámara/zoom (auto/manual, pinch, pan) + toggles de widgets | `viewmodel/WorldMapCameraUi.kt` (NUEVO, refactor — extensiones) |
+| 🆕 Cámara/zoom (auto/manual, pinch, pan) + toggles de widgets | `viewmodel/WorldMapCameraUi.kt` (+ `autoZoomTarget` en `WorldMapState.kt`) (NUEVO, refactor — extensiones) |
 | 🆕 Ajustes (densidad/LOD NPCs) + skin | `viewmodel/WorldMapSettings.kt` (NUEVO, refactor — extensiones) |
 | 🆕 Interacción del jugador (abordar/bajar vehículo, puerta/metro/coleccionable, reclamar objeto, teleport directo, toggle apocalipsis zombi) | `viewmodel/WorldMapInteractions.kt` (NUEVO 2026-06-22 — extensiones) |
+| 🆕 Salida segura de vehículo (candidatos, fallback y coche abandonado) | `viewmodel/VehicleExitPlan.kt` + `viewmodel/WorldMapVehicleExit.kt` |
 | 🆕 Salud del jugador (daño/curación/barra de vida) | `viewmodel/WorldMapHealth.kt` (NUEVO 2026-06-22 — extensiones) |
 | 🆕 Items de ESCOM + inyección de coche dinámico (Diseñador) | `viewmodel/WorldMapEscomItems.kt` (NUEVO 2026-06-22 — extensiones) |
 | 🆕 Movimiento del jugador a pie/joystick + aduana de colisión + snap-to-road + rescate anti-atasco | `viewmodel/WorldMapMovement.kt` (NUEVO 2026-06-22 — extensiones) |
@@ -129,6 +130,8 @@ data class PoliceShot(from: GeoPoint, to: GeoPoint, at: Long)
   `updateAutoZoom()` fija `targetZoomLevel` en vez de cambiar `zoomLevel` de golpe. El game loop
   interpola `zoomLevel` hacia `targetZoomLevel` (10 % de la distancia restante por tick) para
   evitar el "shock" visual al robar/salir de un auto.
+- **Cámara fija norte-arriba (2026-11-10, estilo GTA Chinatown Wars):** el mapa NUNCA gira ni se adelanta: siempre centrado en el jugador. El zoom depende SOLO de si conduces (`autoZoomTarget`: a pie `ZOOM_ON_FOOT=22`, manejando `ZOOM_DRIVING=21`), no de la velocidad; `updateAutoZoom()` reasigna `targetZoomLevel` solo al subir/bajar de un vehículo (el pinch manual se respeta) e interpola `zoomLevel` 10 % por tick. El COCHE es lo que rota: `PlayerCharacter` usa `vehicleSpriteHeading(vehicleRotation)` (shared, la misma fórmula que el coche abandonado y los NPC) con frames de 7.5°. Se descartaron la cámara que gira con el coche, el zoom por velocidad y el look-ahead porque mareaban (video 2026-11-10). ⚠️ `PlayerCharacter` reaplica su `modifier` a la caja exterior Y a la imagen del coche: no pasar offsets por ahí.
+
   `ZOOM_GAMEPLAY_WEB=19` quedó SOLO como nivel máx. de tiles reales que se pre-descargan en web.
 - **Controles/skin:** `controlType, controlsScale, swapControls, selectedSkin, showSkinSelector`.
 - **Jugador:** `playerAction, isPlayerFacingRight, isRunning, isDriving, currentVehicleModel,
@@ -160,10 +163,15 @@ data class PoliceShot(from: GeoPoint, to: GeoPoint, at: Long)
 ## Game loop — `WorldMapGameLoop.kt` / `WorldMapViewModel.startGameLoop`
 
 **ES:** Coroutine en `Dispatchers.Default`, **tick cada 33 ms** (~30 Hz). Arranque: espera ubicación,
-carga calles (caché Room → celda estática `datos-calles` → Overpass con respaldos y backoff).
-La cobertura inicial y la generación mensual se documentan en `tools/calles/README.md`. Luego, por tick:
+carga calles (caché Room → celda estática `datos-calles` → Overpass con respaldos y backoff → malla
+local transitable si falla). La malla no se persiste y `maybeRefetchRoadNetwork` conserva los reintentos
+de calles reales en segundo plano. La cobertura inicial y la generación mensual se documentan en
+`tools/calles/README.md`. Luego, por tick:
 **EN:** Coroutine on `Dispatchers.Default`, **tick every 33 ms** (~30 Hz). Startup: wait for location,
-load roads (Room cache → static `datos-calles` cell → Overpass backups with backoff). Then, per tick:
+load roads (Room cache → static `datos-calles` cell → Overpass backups with backoff → traversable local
+grid on failure). The grid is not persisted and `maybeRefetchRoadNetwork` keeps retrying real roads in
+the background. Initial coverage and monthly generation are documented in `tools/calles/README.md`. Then,
+per tick:
 
 ```
 1. ESCOM sync: dentro de ESCOM + red lista → `spawnEscomItems` (ya **NO** spawnea la mano; solo marca el flag); fuera → limpia.
@@ -240,6 +248,10 @@ O(candidatos cercanos).
 
 ## Red de calles / Road network — `WorldMapRoadNetwork.kt`
 
+- **Inicio degradado:** `OfflineRoadNetwork.kt` crea cuatro corredores locales para peatones y autos,
+  centrados en la ubicación inicial, cuando Overpass no entrega una red antes del límite de arranque.
+  `RoadSource.OFFLINE_FALLBACK` lo expone como **Malla local** en el widget; permite entrar al sandbox
+  sin afirmar que son datos descargados.
 - `updateVisibleRoads(location, force)` — filtra ways visibles (throttled a cada 5 ticks).
 - `maybeRefetchRoadNetwork(currentLoc)` — re-fetch al alejarse de `lastNetworkFetchLocation`
   (cooldown 5 min); guarda en `RoadNetworkCache`.
@@ -334,7 +346,7 @@ usa para Google nativo** (OSM nativo y web tienen su propio fog). / Compose `Can
 
 ### `NativeOsmMap.kt` (osmdroid)
 - **`FogOverlay`** anclado al jugador cada frame; rect del tamaño de pantalla siempre (cámara norte-arriba:
-  `mapOrientation = 0f`, ya no se sobredimensiona por rotación). Evita rellenar ~10× el área cada frame.
+  `mapOrientation = 0f`, ya no se sobredimensiona por rotación). `FogOverlay.rotated` quedó sin uso (siempre `false`). Evita rellenar ~10× el área cada frame.
 - **Over-zoom z20–22:** `MapTileApproximater` + `setMaxZoomLevel(22)` escala z19 (OSM solo sirve tiles
   reales hasta z19). Default OSM = zoom máx 22.
 - **Lambda `update` ~30 Hz — mantener barata** (ver 09): landmarks `GroundOverlay` solo re-`setPosition`/
@@ -358,7 +370,7 @@ usa para Google nativo** (OSM nativo y web tienen su propio fog). / Compose `Can
 
 ### `WorldMapLeafletHtml.kt` (Web)
 - `#map-wrapper` **fijo**: `100vw×100vh` siempre. La cámara es norte-arriba: el mapa no gira (solo el sprite del
-  coche, vía `vehicleSpriteHeading`), así que ya no hay `setMapOversize`/`setMapRotation`/`applyVehicleViewport`.
+  coche, vía `vehicleSpriteHeading`), así que ya no hay `setMapOversize`/`setMapRotation`/`applyVehicleViewport`. `WebVehicleRenderPlan` se eliminó; si el usuario panea, el único avatar auxiliar es el marcador Leaflet (`updatePlayerMarker(lat, lng, isUserPanningMap)`).
 - Follow-camera con **`map.panBy`** por frame (no `setView`, que hace `_resetView` completo); `setView`
   solo al cambiar zoom o teleport. Tile layer: `keepBuffer:3`, `updateWhenIdle:false`.
 - `updateNpcs`: solo dibuja imágenes para `type` `"CAR"`/`"MODULAR"`; el resto cae a SVG. Por eso
@@ -374,7 +386,8 @@ balanceo + parámetros volátiles) hasheada con SHA-256. Permite juego offline e
 ### Sprites (managers singleton, con `clearCaches()` — liberados en `onTrimMemory`)
 - `CharacterSpriteManager` — peatones ensamblados con tintado por píxel.
 - `VehicleSpriteManager` — modelos de `CarModel`, base blanca tintada por píxel. 🆕 **Extensible:** cada
-  `CarModel` (en `domain/models/map/Npc.kt`) lleva `dirName/prefix/frameCount(=48)/tintable(=true)`. **Añadir un
+  `CarModel` (en `domain/models/map/Npc.kt`) lleva `dirName/prefix/frameCount(=48)/tintable(=true)` y
+  `collisionDimensions` (caja física, deliberadamente menor que el sprite). **Añadir un
   vehículo = 1 línea en el enum + su carpeta de frames en `assets/SPRITES/VEHICLES/<dirName>/`** (`<prefix>000..0NN.webp`).
   `tintable=false` = asset ya coloreado (se dibuja sin palette swap; ignora `carColor`). El NOMBRE del enum es el id
   que viaja por red (`CarModel.valueOf`) y guardado: AÑADE libremente, NO renombres/elimines entradas. Los nuevos
@@ -412,7 +425,7 @@ in multiplayer. Zombie models + AI → see **03**.
 
 - **Estado:** `WorldMapState.globalZombieMode: Boolean`. El game loop hace `npcAiManager.globalZombieMode = uiState.globalZombieMode` cada tick.
 - **Activación:** (a) **ítem de menú "Activar/Desactivar Apocalipsis"** (Opciones) que funciona en cualquier lugar; (b) **botón flotante de salida** cuando está activo (`exitGlobalZombieMode()`). *(La antigua mano "Mano del Apocalipsis" en ESCOM fue ELIMINADA — `spawnEscomItems` ya no la crea; ver 09.)*
-- **Debug Interiores (`showInteriorDebugOverlay`, menú Mapa):** además de los puntos de edificios + bbox de ESCOM, dibuja los **caminos del `navGraph`** (VERDE=peatonal, NARANJA=autos) y las **zonas NO caminables** de `exterior_collisions.json` (**polígonos ROJOS** = `exteriorCollisions.polygons`, p. ej. el edificio ESCOM; **líneas ROJAS** = `walls`/bardas). `exteriorCollisions` se expone en `WorldMapState`. OSM nativo (`NativeOsmMap`) + web (`updateInteriorPaths` recibe `{paths, blocks, walls}`); Google nativo pendiente. Ver 09.
+- **Debug Interiores (`showInteriorDebugOverlay`, menú Mapa):** además de los puntos de edificios + bbox de ESCOM, dibuja los **caminos del `navGraph`** (VERDE=peatonal, NARANJA=autos) y las formas de `exterior_collisions.json`: polígonos/barreras físicas en **ROJO** y `NAV_GUIDE` en **AZUL**. Las cuatro clases del modelo llevan `@Serializable`: si falta esa anotación, la carga atrapa el error y deja el mundo sin colisiones. El polígono `EDIFICIO_ESCOM_TECHO_CENTRAL` protege el techo central reproducido en Motorola; (2026-11-16: ya no es un rectángulo recto sino un cuadrilátero girado ~25° que sigue el techo del edificio central; los demás edificios del campus, incluido el conector y el ala este, siguen SIN colisión); cubre peatón, vehículo y tráfico mediante el resolvedor compartido. `exteriorCollisions` se expone en `WorldMapState`. OSM nativo (`NativeOsmMap`) + web (`updateInteriorPaths` recibe `{paths, blocks, walls}`); Google nativo pendiente. Ver 09.
 - **🆕 EDITOR del Debug Interiores (`WorldMapDebugEditor.kt` + `InteriorDebugEditorPanel.kt`):** con el overlay activo aparece una **barra horizontal abajo** (los controles de movimiento se **ocultan** al editar) para **EDITAR** las líneas **DIBUJANDO con el dedo** (estilo Paint): eliges herramienta `DebugEditTool` (WALL=barda roja, BLOCK=zona roja, NAV_PED=verde peatonal, NAV_CAR=naranja autos) y **arrastras** sobre el mapa → línea (WALL/NAV_*) o rectángulo (BLOCK); con herramienta activa el mapa NO panea (touch consumido), con `NONE` vuelve a panear. **Deshacer** (último trazo) / **Limpiar** / **Exportar/Importar JSON** (formato `exterior_collisions.json` + sección `navPaths`). El dibujo es una **capa Compose sobre el mapa** (`InteriorDebugDrawSurface`, en `WorldMapScreen`) que funciona con **cualquier renderer** (web/OSM/Google) — clave porque el proveedor por defecto es WEB (Leaflet): captura el gesto desde el `ACTION_DOWN` (`awaitEachGesture`+`consume()`) para que el mapa NO panee, convierte pantalla↔geo con Web Mercator (`256·densidad·2^zoom`, centro = jugador) y commitea con `commitDebugStroke`. En modo debug el mapa **se mantiene centrado en el jugador** (la capa asume ese centro). Estado nuevo en `WorldMapState`: `debugEditTool`, `debugEditWalls`, `debugEditBlocks`, `debugEditNavPed`, `debugEditNavCar`.
 - **🆕 Guardado de partida (Modo Historia):** API del VM en `WorldMapSaveGame.kt` (`saveGame`/`loadGame`/`buildSaveData`/`restoreSaveData`) + `SaveGameRepository` (JSON). Campos del VM `campaignSchoolId`/`inCampaign`. Ver 07/09. **Fix de `setStorySpawn`:** ahora se comporta como un teletransporte (`gateMapDownloadAfterTeleport()` + reset de `lastNetworkFetchLocation`/`lastFetchAttemptMs`/`npcWarmupCycles`) para que "COMENZAR/CARGAR" SÍ carguen y suelten al jugador (antes `prepareMapForEntry`, idempotente por `mapPrepStarted`, dejaba la 2ª entrada cargando para siempre). Ver 09.
 - **VM API:** `toggleGlobalZombieMode()` (flip + broadcast `ZOMBIE_MODE_SET`), `exitGlobalZombieMode()`.
@@ -450,11 +463,21 @@ branch carries `&& npc.type != ZOMBIE` and the seed nulls `visualConfig`.
   regresa"). El esquive es **predictivo**: solo si el peatón está **DELANTE** del coche (producto punto con
   el avance > 0) y dentro de `DODGE_TRIGGER_RADIUS` (~7-8 m). Solo lo atropellas yendo **casi a fondo**
   (`spd >= RUN_OVER_EXTREME_SPEED = MAX_SPEED*0.92`) y dentro de `RUN_OVER_RADIUS`. Los **zombis NO
-  esquivan** (atropellables siempre). Chocar/rozar un **auto NPC** (`CAR`/`POLICE_CAR`, `CAR_BUMP_RADIUS`)
-  lo **empuja a un lado** (rebasas, tipo Toretto, `shove`) + 💥, sin daño al jugador. El 💥 solo salta en
-  atropello real o choque de auto (no al esquivar). El estado de esquive vive en `remoteEntities`, se
+  esquivan** (atropellables siempre). Cada coche usa un **rectángulo orientado en metros**
+  (`VehicleFootprint`), no un radio: tráfico solo choca si las carrocerías se tocan, se separa por el
+  vector mínimo y reduce la velocidad del jugador a 35 % + 💥. El 💥 solo salta en atropello real o
+  choque de auto (no al esquivar). El estado de esquive vive en `remoteEntities`, se
   reconstruye en `setServerNpcs` y la posición animada se replica vía `MultiplayerNpc` (no hace falta
   añadir campos de esquive al modelo de red).
+- **Obstáculos y descenso:** al conducir, `vehiclePathObstacle` barre el rectángulo cada ≤0.5 m contra
+  edificios y bardas; se conserva la última posición válida, sin knockback artificial. Al bajar,
+  `exitVehicle` deja el coche en su centro y prueba primero el lado del conductor, luego copiloto y
+  diagonales traseras; el carjack forzado amplía a un anillo de 1.7–3 m. Si no hay hueco manual, el
+  jugador permanece dentro y recibe un aviso localizado. El spawner de estacionamiento también rechaza
+  una carrocería que cubra al jugador. Debug: Logcat `VehicleCollision` emite `traffic`, `building`,
+  `wall` o `exit-blocked`.
+- **Índice de barreras y seguimiento de la auditoría (2026-11-16):** `ExteriorCollisionsConfig.barrierIndex` (`BarrierIndex.kt`, propiedad `by lazy` no serializada) guarda solo los polígonos/bardas con rol BARRIER y su caja en grados. `obstacleAt` y `resolveVehiclePath` descartan por caja SIN asignar memoria lo que está lejos (≈50× más rápido lejos de ESCOM en JVM; dentro del edificio igual); la geometría exacta es la misma y `BarrierIndexEquivalenceTest` la compara contra la referencia sin índice (`obstacleAtUnindexed`/`resolveVehiclePathUnindexed`). Si añades un campo que cambie qué cuenta como barrera, actualiza el índice. `resolveTrafficImpact`: si el punto previo ya solapa, el jugador sale por el vector mínimo y el tráfico NO se desplaza (antes se separaba ≈2×). `selectForcedVehicleExit` añade el tramo "fuera de la carrocería Y fuera de todo edificio BARRIER" (`ExteriorCollisionsConfig.isInsideBarrier`) antes del último recurso. Pendiente (necesita teléfono): precalentar en segundo plano los frames vecinos del sprite del jugador, solo si `gfxinfo` mide tirones al girar.
+- **Resolvedor exterior único (P2):** `VehicleCollisionGeometry.kt` concentra las formas físicas: círculo para avatares/peatones y rectángulo orientado para coches. `resolveCirclePath` y `resolveVehiclePath` hacen el barrido estático y devuelven la última posición válida y el motivo. Solo `BARRIER` bloquea; los 48 `CARRIL_*` heredados se clasifican como `NAV_GUIDE`, por lo que guían tráfico sin crear paredes invisibles. Botones y joystick usan el mismo guardia de jugador a pie; tráfico usa el mismo barrido OBB. En builds debug, Logcat `WorldCollision` añade actor, colisionador, motivo y destino bloqueado.
 - **Daño moderado de mordida:** `applyNpcContactDamage` aplica la mordida de zombi con un **cooldown
   GLOBAL** (`ZOMBIE_BITE_TO_PLAYER_MS=650`, `lastZombieBiteMs`) → como mucho una mordida cada ~650 ms
   (`ZOMBIE_BITE_TO_PLAYER_DMG=6`) aunque te rodee una horda. El SCOUT no muerde.
@@ -480,3 +503,39 @@ branch carries `&& npc.type != ZOMBIE` and the seed nulls `visualConfig`.
 🧟 + línea **roja** punteada jugador→zombi para zombis fuera de `NPC_FOG_VISION_METERS`, en modo
 apocalipsis. Implementado en los **3** proveedores: OSM nativo (`NativeOsmMap`, `zombieWpCache`/`zombieRouteCache`),
 web (Leaflet `updateZombies(...)` + push en `WorldMapScreen`), y Google nativo (Marker 🧟 + Polyline roja en el composable `GoogleMap`).
+
+### Choque coche-coche (contacto persistente)
+
+`runOverNpcs` (WorldMapCombat.kt) separa **física** de **evento**: mientras haya contacto con un vehiculo, el jugador vuelve al ultimo punto seguro y frena (x0.35) en cada tick, pero el impacto (efecto, miedo, log) se emite una sola vez por par gracias a `VehicleContactLatch` (shared, `RELEASE_MS = 400`). Los candidatos se ordenan por id (`firstContactingId`) porque `remoteEntities` es un `ConcurrentHashMap`. Coches `PARKED` nunca se desplazan.
+
+### Rumbo seguro al subir a un coche (`safeBoardingHeading`)
+
+Al subir (`WorldMapInteractions.kt`: civil y patrulla) el rumbo inicial ya no es siempre `rotationAngle + 90`: `ExteriorCollisionsConfig?.safeBoardingHeading(position, preferido, dimensiones)` (`shared/.../domain/models/map/VehicleBoardingHeading.kt`) conserva el preferido si el coche puede avanzar 3 m sin tocar una barrera y, si no, busca el rumbo libre más cercano girando de 15° en 15° (alternando lados). Sin configuración o con todo bloqueado devuelve el preferido. Motivo: un coche aparcado de cara a un edificio arrancaba con `reason=building` en cada ciclo y acelerar no lo movía (medido: 80 líneas, 0 m; ahora avanza ~7 m). Pruebas: `VehicleBoardingHeadingTest`.
+
+### Escenarios de depuración por adb (solo build debug)
+
+`DebugScenarioReceiver.kt` (registrado en `MainActivity.onCreate`, se anula en `onDestroy`) y `WorldMapDebugScenarios.kt` (`WorldMapViewModel.applyDebugScenario`) permiten jugar sin multitoque. Con el mundo ya abierto: `adb shell am broadcast -a ovh.gabrielhuav.pow.DEBUG_SCENARIO --es name <escenario> [extras]`. En release NO se registra ni hace nada (`BuildConfig.DEBUG`).
+
+| `name` | Qué hace |
+|---|---|
+| `controls` | Solo aplica los controles (ver extras). |
+| `drive_open` | Pone al jugador conduciendo. Extras: `lat`, `lon`, `heading`, `speedPct` (0-100 de `MAX_SPEED`). |
+| `board_facing_building` | Crea un coche aparcado de cara al edificio del caso DEV-08 y sube a él (comprueba el rumbo corregido). |
+| `steal_parked` | Lleva al jugador junto al coche aparcado más cercano y lo roba (estrella y conductor desalojado). |
+
+Controles mantenidos hasta que se cambien: `--es gas 1|0`, `--es brake 1|0`, `--es steer left|right|none`. El resultado se escribe en el logcat con la etiqueta `DebugScenario`. Ejemplo de vuelta en círculo: `--es name drive_open --es speedPct 60 --es gas 1 --es steer right`.
+
+### Calentamiento de sprites del coche del jugador
+
+`PlayerCharacter.kt` (rama conductor) lanza un `LaunchedEffect` en `Dispatchers.Default` que pide a `VehicleSpriteManager.getTintedCarNpc` (o `PoliceSpriteManager.getPoliceCar`) los 48 giros, de los más cercanos al actual hacia fuera. Sin él cada rumbo nuevo decodificaba, escalaba y tintaba en el hilo principal. Medido en un Motorola One Fusion (debug, 4 arranques en frío por lado): huecos > 250 ms entre cuadros 11.5 → 6.75 por ventana y huecos > 600 ms de ~17 a ~6. Es una muestra pequeña; en release el efecto no se ha medido (no hay escenarios en release).
+
+### Logs de depuración limitados
+
+`logVehicleCollision` (`WorldMapVehicleExit.kt`) escribe como mucho una línea cada 500 ms por tipo de motivo (antes, una por ciclo: 16-20 por segundo); el log `VehicleViewport` de `WorldMapScreen.kt` ya no incluye la rotación, así que solo se escribe en cambios de modo.
+
+
+### ⚠️ Orden de inicialización: `textoCarjack` antes del `init`
+
+En `WorldMapViewModel` el texto del aviso de carjack se precarga en un `init` con `viewModelScope.launch { textoCarjack = getString(...) }`. La propiedad `textoCarjack` DEBE declararse antes de ese `init`: Kotlin ejecuta inicializadores e `init` en orden de declaración, y si la carga termina sin suspender, un `= ""` declarado después borraba el texto y el aviso salía como un rectángulo rojo vacío (DEV-05). `WorldMapScreen` además no pinta el aviso si el texto está en blanco.
+
+**Deslizar por el borde de la calle (2026-11-16, DEV-09):** el coche solo circula a ≤ `maxRoadRadius` (0.00004° ≈ 4.4 m) de una vía `isForCars` (`WorldMapViewModel`, aduana de calle). Antes, al rozar el borde frenaba ×0.6 por tick y se jalaba 30 % hacia la calzada: con el gas pulsado quedaba clavado (el HUD marcaba 15–21 km/h sin avanzar) o se arrastraba de lado. Ahora, si el punto previo estaba dentro (≤ `ROAD_SLIDE_ENTRY_FACTOR`×radio), `slideAlongCorridor` (`shared/.../RoadCorridorSlide.kt`) lo deja en el borde en la misma dirección y el coche avanza a lo largo de la calle; solo pierde velocidad de frente (`ROAD_SLIDE_BASE_KEEP` = 0.85 + 0.15×proporción avanzada). Si venía de fuera (p. ej. subió en un estacionamiento) se conserva el jalón de reincorporación. Medido en el Motorola (traza `--es trace <s>` de los escenarios): velocidad contra el borde 4.4e-7 → 1.6–6e-6 (deg/tick). Pruebas: `RoadCorridorSlideTest`.

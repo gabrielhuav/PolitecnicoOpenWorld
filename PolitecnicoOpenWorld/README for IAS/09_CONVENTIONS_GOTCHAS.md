@@ -330,6 +330,8 @@ px-por-metro), `PlayerCharacter` (jugador a pie/conduciendo). El sprite nativo u
 > TODAS las skins con un **lienzo común** y el personaje ocupando la **misma fracción**; entonces las
 > `*BodyFraction` se vuelven todas iguales y el sistema se simplifica. (Si tocas el arte, vuelve a medir.)
 
+- **🆕 Cámara fija norte-arriba (2026-11-10):** el mapa no gira ni se adelanta; no reintroducir `mapOrientation`/`bearing`/`setMapRotation` ni desplazamientos de cámara por velocidad (mareaban). El coche rota con `vehicleSpriteHeading`. ⚠️ `PlayerCharacter` reaplica su `modifier` a la caja exterior Y a la imagen del coche: un `offset` pasado por `modifier` se aplica DOS veces.
+
 ## 6. Rendimiento gama baja (≤2 GB / Android 7–9) — NO regresar / low-end perf — do NOT regress
 
 - **`nativeDrawableCache`** (en `WorldMapScreen`, usado por `NativeOsmMap`) es **LRU por orden de acceso**

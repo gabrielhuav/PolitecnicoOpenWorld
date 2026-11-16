@@ -103,6 +103,7 @@ La medición y el alcance de limpieza están en [`PROPUESTA_LIMPIEZA_2026-11-04.
 | 08 | `MUNDO/08_SERVERS.md` | Servidores Node.js (open world v3 + zombi) + protocolo de red |
 | — | `MUNDO/CAMPAIGN/` | Campaña: overview + misiones 1-3 + secundarias |
 | — | `MUNDO/NPC_SPRITES_PIPELINE.md` | Pipeline de sprites de NPC |
+| — | `MUNDO/PLAN_SANDBOX_URBANO.md` | Hoja de ruta del sandbox urbano: estabilidad, persecución y exploración |
 
 ### 🥊 `SF/` — peleas "Titulación por Combate"
 

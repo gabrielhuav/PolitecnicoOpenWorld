@@ -688,7 +688,7 @@ fun WorldMapScreen(
 
         if (ovh.gabrielhuav.pow.BuildConfig.DEBUG) {
             val playerLayer = "composePlayer=${!uiState.isUserPanningMap} driving=${uiState.isDriving} " +
-                "panning=${uiState.isUserPanningMap} rotation=${uiState.vehicleRotation}"
+                "panning=${uiState.isUserPanningMap}"
             if (lastPlayerVisualDebug[0] != playerLayer) {
                 android.util.Log.d("VehicleViewport", playerLayer)
                 lastPlayerVisualDebug[0] = playerLayer
@@ -872,7 +872,7 @@ fun WorldMapScreen(
         // MissionLogDialog sirva en el mapa global Y en interiores. ───
 
         // ─── AVISO DE CARJACK (te van a bajar del auto) ──────────────────────────
-        uiState.carjackWarning?.let { warn ->
+        uiState.carjackWarning?.takeIf { it.isNotBlank() }?.let { warn ->
             Box(
                 modifier = Modifier
                     .align(Alignment.Center)

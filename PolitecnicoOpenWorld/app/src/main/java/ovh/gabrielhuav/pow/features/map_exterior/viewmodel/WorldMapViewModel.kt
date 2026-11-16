@@ -33,6 +33,7 @@ import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
 import ovh.gabrielhuav.pow.domain.models.map.CarModel
 import ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig
+import ovh.gabrielhuav.pow.domain.models.map.slideAlongCorridor
 import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
@@ -213,6 +214,15 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     // ETAPA 4 (Hilt): lo que ANTES hacía el Factory manual tras construir el VM. Va en un init
     // DESPUÉS de declarar npcAiManager (orden de inicialización de Kotlin). GAMA DEL TELÉFONO:
     // escala la población de NPCs; se combina con urbanFactor (densidad urbana) y el ajuste del usuario.
+    /**
+     * Aviso de "te van a bajar del coche", ya resuelto por el `init` de abajo.
+     *
+     * ⚠️ Debe declararse ANTES de ese `init`: Kotlin ejecuta inicializadores e `init` en orden de
+     * declaración, y si la carga termina sin suspender, un `= ""` posterior borraba el texto (el aviso
+     * salía como un rectángulo rojo vacío, DEV-05). `WorldMapScreen` tampoco pinta el aviso en blanco.
+     */
+    internal var textoCarjack: String = ""
+
     init {
         npcAiManager.deviceTierFactor = entorno.factorDeGama()
         npcAiManager.userPopulationFactor = settingsRepository.getNpcDensity()
@@ -222,15 +232,6 @@ class WorldMapViewModel @javax.inject.Inject constructor(
         // publican una vez (horda, Prankedy, teletransporte) sí se resuelven en el momento.
         viewModelScope.launch { textoCarjack = getString(Res.string.wm_carjack_warning) }
     }
-
-    /**
-     * Aviso de "te van a bajar del coche", ya resuelto.
-     *
-     * Vacío hasta que termina la carga inicial. No es un problema real: para que haga falta, el
-     * jugador tiene que estar dentro de un coche y casi parado con la policía encima, y eso no
-     * puede pasar en el primer frame de la partida.
-     */
-    internal var textoCarjack: String = ""
 
     // ─── Red de calles expuesta a la UI ──────────────────────────────────────
     // La WorldMapScreen consume este Flow para pintar las Polylines de los
@@ -826,6 +827,15 @@ class WorldMapViewModel @javax.inject.Inject constructor(
 
                                 val finalLoc = if (distToRoad <= maxRoadRadius) {
                                     tempLoc
+                                } else if (distance(location, nearestRoadPoint) <= maxRoadRadius * ROAD_SLIDE_ENTRY_FACTOR) {
+                                    // Venías por la calle y rozas el borde del corredor: DESLIZA a lo largo de ella
+                                    // (pared que desliza) en vez de frenar ×0.6 y quedarte clavado con el gas puesto.
+                                    val slid = slideAlongCorridor(nearestRoadPoint, tempLoc, maxRoadRadius)
+                                    val stepLen = distance(location, tempLoc)
+                                    val keptRatio = if (stepLen > 0.0) distance(location, slid) / stepLen else 1.0
+                                    // Solo pierde velocidad de frente contra el borde; en ángulo rasante casi no pierde.
+                                    currentSpeed *= ROAD_SLIDE_BASE_KEEP + (1.0 - ROAD_SLIDE_BASE_KEEP) * keptRatio.coerceIn(0.0, 1.0)
+                                    slid
                                 } else if (absSpeed < MAX_SPEED * 0.15) {
                                     // Apenas arrancando: en lugar de frenar en seco (que impedía
                                     // mover el coche si abordabas en una calle sin marca "car"),
@@ -1235,6 +1245,9 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     // "jalar" al jugador hacia una calle. Más lejos = la red no cubre esta zona
     // todavía; el movimiento se ignora en vez de teletransportar.
     internal val MAX_SNAP_DISTANCE_DEG = 0.0003
+    /** Si el punto previo estaba a ≤ este múltiplo del radio de la calle, el coche DESLIZA por el borde (si no, se reincorpora). */
+    internal val ROAD_SLIDE_ENTRY_FACTOR = 1.25
+    internal val ROAD_SLIDE_BASE_KEEP = 0.85
     internal var indexedRef: List<MapWay>?    = null
     internal var segs: List<Seg>              = emptyList()
     internal var grid: Map<Long, List<Seg>>   = emptyMap()

@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import ovh.gabrielhuav.pow.domain.models.map.CarModel
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapState
@@ -164,6 +165,30 @@ fun PlayerCharacter(
                 val frameKey = Math.round(visualRotation / (360f / (if (isPoliceCar) 48 else carModel.frameCount)))
                 val bitmapKey = if (isPoliceCar) "POLICE_${frameKey}_$renderScale"
                     else "${carModel.name}_${frameKey}_${carColor}_$renderScale"
+                // Calienta EN SEGUNDO PLANO los giros del coche, de los más cercanos al actual hacia fuera.
+                // Sin esto cada rumbo nuevo decodifica, escala y tinta su sprite en el hilo principal (decenas de
+                // llamadas seguidas en la primera vuelta, ~1.4 s de cuadros perdidos en un Motorola). El cache de
+                // VehicleSpriteManager es @Synchronized y su LRU (512) aguanta los 48 giros.
+                LaunchedEffect(isPoliceCar, carModel, carColor, renderScale) {
+                    withContext(Dispatchers.Default) {
+                        val frames = if (isPoliceCar) 48 else carModel.frameCount
+                        val step = 360f / frames
+                        val start = Math.round(vehicleSpriteHeading(uiState.vehicleRotation) / step) % frames
+                        for (distance in 0..frames / 2) {
+                            for (side in intArrayOf(1, -1)) {
+                                if (distance == 0 && side == -1) continue
+                                ensureActive()
+                                val angle = (((start + side * distance) % frames) + frames) % frames * step
+                                if (isPoliceCar) {
+                                    PoliceSpriteManager.getPoliceCar(context, angle, renderScale)
+                                } else {
+                                    VehicleSpriteManager.getTintedCarNpc(context, angle, carColor, renderScale, carModel)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 var carImage by remember { mutableStateOf<ImageBitmap?>(null) }
                 var lastKey by remember { mutableStateOf("") }
 
