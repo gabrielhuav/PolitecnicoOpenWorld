@@ -1,0 +1,52 @@
+{
+  "coverage_index": 11,
+  "stage_file": "fondo_cecyt_9_noche_1_anim.webp",
+  "stage_title": "CECyT 9 (Noche)",
+  "lighting": "night",
+  "p1_id": "ROBOT",
+  "p1_name": "Robot Estudiantx",
+  "p2_id": "ALEXIS_SYNTAXIS",
+  "p2_name": "Alexis Syntaxis",
+  "action": "jump-B",
+  "captured_at": "2026-11-16T17:09:51Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "local_ui_changes": "landscape route and horizontal safe insets",
+  "capture_api": "XCUIScreen.main.screenshot",
+  "original_png": true,
+  "engine_hooks": false,
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "installed_build_evidence": "pr188-projectile-xcodebuild.log / pr188-projectile-install.log",
+  "file": "11-cecyt_9-night.png",
+  "sha256": "e9147df4df6cc88e65f1aaf936122b9ecd826155cfaedcf07dce7b9738f4ea5b",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "bundle_version": "1.0",
+  "bundle_build": "1",
+  "validation_status": "visually_reviewed",
+  "observed_action_es": "Robot en pose aérea con un brazo extendido y Alexis Syntaxis completo en el suelo, visor y rostro reconocibles ante CECyT 9 nocturno; P1 200. La imagen no prueba un impacto aéreo.",
+  "observed_pair": {
+    "p1_id": "ROBOT",
+    "p1_name": "Robot Estudiantx",
+    "p2_id": "ALEXIS_SYNTAXIS",
+    "p2_name": "Alexis Syntaxis"
+  },
+  "observed_hud_p1_name": "ROBOT",
+  "observed_hud_p2_name": "SYNTAXIS",
+  "observed_p1_score": 200,
+  "two_hits_visible": false,
+  "two_hit_counter_text": null,
+  "map_selection_gold_border_verified": true,
+  "framing_review": "Full landscape scene, HUD and controls. ImageIO: 0 px opaque RGB0 full-height left/right borders and 0 px on row 35%; all eight action originals of this fixture also measured 0.",
+  "original_attachment_filename": "ADE05EC3-E3E6-4CFC-9F88-0843793C69E9.png",
+  "map_selection_evidence": {
+    "original_filename": "CA47D440-0635-4B13-9681-69DC7BC8911A.png",
+    "sha256": "65d3d2e71d2b9cfe10f5f815dc84c37812f3812d645fb86f44285b3ccfb03d8b",
+    "selected_gold_border_verified": true,
+    "matches_expected_stage": true
+  }
+}

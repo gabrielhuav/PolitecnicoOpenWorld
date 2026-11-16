@@ -1,0 +1,52 @@
+{
+  "coverage_index": 56,
+  "stage_file": "fondo_esm_noche_1_anim.webp",
+  "stage_title": "ESM IPN (Noche)",
+  "lighting": "night",
+  "p1_id": "LA_PLANCHADA",
+  "p1_name": "La Planchada",
+  "p2_id": "LA_LLORONA",
+  "p2_name": "La Llorona",
+  "action": "quarter-circle-right-X",
+  "captured_at": "2026-11-16T17:24:29Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "local_ui_changes": "landscape route and horizontal safe insets",
+  "capture_api": "XCUIScreen.main.screenshot",
+  "original_png": true,
+  "engine_hooks": false,
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "installed_build_evidence": "pr188-projectile-xcodebuild.log / pr188-projectile-install.log",
+  "file": "56-esm-night.png",
+  "sha256": "22b0792c64c39425587d9998b6cc0a78d62a7294bb388831c3e333a034e63f26",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "bundle_version": "1.0",
+  "bundle_build": "1",
+  "validation_status": "visually_reviewed",
+  "observed_action_es": "La Planchada con resplandor verde visible entre sus manos frente a La Llorona; ESM nocturna iluminada y P1 300.",
+  "observed_pair": {
+    "p1_id": "LA_PLANCHADA",
+    "p1_name": "La Planchada",
+    "p2_id": "LA_LLORONA",
+    "p2_name": "La Llorona"
+  },
+  "observed_hud_p1_name": "PLANCHADA",
+  "observed_hud_p2_name": "LLORONA",
+  "observed_p1_score": 300,
+  "two_hits_visible": false,
+  "two_hit_counter_text": null,
+  "map_selection_gold_border_verified": true,
+  "framing_review": "Full landscape scene reaches both edges; no native black side bands in selected original.",
+  "original_attachment_filename": "3934EB10-EC75-459A-8C23-4FC2D6FEF96A.png",
+  "map_selection_evidence": {
+    "original_filename": "6FAB68FC-0775-4A2B-92BB-A45EDE052676.png",
+    "sha256": "159998bee6cde770d890185047884305ce25febb449934afc54b64a1c0d7c3f1",
+    "selected_gold_border_verified": true,
+    "matches_expected_stage": true
+  }
+}

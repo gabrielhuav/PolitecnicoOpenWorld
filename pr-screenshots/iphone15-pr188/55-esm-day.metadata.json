@@ -1,0 +1,52 @@
+{
+  "coverage_index": 55,
+  "stage_file": "fondo_esm_anim.webp",
+  "stage_title": "ESM IPN",
+  "lighting": "day",
+  "p1_id": "LA_PLANCHADA",
+  "p1_name": "La Planchada",
+  "p2_id": "LA_LLORONA",
+  "p2_name": "La Llorona",
+  "action": "after-A",
+  "captured_at": "2026-11-16T17:22:55Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "local_ui_changes": "landscape route and horizontal safe insets",
+  "capture_api": "XCUIScreen.main.screenshot",
+  "original_png": true,
+  "engine_hooks": false,
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "installed_build_evidence": "pr188-projectile-xcodebuild.log / pr188-projectile-install.log",
+  "file": "55-esm-day.png",
+  "sha256": "f58fe4f9199a893f7eca0ea7d98f77edeba677fe5f39d3934e4c39f8f9fd05c9",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "bundle_version": "1.0",
+  "bundle_build": "1",
+  "validation_status": "visually_reviewed",
+  "observed_action_es": "La Planchada y La Llorona reconocibles frente a la Escuela Superior de Medicina de día; contador 2 GOLPES visible y P1 500.",
+  "observed_pair": {
+    "p1_id": "LA_PLANCHADA",
+    "p1_name": "La Planchada",
+    "p2_id": "LA_LLORONA",
+    "p2_name": "La Llorona"
+  },
+  "observed_hud_p1_name": "PLANCHADA",
+  "observed_hud_p2_name": "LLORONA",
+  "observed_p1_score": 500,
+  "two_hits_visible": true,
+  "two_hit_counter_text": "2 GOLPES",
+  "map_selection_gold_border_verified": true,
+  "framing_review": "Full landscape scene reaches both edges; no native black side bands in selected original.",
+  "original_attachment_filename": "F71162B0-3B1C-4FBC-88DA-76C48DE60BB3.png",
+  "map_selection_evidence": {
+    "original_filename": "EFF1825A-5EEE-42B5-B13A-CB55A3395B4C.png",
+    "sha256": "47ed1c56f4e8d2d95178bf2a24b8a7b374536c1780e6f5647c322976b1215f35",
+    "selected_gold_border_verified": true,
+    "matches_expected_stage": true
+  }
+}

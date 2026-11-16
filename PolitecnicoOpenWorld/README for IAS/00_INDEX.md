@@ -16,6 +16,14 @@
 
 ## Cómo usar / How to use
 
+**2026-11-16 · PR #188:** [QA de iPhone 15 real](SF/QA_IPHONE_PR188_2026-11-15.md), fuente bfd2148f más correcciones locales de orientación, zona segura, fondo y proyectiles. **849 ejecuciones sin fallos** (153 app + 348 shared JVM + 348 shared iOS); 60 fondos, 19 peleadores y 61 PNG originales conservados. Charro/Charro IA terminó **2–0** en observación de 180 s (método PASS 208,254 s); dueño confirmó audio. Limpieza PASS 9,748 s: subtítulos OFF, menú y solo nuestro runner retirado.
+
+Por elección del dueño, el **README principal está íntegramente en inglés** y coloca la galería cerca del inicio, con las capturas de acción más atractivas primero. El README principal y la galería conservan las 61 capturas en **21 desplegables cerrados de hasta tres**, con lazy y sin modificar los PNG. La descripción del PR reúne los 61 originales en 21 grupos cerrados (20 de tres y uno de una), con encabezados, resúmenes, pies de foto y prosa QA en inglés. Se añadieron 50 adjuntos y se conservaron las 11 URL previas. El comentario de QA, también en inglés, enlaza esa descripción y conserva los ocho ZIP, sin duplicar imágenes. Se mantienen lazy y los originales; **los desplegables controlan visibilidad, no garantizan descarga solo al hacer clic**. El visor HTML y las páginas Markdown de tres son alternativas locales opcionales. Este cambio de presentación no repitió builds ni las 849 pruebas. El dueño autorizó commit y push al mismo PR #188 el 2026-11-16. El commit de correcciones 79e1eb94 está publicado en la rama del PR #188. README, documentación y galería se incorporan con el commit de esta entrega. No se autoriza merge ni se creó otro hosting.
+
+Android final compila e instala; [UI posterior a fondo/proyectiles no ejecutada](SF/QA_ANDROID_PR188_2026-11-15.md). El [informe de emuladores y plugins](SF/QA_ANDROID_IOS_2026-11-15.md) corresponde al checkout anterior pr/184; no confundir ambas evidencias.
+
+**QA 2026-11-15:** [Compilación, control y combate Android + iOS](SF/QA_ANDROID_IOS_2026-11-15.md); incluye la reparación de plugins de Android Studio y los límites verificados.
+
 **2026-11-04:** para agregar peleadores, consultar [`SF/CI_CD_agregar_peleador.md`](SF/CI_CD_agregar_peleador.md).
 La medición y el alcance de limpieza están en [`PROPUESTA_LIMPIEZA_2026-11-04.md`](PROPUESTA_LIMPIEZA_2026-11-04.md).
 
@@ -31,7 +39,7 @@ La medición y el alcance de limpieza están en [`PROPUESTA_LIMPIEZA_2026-11-04.
    política de comentarios y los campos "⚠️ LO POSEE XManager").
 6. Si el asistente necesita un archivo concreto, búscalo en la tabla "Key files" (archivo 04/05)
    y pásale solo ese.
-7. **Tras cualquier cambio, actualiza estos docs (00–13)** y, si es user-facing, el README **público** de la raíz del repo (ver 09). Los **429 tests** (119 `:app` + 155 `:shared` Android + 155 `:shared` iOS) deben seguir en verde.
+7. **Tras cualquier cambio, actualiza estos docs (00–13)** y, si es user-facing, el README **público** de la raíz del repo (ver 09). Las **849 ejecuciones de tests** (153 `:app` + 348 `:shared` JVM + 348 `:shared` iOS; medido 2026-11-16 en PR #188 tras los ajustes visuales y de proyectiles) deben seguir en verde.
 
 **EN:**
 1. Upload/paste this whole folder (or just the relevant files) to the assistant.
@@ -90,6 +98,7 @@ La medición y el alcance de limpieza están en [`PROPUESTA_LIMPIEZA_2026-11-04.
 | — | `SETUP_PC_NUEVA.md` | 🖥️ **Poner el repo a compilar en una PC Windows nueva.** Los 4 archivos que NO viajan por git (⚠️ `gradle-wrapper.jar` bloquea hasta `gradlew`), la prueba de humo y cómo se verifica iOS desde Windows. |
 | 12 | `12_PLAN_MUNDO_ABIERTO_iOS.md` | 🌎🍏 **Portar el MUNDO ABIERTO a iOS — plan medido.** Cuánto es (30 302 líneas), los 2 bloqueadores contados (osmdroid y `R.string`) y las 8 fases en orden, con **la cadena exacta que bloquea el `WorldMapViewModel`** y por qué se paró donde se paró. El tamaño y los límites de tienda están en el doc 13. **Léelo antes de tocar `map_exterior` o `interiores`.** |
 | 13 | `13_ASSETS_Y_TAMANO.md` | 🗜️ **Qué se sube a cada tienda y cuánto puede pesar.** Los límites REALES verificados en la fuente (**Play: 500 MB de módulo base ← el que aprieta · App Store: 4 GB, los 200 MB son solo un aviso**), dónde está el peso del AAB medido, **qué formato de audio va en cada sitio y por qué** (Ogg solo-Android por el bucle; `.m4a` para lo compartido porque iOS no lee Ogg) y el plan de adelgazamiento con `tools/optimizar_assets_produccion.sh`. **Léelo antes de añadir cualquier asset.** |
+| 14 | `14_INSTALAR_EN_IPHONE_Y_SIMULADOR.md` | 📲 **Instalar POW en un iPhone y en el simulador, paso a paso.** Cada paso a mano (Android Studio / Xcode) y por terminal (lo que hace una IA). Firma con cuenta gratuita sin tocar el proyecto, "Desarrollador no confiable", el límite de 7 días, ⚠️ **Xcode 27 ya no trae `Simulator.app`**, y la tabla de errores (incluido "el combate no suena" = modo silencio). **MEDIDO 2026-11-15.** |
 | — | `../iosApp/README.md` | 🍏 **El proyecto Xcode.** Cómo compilarlo (⚠️ el framework de Kotlin NO se construye solo), qué assets entran en el bundle y qué ajustes de Xcode no se tocan. **Para añadir una pantalla a iOS se toca `PowAppIos.kt`, no este proyecto.** |
 
 ### 🌎 `MUNDO/` — mundo libre POW
@@ -224,14 +233,14 @@ Añadir un modo a `modosDe(IOS)` **no lo porta**. Detalle en `11_SEPARACION_IOS_
 
 ## Relación con los otros docs / Relationship to the other docs
 
-**ES:** La RAÍZ del repo tiene un `README.md` **público** (bilingüe, orientado a humanos) que es la
+**ES:** La RAÍZ del repo tiene un `README.md` **público** (en inglés, orientado a humanos) que es la
 visión general. Esta carpeta (`00`–`11`) es la versión **granular y por archivo** para alimentar a un
 asistente de IA: incluye firmas de funciones, campos de estado, pseudocódigo y *gotchas* que el README
 público no lista. *(Antes había aquí copias `README.md` (136 KB) y `plan.artifact.md` redundantes con
 `00`–`09`; se eliminaron el 2026-06-22 para no mantener triplicado.)* Si hay contradicción, **el código
 manda**; luego sincroniza estos docs y, si es user-facing, el README público de la raíz.
 
-**EN:** The repo ROOT has a **public** `README.md` (bilingual, human-oriented) = the overview. This folder
+**EN:** The repo ROOT has a **public** `README.md` (English, human-oriented) = the overview. This folder
 (`00`–`09`) is the **granular, per-file** version meant to be fed to an AI assistant: it includes function
 signatures, state fields, pseudocode and gotchas the public README doesn't. *(Redundant `README.md` (136 KB)
 and `plan.artifact.md` copies were removed from here on 2026-06-22.)* On contradiction, **the code wins**;

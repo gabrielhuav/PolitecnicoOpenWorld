@@ -37,7 +37,7 @@
    (`.github/workflows/pr-quality-gate.yml`).
 3. Edita → verifica con Read → balance de llaves del archivo.
 4. **Protocolo de docs (09 §13):** el cambio NO está terminado hasta actualizar los docs 00–09 +
-   CAMPAIGN + README público (EN **y** ES). Una contradicción entre docs es un bug.
+   CAMPAIGN + README público en inglés (petición del dueño del 2026-11-16). Una contradicción entre docs es un bug.
 5. Entrega con lista de "qué probar en el dispositivo".
 
 ## 4. Dónde vive cada cosa (chuleta)
@@ -66,5 +66,5 @@ concreta ("marca un destino y verifica que la ruta se dibuja"). Dale la lista ex
 en los puntos marcados `⏸️ CHECKPOINT COMPILACIÓN`.
 
 ## 7. Definición de "hecho" (idéntica al 09 §13)
-Compila + tests en verde + docs (00–09, CAMPAIGN, README EN+ES) actualizados en el MISMO cambio +
+Compila + tests en verde + docs (00–09, CAMPAIGN, README público en inglés) actualizados en el MISMO cambio +
 lista de prueba manual entregada. Si no puedes cumplir una parte, DILO explícitamente.

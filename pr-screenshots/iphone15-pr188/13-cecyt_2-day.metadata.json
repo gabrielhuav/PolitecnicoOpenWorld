@@ -1,0 +1,52 @@
+{
+  "coverage_index": 13,
+  "stage_file": "fondo_cecyt_2_anim.webp",
+  "stage_title": "CECyT 2",
+  "lighting": "day",
+  "p1_id": "PAPARAZZI_5",
+  "p1_name": "Paparazzi 5",
+  "p2_id": "POLICIA_CDMX_HOMBRE",
+  "p2_name": "Policía CDMX (Hombre)",
+  "action": "jump-B",
+  "captured_at": "2026-11-16T17:10:40Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "local_ui_changes": "landscape route and horizontal safe insets",
+  "capture_api": "XCUIScreen.main.screenshot",
+  "original_png": true,
+  "engine_hooks": false,
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "installed_build_evidence": "pr188-projectile-xcodebuild.log / pr188-projectile-install.log",
+  "file": "13-cecyt_2-day.png",
+  "sha256": "37c63557e222ccfe7e88bbb6fb58c94906fe65264ef899a33a99a487a1bf2402",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "bundle_version": "1.0",
+  "bundle_build": "1",
+  "validation_status": "visually_reviewed",
+  "observed_action_es": "Paparazzi 5 elevado con el brazo extendido y Policía CDMX hombre completo en el suelo, rostros/HUD claros ante CECyT 2 de día; P1 300. La pose aérea no prueba golpe conectado.",
+  "observed_pair": {
+    "p1_id": "PAPARAZZI_5",
+    "p1_name": "Paparazzi 5",
+    "p2_id": "POLICIA_CDMX_HOMBRE",
+    "p2_name": "Policía CDMX (Hombre)"
+  },
+  "observed_hud_p1_name": "PAPZ 5",
+  "observed_hud_p2_name": "POLICIA H",
+  "observed_p1_score": 300,
+  "two_hits_visible": false,
+  "two_hit_counter_text": null,
+  "map_selection_gold_border_verified": true,
+  "framing_review": "Full landscape scene, HUD and controls. ImageIO: 0 px opaque RGB0 full-height left/right borders and 0 px on row 35%; all eight action originals of this fixture also measured 0.",
+  "original_attachment_filename": "3AA7CBF8-17DC-453E-83F6-7DFDC813CBD6.png",
+  "map_selection_evidence": {
+    "original_filename": "F7EC7C60-5CDF-4F7D-BB84-A2B71F8398DD.png",
+    "sha256": "af9ce59d80812f6b2d66a000eb3a68ee483d07ab981302b48af2bbeddeceb547",
+    "selected_gold_border_verified": true,
+    "matches_expected_stage": true
+  }
+}

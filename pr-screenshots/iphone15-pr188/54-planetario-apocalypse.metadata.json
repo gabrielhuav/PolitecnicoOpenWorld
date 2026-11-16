@@ -1,0 +1,52 @@
+{
+  "coverage_index": 54,
+  "stage_file": "fondo_planetario_noche_2_anim.webp",
+  "stage_title": "Planetario (Noche 2)",
+  "lighting": "apocalypse",
+  "p1_id": "ROBOT",
+  "p1_name": "Robot Estudiantx",
+  "p2_id": "ALEXIS_SYNTAXIS",
+  "p2_name": "Alexis Syntaxis",
+  "action": "quarter-circle-right-X",
+  "captured_at": "2026-11-16T17:21:25Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "local_ui_changes": "landscape route and horizontal safe insets",
+  "capture_api": "XCUIScreen.main.screenshot",
+  "original_png": true,
+  "engine_hooks": false,
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "installed_build_evidence": "pr188-projectile-xcodebuild.log / pr188-projectile-install.log",
+  "file": "54-planetario-apocalypse.png",
+  "sha256": "b8b57959760d8a52a57ce9249d4c90dc56795c2d377fa8dc0bb32a0d54405551",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "bundle_version": "1.0",
+  "bundle_build": "1",
+  "validation_status": "visually_reviewed",
+  "observed_action_es": "Robot con esfera/descarga cian brillante delante de los brazos y Alexis Syntaxis legible; Planetario apocalíptico y P1 500.",
+  "observed_pair": {
+    "p1_id": "ROBOT",
+    "p1_name": "Robot Estudiantx",
+    "p2_id": "ALEXIS_SYNTAXIS",
+    "p2_name": "Alexis Syntaxis"
+  },
+  "observed_hud_p1_name": "ROBOT",
+  "observed_hud_p2_name": "SYNTAXIS",
+  "observed_p1_score": 500,
+  "two_hits_visible": false,
+  "two_hit_counter_text": null,
+  "map_selection_gold_border_verified": true,
+  "framing_review": "Full landscape scene reaches both edges; no native black side bands in selected original.",
+  "original_attachment_filename": "3E24BC1C-3B5B-4C1D-9120-1DDE7D2C27EC.png",
+  "map_selection_evidence": {
+    "original_filename": "C417C729-1CB3-445A-B1DA-19B7B926785B.png",
+    "sha256": "0676d14ad0e884e1f822547c93fab8400a5663e419b7dd83e7f68c6aa7efa921",
+    "selected_gold_border_verified": true,
+    "matches_expected_stage": true
+  }
+}

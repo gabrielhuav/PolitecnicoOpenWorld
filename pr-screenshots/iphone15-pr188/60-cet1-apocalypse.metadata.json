@@ -1,0 +1,52 @@
+{
+  "coverage_index": 60,
+  "stage_file": "fondo_cet1_noche_2_anim.webp",
+  "stage_title": "CET 1 (Noche tenebrosa)",
+  "lighting": "apocalypse",
+  "p1_id": "ESCOMBOY",
+  "p1_name": "Estudiante",
+  "p2_id": "ROBOT",
+  "p2_name": "Robot Estudiantx",
+  "action": "chain-X-Y-B-attempt",
+  "captured_at": "2026-11-16T17:29:58Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "local_ui_changes": "landscape route and horizontal safe insets",
+  "capture_api": "XCUIScreen.main.screenshot",
+  "original_png": true,
+  "engine_hooks": false,
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "installed_build_evidence": "pr188-projectile-xcodebuild.log / pr188-projectile-install.log",
+  "file": "60-cet1-apocalypse.png",
+  "sha256": "c9324f5baee5a9bc17dfd81d8bbb88c9adbb4987e7d5be75e620fea07f674057",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "bundle_version": "1.0",
+  "bundle_build": "1",
+  "validation_status": "visually_reviewed",
+  "observed_action_es": "Estudiante con brazo alzado y otro adelantado frente al Robot, contador 2 GOLPES visible, CET 1 de noche tenebrosa y P1 400.",
+  "observed_pair": {
+    "p1_id": "ESCOMBOY",
+    "p1_name": "Estudiante",
+    "p2_id": "ROBOT",
+    "p2_name": "Robot Estudiantx"
+  },
+  "observed_hud_p1_name": "ESCOMBOY",
+  "observed_hud_p2_name": "ROBOT",
+  "observed_p1_score": 400,
+  "two_hits_visible": true,
+  "two_hit_counter_text": "2 GOLPES",
+  "map_selection_gold_border_verified": true,
+  "framing_review": "Full landscape scene reaches both edges; no native black side bands in selected original.",
+  "original_attachment_filename": "0B06147F-D8CC-4F68-92C0-E79FFE178BB1.png",
+  "map_selection_evidence": {
+    "original_filename": "38C09017-81B6-44EA-9123-6288CBD9D69D.png",
+    "sha256": "77b83f89dda309cc8627943a6d3c94e5ff334f045d1531b311ed51a60da1e161",
+    "selected_gold_border_verified": true,
+    "matches_expected_stage": true
+  }
+}

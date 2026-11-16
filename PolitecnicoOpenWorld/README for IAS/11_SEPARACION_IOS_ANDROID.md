@@ -207,7 +207,9 @@ Metrobús como excepción vertical. Desde el 2026-08-17 iOS hace lo mismo en el 
 |---|---|---|
 | **DECLARAR** qué orientaciones valen | `iosApp/POW/POWApp.swift` (`PowAppDelegate`) | Responde `application(_:supportedInterfaceOrientationsFor:)` leyendo `OrientacionPow.esHorizontal` |
 | **PEDIR** el giro ya | `platform/orientacion/OrientacionIos.kt` | `requestGeometryUpdate` + `setNeedsUpdateOfSupportedInterfaceOrientations()` |
-| **Usarlo** desde una pantalla | `ForzarHorizontal()` en `MapaMundoIos` | `DisposableEffect`: fija al entrar, libera al salir |
+| **Usarlo** desde una pantalla | `ForzarHorizontal()` en `MapaMundoIos` y en la ruta `Pantalla.PELEA` de `PowAppIos` | `DisposableEffect`: fija al entrar, libera al salir |
+
+**2026-11-15 · iPhone 15 real:** la ruta de pelea llama al efecto antes de mostrar sus selectores, de modo que todo el flujo entra en horizontal. Al abandonar la ruta, `DisposableEffect` libera la restricción. Los selectores de personaje/mapa reservan los insets laterales seguros para que la muesca no tape tarjetas; el fondo permanece a pantalla completa. [Alcance de QA](SF/QA_IPHONE_PR188_2026-11-15.md).
 
 ⚠️ **Con una sola mitad no funciona:** sin el delegado la pantalla gira y el usuario puede volver a
 girarla; sin la parte de Kotlin no gira hasta que el usuario mueva el teléfono.

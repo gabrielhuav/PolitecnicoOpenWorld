@@ -1,89 +1,126 @@
 # Memoria compartida — estado vivo
 
-Actualizado: 2026-11-05 · rama `pr/158` · PR #158.
-El historial anterior completo está en `_ARCHIVO/SESION_previa_2026-11-04.md`.
+Actualizado: **2026-11-16 · PR #188 · QA física cerrada; galería en grupos de tres**.
+Ventana de dos días, máximo 200 líneas. El detalle e incidencias permanecen en los informes enlazados.
 
-## Alcance autorizado
+## Checkout y reglas
 
-El dueño pidió corregir Alexis Syntaxis, agregar CI/tutorial de peleadores, simplificar
-el repo e integrar la alternativa al bloqueo de calles al 25%. Autorizó commits y push
-en el mismo PR y continuar sin confirmaciones adicionales. No se ha autorizado merge.
+- Activo: `/Users/gabrielhuav/.codex/worktrees/pr188-iphone-qa/PolitecnicoOpenWorld`.
+- Rama `codex/pr188-iphone-qa`; base PR 188 `bfd2148f044892317430ca328b2e6c5b28a15fab`, con las correcciones versionadas en 79e1eb94.
+- El checkout original conserva `pr/184` y su historial. Allí solo se sincronizan este puntero y el informe físico.
+- **Autorizado el 2026-11-16: commit y push al mismo PR #188; NO merge.** Commit de correcciones 79e1eb94: 79e1eb94d75b31e32c13cdfded08222299e83e2e. Estado: publicado en la rama del PR #188.
+- No contraseñas/Touch ID ni Device Hub. Ambient respeta silencio por diseño; audio sin cambios.
+- JAVA_HOME: `/Applications/Android Studio.app/Contents/jbr/Contents/Home`.
+- Antes de cada build iOS enlazar AMBOS frameworks. Esquema comprobado `iosApp.POW`; reenumerar con -list.
+- Firma solo por CLI, nunca equipo en pbxproj. Kotlin conserva CRLF según EditorConfig.
+- Temporales y DerivedData fuera del repo: `/tmp/pow-iphone-qa-2026-11-15/` (TMP).
 
-## Corrección posterior al reporte de tamaño y caída (2026-11-05)
+## Resultado y evidencia vigente
 
-El reporte real demostró que el QA anterior no cubría bien AIR/THROWN/GET_UP/KO.
-Se calibran esas poses y el daño comprimido en la receta (cabeza/cuerpo, no solo altura).
-El renderer deja de inflar las poses dobladas a 100 px. No cambia hurtScale ni hitboxes.
-La gravedad común continúa en estados que interrumpen un salto; KO ya no fija vy=120
-cada tick, THROWN espera el suelo y el techo detiene velocidades ascendentes degeneradas.
-MapProvider centraliza URL/zoom, migra CARTO/Google sin credenciales a OSM y limita el
-selector a servicios sin clave; fallback Leaflet a OSM con atribución y sin reintento por frame.
-Verificado 2026-11-05: APK + 129 app/279 shared sin fallos; 12 Python + 3 JS,
-detekt, guard Native y los tres workflows verdes para `269e7a86`.
-QA real API 35: Alexis vs Paramédico, media, UNAM CU nocturno; daño, KO y ataques
-aéreos revisados. Mundo Libre carga OSM sin aviso de clave. Videos/capturas nuevos en
-`pr-screenshots/alexis-qa/emulator-nov5-*`; resumen `test-summary-nov5.json`.
-Ajustes originales del emulador restaurados tras QA; iOS no ejecutado en esta PC.
-La sección de Alexis siguiente documenta el primer arreglo del 4 de noviembre, anterior
-a esta corrección; sus cifras de 100 px y renderer sin cambios son históricas.
+Informe principal: [QA física PR 188](SF/QA_IPHONE_PR188_2026-11-15.md).
+iPhone 15 real/iOS 26.7.1, Xcode 27.2;19 peleadores sin Paramédico, 20 lugares × 3 luces = 60 fondos.
+Práctica es P1 contra CPU. No se exigió el producto cartesiano de parejas.
 
-## Alexis Syntaxis (primera corrección, 2026-11-04)
+- **Ambos frameworks + APK + Xcode firmado + instalación PASS** después de los cambios finales.
+- **849 ejecuciones PASS**:153 app + 348 sharedJVM + 348 sharediOS;0 fallos/errores/omitidas XML.
+  Base 831 + 5 regresiones de geometría y 4 de proyectiles en cada destino compartido =849.
+- Práctica Estudiante/Estudianta: movimiento, ataques/daño, puntuación y final observados en el iPhone.
+- **Galería 60/60, roster 19/19,61 PNG originales**:60 de matriz +extra Charro con 4 GOLPES.
+  Las 60 fotos de matriz son distintas por SHA;25 muestran 2 GOLPES. Pareja/HUD/rostros/mapa/luz revisados.
+- **19 retakes finales PASS**,0 fallos/omitidos;1376,777 s de sesión. Se revisaron originales y selector dorado.
+- Cámara ESCOM zoom 1,3: PASS 45,3 s, centro/izquierda/derecha/salto. Biblioteca zoom 1,0: repetición
+  final PASS 65,978 s con izquierda 5 s/derecha 10 s/salto/salida; sustituye un TIMEOUT previo, descrito en informe.
+- Charro/Charro IA 90 s: método PASS 117,67 s, 91 PNG, estable; dos victorias de ronda y comienzo de ronda 3.
+  **Ese primer duelo NO terminó la partida**. Su muestra 53 aporta el extra 4 GOLPES.
+- Charro/Charro IA 180 s: **método PASS 208,254 s**,181 PNG revisados; **partida P1 gana 2–0**.
+  Dos medallas desde 63 s, EXTRAORDINARIO/PACTO COBRADO, Revancha desde 67 s y resultado hasta 180 s.
+  No se observó ACABALO en las muestras de 1 s; no afirmar un texto/evento entre capturas.
+- Dueño confirmó audio general y **«si se escucha»** para el Charro. Los PNG no graban audio;
+  no identifican cada variante aleatoria hurt1. No se modificaron clips ni sesión Ambient.
+- **Limpieza PASS 9,748 s**: subtítulos restaurados a su original OFF; AX Selected true→false y PNG.
+  Hitboxes/FPS OFF, DevMode ON; regreso al menú verificado. Primera calibración con value vacío
+  falló sin tocar el Switch; fallbackSelected solo con Switch único/hittable y transición comprobada.
+- Solo se desinstaló nuestro runner `ovh.gabrielhuav.POW.GestureUITests.xctrunner`; outcome success.
+  POW permanece instalado; lanzamiento CLI final success. No se borraron otras apps por la IA.
+- **Dueño: restaurar AutoLock temporal 5 min a su valor anterior.** La IA no cambió ese ajuste.
 
-- Fuente importada de PR #158 y JSON preservados en `newSFAssets/AlexisSyntaxis/`.
-- 14 poses regeneradas con imagegen: cuatro talk de cuerpo completo y diez cuadros
-  cuyos efectos/cables estaban cortados. Prompt exacto en `GENERACION.md`.
-- 258 cuadros / 58 animaciones; daño y stun normalizados a 100 px, pies y=224.
-- No se cambia renderer, `hurtScale`, hitboxes, tiempos ni layout. Solo `talk-*` cambia
-  su origen de busto [128,128] a pies [128,224]. Proyectiles conservan [128,128].
-- Receta reproducible: `tools/sf_fighters/alexis_syntaxis.json`.
-- Tutorial: `SF/CI_CD_agregar_peleador.md`. Workflow `SF Fighter Assets`.
-- QA geométrico sin errores, cuatro tests Python de regresión del gate en verde.
-- Video real en emulador y comparativa GIF de los 11 cuadros guardados en
-  `pr-screenshots/alexis-qa/`. La revisión visual cubre daño representativo;
-  no sustituye la matriz completa de dispositivos, accesibilidad e iOS.
-- PR etiquetado `manual-play-upload` y `qa-pending`; no subir a Play automáticamente.
-- R-5: personaje ficticio de parodia; renombrarlo no prueba ausencia de parecido con
-  personas reales. Se documenta la limitación; no se presenta como revisión jurídica.
+## Correcciones instaladas y versionadas
 
-## Calles estáticas / bloqueo al 25%
+1. PowAppIos: `ForzarHorizontal()` en toda la ruta PELEA, incluidos selectores; libera al salir.
+2. SfMenuOverlays/SfStageSelectOverlay: insets horizontales de tarjetas; StreetFighterScreen los
+   aplica solo a controles/guías. L1 antes bajo notch, ahora x 75..131 dp y visible en originales físicos.
+3. SfSceneRenderer/SfBackgroundGeometry: COVER del Canvas y paneo del excedente real, con límites
+   de salto/shake. Antes podía descubrir~273 px negros al calcular sobre 382 unidades virtuales.
+4. SfFireballs.advance: KO por proyectil llamaba `endRound→openRemateWindow→fireballs.clear()` y
+   luego `ListIterator.set()` abortaba. Guarda COLLIDED antes del callback y retorna si éste limpia
+   o reemplaza el elemento, sin reinsertar ni ocultar excepciones. Cuatro regresiones deterministas.
 
-- Integrado el cambio de Claude del PR #182, commit fuente `e66cf334`, en este checkout.
-- Orden: caché Room → celda estática de `datos-calles` → Overpass con respaldos.
-- La rama `datos-calles` no existía. Se generaron y publicaron 117 celdas iniciales
-  (incluido ESCOM), desde BBBike MexicoCity 2026-11-01, con atribución OSM/ODbL.
-- Índice público: raw.githubusercontent.com/gabrielhuav/PolitecnicoOpenWorld/datos-calles/v1/indice.json.
-- Bootstrap limitado al centro/norte cubierto por el extracto; fuera de esa cobertura
-  se conserva Overpass. El workflow mensual usa el extracto completo de Geofabrik.
-- El generador ahora cubre segmentos que cruzan una celda sin nodos dentro: cuatro
-  tests de geometría/formato en verde. Acepta --fuente para procedencia correcta.
-- Corregida la aceptación de HTML/objetos sin elements como calles vacías. Era un
-  fallo reproducido del test existente de Overpass. El mismo filtro se usa al leer estáticas.
-- Timeout estático 8 s, conexión 5 s; conserva propagación de cancelación.
-- Workflow generador prueba en PR; solo publica desde el repo principal en dispatch/schedule.
+Crash histórico: SIGABRT/ConcurrentModificationException, Main, `ArrayList.Itr.set→updateFireballs→tick`.
+No atribuirlo a audio/AX ni a otro hilo. Repeticiones corregidas 90 s/180 s estables, con final en la segunda.
+Solo compartir `TMP/charro-crash-sanitized.json`, no IPS/logs crudos con identificadores.
+VM 2435 líneas, Screen 2011, Renderer 1236; docs 09/10 reflejan helper y separación. Audio/pbxproj sin cambios.
 
-## Limpieza ejecutada
+## Galería permanente y publicación
 
-- Retirado únicamente `detekt-cli.zip` de raíz (61,37 MiB); CLI extraída conservada.
-- Nuevo ignore de ese ZIP. Sesión antigua archivada íntegra, sin perder gotchas.
-- `PROPUESTA_LIMPIEZA_2026-11-04.md` detalla medición SHA-256 y qué se conservó.
-- No borrar GEN canónico ni las carpetas antiguas enteras: contienen variantes únicas.
-- Segunda limpieza autorizada: 432 copias idénticas retiradas (14,49 MiB), con manifiesto
-  `newSFAssets/gen_duplicates.json`. Se conservan las 1.836 variantes físicas restantes.
-  Packer/slicer/importador resuelven referencias; exportación física con `sf_gen_cache.py`.
-  Los 2.268 archivos lógicos antiguos conservan exactamente sus bytes. Atlas/JSON de
-  La Llorona y Prankedy iguales a los anteriores; reconstrucción de Alexis también exacta.
-- `PR_DESCRIPTION.md` ya estaba sin seguimiento al arrancar: no mezclar su texto viejo.
+Canónico: pr-screenshots/iphone15-pr188/ en la raíz del worktree; README, coverage-plan.json,
+metadata y SHA. **41 fotos preceden a los arreglos finales de fondo/proyectiles y 19 son retakes posteriores**;
+los flags del metadata lo distinguen. No presentar toda la galería como una sola suite del último binario.
 
-## Verificación
+- El dueño eligió **desplegables dentro del PR y los README**. El README principal queda íntegramente
+  en inglés, con la galería cerca del inicio y las capturas de acción más atractivas primero.
+  README principal y galería conservan las 61 imágenes en **21 bloques cerrados**, máximo tres por
+  bloque y una en el último. Los PNG originales no se borran ni se reexportan.
+- Conservar los 61 PNG originales, metadatos y referencias: no recortar, reexportar ni quitar HUD.
+  hero-selection.json fija 10 parejas que cubren 19 peleadores y el extra de 4 GOLPES: 11 muestras.
+  Incluye Granadera con Granadero H; no sustituir ni retirar esos archivos al regenerar.
+- Descripción del PR: **61 originales en 21 bloques cerrados**, 20 grupos de tres y uno de una.
+  Se subieron 50 originales y se conservaron las 11 URL previas; publication.json registra URL y SHA.
+  Encabezados, resúmenes, pies de foto y prosa de QA están en **inglés**, con nombres propios respetados.
+  Comentario de QA en inglés: resumen, enlace a la descripción y ocho ZIP, sin duplicar imágenes.
+  Los 61 adjuntos y ocho ZIP quedan conservados.
+- loading="lazy" se mantiene en la fuente, con ancho y altura automática, sin height.
+  GitHub filtra loading y JavaScript. Los desplegables controlan **visibilidad**, no garantizan
+  cero descargas antes del clic; no prometer un botón de carga estricta dentro de GitHub.
+- Alternativa opcional local: index.html crea tres img por clic; pages/01.md inicia 21 páginas
+  de tres capturas, salvo la última con una. Visor probado: cero PNG iniciales y GET en grupos de tres.
+  GitHub muestra HTML como código; las páginas Markdown forman parte de esta entrega versionada.
+- Este cambio es de presentación; **no hubo otra ejecución de las 849 pruebas ni nuevo build**.
+  El dueño autorizó commit y push al mismo PR #188 el 2026-11-16. El commit de correcciones 79e1eb94 está publicado en la rama del PR #188. README, documentación y galería se incorporan con el commit de esta entrega. No se autoriza merge ni se creó otro hosting.
+- Actualizar solo el comentario existente y la sección QA de la descripción, sin duplicar informes:
+  https://github.com/gabrielhuav/PolitecnicoOpenWorld/pull/188#issuecomment-6907989505
 
-- Kotlin/Native test names: OK.
-- Build Android + tests: OK, 129 app + 273 shared, cero fallos; incluye el audit Arcade.
-- detekt completo con baseline: OK. Cuatro tests Python de sprites + cuatro de calles: OK.
-- Commit de código/assets verificado: `282b69083c5961fc852d80327ab6b44a602683b9`.
-  Sus tres workflows de GitHub terminaron en verde; las ejecuciones del fork se aprobaron.
-- Reconstrucción exacta de píxeles y JSON en local y CI. Los 11 hurt/stun miden 100 px
-  con alfa >16, sin modificar el renderer ni hurtScale.
-- Small_Phone_API_35: combate grabado sin cierre; evidencia corta MP4 y GIF de atlas.
-- Carga de mapa en frío: caché anterior conservada aparte; log real confirma
-  `Calles estáticas OK (975_-4958): 3427 ways`. La carga supera 25% y llega al mapa jugable.
-- Informe y límites de QA: `pr-screenshots/alexis-qa/README.md`.
+## Otras plataformas y límites
+
+- Android último APK build/install/SHA PASS. **UI tras fondo/proyectiles NO EJECUTADA**: CUA no expuso
+  superficie de Android Studio/emulador; tampoco funcionó el único fallback Spotlight autorizado.
+  Humo anterior tras insets sí probó práctica/daño 200 P1/pausa/resume/restart; no atribuirlo al binario final.
+  App Android force-stop para no mezclar sonido. [Informe Android](SF/QA_ANDROID_PR188_2026-11-15.md).
+- Simulador iPhone 17/iOS 27.0 final: build/install/launch y menú PASS; no repetir como combate final probado.
+  Humo previo Android+iOS y plugins corresponde a `pr/184`: [informe anterior](SF/QA_ANDROID_IOS_2026-11-15.md).
+- Mac:92 audios decodifican, 91 rutas activas, 19 atlas/JSON y 337/337 recursos del bundle iguales por ruta/case/SHA.
+  No sustituye escucha física. SelectorDevMode 20/60 vs progresión 18/54: extras Planetario/CET 1.
+- Biblioteca contiene FESARAGON en su propio asset; borde dorado/miniatura de Biblioteca comprobados.
+- Capturas válidas: XCUIScreen original 1178 × 2556/EXIF 8→2556 × 1178 visual. Rechazados app.screenshot
+  recortado, 110 CLI negros, selector/carga/Mirroring y banners privados. No repetirlos como fotos válidas.
+- No cobertura exhaustiva de todos los movimientos, multijugador iOS, fuente 1,4/orientación opuesta,
+  ni certificación universal «sin bugs». No forzar HP/medidores/poses para crear evidencia.
+
+## Referencias para continuar sin repetir trabajo
+
+- Builds: `TMP/pr188-projectile-frameworks-tests-android.log`, `post-projectile-test-counts.json`,
+  `pr188-projectile-xcodebuild.log`, `pr188-projectile-install.log`; ambos frameworks y 849 ejecuciones PASS.
+- Galería final: `uitest-charro-audio/results/gallery-fixed-final19-authorized.xcresult`,
+  `uitest-harness/gallery-fixed-final19-attachments/`, selections-fresh19-first10.json/last09.json.
+- Charro 180: `uitest-charro-audio/results/audio-charro-final180.xcresult`,
+  `charro-final180-review/review.md` y proof.json. Original final 180 s SHA empieza db3b902e.
+- Limpieza: `uitest-cleanup/results/cleanup-20261116T180034Z.xcresult`,
+  `uitest-harness/cleanup-final-attachments/`, `test-runner-uninstall.json`, `final-main-menu-launch.json`.
+- Herramientas fuera del repo: gallery-review-tool/pow-gallery-review, integrate-gallery-selections.py,
+  update-gallery-docs.py, package-gallery.py. Respetar selección fijada y SHA de originales al reusar.
+- Publicación completa en inglés: pr188-all61-description-en.md, pr188-captions-en.json y
+  pr188-new50-image-urls.json en TMP. No volver a limitar la descripción a 11 muestras.
+- Presentación: on-demand-gallery-js-proof.json, on-demand-gallery-markup-proof.json y
+  on-demand-browser-http.log. El visor opcional tiene carga real por clic; los desplegables de GitHub no.
+- CUA cerrado por agentes. Al retomarlo tras resumen: `cua.rewriteDocumentation()` primero.
+  Safari PR 188 puede funcionar aunque inventario diga 0 windows; no leer otras pestañas privadas.
+- No hay suite física pendiente. La única acción del dueño pendiente registrada aquí es restaurar AutoLock.

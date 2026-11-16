@@ -1,0 +1,29 @@
+{
+  "file": "charro-4-golpes.png",
+  "sha256": "753f9ed3a0aceb62c1497c88c07b6428239146972eb587b6b512097d5c06f324",
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "mode": "ai_vs_ai",
+  "p1_id": "CHARRO_NEGRO",
+  "p2_id": "CHARRO_NEGRO",
+  "captured_at": "2026-11-16T17:32:34Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "capture_api": "XCUIScreen.main.screenshot",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "orientation": 8,
+  "original_unmodified": true,
+  "engine_hooks": false,
+  "observed_combo_counter": "4 GOLPES",
+  "observed_p1_score": 2000,
+  "observed_p2_score": 2000,
+  "observed_round_timer": 75,
+  "sample_index": 53,
+  "observed_action_es": "Dos Charros completos en combate con contador 4 GOLPES; sin notificaciones.",
+  "final_match_result_proven_by_this_image": false,
+  "extra_outside_60_stage_matrix": true
+}
