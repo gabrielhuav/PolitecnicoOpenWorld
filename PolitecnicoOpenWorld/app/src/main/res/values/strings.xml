@@ -245,6 +245,7 @@
     <string name="wm_placing_npcs_buildings">Colocando NPCs y edificios...</string>
     <string name="wm_tip_format">Consejo: %1$s</string>
     <string name="wm_opt_debug_interiors">Debug Interiores</string>
+    <string name="wm_opt_stylized_map">Mapa estilizado</string>
     <string name="wm_downloading_map">Descargando el mapa...</string>
     <string name="wm_downloading_zone">Descargando zona %1$d%%</string>
     <string name="wm_opt_remove_destination">Eliminar destino</string>

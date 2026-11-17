@@ -275,21 +275,50 @@ private fun wallBlocks(
     return edges(car).any { segmentsIntersect(it.first, it.second, wallStart, wallEnd) }
 }
 
-/** Resolvedor único de barrido para todos los actores circulares. */
+/**
+ * Resolvedor único de barrido para todos los actores circulares. Si el actor YA está dentro o pegado a una
+ * barrera, puede salir: si está DENTRO de un edificio (salió de un interior sobre él, spawn) camina libre hasta
+ * quedar fuera, y si solo está pegado a un borde, cada paso debe alejarse del obstáculo más cercano. Una vez fuera,
+ * no puede volver a entrar.
+ */
 fun ExteriorCollisionsConfig.resolveCirclePath(
     from: GeoPoint,
     to: GeoPoint,
     collider: CircleCollider,
 ): CollisionResolution {
+    val index = barrierIndex
+    if (index.isEmpty) return CollisionResolution(to, null)
+    val radius = collider.radiusMeters + INDEX_RADIUS_MARGIN_METERS
+    val dLat = radius / METERS_PER_DEGREE_LATITUDE
+    val dLon = radius / (METERS_PER_DEGREE_LATITUDE * cos(from.latitude * PI / 180.0))
+    if (!index.mayTouch(
+            min(from.latitude, to.latitude) - dLat, max(from.latitude, to.latitude) + dLat,
+            min(from.longitude, to.longitude) - dLon, max(from.longitude, to.longitude) + dLon,
+        )
+    ) return CollisionResolution(to, null)
     val samples = max(1, ceil(from.distanceMetersTo(to) / CIRCLE_SWEEP_STEP_METERS).toInt())
     var lastSafe = from
+    var escaping = circleObstacleAt(from, collider) != null
+    // Solo se camina libre si el actor YA está dentro; si solo roza un borde (≤ radio) no puede entrar al edificio.
+    val startedInside = isInsideBarrier(from)
+    var lastClearance = if (escaping) nearestBarrierDistanceMeters(from, CIRCLE_CLEARANCE_RADIUS_METERS) else 0.0
     for (step in 1..samples) {
         val fraction = step.toDouble() / samples
         val point = GeoPoint(
             latitude = from.latitude + (to.latitude - from.latitude) * fraction,
             longitude = from.longitude + (to.longitude - from.longitude) * fraction,
         )
-        circleObstacleAt(point, collider)?.let { return CollisionResolution(lastSafe, it) }
+        val obstacle = circleObstacleAt(point, collider)
+        if (obstacle != null) {
+            if (!escaping) return CollisionResolution(lastSafe, obstacle)
+            val clearance = nearestBarrierDistanceMeters(point, CIRCLE_CLEARANCE_RADIUS_METERS)
+            // Dentro de un edificio (spawn, salida de un interior) camina libre hasta salir: en un bloque de
+            // edificios pegados la salida real puede exigir cruzar zonas donde el borde cercano no se aleja.
+            if (clearance < lastClearance && !(startedInside && isInsideBarrier(point))) return CollisionResolution(lastSafe, obstacle)
+            lastClearance = clearance
+        } else {
+            escaping = false
+        }
         lastSafe = point
     }
     return CollisionResolution(to, null)
@@ -456,11 +485,13 @@ private const val CIRCLE_SWEEP_STEP_METERS = 0.25
 private const val VEHICLE_SEPARATION_PADDING_METERS = 0.1
 /** Penetración máxima ignorada entre carrocerías: absorbe imprecisión de giro y de sprites. */
 private const val CONTACT_SLOP_METERS = 0.05
-private const val NPC_FOOT_COLLIDER_METERS = 0.3
+private const val NPC_FOOT_COLLIDER_METERS = 0.4 // cuerpo dibujado ×1.3 (CHARACTER_VISUAL_SCALE)
 /** Margen del descarte por caja: círculo que envuelve la carrocería, con holgura (nunca descarta un choque real). */
 private const val INDEX_RADIUS_FACTOR = 1.05
 private const val INDEX_RADIUS_MARGIN_METERS = 0.5
 private const val NEAREST_EXTRA_RADIUS_METERS = 1.0
+/** Radio de búsqueda de la distancia con signo al salir de un solape a pie (la caja de un edificio grande lo cubre). */
+private const val CIRCLE_CLEARANCE_RADIUS_METERS = 60.0
 
 private fun VehicleDimensions.circumradiusMeters(): Double =
     sqrt((lengthMeters / 2.0) * (lengthMeters / 2.0) + (widthMeters / 2.0) * (widthMeters / 2.0))
@@ -564,18 +595,27 @@ private fun ExteriorCollisionsConfig.circleObstacleAt(
     center: GeoPoint,
     collider: CircleCollider,
 ): CollisionReason? {
+    val index = barrierIndex
     val referenceLatitude = center.latitude
+    val dLat = collider.radiusMeters / METERS_PER_DEGREE_LATITUDE
+    val dLon = collider.radiusMeters / (METERS_PER_DEGREE_LATITUDE * cos(referenceLatitude * PI / 180.0))
+    val minLat = center.latitude - dLat
+    val maxLat = center.latitude + dLat
+    val minLon = center.longitude - dLon
+    val maxLon = center.longitude + dLon
     val point = center.toMeters(referenceLatitude)
-    for (polygon in polygons) {
-        if (polygon.role != CollisionRole.BARRIER || polygon.nodes.size < 3) continue
+    for (entry in index.polygons) {
+        if (!entry.overlaps(minLat, maxLat, minLon, maxLon)) continue
+        val polygon = entry.polygon
         if (polygon.contains(center.latitude, center.longitude)) return CollisionReason.BUILDING
         val vertices = polygon.nodes.map { GeoPoint(it.lat, it.lon).toMeters(referenceLatitude) }
         if (edges(vertices).any { (from, to) -> pointToSegmentDistance(point, from, to) <= collider.radiusMeters }) {
             return CollisionReason.BUILDING
         }
     }
-    for (wall in walls) {
-        if (wall.effectiveRole != CollisionRole.BARRIER) continue
+    for (entry in index.walls) {
+        if (!entry.overlaps(minLat, maxLat, minLon, maxLon)) continue
+        val wall = entry.wall
         val from = GeoPoint(wall.lat1, wall.lon1).toMeters(referenceLatitude)
         val to = GeoPoint(wall.lat2, wall.lon2).toMeters(referenceLatitude)
         if (pointToSegmentDistance(point, from, to) <= collider.radiusMeters) return CollisionReason.WALL

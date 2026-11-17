@@ -2,6 +2,7 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import kotlinx.serialization.encodeToString
 import ovh.gabrielhuav.pow.data.json.PowJson
+import ovh.gabrielhuav.pow.domain.models.map.cargarColisionesConHuellas
 import ovh.gabrielhuav.pow.data.json.jsonOf
 
 import android.content.Context
@@ -1174,8 +1175,7 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     internal fun loadExteriorCollisions() { // llamado desde WorldMapDesigner.kt
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val jsonString = PowAssets.texto("CONFIG/exterior_collisions.json")
-                exteriorCollisions = PowJson.decodeFromString<ExteriorCollisionsConfig>(jsonString)
+                exteriorCollisions = cargarColisionesConHuellas()
 
                 npcAiManager.setExteriorCollisions(exteriorCollisions)
                 // Exponer al estado para el overlay de Debug Interiores (zonas no caminables).

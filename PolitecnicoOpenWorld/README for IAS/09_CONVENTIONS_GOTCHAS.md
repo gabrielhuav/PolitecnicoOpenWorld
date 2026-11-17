@@ -1556,3 +1556,12 @@ cada una.
 
 **La regla, corta:** si tocaste cómo se pinta, se carga o suena algo, **ábrelo en el emulador Y en
 el simulador**. Compilar no es verificar.
+
+### Excluir de un cupo exige un tope propio (2026-11-16)
+Si un tipo de NPC se excluye de `maxActiveNpcs`/`maxTotalNpcs` (como los `CAMPUS_PED_*` o los estacionados), debe tener SU PROPIO tope y su recorte: sin él, la condición de spawn `... < maxTotalNpcs` pasa siempre y se acumulan sin límite (llegaron a ~200 y hundieron el WebView, 1 GB de RAM). Ver `domain/models/ai/CampusPedestrianCap.kt` y `MUNDO/04_MAP_EXTERIOR.md`.
+
+### Todo actor que se mueve en línea recta debe pasar por la colisión estática (2026-11-16)
+Un NPC que "va directo" al objetivo (perseguir, huir, esquivar, escoltar, guion de misión o evento) atraviesa los edificios de OSM si su posición no pasa por `resolveNpcPath`/`resolveCirclePath` (ver `NpcStaticCollision.kt`, `collided`). Los datos de rutas dibujadas a mano (navGraph) también pueden cruzar edificios: filtrar vías y puntos de aparición con `walkableLocalWays`/`localNodeFree`. Y nunca poner `speed = 0.0` como respuesta a un bloqueo: el NPC queda congelado para siempre.
+
+### Las coordenadas de la imagen del campus NO se convierten con `toGlobalGeoPoint` tal cual (2026-11-16)
+La imagen se dibuja con la rotación contraria a `Landmark.toGlobalGeoPoint`; las vías del navGraph están en el sistema de `toGlobalGeoPoint`. Para pasar píxeles de la imagen a lat/lon usa `-rotationAngle` (ver `tools/escom_art_footprints/art_to_footprints.py` y `MUNDO/04_MAP_EXTERIOR.md`). Valida siempre superponiendo el resultado sobre el mapa y comparando con el navGraph (debe quedar fuera de los techos).

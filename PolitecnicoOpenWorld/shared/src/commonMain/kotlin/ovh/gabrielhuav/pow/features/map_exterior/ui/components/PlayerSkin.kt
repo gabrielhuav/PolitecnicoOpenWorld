@@ -445,12 +445,17 @@ enum class PlayerSkin(
         const val WORLD_BODY_CANVAS_FRACTION = 360f / 512f
 
         /**
-         * Estándar ÚNICO de tamaño del jugador a pie (mapa exterior): alto en pantalla, en dp, que
+         * (Referencia histórica: el mapa exterior ya NO usa este valor fijo, el cuerpo sale de PERSON_BODY_METERS y el zoom.)
+         * Estándar ÚNICO de tamaño del jugador a pie (interiores y respaldo): alto en pantalla, en dp, que
          * debe ocupar el CUERPO (parte opaca) del personaje, IGUAL para TODAS las skins y TODAS las
          * animaciones. Referencia = hombre/robot (coincide con la normalización del interior, ver 09 §5).
          * Sube/baja este único valor para agrandar/encoger a TODOS por igual.
          */
         const val PLAYER_BODY_STANDARD_DP = 23.5f
+
+        /** Límites del cuerpo del jugador cuando se liga al zoom (1.7 m): ni un punto al alejar ni gigante al acercar. */
+        const val PLAYER_BODY_MIN_DP = 14f
+        const val PLAYER_BODY_MAX_DP = 84f
 
         /** Caja fija para un lienzo 512² normalizado; 360 px opacos equivalen a 23.5 dp. */
         const val UNIFORM_512_CANVAS_DP = PLAYER_BODY_STANDARD_DP / WORLD_BODY_CANVAS_FRACTION

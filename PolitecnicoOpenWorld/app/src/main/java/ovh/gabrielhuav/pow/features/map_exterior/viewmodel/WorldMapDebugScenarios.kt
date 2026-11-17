@@ -35,11 +35,12 @@ internal fun WorldMapViewModel.applyDebugScenario(name: String, extras: Map<Stri
         "board_facing_building" -> debugBoardFacingBuilding()
         "steal_parked" -> debugStealParked()
         "overlay" -> debugOverlay(extras)
-        else -> "escenario desconocido: $name (controls, drive_open, board_facing_building, steal_parked, overlay)"
+        "footprints" -> debugFootprints(extras)
+        else -> "escenario desconocido: $name (controls, drive_open, board_facing_building, steal_parked, overlay, footprints)"
     }
     applyDebugControls(extras)
     extras["trace"]?.toIntOrNull()?.let { traceDriving(it) }
-    Log.d(TAG, "$name -> $result | gas=$isGasPressed steer=${steerLabel()} brake=$isBrakePressed driving=${_uiState.value.isDriving} rot=${_uiState.value.vehicleRotation} carjackText='$textoCarjack'")
+    Log.d(TAG, "$name -> $result | gas=$isGasPressed steer=${steerLabel()} brake=$isBrakePressed driving=${_uiState.value.isDriving} rot=${_uiState.value.vehicleRotation}")
     return result
 }
 
@@ -136,4 +137,18 @@ private fun WorldMapViewModel.traceDriving(seconds: Int) {
             delay(250)
         }
     }
+}
+
+/** Activa el prototipo de mapa cenital estilizado (on=0 lo apaga) y, con lat/lon, mueve ahí al jugador a pie. */
+private fun WorldMapViewModel.debugFootprints(extras: Map<String, String>): String {
+    val lat = extras["lat"]?.toDoubleOrNull()
+    val lon = extras["lon"]?.toDoubleOrNull()
+    if (lat != null && lon != null) {
+        _uiState.update { it.copy(currentLocation = GeoPoint(lat, lon), isLoadingLocation = false, isDriving = false) }
+    }
+    extras["zoom"]?.toDoubleOrNull()?.let { z -> targetZoomLevel = z; _uiState.update { it.copy(zoomLevel = z) } }
+    extras["fpstyle"]?.toIntOrNull()?.let { ovh.gabrielhuav.pow.features.map_exterior.ui.components.campusFootprintDebugStyle = it }
+    val on = extras["on"] != "0"
+    setCampusFootprints(on)
+    return "huellas del campus ${if (on) "activadas" else "desactivadas"}"
 }

@@ -33,8 +33,8 @@ import ovh.gabrielhuav.pow.data.repository.iosSettingsRepository
 import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.map.Npc
-import ovh.gabrielhuav.pow.domain.models.map.cargarColisionesExteriores
-import ovh.gabrielhuav.pow.domain.models.map.chocaAlMoverse
+import ovh.gabrielhuav.pow.domain.models.map.avanzarConColision
+import ovh.gabrielhuav.pow.domain.models.map.cargarColisionesConHuellas
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -66,8 +66,9 @@ import platform.WebKit.WKWebViewConfiguration
  * guerra se abre a su paso. Todo eso va por `PuenteMapaIos`, que llama a las MISMAS funciones JS
  * que usa Android (`updatePlayerMarker`, `updateMapView`, `setPlayerFog`).
  *
- * **Y las bardas frenan:** `cargarColisionesExteriores()` + `chocaAlMoverse()`, los dos de
- * `commonMain`, con la MISMA regla que aplica Android.
+ * **Y los edificios y bardas frenan:** `cargarColisionesConHuellas()` + `avanzarConColision()`, los dos de
+ * `commonMain`, con el MISMO resolvedor que Android (`resolveCirclePath`): los techos del campus (de la imagen del
+ * juego) y las huellas de OSM bloquean, y quien aparece dentro de un edificio camina libre hasta salir.
  *
  * ⚠️ **Aun así NO es el mundo abierto jugable.** Faltan:
  * - **NPCs, policía, coleccionables y landmarks** — hay funciones JS para todos (`updateNpcs`,
@@ -111,13 +112,19 @@ fun MapaMundoIos(cacheCalles: RoadNetworkCache?, alVolver: () -> Unit) {
     // que es otra pantalla).
     val usarEmoji = remember { iosSettingsRepository().getNpcFullEmoji() }
 
-    // 🧱 Los muros del campus. Se leen UNA vez del bundle (`assets/CONFIG/`) y no cambian.
-    // ⚠️ Si el archivo faltara, `cargarColisionesExteriores` devuelve vacío y se puede atravesar
+    // 🧱 Los edificios y muros del campus. Se leen UNA vez del bundle (`assets/CONFIG/`: el script de Xcode copia toda
+    // la carpeta) y no cambian: `exterior_collisions.json` (bardas) + `escom_osm_footprints.json` (techos del campus
+    // sacados de la imagen del juego y huellas de OSM).
+    // ⚠️ Si los archivos faltaran, `cargarColisionesConHuellas` devuelve lo que pueda (o vacío) y se puede atravesar
     // todo: es su modo degradado a propósito — mejor un mundo sin bardas que un crash al entrar.
-    val colisiones = remember { cargarColisionesExteriores() }
+    // ⚠️ Con `cargarColisionesExteriores()` a secas NO hay edificios: el polígono a mano se retiró y ya solo trae
+    // carriles de guía, que no bloquean.
+    val colisiones = remember { cargarColisionesConHuellas() }
 
     // 🧠 EL CEREBRO DE LOS NPCs, el MISMO que Android (`:shared` desde el 2026-08-15).
-    val cerebro = remember { NpcAiManager() }
+    // ⚠️ Hay que darle las colisiones: sin `setExteriorCollisions` los peatones, gatos y zombis atraviesan los edificios
+    // (en Android las pasa el ViewModel al cargar).
+    val cerebro = remember { NpcAiManager().also { it.setExteriorCollisions(colisiones) } }
     var npcs by remember { mutableStateOf<List<Npc>>(emptyList()) }
     var estadoCalles by remember { mutableStateOf(EstadoCalles.DESCARGANDO) }
 
@@ -300,14 +307,12 @@ fun MapaMundoIos(cacheCalles: RoadNetworkCache?, alVolver: () -> Unit) {
                     metrosNorte = -sin(angulo) * PASO_METROS,
                     metrosEste = cos(angulo) * PASO_METROS,
                 )
-                // 🧱 Si el paso cruza un muro, NO se mueve. Misma regla que `WorldMapMovement.kt`
-                // en Android: se comprueba el TRAYECTO, no solo el destino, para que un paso largo
-                // no atraviese una barda de un salto.
-                val choca = colisiones.chocaAlMoverse(
-                    jugador.latitude, jugador.longitude, destino.latitude, destino.longitude,
-                )
-                if (!choca) {
-                    jugador = destino
+                // 🧱 Se avanza hasta el último punto libre antes de un edificio o barda (se comprueba el TRAYECTO,
+                // no solo el destino, para que un paso de 1,2 m no atraviese una pared fina). Mismo resolvedor que
+                // `WorldMapMovement.kt` en Android; si ya estás dentro de un edificio, caminas libre hasta salir.
+                val nueva = colisiones.avanzarConColision(jugador, destino)
+                if (nueva != jugador) {
+                    jugador = nueva
                     puente?.moverJugador(jugador)
                     puente?.moverNiebla(jugador)
                     puente?.centrarEn(jugador, ZOOM_JUEGO)

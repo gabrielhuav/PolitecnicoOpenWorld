@@ -1,15 +1,5 @@
 {
-  "polygons": [
-    {
-      "name": "EDIFICIO_ESCOM_TECHO_CENTRAL",
-      "nodes": [
-        { "lat": 19.504894, "lon": -99.146736 },
-        { "lat": 19.504793, "lon": -99.146488 },
-        { "lat": 19.504422, "lon": -99.146687 },
-        { "lat": 19.504522, "lon": -99.146936 }
-      ]
-    }
-  ],
+  "polygons": [],
   "walls": [
     {
       "name": "CARRIL_101",

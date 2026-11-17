@@ -243,6 +243,7 @@
     <string name="wm_placing_npcs_buildings">Placing NPCs and buildings...</string>
     <string name="wm_tip_format">Tip: %1$s</string>
     <string name="wm_opt_debug_interiors">Debug Interiors</string>
+    <string name="wm_opt_stylized_map">Stylized map</string>
     <string name="wm_downloading_map">Downloading map...</string>
     <string name="wm_downloading_zone">Downloading zone %1$d%%</string>
     <string name="wm_opt_remove_destination">Remove Destination</string>
