@@ -1102,8 +1102,8 @@ fun WorldMapScreen(
                                 add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_save_game), Icons.Default.School, Color(0xFF4CAF50)) {
                                     onRequestSaveGame()
                                 })
-                                // Prototipo del mapa cenital estilizado (huellas de OSM del campus): se enciende desde aquí.
-                                add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_stylized_map), Icons.Default.Architecture, if (uiState.showCampusFootprints) Color(0xFFD4AF37) else Color.White) {
+                                // Prototipo del mapa cenital estilizado (huellas de OSM del campus): solo en Modo Desarrollador (capa costosa de GPU).
+                                if (developerMode) add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_stylized_map), Icons.Default.Architecture, if (uiState.showCampusFootprints) Color(0xFFD4AF37) else Color.White) {
                                     viewModel.setCampusFootprints(!uiState.showCampusFootprints)
                                 })
                                 // Teletransportarse: solo en Modo Desarrollador.

@@ -178,7 +178,7 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
         if (!resolution.reachedTarget) {
             return npc.copy(
                 location = resolution.position,
-                targetNodeIndex = nodeIndex - direction,
+                targetNodeIndex = (nodeIndex - direction).coerceIn(0, way.nodes.lastIndex),
                 moveDirection = -direction,
                 rotationAngle = smoothedAngle,
                 facingRight = isFacingRight,
@@ -580,7 +580,7 @@ internal fun NpcAiManager.moveNpc(npc: Npc, network: List<MapWay>, now: Long, sp
         return npc.copy(
             location = staticResolution.position,
             moveDirection = -direction,
-            targetNodeIndex = (nodeIndex - direction).coerceAtLeast(0),
+            targetNodeIndex = (nodeIndex - direction).coerceIn(0, way.nodes.lastIndex),
             isMoving = false,
         )
     }

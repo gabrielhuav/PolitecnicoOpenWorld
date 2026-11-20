@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 import ovh.gabrielhuav.pow.data.json.PowJson
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.platform.assets.PowAssets
+import ovh.gabrielhuav.pow.platform.log.powLog
 
 // Huellas del campus (edificios, canchas, estacionamientos, parques) tomadas de OpenStreetMap
 // (ODbL). Alimentan el render "cenital estilizado" del prototipo; el mismo dato puede servir
@@ -108,6 +109,8 @@ fun cargarColisionesConHuellas(): ExteriorCollisionsConfig {
     return try {
         base.conHuellasDelCampus(PowJson.decodeFromString<CampusFootprintsFile>(PowAssets.texto(RUTA_HUELLAS_CAMPUS)))
     } catch (e: Exception) {
+        // Sin huellas no hay colisión con edificios (el polígono dibujado a mano ya no existe): que no sea silencioso.
+        powLog("CampusFootprints", "No se pudieron cargar las huellas ($RUTA_HUELLAS_CAMPUS): ${e::class.simpleName}: ${e.message}. Sin colisión con edificios.")
         base
     }
 }
