@@ -38,15 +38,17 @@ internal fun selectVehicleExit(
 
 /**
  * Salida del carjack: NUNCA devuelve null. Prefiere un punto transitable; si todo está bloqueado,
- * el primero fuera de la carrocería; y en último caso el primer candidato (mejor bajar que quedarse dentro).
- * Los dos últimos recursos NO validan que el punto sea transitable (puede caer dentro de un edificio):
- * por eso [forcedVehicleExitCandidates] abre anillos lejanos, para que casi siempre exista un caminable antes.
+ * uno fuera de la carrocería Y fuera de todo edificio BARRIER; luego cualquiera fuera de la carrocería;
+ * y en último caso el primer candidato (mejor bajar que quedarse dentro). Solo ese último recurso puede
+ * caer dentro de un edificio; [forcedVehicleExitCandidates] abre anillos lejanos para que casi nunca se llegue.
  */
 internal fun selectForcedVehicleExit(
     candidates: List<GeoPoint>,
     isWalkable: (GeoPoint) -> Boolean,
     isClearOfVehicle: (GeoPoint) -> Boolean,
+    isInsideBarrier: (GeoPoint) -> Boolean = { false },
 ): GeoPoint = candidates.firstOrNull(isWalkable)
+    ?: candidates.firstOrNull { isClearOfVehicle(it) && !isInsideBarrier(it) }
     ?: candidates.firstOrNull(isClearOfVehicle)
     ?: candidates.first()
 

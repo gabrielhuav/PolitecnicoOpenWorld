@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.update
 import ovh.gabrielhuav.pow.BuildConfig
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.map.CircleCollider
+import ovh.gabrielhuav.pow.domain.models.map.PLAYER_FOOT_COLLIDER_METERS
 import ovh.gabrielhuav.pow.domain.models.map.CollisionResolution
 import ovh.gabrielhuav.pow.domain.models.map.DynamicVehicleCollider
 import ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig
@@ -28,7 +29,7 @@ import kotlin.math.sin
 // en el ViewModel. startMovementAction/getNearestPointOnNetwork/centerOnPlayer son extensiones.
 // ─────────────────────────────────────────────────────────────────────────────
 
-internal const val PLAYER_FOOT_RADIUS_METERS = 0.35
+internal const val PLAYER_FOOT_RADIUS_METERS = PLAYER_FOOT_COLLIDER_METERS // compartido con iOS (WorldScale.kt)
 private val PLAYER_FOOT_COLLIDER = CircleCollider(radiusMeters = PLAYER_FOOT_RADIUS_METERS)
 
 internal fun WorldMapViewModel.isCollisionDetected(oldLat: Double, oldLon: Double, newLat: Double, newLon: Double): Boolean {

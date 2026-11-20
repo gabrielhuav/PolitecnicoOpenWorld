@@ -2,6 +2,8 @@ package ovh.gabrielhuav.pow.features.map_exterior.ui
 
 // REFACTOR: zoom/pan extraídos a WorldMapCameraUi.kt (extensiones) → import explícito.
 // REFACTOR: extensiones del VM (WorldMapDesigner.kt) usadas por los lápices del diseñador.
+import ovh.gabrielhuav.pow.domain.models.map.PERSON_BOX_METERS
+import ovh.gabrielhuav.pow.domain.models.map.CAR_BOX_METERS
 import android.content.Context
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -664,7 +666,7 @@ internal fun NativeOsmMap(
                             } else if (npc.type == NpcType.POLICE_CAR || npc.isPoliceSkin) {
                                 // PATRULLA (o coche con skin de patrulla tras bajarte de una robada):
                                 // asset especial sin repintar, mismo tamaño que un auto.
-                                val exactPixels = ((4.0 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(16)
+                                val exactPixels = ((CAR_BOX_METERS / metersPerPixel) * screenDensity).toInt().coerceAtLeast(16)
                                 var angle = npc.rotationAngle % 360f
                                 if (angle < 0) angle += 360f
                                 val frameIndex = (angle / 7.5f).roundToInt() % 48
@@ -731,9 +733,8 @@ internal fun NativeOsmMap(
                             } else if (npc.visualConfig != null && npc.type != NpcType.ZOMBIE) {
                                 val currentlyMoving = npc.speed > 0 || npc.isMoving
 
-                                // 🧍 TAMAÑO DEL PEATÓN: algo mayor que el real (1.3 m) para que
-                                // los humanos se vean bien y no diminutos.
-                                val exactPixels = ((1.3 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(12)
+                                // 🧍 TAMAÑO DEL PEATÓN: cuerpo de 1.7 m reales (PERSON_BOX_METERS, ver WorldScale.kt).
+                                val exactPixels = ((PERSON_BOX_METERS / metersPerPixel) * screenDensity).toInt().coerceAtLeast(12)
 
                                 val frameIndex = CharacterSpriteManager.getFrameIndex(context, npc.visualConfig!!, currentlyMoving, timeMs) ?: 0
                                 val cacheKey = "PED_${npc.visualConfig!!.bodyFolder}_${npc.visualConfig!!.hairId}_${npc.visualConfig!!.shirtColor.value}_${npc.facingRight}_${frameIndex}_${exactPixels}_H${npc.health}_D${npc.isDying}"
@@ -775,7 +776,7 @@ internal fun NativeOsmMap(
                             } else if (npc.type == NpcType.CAR) {
                                 // TAMAÑO DEL AUTO: ampliado (4.0 m) porque se veían demasiado
                                 // pequeños respecto al jugador y los peatones.
-                                val exactPixels = ((4.0 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(16)
+                                val exactPixels = ((CAR_BOX_METERS / metersPerPixel) * screenDensity).toInt().coerceAtLeast(16)
 
                                 var angle = npc.rotationAngle % 360f
                                 if (angle < 0) angle += 360f
@@ -814,7 +815,7 @@ internal fun NativeOsmMap(
                                     ovh.gabrielhuav.pow.domain.models.map.ZombieRole.RUNNER -> 0.9f
                                     else -> 1f
                                 }
-                                val exactPixels = ((1.3 / metersPerPixel) * screenDensity * roleSizeMul).toInt().coerceAtLeast(12)
+                                val exactPixels = ((PERSON_BOX_METERS / metersPerPixel) * screenDensity * roleSizeMul).toInt().coerceAtLeast(12)
                                 val zFrame = ((timeMs / 220L) % 9L).toInt()
                                 val cacheKey = "ZOMBIE_${npc.zombieRole.name}_${npc.facingRight}_${zFrame}_${exactPixels}_H${npc.health.toInt()}_M${npc.maxHealth.toInt()}_D${npc.isDying}_S${npc.zombieSpriteSet}"
 

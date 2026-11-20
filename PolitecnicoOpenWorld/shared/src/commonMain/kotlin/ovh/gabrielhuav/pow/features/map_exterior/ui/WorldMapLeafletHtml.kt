@@ -1,12 +1,15 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
+import ovh.gabrielhuav.pow.domain.models.map.CAR_BOX_METERS
+import ovh.gabrielhuav.pow.domain.models.map.PERSON_BOX_METERS
+
 /**
  * 🍏 HTML del mapa Leaflet — **COMPARTIDO Android + iOS** (Fase 1.5 de `PLAN_MIGRACION_KMP.md`).
  *
  * Este fichero vivía en `:app` y se movió a `:shared` con `git mv` **conservando el paquete**: por
  * eso `WorldMapScreenWeb.kt` lo sigue llamando sin tocar ni una línea de imports.
  *
- * Es Kotlin PURO: 929 líneas y **cero imports**. Ahí está la apuesta del plan — el mapa del juego
+ * Es Kotlin PURO: solo importa las constantes de escala de `WorldScale.kt` (`CAR_BOX_METERS`, `PERSON_BOX_METERS`). Ahí está la apuesta del plan — el mapa del juego
  * no se reescribe para iOS, se reutiliza tal cual dentro de un `WKWebView`, igual que en Android va
  * dentro de un `WebView`.
  *
@@ -508,19 +511,19 @@ fun buildHtml(
             for (var id in npcMarkers) if (!ids.has(id)) { map.removeLayer(npcMarkers[id]); delete npcMarkers[id]; }
             if (!isZoomedIn) return;
             data.forEach(function(npc) {
-                // TAMAÑO BASADO EN METROS REALES (paridad EXACTA con OSM Nativo):
-                // peatón ≈ 0.9 m, coche ≈ 2.5 m, manteniendo la proporción del sprite.
+                // TAMAÑO BASADO EN METROS REALES (paridad EXACTA con OSM Nativo, ver WorldScale.kt):
+                // cuerpo de persona 1.7 m, coche ≈ 4.2 m visibles, manteniendo la proporción del sprite.
                 // Antes el web usaba una fórmula por zoom y por eso los NPCs salían de
                 // tamaño distinto al nativo.
                 var ppm = (256 * Math.pow(2, currentZoom)) / (40075016 * Math.cos((npc.lat || 19.5) * Math.PI / 180));
                 var finalW, finalH;
                 if (npc.type === 'CAR') {
-                    var carPx = Math.max(16, 4.0 * ppm);
+                    var carPx = Math.max(16, ${CAR_BOX_METERS} * ppm);
                     var ratio = (npc.width && npc.height) ? (npc.width / npc.height) : 1;
                     if (ratio > 1) { finalW = Math.round(carPx); finalH = Math.round(carPx / ratio); }
                     else { finalH = Math.round(carPx); finalW = Math.round(carPx * ratio); }
                 } else if (npc.type === 'MODULAR') {
-                    var pedPx = Math.round(Math.max(12, 1.3 * ppm));
+                    var pedPx = Math.round(Math.max(12, ${PERSON_BOX_METERS} * ppm));
                     finalW = pedPx; finalH = pedPx;
                 } else { finalW = 24; finalH = 24; }
                 var nameTagHtml = '';
@@ -705,7 +708,7 @@ fun buildHtml(
             if (!npc || npc.lat === null || npc.lat === undefined) { if (prankedyMarker) { map.removeLayer(prankedyMarker); prankedyMarker = null; } return; }
             var currentZoom = map.getZoom();
             var ppm = (256 * Math.pow(2, currentZoom)) / (40075016 * Math.cos((npc.lat || 19.5) * Math.PI / 180));
-            var px = Math.round(Math.max(12, 1.3 * ppm));
+            var px = Math.round(Math.max(12, ${PERSON_BOX_METERS} * ppm));
             var cachedImg = (window.imgCache && npc.imageKey) ? window.imgCache[npc.imageKey] : '';
             var flip = (npc.flip !== undefined) ? npc.flip : 1;
             var dlg = npc.dialogue ? escapeHtml(npc.dialogue) : '';

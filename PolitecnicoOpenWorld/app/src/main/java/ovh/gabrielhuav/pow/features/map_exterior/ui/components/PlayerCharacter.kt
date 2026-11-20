@@ -45,8 +45,11 @@ import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import ovh.gabrielhuav.pow.domain.models.map.CAR_BOX_METERS
 import ovh.gabrielhuav.pow.domain.models.map.CarModel
+import ovh.gabrielhuav.pow.domain.models.map.PERSON_VISUAL_BODY_METERS
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.WorldMapState
 
 @Composable
@@ -144,9 +147,8 @@ fun PlayerCharacter(
             if (uiState.isDriving) {
                 // ── Modo conductor ───────────────────────────────────────
 
-                // Coche del jugador: 4.0 m, en paridad con los autos NPC (antes 2.5 m,
-                // por eso se veía pequeño al entrar en modo conducción).
-                val exactCarDp = (4.0 / metersPerPixel).dp.coerceAtLeast(16.dp)
+                // Coche del jugador: CAR_BOX_METERS, en paridad con los autos NPC (ver WorldScale.kt).
+                val exactCarDp = (CAR_BOX_METERS / metersPerPixel).dp.coerceAtLeast(16.dp)
 
                 val carModel = uiState.currentVehicleModel ?: CarModel.SEDAN
                 val carColor = uiState.currentVehicleColor ?: 0xFFFFFFFF.toInt()
@@ -164,6 +166,30 @@ fun PlayerCharacter(
                 val frameKey = Math.round(visualRotation / (360f / (if (isPoliceCar) 48 else carModel.frameCount)))
                 val bitmapKey = if (isPoliceCar) "POLICE_${frameKey}_$renderScale"
                     else "${carModel.name}_${frameKey}_${carColor}_$renderScale"
+                // Calienta EN SEGUNDO PLANO los giros del coche, de los más cercanos al actual hacia fuera.
+                // Sin esto cada rumbo nuevo decodifica, escala y tinta su sprite en el hilo principal (decenas de
+                // llamadas seguidas en la primera vuelta, ~1.4 s de cuadros perdidos en un Motorola). El cache de
+                // VehicleSpriteManager es @Synchronized y su LRU (512) aguanta los 48 giros.
+                LaunchedEffect(isPoliceCar, carModel, carColor, renderScale) {
+                    withContext(Dispatchers.Default) {
+                        val frames = if (isPoliceCar) 48 else carModel.frameCount
+                        val step = 360f / frames
+                        val start = Math.round(vehicleSpriteHeading(uiState.vehicleRotation) / step) % frames
+                        for (distance in 0..frames / 2) {
+                            for (side in intArrayOf(1, -1)) {
+                                if (distance == 0 && side == -1) continue
+                                ensureActive()
+                                val angle = (((start + side * distance) % frames) + frames) % frames * step
+                                if (isPoliceCar) {
+                                    PoliceSpriteManager.getPoliceCar(context, angle, renderScale)
+                                } else {
+                                    VehicleSpriteManager.getTintedCarNpc(context, angle, carColor, renderScale, carModel)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 var carImage by remember { mutableStateOf<ImageBitmap?>(null) }
                 var lastKey by remember { mutableStateOf("") }
 
@@ -245,11 +271,15 @@ fun PlayerCharacter(
                     // de UI es fija en todas las acciones: no se agranda Run/Walk por estar agachado
                     // ni Special por incluir un objeto. Las skins antiguas, con lienzos heterogeneos,
                     // conservan la compensacion por fraccion opaca.
+                    // Cuerpo de PERSON_VISUAL_BODY_METERS (1.7 m × CHARACTER_VISUAL_SCALE) ligado al zoom, como NPC y coches (antes fijo en 23.5 dp ≈ 0.8 m a
+                    // zoom 22). Con tope mínimo para que al alejar el zoom no se vuelva un punto.
+                    val bodyDp = (PERSON_VISUAL_BODY_METERS / metersPerPixel).toFloat()
+                        .coerceIn(PlayerSkin.PLAYER_BODY_MIN_DP, PlayerSkin.PLAYER_BODY_MAX_DP)
                     val boxHeightDp = if (skin.uniform512Canvas) {
-                        PlayerSkin.UNIFORM_512_CANVAS_DP.dp
+                        (bodyDp / PlayerSkin.WORLD_BODY_CANVAS_FRACTION).dp
                     } else {
                         val frac = skin.bodyFraction(action).coerceIn(0.05f, 1f)
-                        (PlayerSkin.PLAYER_BODY_STANDARD_DP / frac).dp
+                        (bodyDp / frac).dp
                     }
                     val aspect = if (img.height > 0) img.width.toFloat() / img.height.toFloat() else 1f
                     val boxWidthDp = boxHeightDp * aspect

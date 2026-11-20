@@ -13,6 +13,7 @@ import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.map.InteriorBuilding
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import ovh.gabrielhuav.pow.domain.models.map.ShineCTOLocation
+import ovh.gabrielhuav.pow.domain.models.map.safeBoardingHeading
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Interacciones del jugador (intenciones de UI) extraídas de WorldMapViewModel.kt:
@@ -68,7 +69,7 @@ internal fun WorldMapViewModel.onInteractButtonPressed() {
                 }
                 // Si el coche traía skin de patrulla (una patrulla que abandonaste), al
                 // re-subirte vuelves a conducirla con el skin de policía.
-                _uiState.update { it.copy(isDriving = true, currentVehicleModel = carNpc.carModel, currentVehicleColor = carNpc.carColor, vehicleRotation = (carNpc.rotationAngle + 90f) % 360f, vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = false, isDrivingPoliceCar = carNpc.isPoliceSkin) }
+                _uiState.update { it.copy(isDriving = true, currentVehicleModel = carNpc.carModel, currentVehicleColor = carNpc.carColor, vehicleRotation = exteriorCollisions.safeBoardingHeading(loc, (carNpc.rotationAngle + 90f) % 360f, carNpc.carModel.collisionDimensions), vehicleSpeed = 0.0, vehicleIsFirstTimeBoarded = false, isDrivingPoliceCar = carNpc.isPoliceSkin) }
                 logVehicleVisualTransition("board-civil")
                 // H (Modo Historia): si Prankedy es tu ACOMPAÑANTE (escolta), debe SUBIR contigo: corre
                 // hasta tu posición y el coche NO avanza hasta que se sube (lo completa runPrankedyTick).
@@ -105,7 +106,7 @@ internal fun WorldMapViewModel.onInteractButtonPressed() {
                         isDriving = true,
                         currentVehicleModel = boarded.carModel,
                         currentVehicleColor = boarded.carColor,
-                        vehicleRotation = (boarded.rotationAngle + 90f) % 360f,
+                        vehicleRotation = exteriorCollisions.safeBoardingHeading(loc, (boarded.rotationAngle + 90f) % 360f, boarded.carModel.collisionDimensions),
                         vehicleSpeed = 0.0,
                         vehicleIsFirstTimeBoarded = false,
                         isDrivingPoliceCar = true

@@ -58,6 +58,7 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
 
         val connectedWays = navGraph.ways.filter { w ->
             w.id != way.id && w.nodes.size >= 2 && !w.nodes.any { it.isParkingSlot } &&
+                    exteriorCollisions?.localWayBlocked(landmark, w) != true &&
                     ((npc.type == NpcType.CAR && w.id < 200) || ((npc.type == NpcType.PERSON || npc.type == NpcType.CAT) && w.id >= 200)) &&
                     run {
                         var isNear = false
@@ -159,6 +160,33 @@ internal fun NpcAiManager.moveLocalNpc(npc: Npc): Npc? {
         }
     }
 
+    // Colisión estática (edificios y bardas): al topar, conserva el último punto seguro y da la vuelta al nodo
+    // anterior en vez de atravesar (y SIN poner speed = 0: antes el NPC quedaba congelado para siempre).
+    val collisions = exteriorCollisions
+    if (collisions != null) {
+        val nextPoint = if (dist < actualSpeed) targetGlobal else GeoPoint(
+            npc.location.latitude + sin(moveRad) * actualSpeed,
+            npc.location.longitude + cos(moveRad) * actualSpeed,
+        )
+        val resolution = collisions.resolveNpcPath(
+            type = npc.type,
+            carModel = npc.carModel,
+            from = npc.location,
+            to = nextPoint,
+            headingDegrees = (npc.rotationAngle + 90f) % 360f,
+        )
+        if (!resolution.reachedTarget) {
+            return npc.copy(
+                location = resolution.position,
+                targetNodeIndex = (nodeIndex - direction).coerceIn(0, way.nodes.lastIndex),
+                moveDirection = -direction,
+                rotationAngle = smoothedAngle,
+                facingRight = isFacingRight,
+                isMoving = true,
+            )
+        }
+    }
+
     return if (dist < actualSpeed) {
         val pauseTime = when {
             // Punto de interés (banca, cafetería, palapas...): espera larga de 10-25 s
@@ -220,7 +248,7 @@ internal fun NpcAiManager.moveNpc(npc: Npc, network: List<MapWay>, now: Long, sp
     }
 
     if (npc.type == NpcType.PERSON && npc.aggroUntil > now) {
-        return moveAggroNpc(npc)
+        return collided(npc, moveAggroNpc(npc))
     }
 
     if (npc.chatUntil > now) {
@@ -548,7 +576,13 @@ internal fun NpcAiManager.moveNpc(npc: Npc, network: List<MapWay>, now: Long, sp
         headingDegrees = (smoothedAngle + 90f) % 360f,
     ) ?: CollisionResolution(nextLocation, null)
     if (!staticResolution.reachedTarget) {
-        return npc.copy(location = staticResolution.position, speed = 0.0, isMoving = false)
+        // Antes: speed = 0.0, y el NPC quedaba congelado para siempre. Ahora da la vuelta y sigue su ruta.
+        return npc.copy(
+            location = staticResolution.position,
+            moveDirection = -direction,
+            targetNodeIndex = (nodeIndex - direction).coerceIn(0, way.nodes.lastIndex),
+            isMoving = false,
+        )
     }
     val passedBaseNode = avoidingPlayer &&
         ((baseTarget.lat - newLat) * stepLat + (baseTarget.lon - newLon) * stepLon) < 0.0

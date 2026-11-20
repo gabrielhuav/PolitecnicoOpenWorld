@@ -137,6 +137,7 @@ import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.teleportToMetrobusSta
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleCampaignRouteNpcsDebug
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleDesignerMode
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleGlobalZombieMode
+import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.setCampusFootprints
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleInteriorDebugOverlay
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.toggleMissionLog
 import ovh.gabrielhuav.pow.features.map_exterior.viewmodel.togglePrankedy
@@ -631,6 +632,15 @@ fun WorldMapScreen(
             }
         }
 
+        // Prototipo de mapa cenital estilizado (huellas de OSM). Ver CampusFootprintLayer.
+        if (uiState.showCampusFootprints) {
+            ovh.gabrielhuav.pow.features.map_exterior.ui.components.CampusFootprintLayer(
+                footprints = uiState.campusFootprints,
+                center = uiState.currentLocation,
+                zoom = uiState.zoomLevel
+            )
+        }
+
         // ───── CAPA DE DIBUJO DEL EDITOR (Debug Interiores) ─────────────────────
         // Va SOBRE el mapa (cualquier renderer: web/OSM/Google) y DEBAJO de los botones y
         // el panel (que se dibujan después). Con herramienta activa intercepta el toque:
@@ -688,7 +698,7 @@ fun WorldMapScreen(
 
         if (ovh.gabrielhuav.pow.BuildConfig.DEBUG) {
             val playerLayer = "composePlayer=${!uiState.isUserPanningMap} driving=${uiState.isDriving} " +
-                "panning=${uiState.isUserPanningMap} rotation=${uiState.vehicleRotation}"
+                "panning=${uiState.isUserPanningMap}"
             if (lastPlayerVisualDebug[0] != playerLayer) {
                 android.util.Log.d("VehicleViewport", playerLayer)
                 lastPlayerVisualDebug[0] = playerLayer
@@ -872,7 +882,7 @@ fun WorldMapScreen(
         // MissionLogDialog sirva en el mapa global Y en interiores. ───
 
         // ─── AVISO DE CARJACK (te van a bajar del auto) ──────────────────────────
-        uiState.carjackWarning?.let { warn ->
+        uiState.carjackWarning?.takeIf { it.isNotBlank() }?.let { warn ->
             Box(
                 modifier = Modifier
                     .align(Alignment.Center)
@@ -1091,6 +1101,10 @@ fun WorldMapScreen(
                                 // MODO HISTORIA: guardado manual → abre el selector de slots.
                                 add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_save_game), Icons.Default.School, Color(0xFF4CAF50)) {
                                     onRequestSaveGame()
+                                })
+                                // Prototipo del mapa cenital estilizado (huellas de OSM del campus): solo en Modo Desarrollador (capa costosa de GPU).
+                                if (developerMode) add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_stylized_map), Icons.Default.Architecture, if (uiState.showCampusFootprints) Color(0xFFD4AF37) else Color.White) {
+                                    viewModel.setCampusFootprints(!uiState.showCampusFootprints)
                                 })
                                 // Teletransportarse: solo en Modo Desarrollador.
                                 if (developerMode) add(OptionMenuItem(androidx.compose.ui.res.stringResource(ovh.gabrielhuav.pow.R.string.wm_opt_teleport), Icons.Default.LocationOn, Color(0xFFFF9800)) { viewModel.toggleTeleportMenu(true) })

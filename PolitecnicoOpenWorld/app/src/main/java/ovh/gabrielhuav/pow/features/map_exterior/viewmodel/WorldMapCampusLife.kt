@@ -2,9 +2,12 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.domain.models.map.CharacterVisualConfig
+import ovh.gabrielhuav.pow.domain.models.map.CircleCollider
 import ovh.gabrielhuav.pow.domain.models.map.EscomBoundingBox
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
+import ovh.gabrielhuav.pow.domain.models.map.isInsideBarrier
+import ovh.gabrielhuav.pow.domain.models.map.resolveCirclePath
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -34,6 +37,11 @@ private const val CAMPUS_WANDER_BUCKET_MS = 14_000L
 private const val CAMPUS_GROUP_BUCKET_MS = 45_000L
 private const val CAMPUS_TALK_GAP_DEG = 0.000045     // ~5 m entre los del grupo
 private const val CAMPUS_MARGIN = 0.00018            // margen al borde del bbox (~20 m)
+// Colisión con edificios (OSM): puntos libres y esquive local. Antes los 10 estudiantes nacían y caminaban en línea
+// recta por TODO el recuadro, y el 100 % de las observaciones caía dentro de un edificio.
+private const val CAMPUS_FREE_POINT_TRIES = 16
+private val CAMPUS_COLLIDER = CircleCollider(radiusMeters = 0.4)
+private val CAMPUS_AVOID_OFFSETS = doubleArrayOf(0.0, Math.PI / 4, -Math.PI / 4, Math.PI / 2, -Math.PI / 2)
 
 private fun campusDist(aLat: Double, aLon: Double, bLat: Double, bLon: Double): Double {
     val dLat = aLat - bLat
@@ -49,6 +57,29 @@ private fun campusPoint(seed: Long): GeoPoint {
         EscomBoundingBox.CENTER_LAT + (rnd.nextDouble() * 2.0 - 1.0) * half,
         EscomBoundingBox.CENTER_LON + (rnd.nextDouble() * 2.0 - 1.0) * half
     )
+}
+
+// Punto DETERMINISTA del campus FUERA de edificios: si el punto cae dentro de uno, se reintenta con otra semilla.
+private fun WorldMapViewModel.campusFreePoint(seed: Long): GeoPoint {
+    val collisions = exteriorCollisions
+    var point = campusPoint(seed)
+    var tries = 0
+    while (collisions != null && collisions.isInsideBarrier(point) && tries < CAMPUS_FREE_POINT_TRIES) {
+        tries++
+        point = campusPoint(seed + 7919L * tries)
+    }
+    return point
+}
+
+// Un paso hacia [heading] (rad) que no entra a un edificio; si choca prueba ±45° y ±90°. Null = atascado (se queda quieto).
+private fun WorldMapViewModel.campusStep(from: GeoPoint, heading: Double): GeoPoint? {
+    val collisions = exteriorCollisions
+    for (offset in CAMPUS_AVOID_OFFSETS) {
+        val a = heading + offset
+        val next = GeoPoint(from.latitude + sin(a) * CAMPUS_WALK_SPEED, from.longitude + cos(a) * CAMPUS_WALK_SPEED)
+        if (collisions == null || collisions.resolveCirclePath(from, next, CAMPUS_COLLIDER).reachedTarget) return next
+    }
+    return null
 }
 
 // ── TICK PRINCIPAL (lo llama el game loop MIEMBRO tras runDynamicEventsTick) ──
@@ -70,7 +101,7 @@ internal fun WorldMapViewModel.runCampusLifeTick(playerLoc: GeoPoint) {
     val g0 = gRnd.nextInt(CAMPUS_NPC_COUNT)
     val g1 = (g0 + 1 + gRnd.nextInt(CAMPUS_NPC_COUNT - 2)) % CAMPUS_NPC_COUNT
     val g2 = (g1 + 1 + gRnd.nextInt(CAMPUS_NPC_COUNT - 2)) % CAMPUS_NPC_COUNT
-    val meet = campusPoint(groupBucket * 977L + 5L)
+    val meet = campusFreePoint(groupBucket * 977L + 5L)
     val groupIdx = setOf(g0, g1, g2)
 
     for (i in 0 until CAMPUS_NPC_COUNT) {
@@ -79,7 +110,7 @@ internal fun WorldMapViewModel.runCampusLifeTick(playerLoc: GeoPoint) {
         val npc = campusNpcs[id] ?: Npc(
             id = id,
             type = NpcType.PERSON,
-            location = campusPoint(i * 7919L + 3L),
+            location = campusFreePoint(i * 7919L + 3L),
             speed = CAMPUS_WALK_SPEED,
             isRemote = false,
             isMoving = true,
@@ -96,7 +127,7 @@ internal fun WorldMapViewModel.runCampusLifeTick(playerLoc: GeoPoint) {
                 meet.longitude + cos(ang) * CAMPUS_TALK_GAP_DEG
             )
         } else {
-            campusPoint(i * 104729L + (now / CAMPUS_WANDER_BUCKET_MS) * 31L)
+            campusFreePoint(i * 104729L + (now / CAMPUS_WANDER_BUCKET_MS) * 31L)
         }
 
         val d = campusDist(npc.location.latitude, npc.location.longitude,
@@ -105,14 +136,12 @@ internal fun WorldMapViewModel.runCampusLifeTick(playerLoc: GeoPoint) {
             // Camina hacia el destino (beeline: el campus es zona libre).
             val a = atan2(target.latitude - npc.location.latitude,
                 target.longitude - npc.location.longitude)
-            campusNpcs[id] = npc.copy(
-                location = GeoPoint(
-                    npc.location.latitude + sin(a) * CAMPUS_WALK_SPEED,
-                    npc.location.longitude + cos(a) * CAMPUS_WALK_SPEED
-                ),
-                isMoving = true,
-                facingRight = cos(a) >= 0
-            )
+            val next = campusStep(npc.location, a)
+            campusNpcs[id] = if (next != null) {
+                npc.copy(location = next, isMoving = true, facingRight = cos(a) >= 0)
+            } else {
+                npc.copy(isMoving = false) // rodeado de edificios: espera al próximo destino
+            }
         } else if (inGroup) {
             // Llegó al corrillo: parado PLATICANDO — burbuja 💬 alternada entre los 3.
             val talkerSlot = ((now / 3000L) % 3L).toInt()

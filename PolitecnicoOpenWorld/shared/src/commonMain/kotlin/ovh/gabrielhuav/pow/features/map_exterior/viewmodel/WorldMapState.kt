@@ -187,6 +187,9 @@ data class WorldMapState(
     // Colisiones del exterior (polígonos = zonas NO caminables, p. ej. el edificio ESCOM;
     // walls = bardas). Se exponen para dibujarlas en el overlay de Debug Interiores.
     val exteriorCollisions: ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig? = null,
+    // Prototipo de mapa cenital estilizado (solo build debug por ahora): huellas de OSM del campus.
+    val showCampusFootprints: Boolean = false,
+    val campusFootprints: List<ovh.gabrielhuav.pow.domain.models.map.CampusFootprint> = emptyList(),
 
     // CREADOR DE RUTAS: solo las "migas de pan" VISUALES (las dibuja NativeOsmMap). El estado de la
     // sesión de diseño (modo parking, id de carril, nodos capturados) vive en DesignerViewModel; el

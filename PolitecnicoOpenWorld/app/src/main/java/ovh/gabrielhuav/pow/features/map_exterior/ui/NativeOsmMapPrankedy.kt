@@ -1,5 +1,6 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
+import ovh.gabrielhuav.pow.domain.models.map.PERSON_BOX_METERS
 import android.content.Context
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
@@ -60,7 +61,7 @@ internal fun renderPrankedyOnMap(
         val metersPerPixel = (40075016.686 * kotlin.math.cos(Math.toRadians(prankedyLoc!!.latitude))) /
                 (256.0 * 2.0.pow(view.zoomLevelDouble))
         // Tamaño en METROS reales = peatón (~1.3 m), para igualar a los NPCs normales.
-        val exactPixels = ((1.3 / metersPerPixel) * screenDensity).toInt().coerceAtLeast(24)
+        val exactPixels = ((PERSON_BOX_METERS / metersPerPixel) * screenDensity).toInt().coerceAtLeast(24)
         // Frame 0-based respetando el intervalo por animación (IDLE va más lento) → la clave
         // de caché coincide con el frame real que devuelve getDrawable (sin regenerar de más).
         val pkFrameIdx = PrankedySpriteManager.currentFrameIndex0(uiState.prankedyAnimState, timeMs)
