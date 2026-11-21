@@ -1552,3 +1552,14 @@ cada una.
 
 **La regla, corta:** si tocaste cómo se pinta, se carga o suena algo, **ábrelo en el emulador Y en
 el simulador**. Compilar no es verificar.
+
+### 🍏 Qué puede enseñar iOS (App Store) — regla del dueño, 2026-11-21
+
+- **iOS se publica solo con Titulación por Combate** (+ Coleccionables y Ajustes). El mundo abierto,
+  el Modo Historia, los zombis y todo el multijugador son **exclusivos de Android**; su código no se borra.
+- **`MODOS_EN_OBRAS_VISIBLES` se queda en `false` en el repo** (`PowModosTest` lo exige). Ningún botón
+  "en obras", "próximamente" o que no haga nada puede llegar al menú de iOS (Guideline 2.1).
+- **Todo botón compartido que dependa de algo que solo existe en `:app` se gatea con el catálogo de
+  `PowModos.kt`**, como `sfMultijugadorDisponible()` para el MULTIJUGADOR del modo pelea. Nada de
+  `if (esAndroid)` sueltos en la UI.
+- Antes de pintar algo nuevo en iOS, compruébalo en el simulador o en un iPhone: compilar no basta.

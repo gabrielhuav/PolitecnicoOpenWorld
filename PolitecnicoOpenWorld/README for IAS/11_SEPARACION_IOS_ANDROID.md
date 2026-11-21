@@ -343,8 +343,8 @@ que no significan lo mismo:
 
 ```kotlin
 PowModo.MUNDO_LIBRE.disponible()   // ¿se puede JUGAR aquí?      → en iOS: false
-PowModo.MUNDO_LIBRE.enObras()      // ¿se pinta pero no se juega? → en iOS: true
-PowModo.MUNDO_LIBRE.sePinta()      // ¿aparece el botón?          → en iOS: true
+PowModo.MUNDO_LIBRE.enObras()      // ¿se pinta pero no se juega? → en iOS: false (interruptor apagado)
+PowModo.MUNDO_LIBRE.sePinta()      // ¿aparece el botón?          → en iOS: false
 ```
 
 | Pregunta | Úsala para | ⚠️ NO la uses para |
@@ -355,10 +355,11 @@ PowModo.MUNDO_LIBRE.sePinta()      // ¿aparece el botón?          → en iOS: 
 > ### 🚧 El interruptor de la App Store
 >
 > ```kotlin
-> const val MODOS_EN_OBRAS_VISIBLES = true   // PowModos.kt
+> const val MODOS_EN_OBRAS_VISIBLES = false   // PowModos.kt — APAGADO desde 2026-11-21
 > ```
 >
-> **Ponlo en `false` antes de firmar para iOS.** Apple rechaza funciones anunciadas que no
+> **Está en `false` desde el 2026-11-21 (lanzamiento en la App Store)** y `PowModosTest` falla si
+> se sube encendido. Apple rechaza funciones anunciadas que no
 > funcionan (Guideline 2.1), y un botón que abre un cartel de "en obras" es exactamente eso.
 > Es lo ÚNICO que hay que tocar: los tres botones desaparecen y el menú queda como estaba.
 > En Android no cambia nada — allí los tres modos están de verdad.
@@ -367,8 +368,12 @@ PowModo.MUNDO_LIBRE.sePinta()      // ¿aparece el botón?          → en iOS: 
 se pone rojo a propósito cuando alguien cambia esa lista: es para obligar a confirmar que el modo
 **funciona en el simulador** antes de mostrarlo.
 
+⚠️ **El multijugador de Titulación tampoco se pinta en iOS** (`sfMultijugadorDisponible()` en
+`PowModos.kt`): sus menús y transportes viven en `:app`, y en iOS el botón quedaba muerto.
+
 📘 El plan completo del mundo abierto —fases, bloqueadores medidos y el problema de los assets—
-está en **[`12_PLAN_MUNDO_ABIERTO_iOS.md`](12_PLAN_MUNDO_ABIERTO_iOS.md)**.
+está en **[`12_PLAN_MUNDO_ABIERTO_iOS.md`](12_PLAN_MUNDO_ABIERTO_iOS.md)** (⏸️ en pausa desde el
+2026-11-21: iOS se lanza solo con Titulación por Combate).
 
 ### Qué se queda en `:app` y por qué — SF completo
 

@@ -2,6 +2,7 @@ package ovh.gabrielhuav.pow.features.streetfighter.ui
 
 
 import androidx.compose.foundation.background
+import ovh.gabrielhuav.pow.domain.platform.sfMultijugadorDisponible
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -336,13 +337,16 @@ fun SfModeMenuOverlay(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            PowButton(
-                text = stringResource(Res.string.sf_mode_multiplayer),
-                onClick = onMultiplayer,
-                color = Color(0xFF8B1538),
-                modifier = Modifier.fillMaxWidth(0.68f),
-            )
+            // 🍏 Solo Android: en iOS no hay menú en línea ni transportes y el botón quedaba muerto.
+            if (sfMultijugadorDisponible()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                PowButton(
+                    text = stringResource(Res.string.sf_mode_multiplayer),
+                    onClick = onMultiplayer,
+                    color = Color(0xFF8B1538),
+                    modifier = Modifier.fillMaxWidth(0.68f),
+                )
+            }
             Spacer(modifier = Modifier.height(16.dp))
             TextButton(onClick = onBack) {
                 Text(stringResource(Res.string.sf_back), color = Color(0xFFD4AF37))

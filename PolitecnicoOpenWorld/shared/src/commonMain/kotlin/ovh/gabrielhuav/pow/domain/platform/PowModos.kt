@@ -65,6 +65,20 @@ expect val plataformaActual: PowPlataforma
 /** Atajo: ¿está disponible este modo AQUÍ? O sea: ¿se puede JUGAR? */
 fun PowModo.disponible(): Boolean = this in modosDe(plataformaActual)
 
+/**
+ * ¿Ofrece Titulación por Combate su MULTIJUGADOR (1v1 en línea, Bluetooth y LAN) en [plataforma]?
+ *
+ * Solo en Android. Los menús y transportes del 1v1 viven en `:app` (`SfOnlineOverlays.kt`,
+ * Bluetooth RFCOMM, LAN) y en iOS el modo pelea es sin multijugador (ver
+ * `11_SEPARACION_IOS_ANDROID.md` §9). Antes, el botón MULTIJUGADOR del menú del modo se pintaba
+ * también en iOS y al pulsarlo no pasaba nada: un botón muerto que la App Store rechaza
+ * (Guideline 2.1).
+ *
+ * ⚠️ No confundir con [PowModo.MULTIJUGADOR], que es el multijugador del MUNDO ABIERTO.
+ */
+fun sfMultijugadorDisponible(plataforma: PowPlataforma = plataformaActual): Boolean =
+    plataforma == PowPlataforma.ANDROID
+
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // 🚧 MODOS EN OBRAS — la vitrina de iOS
 // ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -83,8 +97,12 @@ fun PowModo.disponible(): Boolean = this in modosDe(plataformaActual)
  * abre un cartel de "en obras" es exactamente eso.
  *
  * En Android no cambia NADA: allí los tres modos están de verdad y `disponible()` ya es `true`.
+ *
+ * **Estado: APAGADO desde el 2026-11-21** para lanzar Titulación por Combate en la App Store. En
+ * iOS el menú pinta solo TITULACIÓN POR COMBATE, COLECCIONABLES y AJUSTES. Encenderlo solo en una
+ * build local de comparación, nunca en una build firmada.
  */
-const val MODOS_EN_OBRAS_VISIBLES: Boolean = true
+const val MODOS_EN_OBRAS_VISIBLES: Boolean = false
 
 /**
  * Modos que [plataforma] **enseña sin poder jugarlos todavía**.

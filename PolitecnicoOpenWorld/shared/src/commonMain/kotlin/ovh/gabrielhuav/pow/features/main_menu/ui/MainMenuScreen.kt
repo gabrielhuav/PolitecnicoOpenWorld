@@ -351,9 +351,9 @@ fun MenuButtonsList(
     // pantalla: así la regla es UNA y se testea sin necesidad de un Mac. En Android `disponible()`
     // es true para todos → esta pantalla se ve EXACTAMENTE igual que antes.
     //
-    // 🚧 Un modo `enObras()` SÍ se pinta pero NO navega: abre el aviso de abajo. Hoy eso solo pasa
-    // en iOS, para poder comparar los dos menús mientras se porta el mundo abierto. Se apaga entero
-    // con `MODOS_EN_OBRAS_VISIBLES = false` (ver `PowModos.kt`) antes de subir a la App Store.
+    // 🚧 Un modo `enObras()` SÍ se pinta pero NO navega: abre el aviso de abajo. Solo puede pasar en
+    // iOS y solo con `MODOS_EN_OBRAS_VISIBLES = true` (ver `PowModos.kt`), para comparar los dos menús
+    // en una build local. Está APAGADO para la App Store: en iOS solo se pinta Titulación por Combate.
     var modoEnObras by remember { mutableStateOf<PowModo?>(null) }
 
     // MUNDO LIBRE: el open world sin campaña (antes "Iniciar Juego"). Spawn por defecto.

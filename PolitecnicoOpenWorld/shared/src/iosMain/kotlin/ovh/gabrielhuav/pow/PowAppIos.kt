@@ -82,9 +82,10 @@ private fun ContenidoApp(alCambiarIdioma: () -> Unit) {
 
     when (pantalla) {
         Pantalla.MENU -> MainMenuScreen(
-            // 🌎 MUNDO LIBRE está EN OBRAS, pero su mapa ya se puede ver: el botón abre la vista
-            // previa (ver `IosMainMenuController.mundoTieneVistaPrevia`). Modo Historia y
-            // Multijugador siguen abriendo solo el aviso.
+            // 🌎 En la build de la App Store (`MODOS_EN_OBRAS_VISIBLES = false`) el menú NO pinta
+            // MUNDO LIBRE, así que esta ruta no se alcanza. Se conserva para builds locales de
+            // comparación: con el interruptor encendido, el botón EN OBRAS abre la vista previa del
+            // mapa (ver `IosMainMenuController.mundoTieneVistaPrevia`).
             onNavigateToMap = { _, _ -> pantalla = Pantalla.MAPA },
             onNavigateToStory = {},
             onNavigateToSettings = { pantalla = Pantalla.AJUSTES },
