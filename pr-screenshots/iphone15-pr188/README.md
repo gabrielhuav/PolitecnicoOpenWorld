@@ -505,7 +505,7 @@ retakes are identified in metadata. Review contact sheets are not gallery origin
 
 El [README principal](../../README.md#pow-iphone-gallery-complete) incorpora los 60 fondos y la captura extra de 4 GOLPES.
 [hero-selection.json](hero-selection.json) fija las diez imágenes destacadas y la extra; no limita la matriz completa.
-Al regenerar, se conservan las 61 imágenes originales en el README principal, en desplegables cerrados de hasta tres imágenes, con etiqueta lazy y proporción natural.
+Al regenerar, se conservan las 61 imágenes originales en el README principal: las 3 primeras de hero-selection.json siempre visibles arriba y las demás en desplegables cerrados de hasta tres imágenes, con etiqueta lazy y proporción natural.
 
 The [main README](../../README.md#pow-iphone-gallery-complete) embeds all 60 backgrounds and the extra four-hit screenshot.
 The pinned hero selection preserves the featured images; it must not remove the other backgrounds.

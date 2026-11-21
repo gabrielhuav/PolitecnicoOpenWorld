@@ -12,35 +12,24 @@ story campaign and zombie minigame currently run on Android.
 
 **Four-hit combos, impact flashes and dramatic stages — captured in real matches.**
 
-Explore **61 original screenshots**: 60 stage-and-lighting combinations, 19 fighters excluding Paramédico, and an extra four-hit Charro combo.
-The strongest action shots come first. Open a group to view up to three images; all groups start closed.
+<!-- Featured action (1–3 of 61): always visible -->
+<p align="center">
+  <img src="pr-screenshots/iphone15-pr188/charro-4-golpes.png" alt="El Charro Negro vs El Charro Negro — Four-hit combo" width="960">
+</p>
+<p align="center"><b>El Charro Negro vs El Charro Negro — Four-hit combo</b></p>
 
-Each image keeps `loading="lazy"` and its natural aspect ratio. GitHub may still preload images while a group is closed.
+<p align="center">
+  <img src="pr-screenshots/iphone15-pr188/52-planetario-day.png" alt="Robot Estudiantx vs Alexis Syntaxis — Planetario IPN · Day" width="49%">
+  <img src="pr-screenshots/iphone15-pr188/32-mictlan-night.png" alt="Yoalli Ehécatl vs La Presidenta — Mictlán · Night" width="49%">
+</p>
+<p align="center"><b>Robot Estudiantx vs Alexis Syntaxis — Planetario IPN · Day</b> · <b>Yoalli Ehécatl vs La Presidenta — Mictlán · Night</b></p>
+
+Explore **61 original screenshots**: 60 stage-and-lighting combinations, 19 fighters excluding Paramédico, and an extra four-hit Charro combo.
+The three strongest action shots are shown right away; open a group below to view the rest, up to three images at a time.
+
+Images inside the groups keep `loading="lazy"` and their natural aspect ratio. GitHub may still preload images while a group is closed.
 
 [Full gallery and capture provenance](pr-screenshots/iphone15-pr188/README.md) · [Physical iPhone QA report](PolitecnicoOpenWorld/README%20for%20IAS/SF/QA_IPHONE_PR188_2026-11-15.md)
-
-<details>
-<summary>📸 Featured action — View 3 screenshots (1–3 of 61)</summary>
-
-**El Charro Negro vs El Charro Negro — Four-hit combo**
-
-<img src="pr-screenshots/iphone15-pr188/charro-4-golpes.png" alt="El Charro Negro vs El Charro Negro — Four-hit combo" loading="lazy" width="960">
-
-Both Charros are fully visible in combat with the localized 4 GOLPES counter. This extra AI-vs-AI screenshot is outside the 60-background matrix and does not establish the final match result by itself.
-
-**Robot Estudiantx vs Alexis Syntaxis — Planetario IPN · Day**
-
-<img src="pr-screenshots/iphone15-pr188/52-planetario-day.png" alt="Robot Estudiantx vs Alexis Syntaxis — Planetario IPN · Day" loading="lazy" width="960">
-
-Robot Estudiantx extends an arm with an impact spark in front of Alexis Syntaxis’s face. Planetario IPN by day, the ROBOT/SYNTAXIS HUD and a P1 score of 300 are visible.
-
-**Yoalli Ehécatl vs La Presidenta — Mictlán · Night**
-
-<img src="pr-screenshots/iphone15-pr188/32-mictlan-night.png" alt="Yoalli Ehécatl vs La Presidenta — Mictlán · Night" loading="lazy" width="960">
-
-Yoalli Ehécatl attacks while La Presidenta reacts with her hands beside her face. The 2 GOLPES counter is visible at Mictlán by night; P1 has 400 points.
-
-</details>
 
 <details>
 <summary>📸 More action highlights — View 3 screenshots (4–6 of 61)</summary>

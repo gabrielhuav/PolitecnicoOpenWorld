@@ -81,9 +81,6 @@ los flags del metadata lo distinguen. No presentar toda la galería como una sol
 - loading="lazy" se mantiene en la fuente, con ancho y altura automática, sin height.
   GitHub filtra loading y JavaScript. Los desplegables controlan **visibilidad**, no garantizan
   cero descargas antes del clic; no prometer un botón de carga estricta dentro de GitHub.
-- Alternativa opcional local: index.html crea tres img por clic; pages/01.md inicia 21 páginas
-  de tres capturas, salvo la última con una. Visor probado: cero PNG iniciales y GET en grupos de tres.
-  GitHub muestra HTML como código; las páginas Markdown forman parte de esta entrega versionada.
 - Este cambio es de presentación; **no hubo otra ejecución de las 849 pruebas ni nuevo build**.
   El dueño autorizó commit y push al mismo PR #188 el 2026-11-16. El commit de correcciones 79e1eb94 está publicado en la rama del PR #188. README, documentación y galería se incorporan con el commit de esta entrega. No se autoriza merge ni se creó otro hosting.
 - Actualizar solo el comentario existente y la sección QA de la descripción, sin duplicar informes:
