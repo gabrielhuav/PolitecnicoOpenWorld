@@ -14,6 +14,7 @@ import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import ovh.gabrielhuav.pow.domain.models.map.VehicleDimensions
 import ovh.gabrielhuav.pow.domain.models.map.VehicleFootprint
 import ovh.gabrielhuav.pow.domain.models.map.firstVehicleCircleContact
+import ovh.gabrielhuav.pow.domain.models.map.obstacleAt
 import ovh.gabrielhuav.pow.domain.models.map.resolveCirclePath
 import ovh.gabrielhuav.pow.domain.models.map.resolveVehiclePath
 import ovh.gabrielhuav.pow.domain.models.map.usesVehicleFootprint
@@ -95,6 +96,30 @@ internal fun resolveVehicleStaticMovement(
     headingDegrees = headingDegrees,
     dimensions = dimensions,
 ) ?: CollisionResolution(roadAdjustedTarget, null)
+
+/**
+ * Resolución estática de UN paso de manejo. Primero prueba el destino ajustado a la calle; si choca y la
+ * carrocería YA estaba encimada en un edificio o barda (centro dentro, aparición o teletransporte),
+ * reintenta con el paso puro del rumbo ([headingTarget]). Sin esto el coche quedaba clavado: el ajuste a
+ * la calle apunta a la calle más cercana y, si esa calle queda detrás del edificio, cada tick metía al
+ * coche hacia dentro, el barrido lo bloqueaba y la velocidad volvía a 0 (ni avanzaba ni daba reversa).
+ * El barrido solo acepta pasos que se ALEJAN del obstáculo cuando se arranca encimado, así que el
+ * reintento nunca deja entrar más: solo salir hacia donde apunta el coche (o hacia atrás en reversa).
+ */
+internal fun ExteriorCollisionsConfig?.resolveVehicleDrivingStep(
+    from: GeoPoint,
+    headingTarget: GeoPoint,
+    roadAdjustedTarget: GeoPoint,
+    headingDegrees: Float,
+    dimensions: VehicleDimensions,
+): CollisionResolution {
+    val roadResolution = resolveVehicleStaticMovement(this, from, roadAdjustedTarget, headingDegrees, dimensions)
+    val retryAlongHeading = !roadResolution.reachedTarget && headingTarget != roadAdjustedTarget &&
+        this?.obstacleAt(VehicleFootprint(from, headingDegrees, dimensions)) != null
+    if (!retryAlongHeading) return roadResolution
+    val headingResolution = resolveVehicleStaticMovement(this, from, headingTarget, headingDegrees, dimensions)
+    return if (headingResolution.reachedTarget) headingResolution else roadResolution
+}
 
 internal fun WorldMapViewModel.moveCharacter(direction: Direction) {
         if (_uiState.value.showWastedScreen || _uiState.value.showMissionFailed) return // muerto/misión fallida: sin movimiento

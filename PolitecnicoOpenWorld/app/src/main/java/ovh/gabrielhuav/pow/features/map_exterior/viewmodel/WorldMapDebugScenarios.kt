@@ -21,10 +21,18 @@ import ovh.gabrielhuav.pow.domain.models.map.offsetMeters
 private const val TAG = "DebugScenario"
 private const val METERS_PER_DEGREE = 111_320.0
 
-// Punto junto al lado este del techo central de ESCOM, de cara a él (DEV-08), y su rumbo.
+// Coche aparcado de cara a la pared este del techo central de ESCOM ("ESCOM techo 3" de
+// CONFIG/escom_osm_footprints.json, techos sacados del arte) para DEV-08. La pared corre a 26°/206° (el
+// campus está girado), así que mirarla de frente es 296°. El punto está 7.5 m al este del cruce de esa pared
+// con esta latitud (-99.1464287): medido con las colisiones reales, ahí la carrocería NO toca el edificio pero
+// 3 m adelante sí, que es justo el caso que `safeBoardingHeading` corrige (devuelve ~356°). Más cerca (≤ 6 m)
+// la carrocería ya lo toca, todos los rumbos salen bloqueados y se devuelve el preferido sin corregir nada; a
+// ≥ 9.5 m ya no hay pared que esquivar.
+// ⚠️ El punto anterior (19.504536, -99.146601) quedó 4 m DENTRO de ese techo al cambiar a los techos del arte.
+// Si se regeneran los techos, vuelve a medirlo (obstacleAt libre y barrido de 3 m bloqueado).
 private const val BUILDING_SPOT_LAT = 19.504536
-private const val BUILDING_SPOT_LON = -99.146601
-private const val BUILDING_SPOT_HEADING = 271.59583f
+private const val BUILDING_SPOT_LON = -99.1463572
+private const val BUILDING_SPOT_HEADING = 295.95f
 
 /** Aplica el escenario [name]; devuelve un texto con lo ocurrido (también va al logcat con la etiqueta DebugScenario). */
 internal fun WorldMapViewModel.applyDebugScenario(name: String, extras: Map<String, String>): String {

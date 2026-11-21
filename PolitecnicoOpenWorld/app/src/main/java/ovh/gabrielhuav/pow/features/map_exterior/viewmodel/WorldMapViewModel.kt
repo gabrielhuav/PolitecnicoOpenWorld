@@ -862,10 +862,12 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                 }
 
                                 // La aduana se aplica DESPUÉS del ajuste de carretera: ese ajuste no
-                                // puede empujar la carrocería a través de una barda o edificio.
-                                val staticResolution = resolveVehicleStaticMovement(
-                                    config = exteriorCollisions,
+                                // puede empujar la carrocería a través de una barda o edificio. Si el coche
+                                // ya estaba encimado y la calle queda detrás del edificio, reintenta con el
+                                // paso del rumbo para poder salir (ver resolveVehicleDrivingStep).
+                                val staticResolution = exteriorCollisions.resolveVehicleDrivingStep(
                                     from = location,
+                                    headingTarget = tempLoc,
                                     roadAdjustedTarget = finalLoc,
                                     headingDegrees = currentRotation,
                                     dimensions = vehicleModel.collisionDimensions,
@@ -891,9 +893,11 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                 if (isAutoDodging) lastDodgeTime = System.currentTimeMillis()
                                 // Cancelar inmunidad si el jugador gira voluntariamente (para permitir chocar intencionalmente)
                                 if (isSteeringSharply) lastDodgeTime = 0L
-                                val trafficImpact = runOverNpcs(location, finalLoc, currentSpeed)
+                                // Destino real del paso: el de la calle o, al salir de un solape, el del rumbo.
+                                val moveTarget = staticResolution.position
+                                val trafficImpact = runOverNpcs(location, moveTarget, currentSpeed)
                                 // La salida por vector mínimo puede empujar contra una barda: si es así, no avanzar.
-                                val pushedLocation = trafficImpact?.playerCenter ?: finalLoc
+                                val pushedLocation = trafficImpact?.playerCenter ?: moveTarget
                                 val resolvedLocation = if (
                                     trafficImpact != null && pushedLocation != location &&
                                     !resolveVehicleStaticMovement(
