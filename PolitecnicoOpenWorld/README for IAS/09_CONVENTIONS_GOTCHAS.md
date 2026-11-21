@@ -1567,6 +1567,13 @@ el simulador**. Compilar no es verificar.
   `PowModos.kt`**, como `sfMultijugadorDisponible()` para el MULTIJUGADOR del modo pelea. Nada de
   `if (esAndroid)` sueltos en la UI.
 - Antes de pintar algo nuevo en iOS, compruébalo en el simulador o en un iPhone: compilar no basta.
+- **El bundle de la App Store necesita tres cosas que Android no** (2026-11-21, PR #189): ícono de
+  1024×1024 **sin transparencia** (`iosApp/POW/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png`),
+  manifiesto de privacidad (`iosApp/POW/PrivacyInfo.xcprivacy`) e `ITSAppUsesNonExemptEncryption` en el
+  `Info.plist`. Todo uso nuevo en iOS de una API de "razón requerida" (UserDefaults, fechas de archivos,
+  tiempo desde el arranque, espacio en disco) se declara en el manifiesto con su razón, o App Store Connect
+  rechaza la subida (ITMS-91053). La carpeta `POW/` está sincronizada con el proyecto: lo que se pone ahí
+  entra solo al target y al bundle, sin tocar el `.pbxproj` (por eso el `Info.plist` vive fuera).
 
 ### Excluir de un cupo exige un tope propio (2026-11-16)
 Si un tipo de NPC se excluye de `maxActiveNpcs`/`maxTotalNpcs` (como los `CAMPUS_PED_*` o los estacionados), debe tener SU PROPIO tope y su recorte: sin él, la condición de spawn `... < maxTotalNpcs` pasa siempre y se acumulan sin límite (llegaron a ~200 y hundieron el WebView, 1 GB de RAM). Ver `domain/models/ai/CampusPedestrianCap.kt` y `MUNDO/04_MAP_EXTERIOR.md`.

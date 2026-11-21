@@ -1,6 +1,7 @@
 # Memoria compartida — estado vivo
 
-Actualizado: **2026-11-21 · PR #188 · prioridad: lanzar Titulación por Combate en la App Store**.
+Actualizado: **2026-11-21 · PR #188 (unido) y PR #189 · prioridad: lanzar Titulación por Combate en
+la App Store**.
 Ventana de dos días, máximo 200 líneas. La sesión anterior (QA física del 2026-11-15/16) está en
 [`_ARCHIVO/SESION_previa_2026-11-16.md`](_ARCHIVO/SESION_previa_2026-11-16.md).
 
@@ -28,12 +29,24 @@ Ventana de dos días, máximo 200 líneas. La sesión anterior (QA física del 2
 - Docs: retirados 5 traspasos ya ejecutados; `12_PLAN_MUNDO_ABIERTO_iOS.md` marcado EN PAUSA; regla
   nueva en `09` (§ "Qué puede enseñar iOS").
 
-## Siguiente (necesita Mac)
+## Hecho después, en el PR #189 (Windows, 2026-11-21)
 
-1. Enlazar ambos frameworks, compilar en Xcode y correr los tests iOS de `:shared` (deben ser 350).
-2. Verificar en el iPhone: el menú principal muestra solo TITULACIÓN POR COMBATE, COLECCIONABLES y
-   AJUSTES, y el menú del modo pelea ya no muestra MULTIJUGADOR.
-3. App Store: cuenta Apple Developer (99 USD/año; aún no existe, ver doc 14), ficha, capturas,
-   etiquetas de privacidad y URL de política de privacidad (revisar si la de Play cubre iOS).
-4. Decidir si el Modo Desarrollador de Ajustes (desbloquea todo y abre herramientas de QA) se esconde
-   en la build de la App Store.
+- PR #188 unido: release 1.0.0.27 (corrida 87) bien; con `manual-play-upload` el AAB quedó como
+  artefacto sin subir a Play; `main` en 1.0.0.28.
+- PR #189 (cámara norte-arriba y colisiones del mundo abierto, de NagaPams) actualizado con `main` y con
+  la etiqueta `manual-play-upload`. QA en emulador: cámara, rumbos 0/90/180/270, mover y recentrar,
+  bajar del coche, choques. Encontrado y corregido: un coche encimado en un edificio con la calle detrás
+  quedaba clavado (`resolveVehicleDrivingStep`) y el punto del escenario DEV-08 estaba dentro del techo.
+- Notas de Play de la 1.0.0.28 reescritas (las de antes eran de septiembre).
+- App Store: ícono 1024, `PrivacyInfo.xcprivacy` e `ITSAppUsesNonExemptEncryption` en `iosApp/`, y
+  traspaso [`PROMPT_MAC_appstore_final.md`](PROMPT_MAC_appstore_final.md).
+
+## Siguiente (necesita Mac) → seguir `PROMPT_MAC_appstore_final.md`
+
+1. Compilar ambos frameworks y correr los tests iOS de `:shared` (ahora deben ser **358**).
+2. Recorrido en simulador e iPhone: ícono, menú con solo TITULACIÓN POR COMBATE, COLECCIONABLES y AJUSTES,
+   sin MULTIJUGADOR en el modo pelea; comprobar que el manifiesto y el ícono entran al bundle.
+3. Decisiones del dueño: Modo Desarrollador en Release, iPad sí/no, peleadores que retratan personas
+   reales (La Presidenta).
+4. App Store: cuenta Apple Developer (99 USD/año; aún no existe, ver doc 14), TestFlight, ficha, capturas
+   de pantalla grande, privacidad y URL de política (revisar si la de Play cubre iOS).

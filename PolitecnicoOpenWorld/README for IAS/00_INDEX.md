@@ -21,7 +21,9 @@ TITULACIÓN POR COMBATE, COLECCIONABLES y AJUSTES; lo decide `PowModos.kt` (`MOD
 false` y `sfMultijugadorDisponible()`). El mundo abierto, el Modo Historia, los zombis y todo el
 multijugador siguen en el código, **exclusivos de Android** (ya publicado en Google Play). No se borra
 código para lanzar iOS. Instalar y firmar: `14_INSTALAR_EN_IPHONE_Y_SIMULADOR.md`; límites de tienda:
-`13_ASSETS_Y_TAMANO.md`; estado vivo: `_SESION_ACTUAL.md`.
+`13_ASSETS_Y_TAMANO.md`; estado vivo: `_SESION_ACTUAL.md`. **Prueba final y subida (Mac):**
+[`PROMPT_MAC_appstore_final.md`](PROMPT_MAC_appstore_final.md); el ícono, el manifiesto de privacidad
+y la clave de cifrado ya están en `iosApp/` (PR #189), sin compilar todavía.
 
 **Última QA (PR #188, 2026-11-15/16):** [iPhone 15 real](SF/QA_IPHONE_PR188_2026-11-15.md) y
 [Android](SF/QA_ANDROID_PR188_2026-11-15.md). El [informe de emuladores y plugins](SF/QA_ANDROID_IOS_2026-11-15.md)
@@ -103,6 +105,7 @@ desplegables; `pr-screenshots/iphone15-pr188/README.md` conserva las 61.
 | 12 | `12_PLAN_MUNDO_ABIERTO_iOS.md` | ⏸️ **EN PAUSA (2026-11-21):** iOS se lanza solo con Titulación; no retomar sin decisión del dueño. 🌎🍏 **Portar el MUNDO ABIERTO a iOS — plan medido.** Cuánto es (30 302 líneas), los 2 bloqueadores contados (osmdroid y `R.string`) y las 8 fases en orden, con **la cadena exacta que bloquea el `WorldMapViewModel`** y por qué se paró donde se paró. El tamaño y los límites de tienda están en el doc 13. **Léelo antes de tocar `map_exterior` o `interiores`.** |
 | 13 | `13_ASSETS_Y_TAMANO.md` | 🗜️ **Qué se sube a cada tienda y cuánto puede pesar.** Los límites REALES verificados en la fuente (**Play: 500 MB de módulo base ← el que aprieta · App Store: 4 GB, los 200 MB son solo un aviso**), dónde está el peso del AAB medido, **qué formato de audio va en cada sitio y por qué** (Ogg solo-Android por el bucle; `.m4a` para lo compartido porque iOS no lee Ogg) y el plan de adelgazamiento con `tools/optimizar_assets_produccion.sh`. **Léelo antes de añadir cualquier asset.** |
 | 14 | `14_INSTALAR_EN_IPHONE_Y_SIMULADOR.md` | 📲 **Instalar POW en un iPhone y en el simulador, paso a paso.** Cada paso a mano (Android Studio / Xcode) y por terminal (lo que hace una IA). Firma con cuenta gratuita sin tocar el proyecto, "Desarrollador no confiable", el límite de 7 días, ⚠️ **Xcode 27 ya no trae `Simulator.app`**, y la tabla de errores (incluido "el combate no suena" = modo silencio). **MEDIDO 2026-11-15.** |
+| — | `PROMPT_MAC_appstore_final.md` | 🍏 **Traspaso a la Mac (2026-11-21): prueba final de iOS y subida a la App Store.** Tests de `:shared` en iOS, recorrido en simulador e iPhone, comprobación del bundle (ícono, manifiesto de privacidad, cifrado), decisiones del dueño (Modo Desarrollador, iPad, La Presidenta) y pasos de App Store Connect. Al terminar se borra y queda `RESULTADO_MAC_appstore_final.md`. |
 | — | `../iosApp/README.md` | 🍏 **El proyecto Xcode.** Cómo compilarlo (⚠️ el framework de Kotlin NO se construye solo), qué assets entran en el bundle y qué ajustes de Xcode no se tocan. **Para añadir una pantalla a iOS se toca `PowAppIos.kt`, no este proyecto.** |
 
 ### 🌎 `MUNDO/` — mundo libre POW

@@ -150,6 +150,14 @@ El día que el mundo abierto llegue a iOS, esto se engancha desde `PowAppIos.kt`
 1. **El framework no se construye solo.** Falta una fase de script que llame a Gradle desde Xcode;
    hoy hay que acordarse a mano.
 2. **Sin firma ni App Store.** No hay cuenta de Apple Developer todavía. Cuando la haya, ojo con el
-   límite de **200 MB por datos móviles**: el bundle ya va por 196 MB solo con SF.
+   límite de **200 MB por datos móviles**: el bundle ya va por 196 MB solo con SF. Lo que pide la
+   tienda y Android no ya está en el proyecto desde el PR #189, **sin compilar todavía**:
+   - `POW/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png`: 1024×1024 sin transparencia, el logo
+     del launcher de Android sobre negro. Antes el set estaba vacío.
+   - `POW/PrivacyInfo.xcprivacy`: manifiesto de privacidad (UserDefaults, razón `CA92.1`; sin rastreo
+     ni datos recolectados).
+   - `ITSAppUsesNonExemptEncryption = NO` en `Info.plist`.
+
+   La prueba final y la subida se hacen siguiendo `../README for IAS/PROMPT_MAC_appstore_final.md`.
 3. **~12 literales en español** en la UI compartida de SF no pasan por `composeResources`: con la
    app en inglés, el diálogo "Continuar pelea" sale en español.

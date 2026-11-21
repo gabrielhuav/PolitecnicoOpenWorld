@@ -37,6 +37,12 @@
     <key>CFBundleVersion</key>
     <string>$(CURRENT_PROJECT_VERSION)</string>
 
+    <!-- App Store (2026-11-21): la build de iOS no usa cifrado propio; a lo sumo el HTTPS del sistema,
+         que está exento. Con esta clave App Store Connect no pregunta el cumplimiento de exportación
+         en cada build. Si algún día se agrega cifrado propio, cámbiala y llena el formulario. -->
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
+
     <key>UIApplicationSupportsIndirectInputEvents</key>
     <true/>
     <key>UIApplicationSceneManifest</key>
