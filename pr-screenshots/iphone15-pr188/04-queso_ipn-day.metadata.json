@@ -1,0 +1,52 @@
+{
+  "coverage_index": 4,
+  "stage_file": "fondo_queso_ipn_anim.webp",
+  "stage_title": "Queso IPN",
+  "lighting": "day",
+  "p1_id": "SENOR_TIENDA",
+  "p1_name": "El Señor de la Tienda",
+  "p2_id": "PAPARAZZI_1",
+  "p2_name": "Paparazzi 1",
+  "action": "after-A",
+  "captured_at": "2026-11-16T17:08:16Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "local_ui_changes": "landscape route and horizontal safe insets",
+  "capture_api": "XCUIScreen.main.screenshot",
+  "original_png": true,
+  "engine_hooks": false,
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "installed_build_evidence": "pr188-projectile-xcodebuild.log / pr188-projectile-install.log",
+  "file": "04-queso_ipn-day.png",
+  "sha256": "5865be8c47a231ecb3b9cf572c6f0f7cce68b2d4d463c9a81e6e611eb0b638ae",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "bundle_version": "1.0",
+  "bundle_build": "1",
+  "validation_status": "visually_reviewed",
+  "observed_action_es": "Señor de la Tienda y Paparazzi 1 separados, rostros reconocibles y contador 2 GOLPES ante Queso IPN de día; P1 700. La pareja corregida coincide con el runner.",
+  "observed_pair": {
+    "p1_id": "SENOR_TIENDA",
+    "p1_name": "El Señor de la Tienda",
+    "p2_id": "PAPARAZZI_1",
+    "p2_name": "Paparazzi 1"
+  },
+  "observed_hud_p1_name": "TIENDA",
+  "observed_hud_p2_name": "PAPZ 1",
+  "observed_p1_score": 700,
+  "two_hits_visible": true,
+  "two_hit_counter_text": "2 GOLPES",
+  "map_selection_gold_border_verified": true,
+  "framing_review": "Full landscape scene, HUD and controls. ImageIO: 0 px opaque RGB0 full-height left/right borders and 0 px on row 35%; all eight action originals of this fixture also measured 0.",
+  "original_attachment_filename": "D423E6E9-BA72-4B38-91BC-98C9495F5C13.png",
+  "map_selection_evidence": {
+    "original_filename": "B3D715C0-C10F-4C96-BB52-CF5AE46C8DD2.png",
+    "sha256": "7f98a114c80dd768bb89af1449c0604a90ed84afc09dc9f94e7575784551839c",
+    "selected_gold_border_verified": true,
+    "matches_expected_stage": true
+  }
+}

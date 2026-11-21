@@ -1,0 +1,52 @@
+{
+  "coverage_index": 47,
+  "stage_file": "fondo_uam_cuajimalpa_noche_1_anim.webp",
+  "stage_title": "UAM Cuajimalpa (Noche)",
+  "lighting": "night",
+  "p1_id": "POLICIA_CDMX",
+  "p1_name": "Policía CDMX",
+  "p2_id": "PAPARAZZI_5",
+  "p2_name": "Paparazzi 5",
+  "action": "after-A",
+  "captured_at": "2026-11-16T17:17:10Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "local_ui_changes": "landscape route and horizontal safe insets",
+  "capture_api": "XCUIScreen.main.screenshot",
+  "original_png": true,
+  "engine_hooks": false,
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "installed_build_evidence": "pr188-projectile-xcodebuild.log / pr188-projectile-install.log",
+  "file": "47-uam_cuajimalpa-night.png",
+  "sha256": "26d9f1b13d3d7f3af01eea7f40eed1c38a8bc8e85d27b21f967cd7f737450dfe",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "bundle_version": "1.0",
+  "bundle_build": "1",
+  "validation_status": "visually_reviewed",
+  "observed_action_es": "Policía CDMX y Paparazzi 5 separados, rostros/HUD reconocibles y contador 2 GOLPES ante UAM Cuajimalpa nocturna; P1 700.",
+  "observed_pair": {
+    "p1_id": "POLICIA_CDMX",
+    "p1_name": "Policía CDMX",
+    "p2_id": "PAPARAZZI_5",
+    "p2_name": "Paparazzi 5"
+  },
+  "observed_hud_p1_name": "POLICIA",
+  "observed_hud_p2_name": "PAPZ 5",
+  "observed_p1_score": 700,
+  "two_hits_visible": true,
+  "two_hit_counter_text": "2 GOLPES",
+  "map_selection_gold_border_verified": true,
+  "framing_review": "Full landscape scene, HUD and controls. ImageIO: 0 px opaque RGB0 full-height left/right borders and 0 px on row 35%; all eight action originals of this fixture also measured 0.",
+  "original_attachment_filename": "81CE20CF-38E7-42D8-AC4B-12B72EEE6C1E.png",
+  "map_selection_evidence": {
+    "original_filename": "63CCCD02-A6BF-4694-8936-040B4470CB1F.png",
+    "sha256": "5afa607714cad5f40c40eaf9016bb4949cbd5af37345356c56f472f6654904f5",
+    "selected_gold_border_verified": true,
+    "matches_expected_stage": true
+  }
+}

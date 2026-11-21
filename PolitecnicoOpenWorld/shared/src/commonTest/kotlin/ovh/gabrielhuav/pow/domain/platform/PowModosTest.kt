@@ -50,6 +50,22 @@ class PowModosTest {
     }
 
     @Test
+    fun `el multijugador de Titulacion solo se ofrece en Android`() {
+        // En iOS no hay menú en línea ni transportes (BT RFCOMM, LAN): si el botón se pintara,
+        // quedaría muerto y la App Store rechaza botones que no hacen nada (Guideline 2.1).
+        assertTrue(sfMultijugadorDisponible(PowPlataforma.ANDROID))
+        assertFalse(sfMultijugadorDisponible(PowPlataforma.IOS))
+    }
+
+    @Test
+    fun `el interruptor de la App Store queda APAGADO en el repo`() {
+        // Titulación por Combate se publica en la App Store: el menú de iOS no puede enseñar
+        // modos en obras. Si lo enciendes para comparar menús en local, no lo subas así.
+        assertFalse(MODOS_EN_OBRAS_VISIBLES, "apagalo antes de subir: iOS no puede pintar obras")
+        assertEquals(emptySet(), modosEnObrasDe(PowPlataforma.IOS))
+    }
+
+    @Test
     fun `iOS es un SUBCONJUNTO de Android y nunca al reves`() {
         // Regla de sanidad: iOS no puede ofrecer algo que Android no tenga.
         assertTrue(modosDe(PowPlataforma.IOS).all { it in modosDe(PowPlataforma.ANDROID) })

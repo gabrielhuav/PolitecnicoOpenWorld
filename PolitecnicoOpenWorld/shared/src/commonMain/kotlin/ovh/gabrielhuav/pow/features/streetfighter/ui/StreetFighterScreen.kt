@@ -11,6 +11,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -508,136 +513,143 @@ fun StreetFighterScreenCommon(
         // ---- Controles de POW: joystick + diamante Xbox (ocultos en selección y en IA vs IA) ----
         // IA vs IA: ambos los controla la CPU → solo botón "Salir" al menú (sin joystick/botones).
         if (!state.inCharacterSelect && !state.aiVsAi) {
-            // 🆕 (2026-07-22) TUTORIAL: botón físico que pide el PASO ACTUAL (para el glow) y,
-            // si el paso lleva JOYSTICK, la dirección/gesto a marcar (para explicar el combo).
-            val tutorialStepLabel = if (state.tutorialActive && !state.tutorialCompleted) {
-                state.tutorialSteps.getOrNull(state.tutorialStepIndex)
-            } else {
-                null
-            }
-            // 🆕 EXAMEN EXTRAORDINARIO: con el panel de PASOS abierto, el siguiente paso se
-            // resalta igual que en el tutorial (flecha sobre el joystick o botón que brilla).
-            var extraShowSteps by remember { mutableStateOf(false) }
-            val extraHud = state.extraordinarioHud
-            val extraNext = if (extraShowSteps && extraHud != null && extraHud.flash.isEmpty()) {
-                extraHud.steps.getOrNull(extraHud.stepIndex)
-            } else {
-                null
-            }
-            val extraIsButton = extraNext != null && extraNext.length == 1 && extraNext[0].isLetter()
-            val tutorialButton = tutorialStepLabel?.let(::sfButtonForLabel) ?: extraNext?.takeIf { extraIsButton }
-            val tutorialJoystick = tutorialStepLabel?.let(::sfJoystickHintForLabel)
-                ?: extraNext?.takeIf { !extraIsButton }
-            JoystickController(
-                modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
-                tamano = 180.dp * controlsScale.coerceIn(0.6f, 1.4f),
-                onRelease = controller::onJoystickRelease,
-                // 🆕 (2026-07-25) Respuesta INMEDIATA al toque: en la pelea los controles deben
-                // responder al instante (agacharse/caminar). Con el arrastre de siempre un tap se
-                // perdía y tocar-y-mantener no registraba hasta cruzar el touch-slop.
-                respondToTouchDown = true,
-                onMove = controller::onJoystickMove,
-            )
-            // 🆕 (2026-07-22) Guía de JOYSTICK del tutorial: gesto/dirección a marcar (↓, →, dash,
-            // hadouken…), pulsando ENCIMA del joystick para que se sepa qué mover (p.ej. la Barrida
-            // = ↓ + patada: antes solo brillaba el botón y el ↓ no se explicaba).
-            if (tutorialJoystick != null) {
-                SfJoystickHint(
-                    text = tutorialJoystick,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(
-                        start = 30.dp,
-                        bottom = 12.dp + 138.dp * controlsScale.coerceIn(0.6f, 1.4f),
+            // La muesca tapa L1 en iPhone horizontal; solo los controles reservan ese espacio.
+            Box(
+                modifier = Modifier.fillMaxSize().windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
+                ),
+            ) {
+                // 🆕 (2026-07-22) TUTORIAL: botón físico que pide el PASO ACTUAL (para el glow) y,
+                // si el paso lleva JOYSTICK, la dirección/gesto a marcar (para explicar el combo).
+                val tutorialStepLabel = if (state.tutorialActive && !state.tutorialCompleted) {
+                    state.tutorialSteps.getOrNull(state.tutorialStepIndex)
+                } else {
+                    null
+                }
+                // 🆕 EXAMEN EXTRAORDINARIO: con el panel de PASOS abierto, el siguiente paso se
+                // resalta igual que en el tutorial (flecha sobre el joystick o botón que brilla).
+                var extraShowSteps by remember { mutableStateOf(false) }
+                val extraHud = state.extraordinarioHud
+                val extraNext = if (extraShowSteps && extraHud != null && extraHud.flash.isEmpty()) {
+                    extraHud.steps.getOrNull(extraHud.stepIndex)
+                } else {
+                    null
+                }
+                val extraIsButton = extraNext != null && extraNext.length == 1 && extraNext[0].isLetter()
+                val tutorialButton = tutorialStepLabel?.let(::sfButtonForLabel) ?: extraNext?.takeIf { extraIsButton }
+                val tutorialJoystick = tutorialStepLabel?.let(::sfJoystickHintForLabel)
+                    ?: extraNext?.takeIf { !extraIsButton }
+                JoystickController(
+                    modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+                    tamano = 180.dp * controlsScale.coerceIn(0.6f, 1.4f),
+                    onRelease = controller::onJoystickRelease,
+                    // 🆕 (2026-07-25) Respuesta INMEDIATA al toque: en la pelea los controles deben
+                    // responder al instante (agacharse/caminar). Con el arrastre de siempre un tap se
+                    // perdía y tocar-y-mantener no registraba hasta cruzar el touch-slop.
+                    respondToTouchDown = true,
+                    onMove = controller::onJoystickMove,
+                )
+                // 🆕 (2026-07-22) Guía de JOYSTICK del tutorial: gesto/dirección a marcar (↓, →, dash,
+                // hadouken…), pulsando ENCIMA del joystick para que se sepa qué mover (p.ej. la Barrida
+                // = ↓ + patada: antes solo brillaba el botón y el ↓ no se explicaba).
+                if (tutorialJoystick != null) {
+                    SfJoystickHint(
+                        text = tutorialJoystick,
+                        modifier = Modifier.align(Alignment.BottomStart).padding(
+                            start = 30.dp,
+                            bottom = 12.dp + 138.dp * controlsScale.coerceIn(0.6f, 1.4f),
+                        )
                     )
-                )
-            }
-            // OJO: padding-end grande a propósito — en landscape la barra de navegación/gestos
-            // del sistema vive en el borde DERECHO y se comía los toques del botón B (los combos
-            // "no salían" porque esos taps nunca llegaban a la app). Separado del borde, todos
-            // los toques caen dentro del juego.
-            FighterXboxButtons(
-                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 64.dp, bottom = 16.dp),
-                controlsScale = controlsScale,
-                onPunch = { strength -> controller.onAttackPressed(strength, SfAttackType.PUNCH) },
-                onKick = controller::onKickPressed,
-                bonusPowerCount = state.player.id.bonusPowerCount,
-                onBonusPower = controller::onBonusPowerPressed,
-                highlight = tutorialButton,
-            )
-            // 🆕 (2026-07-21) Botones del moveset 3rd Strike. Solo se muestran si el
-            // peleador TIENE ese arte (los compartidos/ALPHA no los tienen).
-            if (hasNewMoves) {
-                // 🆕 (2026-07-22) Rediseño "Neón Arcade": gatillos L (izquierda, encima del
-                // joystick) = L1 Parry · L2 Burla.
-                FighterShoulderButtons(
+                }
+                // OJO: padding-end grande a propósito — en landscape la barra de navegación/gestos
+                // del sistema vive en el borde DERECHO y se comía los toques del botón B (los combos
+                // "no salían" porque esos taps nunca llegaban a la app). Separado del borde, todos
+                // los toques caen dentro del juego.
+                FighterXboxButtons(
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 64.dp, bottom = 16.dp),
                     controlsScale = controlsScale,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(
-                            start = 16.dp,
-                            bottom = 12.dp + 173.dp * controlsScale.coerceIn(0.6f, 1.4f),
-                        ),
-                    isLeft = true,
-                    superReady = state.player.superReady,
-                    onParry = controller::onParryPressed,
-                    onGrab = controller::onGrabPressed,
-                    onTaunt = controller::onTauntPressed,
-                    onSuper = controller::onSuperArtPressed,
-                    showCounter = hasCounterMove,
-                    onCounter = controller::onCounterPressed,
+                    onPunch = { strength -> controller.onAttackPressed(strength, SfAttackType.PUNCH) },
+                    onKick = controller::onKickPressed,
+                    bonusPowerCount = state.player.id.bonusPowerCount,
+                    onBonusPower = controller::onBonusPowerPressed,
                     highlight = tutorialButton,
                 )
-                // Gatillos R (derecha, encima del diamante) = R1 Agarre · R2 Súper.
-                FighterShoulderButtons(
-                    controlsScale = controlsScale,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(
-                            end = 16.dp,
-                            bottom = 16.dp + 174.dp * controlsScale.coerceIn(0.6f, 1.4f),
-                        ),
-                    isLeft = false,
-                    superReady = state.player.superReady,
-                    onParry = controller::onParryPressed,
-                    onGrab = controller::onGrabPressed,
-                    onTaunt = controller::onTauntPressed,
-                    onSuper = controller::onSuperArtPressed,
-                    showPowerThrow = hasPowerThrowMove,
-                    onPowerThrow = controller::onPowerThrowPressed,
-                    highlight = tutorialButton,
-                )
+                // 🆕 (2026-07-21) Botones del moveset 3rd Strike. Solo se muestran si el
+                // peleador TIENE ese arte (los compartidos/ALPHA no los tienen).
+                if (hasNewMoves) {
+                    // 🆕 (2026-07-22) Rediseño "Neón Arcade": gatillos L (izquierda, encima del
+                    // joystick) = L1 Parry · L2 Burla.
+                    FighterShoulderButtons(
+                        controlsScale = controlsScale,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(
+                                start = 16.dp,
+                                bottom = 12.dp + 173.dp * controlsScale.coerceIn(0.6f, 1.4f),
+                            ),
+                        isLeft = true,
+                        superReady = state.player.superReady,
+                        onParry = controller::onParryPressed,
+                        onGrab = controller::onGrabPressed,
+                        onTaunt = controller::onTauntPressed,
+                        onSuper = controller::onSuperArtPressed,
+                        showCounter = hasCounterMove,
+                        onCounter = controller::onCounterPressed,
+                        highlight = tutorialButton,
+                    )
+                    // Gatillos R (derecha, encima del diamante) = R1 Agarre · R2 Súper.
+                    FighterShoulderButtons(
+                        controlsScale = controlsScale,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(
+                                end = 16.dp,
+                                bottom = 16.dp + 174.dp * controlsScale.coerceIn(0.6f, 1.4f),
+                            ),
+                        isLeft = false,
+                        superReady = state.player.superReady,
+                        onParry = controller::onParryPressed,
+                        onGrab = controller::onGrabPressed,
+                        onTaunt = controller::onTauntPressed,
+                        onSuper = controller::onSuperArtPressed,
+                        showPowerThrow = hasPowerThrowMove,
+                        onPowerThrow = controller::onPowerThrowPressed,
+                        highlight = tutorialButton,
+                    )
+                }
+                // 🆕 (2026-07-21) TUTORIAL: HUD guía encima de la pelea (el jugador usa los
+                // controles normales; el rival es un muñeco inerte).
+                if (state.tutorialActive) {
+                    SfTutorialOverlay(
+                        lesson = state.tutorialLesson,
+                        total = state.tutorialTotal,
+                        title = state.tutorialTitle,
+                        hint = state.tutorialHint,
+                        steps = state.tutorialSteps,
+                        stepIndex = state.tutorialStepIndex,
+                        flash = state.tutorialFlash,
+                        error = state.tutorialError,
+                        completed = state.tutorialCompleted,
+                        onSkip = controller::tutorialSkipLesson,
+                        onRestart = controller::tutorialRestartLesson,
+                        // `exitTutorial` devuelve el estado a selección de personaje; el
+                        // LaunchedEffect(inCharacterSelect) reabre el flujo normal del modo.
+                        onExit = controller::exitTutorial,
+                    )
+                }
+                // 🆕 EXAMEN EXTRAORDINARIO: botones PASOS/SALIR, panel del comando y ¡APROBADO!
+                if (state.extraordinarioActive && extraHud != null) {
+                    SfExtraordinarioOverlay(
+                        hud = extraHud,
+                        showSteps = extraShowSteps,
+                        onToggleSteps = { extraShowSteps = !extraShowSteps },
+                        onExit = controller::backToCharacterSelect,
+                    )
+                }
+                // 🆕 (2026-07-22) El hint de controles al fondo se QUITÓ (pedido del dueño): estorbaba
+                // y además citaba los botones viejos (P/G/S). Los controles se aprenden en la hoja de
+                // combos + el tutorial; los botones ya se rotularon L1/L2/R1/R2.
             }
-            // 🆕 (2026-07-21) TUTORIAL: HUD guía encima de la pelea (el jugador usa los
-            // controles normales; el rival es un muñeco inerte).
-            if (state.tutorialActive) {
-                SfTutorialOverlay(
-                    lesson = state.tutorialLesson,
-                    total = state.tutorialTotal,
-                    title = state.tutorialTitle,
-                    hint = state.tutorialHint,
-                    steps = state.tutorialSteps,
-                    stepIndex = state.tutorialStepIndex,
-                    flash = state.tutorialFlash,
-                    error = state.tutorialError,
-                    completed = state.tutorialCompleted,
-                    onSkip = controller::tutorialSkipLesson,
-                    onRestart = controller::tutorialRestartLesson,
-                    // `exitTutorial` devuelve el estado a selección de personaje; el
-                    // LaunchedEffect(inCharacterSelect) reabre el flujo normal del modo.
-                    onExit = controller::exitTutorial,
-                )
-            }
-            // 🆕 EXAMEN EXTRAORDINARIO: botones PASOS/SALIR, panel del comando y ¡APROBADO!
-            if (state.extraordinarioActive && extraHud != null) {
-                SfExtraordinarioOverlay(
-                    hud = extraHud,
-                    showSteps = extraShowSteps,
-                    onToggleSteps = { extraShowSteps = !extraShowSteps },
-                    onExit = controller::backToCharacterSelect,
-                )
-            }
-            // 🆕 (2026-07-22) El hint de controles al fondo se QUITÓ (pedido del dueño): estorbaba
-            // y además citaba los botones viejos (P/G/S). Los controles se aprenden en la hoja de
-            // combos + el tutorial; los botones ya se rotularon L1/L2/R1/R2.
         }
         // IA vs IA: botón "Salir" al menú de modos (sin controles táctiles de pelea).
         // Durante el AUTOJUEGO se oculta: ahí manda el botón DETENER de abajo.

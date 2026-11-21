@@ -1,0 +1,52 @@
+{
+  "coverage_index": 53,
+  "stage_file": "fondo_planetario_noche_1_anim.webp",
+  "stage_title": "Planetario (Noche)",
+  "lighting": "night",
+  "p1_id": "ROBOT",
+  "p1_name": "Robot Estudiantx",
+  "p2_id": "ALEXIS_SYNTAXIS",
+  "p2_name": "Alexis Syntaxis",
+  "action": "quarter-circle-right-X",
+  "captured_at": "2026-11-16T17:19:59Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "local_ui_changes": "landscape route and horizontal safe insets",
+  "capture_api": "XCUIScreen.main.screenshot",
+  "original_png": true,
+  "engine_hooks": false,
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "installed_build_evidence": "pr188-projectile-xcodebuild.log / pr188-projectile-install.log",
+  "file": "53-planetario-night.png",
+  "sha256": "fd216b4b6008b644975fb89352602f036d3262c728f77a787155adeb6721a761",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "bundle_version": "1.0",
+  "bundle_build": "1",
+  "validation_status": "visually_reviewed",
+  "observed_action_es": "Haz cian corto visible desde el visor del Robot frente a Alexis Syntaxis; Planetario nocturno iluminado y P1 100.",
+  "observed_pair": {
+    "p1_id": "ROBOT",
+    "p1_name": "Robot Estudiantx",
+    "p2_id": "ALEXIS_SYNTAXIS",
+    "p2_name": "Alexis Syntaxis"
+  },
+  "observed_hud_p1_name": "ROBOT",
+  "observed_hud_p2_name": "SYNTAXIS",
+  "observed_p1_score": 100,
+  "two_hits_visible": false,
+  "two_hit_counter_text": null,
+  "map_selection_gold_border_verified": true,
+  "framing_review": "Full landscape scene reaches both edges; no native black side bands in selected original.",
+  "original_attachment_filename": "46C64092-93EC-45B3-A67C-E812DAE96B37.png",
+  "map_selection_evidence": {
+    "original_filename": "26EBED14-E607-43AF-88B1-8C932B5A97D7.png",
+    "sha256": "0298a4dbe79c403ceed6236281d8126bd4d816cf417845fb1cee004ffee2a4a3",
+    "selected_gold_border_verified": true,
+    "matches_expected_stage": true
+  }
+}

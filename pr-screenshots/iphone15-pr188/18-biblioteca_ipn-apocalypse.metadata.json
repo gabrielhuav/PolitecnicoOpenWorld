@@ -1,0 +1,52 @@
+{
+  "coverage_index": 18,
+  "stage_file": "fondo_biblioteca_ipn_noche_2_anim.webp",
+  "stage_title": "Biblioteca Nacional IPN (Noche 2)",
+  "lighting": "apocalypse",
+  "p1_id": "POLICIA_GRANADERO_MUJER",
+  "p1_name": "Policía Granadero CDMX (Mujer)",
+  "p2_id": "POLICIA_GRANADERO_HOMBRE",
+  "p2_name": "Policía Granadero CDMX (Hombre)",
+  "action": "after-X",
+  "captured_at": "2026-11-16T17:13:27Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "local_ui_changes": "landscape route and horizontal safe insets",
+  "capture_api": "XCUIScreen.main.screenshot",
+  "original_png": true,
+  "engine_hooks": false,
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "installed_build_evidence": "pr188-projectile-xcodebuild.log / pr188-projectile-install.log",
+  "file": "18-biblioteca_ipn-apocalypse.png",
+  "sha256": "86934b10e086eede2323a1176be98bff3725378e0e053ccb874bcd762b37b754",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "bundle_version": "1.0",
+  "bundle_build": "1",
+  "validation_status": "visually_reviewed",
+  "observed_action_es": "Granadera y Granadero H separados, rostros/visores reconocibles y contador 2 GOLPES legible sobre Biblioteca Nacional IPN apocalíptica; P1 400.",
+  "observed_pair": {
+    "p1_id": "POLICIA_GRANADERO_MUJER",
+    "p1_name": "Policía Granadero CDMX (Mujer)",
+    "p2_id": "POLICIA_GRANADERO_HOMBRE",
+    "p2_name": "Policía Granadero CDMX (Hombre)"
+  },
+  "observed_hud_p1_name": "GRANADERA",
+  "observed_hud_p2_name": "GRANADERO H",
+  "observed_p1_score": 400,
+  "two_hits_visible": true,
+  "two_hit_counter_text": "2 GOLPES",
+  "map_selection_gold_border_verified": true,
+  "framing_review": "Full landscape scene, HUD and controls. ImageIO: 0 px opaque RGB0 full-height left/right borders and 0 px on row 35%; all eight action originals of this fixture also measured 0.",
+  "original_attachment_filename": "EBB6828B-2718-48C0-8388-D32CA5F41B2E.png",
+  "map_selection_evidence": {
+    "original_filename": "5C8B3CFB-ABF8-4222-A1C1-33245576E622.png",
+    "sha256": "68509a8736e1a566e85acc0dad14151784133b931636d629dd8059dfc24db568",
+    "selected_gold_border_verified": true,
+    "matches_expected_stage": true
+  }
+}

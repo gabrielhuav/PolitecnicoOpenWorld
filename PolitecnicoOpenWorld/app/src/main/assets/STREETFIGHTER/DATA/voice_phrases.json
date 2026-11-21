@@ -17,8 +17,8 @@
       "draft": ""
     },
     "special_charro_hurt_1": {
-      "es": "Auuuuuu...",
-      "en": "Auuuuuu...",
+      "es": "¡Ay, duele... pero ese dolor te lo voy a multiplicar con creces!",
+      "en": "Ouch, that hurts... but I'll multiply that pain many times over!",
       "draft": "¡Cri, cri, cri, cri, cri!"
     },
     "special_charro_hurt_2": {
@@ -32,9 +32,14 @@
       "draft": ""
     },
     "special_charro_negro": {
-      "es": "Aauuuggg...",
-      "en": "Aauuuggg...",
+      "es": "¡Tu destino quedó marcado en negro... ¡Muere!",
+      "en": "Your fate has been marked in black... Die!",
       "draft": "Aaaaaaaaaaaaaaaaaaaaa"
+    },
+    "special_charro_negro_win": {
+      "es": "¡Uyy... devolver el alma de Beatriz? Eso no se va a poder... Ya me la llevé",
+      "en": "Oh... return Beatriz's soul? That's not going to happen... I already took it.",
+      "draft": ""
     },
     "special_escomboy_attack": {
       "es": "",

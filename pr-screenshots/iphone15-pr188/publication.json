@@ -1,0 +1,699 @@
+{
+  "pr": 188,
+  "comment_url": "https://github.com/gabrielhuav/PolitecnicoOpenWorld/pull/188#issuecomment-6907989505",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "published_at_date": "2026-11-16",
+  "published_images": 61,
+  "fighters_in_previews": 19,
+  "images": [
+    {
+      "filename": "charro-4-golpes.png",
+      "url": "https://github.com/user-attachments/assets/0df93365-2726-401d-b8bf-eb0ed9f369be",
+      "title_en": "El Charro Negro vs El Charro Negro — Four-hit combo",
+      "caption_en": "Both Charros are fully visible in combat with the localized 4 GOLPES counter. This extra AI-vs-AI screenshot is outside the 60-background matrix and does not establish the final match result by itself.",
+      "sha256": "753f9ed3a0aceb62c1497c88c07b6428239146972eb587b6b512097d5c06f324"
+    },
+    {
+      "filename": "02-escom-night.png",
+      "url": "https://github.com/user-attachments/assets/b880fedf-9aeb-4da5-a601-e3571ef09710",
+      "title_en": "Estudiante vs Estudianta — ESCOM · Night",
+      "caption_en": "The fighters are separated and clearly visible, with the localized 2 GOLPES counter, a P1 score of 700 and a reduced P2 health bar.",
+      "sha256": "e0dea4382979ccb2f5c656c5f7ee445cb60317113bb51aea7c2bb332eadd095b"
+    },
+    {
+      "filename": "06-queso_ipn-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/1e92d72a-14b7-468e-96e3-0b45e7bd8bf6",
+      "title_en": "El Señor de la Tienda vs Paparazzi 1 — Queso IPN · Night 2",
+      "caption_en": "El Señor de la Tienda holds a broom with its straw head visible, facing Paparazzi 1 on the Night 2 Queso IPN stage. The HUD identifies TIENDA and PAPZ 1; this frame does not show a connected hit.",
+      "sha256": "7b46dc379f9621900187a5d81275f83ef214132d52745f155d567aee17b4101a"
+    },
+    {
+      "filename": "09-esime_azc-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/0ce7752f-7f5b-4e15-8e65-8aa55c1c2876",
+      "title_en": "Prankedy vs Rey Grupero — ESIME Azcapotzalco · Night 2",
+      "caption_en": "The 2 GOLPES counter is clearly visible as Rey Grupero raises his hands toward his face in front of Prankedy. Fog and crows appear on the Night 2 ESIME stage; P1 has 400 points and P2 has lost health.",
+      "sha256": "ddf983145ee7d54108a1564070a7114c5ad4636ace952cf22fffb115d6f2b351"
+    },
+    {
+      "filename": "10-cecyt_9-day.png",
+      "url": "https://github.com/user-attachments/assets/6c5e7091-ad3f-43b8-aa72-affda9adee2e",
+      "title_en": "Robot Estudiantx vs Alexis Syntaxis — CECyT 9 · Day",
+      "caption_en": "A cyan beam extends from Robot Estudiantx’s visor toward Alexis Syntaxis, whose blue suit and glasses are visible at CECyT 9 by day. Both scores are 100; the frame does not establish that the beam connected.",
+      "sha256": "5cf92072d940557d288d106c6b4d098a01794ec84a42fddb342c77f62cf9321e"
+    },
+    {
+      "filename": "15-cecyt_2-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/bbbdb256-b109-4826-86bd-afbe4146545f",
+      "title_en": "Paparazzi 5 vs Policía CDMX (Hombre) — CECyT 2 · Night 2",
+      "caption_en": "The 2 GOLPES counter is clearly visible above Paparazzi 5 and the officer, with yellow stars above the officer. Both bodies are legible on the Night 2 CECyT 2 stage; P1 has 400 points and P2 has lost health.",
+      "sha256": "436f09f53f5d6a36cf966aca8308079846d6d0faadd58cf60c0b988599461326"
+    },
+    {
+      "filename": "16-biblioteca_ipn-day.png",
+      "url": "https://github.com/user-attachments/assets/5368ee5a-2bc1-421e-954b-5ff73af5bf63",
+      "title_en": "Policía Granadero CDMX (Mujer) vs Policía Granadero CDMX (Hombre) — Biblioteca Nacional IPN · Day",
+      "caption_en": "Granadera and Granadero H are separated, with recognizable helmets, visors and shields. A 2 GOLPES counter is visible at Biblioteca Nacional IPN by day; P1 has 700 points.",
+      "sha256": "e7c4606eb1e424606cccc2b451a3e3ee57a64bea85e876a31b4831f423f847ac"
+    },
+    {
+      "filename": "19-unam_biblioteca_cu-day.png",
+      "url": "https://github.com/user-attachments/assets/af0bcaef-7e41-4cf0-bd6b-10efe64c314e",
+      "title_en": "Policía CDMX vs La Presidenta — Ciudad Universitaria UNAM · Day",
+      "caption_en": "Policía CDMX extends a fist as La Presidenta raises her hands beside her face. The 2 GOLPES counter, P1 score of 400 and reduced P2 health bar are visible in front of the Ciudad Universitaria mural by day.",
+      "sha256": "7686361a4dde6a3bbe0290ede8d0af18cf821d842ecc92c835a1b24437b129cb"
+    },
+    {
+      "filename": "23-fes_acatlan-night.png",
+      "url": "https://github.com/user-attachments/assets/41b50348-7726-429e-bb5a-1def918b60b5",
+      "title_en": "El Charro Negro vs La Planchada — FES Acatlán · Night",
+      "caption_en": "El Charro Negro advances with one arm raised toward La Planchada. Their bodies remain separated and the 2 GOLPES counter is visible at FES Acatlán by night; P1 has 400 points.",
+      "sha256": "9545b043ee42dd5b1c9635a2c3c3b4e4395bbb7a1512c0d85b92300d52e46570"
+    },
+    {
+      "filename": "26-uam_azcapo-night.png",
+      "url": "https://github.com/user-attachments/assets/a1d322d7-2ab2-4b60-9ccd-13b3540f380d",
+      "title_en": "La Tzitzimime vs Yoalli Ehécatl — UAM Azcapotzalco · Night",
+      "caption_en": "La Tzitzimime and Yoalli Ehécatl are separated, with a visible 2 GOLPES counter at UAM Azcapotzalco by night. P1 has 400 points.",
+      "sha256": "26ca871f52ed8dcea17da91dbe443e813e65cce49ede27004b60f318d3335ca9"
+    },
+    {
+      "filename": "28-islamunecas-day.png",
+      "url": "https://github.com/user-attachments/assets/fb294825-c623-4341-acc1-4af100b435a2",
+      "title_en": "La Llorona vs El Charro Negro — Isla de las Muñecas · Day",
+      "caption_en": "La Llorona leans toward El Charro Negro with a visible 2 GOLPES counter. Both characters are recognizable at Isla de las Muñecas by day; P1 has 400 points.",
+      "sha256": "f9669b75444d9fc0b63d4fa0a559b2ae449d23ed1365a3a2851ebee980416b6c"
+    },
+    {
+      "filename": "01-escom-day.png",
+      "url": "https://github.com/user-attachments/assets/1d4e7dee-7160-402f-865c-1afd19b7fea8",
+      "title_en": "Estudiante vs Estudianta — ESCOM · Day",
+      "caption_en": "Estudiante is airborne with an extended fist while Estudianta remains fully visible on the ground. Daytime ESCOM and the complete HUD are visible; this frame does not show an impact or health loss.",
+      "sha256": "d87f6758fcf5396c652a48793eb8b02d319f7f129530cd4501e3771d85be47e4"
+    },
+    {
+      "filename": "03-escom-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/2117de4f-6a12-40f0-af5c-32eebe9bef2c",
+      "title_en": "Estudiante vs Estudianta — ESCOM · Night 2",
+      "caption_en": "Estudiante crouches with a bright cyan effect in front of his hands while Estudianta remains fully visible. Fog covers the Night 2 ESCOM stage; P1 has 400 points and P2 has lost health.",
+      "sha256": "1e4d6d30e88d9d97169535e60b82c074590a0386a1c68c9bddd6fbebc952605e"
+    },
+    {
+      "filename": "04-queso_ipn-day.png",
+      "url": "https://github.com/user-attachments/assets/f3850200-dd2d-4b58-ac2f-3fe47fab7922",
+      "title_en": "El Señor de la Tienda vs Paparazzi 1 — Queso IPN · Day",
+      "caption_en": "El Señor de la Tienda and Paparazzi 1 are separated, with recognizable faces and a visible 2 GOLPES counter at Queso IPN by day. P1 has 700 points.",
+      "sha256": "5865be8c47a231ecb3b9cf572c6f0f7cce68b2d4d463c9a81e6e611eb0b638ae"
+    },
+    {
+      "filename": "05-queso_ipn-night.png",
+      "url": "https://github.com/user-attachments/assets/3262f6cc-17cd-4fed-8369-5cb179d83db5",
+      "title_en": "El Señor de la Tienda vs Paparazzi 1 — Queso IPN · Night",
+      "caption_en": "El Señor de la Tienda attacks in front of Paparazzi 1, with both faces visible and a 2 GOLPES counter at Queso IPN by night. P1 has 400 points.",
+      "sha256": "251e3e6127848bb2ee1f0fd31d7e92ce21a88ec330bfa0f41cfed7ba11f7957f"
+    },
+    {
+      "filename": "07-esime_azc-day.png",
+      "url": "https://github.com/user-attachments/assets/bdbecca6-423b-4031-8c50-bd903206593d",
+      "title_en": "Prankedy vs Rey Grupero — ESIME Azcapotzalco · Day",
+      "caption_en": "Prankedy extends a fist toward Rey Grupero. Both fighters are fully visible against the ESIME Azcapotzalco wall by day; P1 has 400 points and P2 has lost health. No combo counter is visible.",
+      "sha256": "3683aa8655c7f641b4eef8e7e24384a616de7c6df1d30775508e8553623b00f1"
+    },
+    {
+      "filename": "08-esime_azc-night.png",
+      "url": "https://github.com/user-attachments/assets/75caf5a5-cd40-482a-930c-db1d4593811f",
+      "title_en": "Prankedy vs Rey Grupero — ESIME Azcapotzalco · Night",
+      "caption_en": "Prankedy is airborne with tucked legs and a fist forward while Rey Grupero remains on the ground. The moon, illuminated ESIME building and P1 score of 500 are visible; this frame does not establish an impact.",
+      "sha256": "4e4d1434bf7abc302500826d3592b8b038cd180fcb186f2cf242b2ab59db86b9"
+    },
+    {
+      "filename": "11-cecyt_9-night.png",
+      "url": "https://github.com/user-attachments/assets/d4547733-d291-49ac-b6a9-0b1baa2773d8",
+      "title_en": "Robot Estudiantx vs Alexis Syntaxis — CECyT 9 · Night",
+      "caption_en": "Robot Estudiantx is airborne with one arm extended while Alexis Syntaxis is fully visible on the ground at CECyT 9 by night. P1 has 200 points; the pose alone does not establish an aerial hit.",
+      "sha256": "e9147df4df6cc88e65f1aaf936122b9ecd826155cfaedcf07dce7b9738f4ea5b"
+    },
+    {
+      "filename": "12-cecyt_9-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/d02b5574-634f-4c0d-be8a-8808125e884c",
+      "title_en": "Robot Estudiantx vs Alexis Syntaxis — CECyT 9 · Night 2",
+      "caption_en": "Robot Estudiantx hovers with an arm raised beside a leaning Alexis Syntaxis on the Night 2 CECyT 9 stage. A cyan thruster effect is visible below the robot; P1 has 900 points and P2 has lost health. No combo counter is visible.",
+      "sha256": "a180cdddcfb14da9dec897284e49353ac5adee4e8cc050c74d5c61db9dfea63c"
+    },
+    {
+      "filename": "13-cecyt_2-day.png",
+      "url": "https://github.com/user-attachments/assets/850ad2db-5289-4447-92e2-1cfe9988d0db",
+      "title_en": "Paparazzi 5 vs Policía CDMX (Hombre) — CECyT 2 · Day",
+      "caption_en": "Paparazzi 5 is airborne with an arm extended while Policía CDMX (Hombre) is fully visible on the ground at CECyT 2 by day. P1 has 300 points; the pose alone does not establish a connected hit.",
+      "sha256": "37c63557e222ccfe7e88bbb6fb58c94906fe65264ef899a33a99a487a1bf2402"
+    },
+    {
+      "filename": "14-cecyt_2-night.png",
+      "url": "https://github.com/user-attachments/assets/96156271-f649-4788-b326-266c1cb63589",
+      "title_en": "Paparazzi 5 vs Policía CDMX (Hombre) — CECyT 2 · Night",
+      "caption_en": "Paparazzi 5 extends a fist, with a small yellow flash in front of the officer’s cap. CECyT 2 by night, the PAPZ 5/POLICIA H HUD and a P1 score of 700 are visible; P2 has lost health. No combo counter is visible.",
+      "sha256": "9abc7bb6fd476607e6f1564654225e1a6bed4beac6fec2a8a114d86c2a40f8ea"
+    },
+    {
+      "filename": "17-biblioteca_ipn-night.png",
+      "url": "https://github.com/user-attachments/assets/f37acc5f-17b3-4851-b5b2-53f3eef26bf9",
+      "title_en": "Policía Granadero CDMX (Mujer) vs Policía Granadero CDMX (Hombre) — Biblioteca Nacional IPN · Night",
+      "caption_en": "Granadera extends an arm holding a baton-like object near Granadero H and his shield. Their identities and HUD remain recognizable at Biblioteca Nacional IPN by night; P1 has 0 points. The gesture or subtitle does not identify an audio clip.",
+      "sha256": "0eecab133d59481f1a37d42db5bb62b1f3b7c1cb386eb83c8a38eb510a94a500"
+    },
+    {
+      "filename": "18-biblioteca_ipn-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/142193bb-f1ec-45f6-8e70-6e569c665020",
+      "title_en": "Policía Granadero CDMX (Mujer) vs Policía Granadero CDMX (Hombre) — Biblioteca Nacional IPN · Night 2",
+      "caption_en": "Granadera and Granadero H are separated, with recognizable faces and visors and a visible 2 GOLPES counter on the Night 2 Biblioteca Nacional IPN stage. P1 has 400 points.",
+      "sha256": "86934b10e086eede2323a1176be98bff3725378e0e053ccb874bcd762b37b754"
+    },
+    {
+      "filename": "20-unam_biblioteca_cu-night.png",
+      "url": "https://github.com/user-attachments/assets/1faf0119-b721-46ac-a448-c95bbaa2627e",
+      "title_en": "Policía CDMX vs La Presidenta — Ciudad Universitaria UNAM · Night",
+      "caption_en": "Policía CDMX and La Presidenta face each other with clearly visible bodies and faces in front of the illuminated Ciudad Universitaria mural by night. The HUD identifies POLICIA/PRESIDENTA and P1 has 300 points; no impact, combo or jump is shown.",
+      "sha256": "96536560b12c3e04e1d2d11312165081e897c0491df53b3bbc567284505674ed"
+    },
+    {
+      "filename": "21-unam_biblioteca_cu-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/3ca15be3-319d-44be-9705-96d238f9ab6b",
+      "title_en": "Policía CDMX vs La Presidenta — Ciudad Universitaria UNAM · Night 2",
+      "caption_en": "Policía CDMX extends a fist while La Presidenta stands apart, with both faces recognizable on the Night 2 CU UNAM stage. P1 has 100 points and P2 has lost health.",
+      "sha256": "7f93b64e3e1eab80f15486344a4faa5070f38850774ad5d117f4bcf636a0a773"
+    },
+    {
+      "filename": "22-fes_acatlan-day.png",
+      "url": "https://github.com/user-attachments/assets/7feb9e41-f4e2-4189-aef6-353d854ed12a",
+      "title_en": "El Charro Negro vs La Planchada — FES Acatlán · Day",
+      "caption_en": "El Charro Negro and La Planchada are fully visible and separated at FES Acatlán by day, with both faces legible. P1 has 400 points.",
+      "sha256": "c35cdf2840a588e4f1ced72b06d45860319f9f6ab03b02441a8a614e568684f8"
+    },
+    {
+      "filename": "24-fes_acatlan-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/617341ce-cb2f-4a1d-af96-f4366483da07",
+      "title_en": "El Charro Negro vs La Planchada — FES Acatlán · Night 2",
+      "caption_en": "El Charro Negro leans forward while La Planchada stands apart, with the 2 GOLPES counter visible on the Night 2 FES Acatlán stage. P1 has 400 points.",
+      "sha256": "029a63ee116db607507ca7530ada9bb9d71bd9cca076256c82444e78ed03e4b0"
+    },
+    {
+      "filename": "25-uam_azcapo-day.png",
+      "url": "https://github.com/user-attachments/assets/936fefb2-fa2b-44e8-a6ad-d7910b641198",
+      "title_en": "La Tzitzimime vs Yoalli Ehécatl — UAM Azcapotzalco · Day",
+      "caption_en": "La Tzitzimime extends her arms toward Yoalli Ehécatl, with both bodies and faces recognizable among the jacarandas at UAM Azcapotzalco by day. P1 has 300 points.",
+      "sha256": "4569c6f762d7ee4b656d2e6bec70564b3f7a05bc52447c881371b656363ebd00"
+    },
+    {
+      "filename": "27-uam_azcapo-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/b3767010-e462-43b6-bfad-2f7401111622",
+      "title_en": "La Tzitzimime vs Yoalli Ehécatl — UAM Azcapotzalco · Night 2",
+      "caption_en": "La Tzitzimime is airborne while Yoalli Ehécatl remains fully visible on the ground, with recognizable faces, a red moon and a swirling effect on the Night 2 UAM Azcapotzalco stage. P1 has 500 points; the pose alone does not establish an impact.",
+      "sha256": "05c1b9aa1753aa44e6ee96da5d1fb0f4b32e2ff0923297f45351ba427bc8d79e"
+    },
+    {
+      "filename": "29-islamunecas-night.png",
+      "url": "https://github.com/user-attachments/assets/6767287e-656e-4331-ab3d-77c8a920601d",
+      "title_en": "La Llorona vs El Charro Negro — Isla de las Muñecas · Night",
+      "caption_en": "La Llorona and El Charro Negro are separated, with a clear 2 GOLPES counter, hanging dolls and nighttime reflections visible at Isla de las Muñecas. P1 has 400 points.",
+      "sha256": "f474bb97d9832a4f079240e995610297b40fa416efc93d94c8e6b91feba88744"
+    },
+    {
+      "filename": "30-islamunecas-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/b327a0ea-43bb-44e7-ab32-de0b80ca581f",
+      "title_en": "La Llorona vs El Charro Negro — Isla de las Muñecas · Night 2",
+      "caption_en": "La Llorona is airborne above El Charro Negro, with both faces and the complete HUD visible on the Night 2 Isla de las Muñecas stage. P1 has 400 points; the pose alone does not establish an impact.",
+      "sha256": "79d20e2a70d2383a5febfd1fdeb4fde19ee17efec2bc87f1781cf459db5ae172"
+    },
+    {
+      "filename": "31-mictlan-day.png",
+      "url": "https://github.com/user-attachments/assets/5177a6ca-8c62-46aa-ae90-88a966c226bf",
+      "title_en": "Yoalli Ehécatl vs La Presidenta — Mictlán · Day",
+      "caption_en": "Yoalli Ehécatl leans forward while La Presidenta stands apart, with both faces recognizable against Mictlán’s orange landscape and candles. P1 has 100 points.",
+      "sha256": "b7489cd001d7b8fee3d812bf5d4fa1a3fc7c47d23214048e4c24451a66a1923f"
+    },
+    {
+      "filename": "32-mictlan-night.png",
+      "url": "https://github.com/user-attachments/assets/57af8dae-f00d-4921-bc4e-75fca1bb85c1",
+      "title_en": "Yoalli Ehécatl vs La Presidenta — Mictlán · Night",
+      "caption_en": "Yoalli Ehécatl attacks while La Presidenta reacts with her hands beside her face. The 2 GOLPES counter is visible at Mictlán by night; P1 has 400 points.",
+      "sha256": "5eff3e39b6caddbdb36ea5295b0a7835cc3ca344d29d1e34a80a9212aa3952ac"
+    },
+    {
+      "filename": "33-mictlan-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/7d4ed2a8-c6a8-49e8-8f2d-65dc133c2cd0",
+      "title_en": "Yoalli Ehécatl vs La Presidenta — Mictlán · Night 2",
+      "caption_en": "Yoalli Ehécatl is airborne on the right while La Presidenta stands on the left, both recognizable under the red moon on the Night 2 Mictlán stage. P1 has 700 points; their screen positions do not change their P1/P2 HUD identities.",
+      "sha256": "13fbcc2e479c0315d6bed5a0f2ee7ee2818b1ecbc15f65b0b7708d63803de31d"
+    },
+    {
+      "filename": "34-campos_agave_jalisco-day.png",
+      "url": "https://github.com/user-attachments/assets/de27b8ff-b7a2-4e66-b25d-b9881db5aacd",
+      "title_en": "El Charro Negro vs Rey Grupero — Campos de Agave Jalisco · Day",
+      "caption_en": "El Charro Negro extends an arm with small green particles near his fist toward Rey Grupero, with both faces visible in the agave fields by day. P1 has 300 points; this frame does not establish a connected special attack.",
+      "sha256": "d6f866d86a7e715edf52f308c83d82d9ccf6a0c7443396751a021e749787ad8c"
+    },
+    {
+      "filename": "35-campos_agave_jalisco-night.png",
+      "url": "https://github.com/user-attachments/assets/af2a5ea0-388a-4e21-b48b-076ae236c123",
+      "title_en": "El Charro Negro vs Rey Grupero — Campos de Agave Jalisco · Night",
+      "caption_en": "El Charro Negro advances toward Rey Grupero with a visible 2 GOLPES counter, agave plants and an illuminated gazebo by night. P1 has 400 points.",
+      "sha256": "9aa95b30a7b810d1ffd13da85b6d138b19eabf5f679151f47a3895de93279807"
+    },
+    {
+      "filename": "36-campos_agave_jalisco-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/779702f6-f939-4adc-959d-6a9bbb326b2a",
+      "title_en": "El Charro Negro vs Rey Grupero — Campos de Agave Jalisco · Night 2",
+      "caption_en": "El Charro Negro stands on the left and Rey Grupero guards on the right, with separated faces and the complete HUD visible on the Night 2 Campos de Agave Jalisco stage. P1 has 500 points.",
+      "sha256": "0a506f04e8d1214b3f2f30e00f250d049c3e708f43b22d375b48065fb7401bc2"
+    },
+    {
+      "filename": "37-facultad_medicina-day.png",
+      "url": "https://github.com/user-attachments/assets/a160b4ed-fdc9-455e-b0b8-63dc4a9dd15c",
+      "title_en": "Alexis Syntaxis vs Robot Estudiantx — Facultad de Medicina · Day",
+      "caption_en": "Alexis Syntaxis and Robot Estudiantx are separated, with a 2 GOLPES counter at Facultad de Medicina by day. The face and visor are legible; P1 has 400 points.",
+      "sha256": "78c85c7067535947dd9a34f4f8b5b957d08d97bc08eb95e5bb71921f5ae796cf"
+    },
+    {
+      "filename": "38-facultad_medicina-night.png",
+      "url": "https://github.com/user-attachments/assets/fa3654ca-70fd-4598-9a33-40c36f4a2e76",
+      "title_en": "Alexis Syntaxis vs Robot Estudiantx — Facultad de Medicina · Night",
+      "caption_en": "Alexis Syntaxis extends a fist toward Robot Estudiantx, with the face and visor legible at Facultad de Medicina by night. P1 has 300 points.",
+      "sha256": "cf1d87f0b2f69b9fe61fd85193dac8a84cafd9fc8382fa3df8a42aa72b0625e9"
+    },
+    {
+      "filename": "39-facultad_medicina-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/debcd886-69a9-4ee7-a282-7b5112c2e4f6",
+      "title_en": "Alexis Syntaxis vs Robot Estudiantx — Facultad de Medicina · Night 2",
+      "caption_en": "Alexis Syntaxis and Robot Estudiantx are separated, with a visible 2 GOLPES counter on the Night 2 Facultad de Medicina stage. P1 has 400 points.",
+      "sha256": "067b2eef97c1e6271b408d10bdf4e71fe162cdde16c624e35ff5ea7993e5163a"
+    },
+    {
+      "filename": "40-fes_aragon-day.png",
+      "url": "https://github.com/user-attachments/assets/0247225e-4e88-4565-a187-8b3281a234d5",
+      "title_en": "Rey Grupero vs Prankedy — FES Aragón · Day",
+      "caption_en": "Rey Grupero and Prankedy are separated, with recognizable faces and a visible 2 GOLPES counter at FES Aragón by day. P1 has 400 points.",
+      "sha256": "6f016c2859835ca35bf564d18ce74a9aa05e5a439a9d04793d1c25cf784297a9"
+    },
+    {
+      "filename": "41-fes_aragon-night.png",
+      "url": "https://github.com/user-attachments/assets/a55d11b7-0bb2-4d5c-acea-9d643ed9e6e7",
+      "title_en": "Rey Grupero vs Prankedy — FES Aragón · Night",
+      "caption_en": "Rey Grupero and Prankedy are separated, with the GRUPERO/PRANKEDY HUD, a visible 2 GOLPES counter and a P1 score of 400 at FES Aragón by night.",
+      "sha256": "533bd5657798d0894477e1bc732cafcabf9e922bc2b750ac4307dd022507c980"
+    },
+    {
+      "filename": "42-fes_aragon-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/3446ae02-bb7b-4198-a95a-137e8d538262",
+      "title_en": "Rey Grupero vs Prankedy — FES Aragón · Night 2",
+      "caption_en": "Rey Grupero holds a megaphone facing Prankedy, with both faces recognizable through the fog on the Night 2 FES Aragón stage. Both scores are 100.",
+      "sha256": "6e005e42e1e70702d4314650a454ac4298377d273be4d007b22516bd0a28b989"
+    },
+    {
+      "filename": "43-piramidesol-day.png",
+      "url": "https://github.com/user-attachments/assets/e5be2cff-200c-4a71-9992-a58b4d6392c6",
+      "title_en": "La Tzitzimime vs Estudianta — Pirámide del Sol · Day",
+      "caption_en": "Estudianta stands on the left with one knee raised and La Tzitzimime on the right, both legible at Pirámide del Sol by day. The HUD identifies TZITZIMIME/ESCOMGIRL and P1 has 300 points; the left-hand fighter is not assumed to be P1.",
+      "sha256": "efb6e57c916a2998feb14bb488965c711cac6eb6405cfde09d1093514bce5fd8"
+    },
+    {
+      "filename": "44-piramidesol-night.png",
+      "url": "https://github.com/user-attachments/assets/0645518f-5292-4ba3-9ad9-cfabb8df276e",
+      "title_en": "La Tzitzimime vs Estudianta — Pirámide del Sol · Night",
+      "caption_en": "La Tzitzimime extends several arms toward Estudianta, with a visible 2 GOLPES counter and P1 score of 400 at Pirámide del Sol by night.",
+      "sha256": "a09678c99eac8ecfda838d38b682463624cf570d66aab928ee5e4ab20f3944d1"
+    },
+    {
+      "filename": "45-piramidesol-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/4a8a2286-7ee4-4203-8b7a-bdcfc12a3a61",
+      "title_en": "La Tzitzimime vs Estudianta — Pirámide del Sol · Night 2",
+      "caption_en": "La Tzitzimime is suspended in the air with a red dress and several arms while Estudianta guards on the Night 2 Pirámide del Sol stage beneath a red moon. P1 has 200 points.",
+      "sha256": "2ebf2de87a78253c1e17f79d3488aa48dc0c8f58e67f53b56245678c37a41337"
+    },
+    {
+      "filename": "46-uam_cuajimalpa-day.png",
+      "url": "https://github.com/user-attachments/assets/fbabfac6-a0c1-4cb9-b922-e679cf09eb47",
+      "title_en": "Policía CDMX vs Paparazzi 5 — UAM Cuajimalpa · Day",
+      "caption_en": "Policía CDMX extends an arm with a small, bright cyan effect in front of his hand toward Paparazzi 5. Animated pedestrians appear in the UAM Cuajimalpa daytime background; P1 has 500 points.",
+      "sha256": "9830cb3d766defed14084545550c849a9109f010a6f60abf8ce7c1ef0faf7d43"
+    },
+    {
+      "filename": "47-uam_cuajimalpa-night.png",
+      "url": "https://github.com/user-attachments/assets/32c22669-ce60-4edc-a95f-35b2d5fb9ae1",
+      "title_en": "Policía CDMX vs Paparazzi 5 — UAM Cuajimalpa · Night",
+      "caption_en": "Policía CDMX and Paparazzi 5 are separated, with recognizable faces and HUD and a visible 2 GOLPES counter at UAM Cuajimalpa by night. P1 has 700 points.",
+      "sha256": "26d9f1b13d3d7f3af01eea7f40eed1c38a8bc8e85d27b21f967cd7f737450dfe"
+    },
+    {
+      "filename": "48-uam_cuajimalpa-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/e2e3ebc6-7c9c-4666-bc27-2268802db21b",
+      "title_en": "Policía CDMX vs Paparazzi 5 — UAM Cuajimalpa · Night 2",
+      "caption_en": "Policía CDMX is airborne with a raised knee above Paparazzi 5. Purple effects belong to the Night 2 UAM Cuajimalpa background; P1 has 300 points.",
+      "sha256": "65c199d8b96b3ad908bdb19d7a8a8c4f73686ff035ca07c869a33eb4b410fcea"
+    },
+    {
+      "filename": "49-zocalo-day.png",
+      "url": "https://github.com/user-attachments/assets/c562aa3b-5812-494b-8c89-5c94e1b24c08",
+      "title_en": "La Presidenta vs Policía Granadero CDMX (Hombre) — Zócalo · Day",
+      "caption_en": "La Presidenta raises a leg toward Granadero H and his shield, with a visible 2 GOLPES counter, P1 score of 900 and the cathedral at Zócalo by day.",
+      "sha256": "8c7ec2fd10c7a5db4487981d25047fadf34b95765240345c5e88779520538759"
+    },
+    {
+      "filename": "50-zocalo-night.png",
+      "url": "https://github.com/user-attachments/assets/e4428a2e-f1bb-4f55-bfa0-ef333a3369bf",
+      "title_en": "La Presidenta vs Policía Granadero CDMX (Hombre) — Zócalo · Night",
+      "caption_en": "La Presidenta extends an open hand toward Granadero H’s shield, with both faces legible in the illuminated Zócalo by night. P1 has 500 points and P2 has 100.",
+      "sha256": "d1cb7a85abbe0bdbc2c0cac130f96a79451995e131bedb9d15afde75e411e9bc"
+    },
+    {
+      "filename": "51-zocalo-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/814461f9-d386-4fbe-959f-4da5c35d587e",
+      "title_en": "La Presidenta vs Policía Granadero CDMX (Hombre) — Zócalo · Night 2",
+      "caption_en": "La Presidenta is suspended in the air facing Granadero H on the Night 2 Zócalo stage, with birds and a red moon. P1 has 300 points; the scene reaches both image edges.",
+      "sha256": "a0b906a4364b56de2f170c477ecf8c146990800b7e6e9a2cff868a268787200f"
+    },
+    {
+      "filename": "52-planetario-day.png",
+      "url": "https://github.com/user-attachments/assets/201a2d47-d4ed-40fd-a8d6-0c6aeb993470",
+      "title_en": "Robot Estudiantx vs Alexis Syntaxis — Planetario IPN · Day",
+      "caption_en": "Robot Estudiantx extends an arm with an impact spark in front of Alexis Syntaxis’s face. Planetario IPN by day, the ROBOT/SYNTAXIS HUD and a P1 score of 300 are visible.",
+      "sha256": "1234f82a71c0ba12b7de78152cf7f899f11e2026e5c9d1c9dd0c13f034f6fe3d"
+    },
+    {
+      "filename": "53-planetario-night.png",
+      "url": "https://github.com/user-attachments/assets/61aaf986-0247-463b-897b-8c401c003d16",
+      "title_en": "Robot Estudiantx vs Alexis Syntaxis — Planetario IPN · Night",
+      "caption_en": "A short cyan beam extends from Robot Estudiantx’s visor toward Alexis Syntaxis, with the illuminated Planetario IPN nighttime background. P1 has 100 points.",
+      "sha256": "fd216b4b6008b644975fb89352602f036d3262c728f77a787155adeb6721a761"
+    },
+    {
+      "filename": "54-planetario-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/dbdb046d-75af-4d2c-87f7-72f10b0de6b6",
+      "title_en": "Robot Estudiantx vs Alexis Syntaxis — Planetario IPN · Night 2",
+      "caption_en": "Robot Estudiantx has a bright cyan orb or discharge in front of its arms while Alexis Syntaxis remains legible on the Night 2 Planetario IPN stage. P1 has 500 points.",
+      "sha256": "b8b57959760d8a52a57ce9249d4c90dc56795c2d377fa8dc0bb32a0d54405551"
+    },
+    {
+      "filename": "55-esm-day.png",
+      "url": "https://github.com/user-attachments/assets/e4617ff8-245b-46dc-92af-66eb1daa4f44",
+      "title_en": "La Planchada vs La Llorona — ESM IPN · Day",
+      "caption_en": "La Planchada and La Llorona are recognizable at Escuela Superior de Medicina by day, with a visible 2 GOLPES counter and P1 score of 500.",
+      "sha256": "f58fe4f9199a893f7eca0ea7d98f77edeba677fe5f39d3934e4c39f8f9fd05c9"
+    },
+    {
+      "filename": "56-esm-night.png",
+      "url": "https://github.com/user-attachments/assets/7c78935e-a6e7-49bc-b2f3-0e58face54de",
+      "title_en": "La Planchada vs La Llorona — ESM IPN · Night",
+      "caption_en": "La Planchada holds a visible green glow between her hands facing La Llorona, with the illuminated ESM nighttime background. P1 has 300 points.",
+      "sha256": "22b0792c64c39425587d9998b6cc0a78d62a7294bb388831c3e333a034e63f26"
+    },
+    {
+      "filename": "57-esm-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/251f9727-a416-4787-a1c9-568e5d9710d7",
+      "title_en": "La Planchada vs La Llorona — ESM IPN · Night 2",
+      "caption_en": "La Planchada is clearly airborne with an extended fist above La Llorona, with both faces legible on the Night 2 ESM stage. P1 has 700 points.",
+      "sha256": "37cacfcdc1fa1b93ada84d4a37de9bab1977c380d15e3008b4b0ce10d65a54f5"
+    },
+    {
+      "filename": "58-cet1-day.png",
+      "url": "https://github.com/user-attachments/assets/142b1470-aa00-4aec-a85b-fe579d6b7a6a",
+      "title_en": "Estudiante vs Robot Estudiantx — CET 1 · Day",
+      "caption_en": "Estudiante strikes with an arm toward Robot Estudiantx, with a visible 2 GOLPES counter at CET 1 by day. P1 has 700 points.",
+      "sha256": "8af338ff46ab002673783b44b5c9c43823f4cb20218523c21f196de2703ddc94"
+    },
+    {
+      "filename": "59-cet1-night.png",
+      "url": "https://github.com/user-attachments/assets/98764ec4-5535-4e2e-b1cd-13ee81ae5786",
+      "title_en": "Estudiante vs Robot Estudiantx — CET 1 · Night",
+      "caption_en": "Estudiante is clearly airborne with bent knees facing Robot Estudiantx at CET 1 by night, beneath a starry sky. P1 has 600 points.",
+      "sha256": "5ad7ad0e032984113d6e85b90255408bb8cc5b88574397519311c1072e810c85"
+    },
+    {
+      "filename": "60-cet1-apocalypse.png",
+      "url": "https://github.com/user-attachments/assets/14b9c7d7-4393-43b8-bee9-ba1d14f3c11d",
+      "title_en": "Estudiante vs Robot Estudiantx — CET 1 · Night 2",
+      "caption_en": "Estudiante has one arm raised and the other forward facing Robot Estudiantx, with a visible 2 GOLPES counter on the Night 2 CET 1 stage. P1 has 400 points.",
+      "sha256": "c9324f5baee5a9bc17dfd81d8bbb88c9adbb4987e7d5be75e620fea07f674057"
+    }
+  ],
+  "archives": [
+    {
+      "file": "POW-iPhone15-01-08.zip",
+      "indices": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "bytes": 16196211,
+      "sha256": "90352a63ac29322bb530b3effb83715e47839597c5d49a100bf45443ca09295f",
+      "url": "https://github.com/user-attachments/files/34928318/POW-iPhone15-01-08.zip"
+    },
+    {
+      "file": "POW-iPhone15-09-16.zip",
+      "indices": [
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "bytes": 18764034,
+      "sha256": "6de7e6b15b68717314dc22c6049dff7ab7b681026356d208fa888b27a3c44fea",
+      "url": "https://github.com/user-attachments/files/34928315/POW-iPhone15-09-16.zip"
+    },
+    {
+      "file": "POW-iPhone15-17-24.zip",
+      "indices": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "bytes": 19035370,
+      "sha256": "6c52b4e7a58452ba15a1af3cd9aae01055d7f1c884dcdee77809f84e35207a05",
+      "url": "https://github.com/user-attachments/files/34928314/POW-iPhone15-17-24.zip"
+    },
+    {
+      "file": "POW-iPhone15-25-32.zip",
+      "indices": [
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32
+      ],
+      "bytes": 20446341,
+      "sha256": "e4d107aa91c938f3f64c6e61916f3b3b78eca37649845fe2ea08bca72815f408",
+      "url": "https://github.com/user-attachments/files/34928313/POW-iPhone15-25-32.zip"
+    },
+    {
+      "file": "POW-iPhone15-33-40.zip",
+      "indices": [
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40
+      ],
+      "bytes": 18862659,
+      "sha256": "6c0cd8c117f3812db307966f86819c9c412fff9821c0b24cec92ce2cf61f1895",
+      "url": "https://github.com/user-attachments/files/34928311/POW-iPhone15-33-40.zip"
+    },
+    {
+      "file": "POW-iPhone15-41-48.zip",
+      "indices": [
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48
+      ],
+      "bytes": 17568653,
+      "sha256": "6be12701a95d8c54368c1e79bc958b02d96148b57dfde4457f8450fc45147c46",
+      "url": "https://github.com/user-attachments/files/34928308/POW-iPhone15-41-48.zip"
+    },
+    {
+      "file": "POW-iPhone15-49-56.zip",
+      "indices": [
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56
+      ],
+      "bytes": 19222723,
+      "sha256": "b08f6738abb832a9285edd9976246672df0cc1d669dca13f56dcddc5bed72155",
+      "url": "https://github.com/user-attachments/files/34928306/POW-iPhone15-49-56.zip"
+    },
+    {
+      "file": "POW-iPhone15-57-60.zip",
+      "indices": [
+        57,
+        58,
+        59,
+        60
+      ],
+      "bytes": 9060396,
+      "sha256": "067ec6acb86bca37c6e9ef372bf69f58e7e8e2364b8ebe435706da141c6d9829",
+      "url": "https://github.com/user-attachments/files/34928304/POW-iPhone15-57-60.zip"
+    }
+  ],
+  "matrix_screenshots": 60,
+  "matrix_fighters": 19,
+  "preservation_es": "Los PNG originales y sus referencias permanecen en el README principal. Estas URL complementan los archivos; no los sustituyen.",
+  "git_status_es": "El dueño autorizó commit y push al mismo PR #188 el 2026-11-16. El commit de correcciones 79e1eb94 está publicado en la rama del PR #188. README, documentación y galería se incorporan con el commit de esta entrega. No se autoriza merge ni se creó otro hosting.",
+  "preview_location": "pull_request_description",
+  "preview_presentation": "closed_details_groups_of_three",
+  "preview_group_image_counts": [
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    1
+  ],
+  "comment_embedded_images": 0,
+  "all_groups_closed_by_default": true,
+  "network_deferral_guaranteed": false,
+  "readme_group_image_counts": [
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    1
+  ],
+  "pr_description_language": "en",
+  "pr_qa_comment_language": "en",
+  "main_readme_language": "en",
+  "main_readme_featured_images": [
+    "charro-4-golpes.png",
+    "52-planetario-day.png",
+    "32-mictlan-night.png",
+    "54-planetario-apocalypse.png",
+    "27-uam_azcapo-apocalypse.png",
+    "19-unam_biblioteca_cu-day.png",
+    "57-esm-apocalypse.png",
+    "03-escom-apocalypse.png",
+    "44-piramidesol-night.png"
+  ],
+  "main_readme_order": [
+    "charro-4-golpes.png",
+    "52-planetario-day.png",
+    "32-mictlan-night.png",
+    "54-planetario-apocalypse.png",
+    "27-uam_azcapo-apocalypse.png",
+    "19-unam_biblioteca_cu-day.png",
+    "57-esm-apocalypse.png",
+    "03-escom-apocalypse.png",
+    "44-piramidesol-night.png",
+    "02-escom-night.png",
+    "06-queso_ipn-apocalypse.png",
+    "09-esime_azc-apocalypse.png",
+    "10-cecyt_9-day.png",
+    "15-cecyt_2-apocalypse.png",
+    "16-biblioteca_ipn-day.png",
+    "23-fes_acatlan-night.png",
+    "26-uam_azcapo-night.png",
+    "28-islamunecas-day.png",
+    "01-escom-day.png",
+    "04-queso_ipn-day.png",
+    "05-queso_ipn-night.png",
+    "07-esime_azc-day.png",
+    "08-esime_azc-night.png",
+    "11-cecyt_9-night.png",
+    "12-cecyt_9-apocalypse.png",
+    "13-cecyt_2-day.png",
+    "14-cecyt_2-night.png",
+    "17-biblioteca_ipn-night.png",
+    "18-biblioteca_ipn-apocalypse.png",
+    "20-unam_biblioteca_cu-night.png",
+    "21-unam_biblioteca_cu-apocalypse.png",
+    "22-fes_acatlan-day.png",
+    "24-fes_acatlan-apocalypse.png",
+    "25-uam_azcapo-day.png",
+    "29-islamunecas-night.png",
+    "30-islamunecas-apocalypse.png",
+    "31-mictlan-day.png",
+    "33-mictlan-apocalypse.png",
+    "34-campos_agave_jalisco-day.png",
+    "35-campos_agave_jalisco-night.png",
+    "36-campos_agave_jalisco-apocalypse.png",
+    "37-facultad_medicina-day.png",
+    "38-facultad_medicina-night.png",
+    "39-facultad_medicina-apocalypse.png",
+    "40-fes_aragon-day.png",
+    "41-fes_aragon-night.png",
+    "42-fes_aragon-apocalypse.png",
+    "43-piramidesol-day.png",
+    "45-piramidesol-apocalypse.png",
+    "46-uam_cuajimalpa-day.png",
+    "47-uam_cuajimalpa-night.png",
+    "48-uam_cuajimalpa-apocalypse.png",
+    "49-zocalo-day.png",
+    "50-zocalo-night.png",
+    "51-zocalo-apocalypse.png",
+    "53-planetario-night.png",
+    "55-esm-day.png",
+    "56-esm-night.png",
+    "58-cet1-day.png",
+    "59-cet1-night.png",
+    "60-cet1-apocalypse.png"
+  ],
+  "code_commit": "79e1eb94d75b31e32c13cdfded08222299e83e2e",
+  "code_commit_pushed": true,
+  "git_publication_authorized_date": "2026-11-16",
+  "merge_authorized": false
+}

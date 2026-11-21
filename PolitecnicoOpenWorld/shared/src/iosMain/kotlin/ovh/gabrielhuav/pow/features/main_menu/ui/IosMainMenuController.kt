@@ -38,6 +38,7 @@ class IosMainMenuController(
     /**
      * El mundo aún no se juega en iOS, pero **el mapa ya se puede ver**. El botón MUNDO LIBRE abre
      * esa vista previa en vez del aviso de "en obras"; la insignia EN OBRAS se queda puesta.
+     * Solo se ve con `MODOS_EN_OBRAS_VISIBLES = true`: en la build de la App Store el botón no se pinta.
      *
      * ⚠️ Cuando el mundo sea jugable de verdad, esto deja de tener sentido: se mueve
      * `MUNDO_LIBRE` a `modosDe(IOS)` en `PowModos.kt` y `enObras()` pasa a ser `false` solo.

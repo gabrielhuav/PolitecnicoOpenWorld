@@ -1,5 +1,10 @@
 # 🌎🍏 Portar el MUNDO ABIERTO a iOS — plan medido
 
+> ⏸️ **EN PAUSA (2026-11-21, decisión del dueño):** iOS se publica en la App Store **solo con
+> Titulación por Combate**; el mundo abierto, el Modo Historia y los zombis quedan **exclusivos de
+> Android**. Este plan se conserva como referencia medida. **No lo retomes sin una decisión nueva
+> del dueño.**
+
 **Creado:** 2026-07-30 · Todo número de aquí **sale de un comando que se ejecutó**.
 
 > **Para quién es:** para quien continúe la migración. Dice qué está hecho, qué falta y **en qué
@@ -347,7 +352,8 @@ archivos**.
 
 ✅ **El paso 6 YA SE HIZO** (2026-08-21, Windows, AVD `Nexus` API 35, en español **y** en inglés).
 Salió **verde: ninguna regresión**. El informe completo, con lo que quedó sin jugar y las recetas
-para repetirlo, está en **`RESULTADO_WINDOWS_verificar_android_fase5.md`**. Titulares:
+para repetirlo, estaba en `RESULTADO_WINDOWS_verificar_android_fase5.md` (retirado el 2026-11-21;
+sigue en el historial de git). Titulares:
 
 - El aviso de la horda **ya se auto-limpia en inglés** (medido con 60 sondas en ~6 min).
 - Los textos con `%1$s` (metro) y la puerta ESCOM salen bien **en los dos idiomas**.

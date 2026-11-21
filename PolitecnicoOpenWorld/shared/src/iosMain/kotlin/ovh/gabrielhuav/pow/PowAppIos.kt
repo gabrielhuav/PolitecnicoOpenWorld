@@ -24,6 +24,7 @@ import ovh.gabrielhuav.pow.features.streetfighter.ui.OfflineStreetFighterControl
 import ovh.gabrielhuav.pow.features.streetfighter.ui.StreetFighterScreenCommon
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.IosStreetFighterEnvironment
 import ovh.gabrielhuav.pow.features.streetfighter.viewmodel.StreetFighterViewModel
+import ovh.gabrielhuav.pow.platform.orientacion.ForzarHorizontal
 import platform.UIKit.UIViewController
 
 /**
@@ -81,9 +82,10 @@ private fun ContenidoApp(alCambiarIdioma: () -> Unit) {
 
     when (pantalla) {
         Pantalla.MENU -> MainMenuScreen(
-            // 🌎 MUNDO LIBRE está EN OBRAS, pero su mapa ya se puede ver: el botón abre la vista
-            // previa (ver `IosMainMenuController.mundoTieneVistaPrevia`). Modo Historia y
-            // Multijugador siguen abriendo solo el aviso.
+            // 🌎 En la build de la App Store (`MODOS_EN_OBRAS_VISIBLES = false`) el menú NO pinta
+            // MUNDO LIBRE, así que esta ruta no se alcanza. Se conserva para builds locales de
+            // comparación: con el interruptor encendido, el botón EN OBRAS abre la vista previa del
+            // mapa (ver `IosMainMenuController.mundoTieneVistaPrevia`).
             onNavigateToMap = { _, _ -> pantalla = Pantalla.MAPA },
             onNavigateToStory = {},
             onNavigateToSettings = { pantalla = Pantalla.AJUSTES },
@@ -125,13 +127,18 @@ private fun ContenidoApp(alCambiarIdioma: () -> Unit) {
         // ⚠️ El controller de la pelea se crea DENTRO de la rama, sin `remember` de sesión: cada
         // entrada arranca una partida limpia y, al salir, su ViewModel queda libre. Reutilizarlo
         // dejaría vivo el bucle de combate del anterior.
-        Pantalla.PELEA -> StreetFighterScreenCommon(
-            onExitToMap = { pantalla = Pantalla.MENU },
-            controller = remember {
-                OfflineStreetFighterController(
-                    StreetFighterViewModel(IosStreetFighterEnvironment()),
-                )
-            },
-        )
+        Pantalla.PELEA -> {
+            // La ruta completa debe girar al entrar, también con el iPhone bloqueado al duplicar.
+            // Al volver al menú se libera la orientación mediante el efecto de esta costura.
+            ForzarHorizontal()
+            StreetFighterScreenCommon(
+                onExitToMap = { pantalla = Pantalla.MENU },
+                controller = remember {
+                    OfflineStreetFighterController(
+                        StreetFighterViewModel(IosStreetFighterEnvironment()),
+                    )
+                },
+            )
+        }
     }
 }

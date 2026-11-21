@@ -1,0 +1,52 @@
+{
+  "coverage_index": 59,
+  "stage_file": "fondo_cet1_noche_1_anim.webp",
+  "stage_title": "CET 1 (Noche)",
+  "lighting": "night",
+  "p1_id": "ESCOMBOY",
+  "p1_name": "Estudiante",
+  "p2_id": "ROBOT",
+  "p2_name": "Robot Estudiantx",
+  "action": "jump-B",
+  "captured_at": "2026-11-16T17:28:45Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "local_ui_changes": "landscape route and horizontal safe insets",
+  "capture_api": "XCUIScreen.main.screenshot",
+  "original_png": true,
+  "engine_hooks": false,
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "installed_build_evidence": "pr188-projectile-xcodebuild.log / pr188-projectile-install.log",
+  "file": "59-cet1-night.png",
+  "sha256": "5ad7ad0e032984113d6e85b90255408bb8cc5b88574397519311c1072e810c85",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "bundle_version": "1.0",
+  "bundle_build": "1",
+  "validation_status": "visually_reviewed",
+  "observed_action_es": "Estudiante claramente en el aire con rodillas flexionadas ante el Robot; CET 1 nocturno con cielo estrellado y P1 600.",
+  "observed_pair": {
+    "p1_id": "ESCOMBOY",
+    "p1_name": "Estudiante",
+    "p2_id": "ROBOT",
+    "p2_name": "Robot Estudiantx"
+  },
+  "observed_hud_p1_name": "ESCOMBOY",
+  "observed_hud_p2_name": "ROBOT",
+  "observed_p1_score": 600,
+  "two_hits_visible": false,
+  "two_hit_counter_text": null,
+  "map_selection_gold_border_verified": true,
+  "framing_review": "Full landscape scene reaches both edges; no native black side bands in selected original.",
+  "original_attachment_filename": "9BC10E00-F2D0-412E-B5CB-C4A87A27C1DC.png",
+  "map_selection_evidence": {
+    "original_filename": "D2B1E2E3-29C0-42E3-AFD2-59114D084B7A.png",
+    "sha256": "667f81c475a45274b532aa472192f660d2326542adcdcfbbc11862810956dd54",
+    "selected_gold_border_verified": true,
+    "matches_expected_stage": true
+  }
+}

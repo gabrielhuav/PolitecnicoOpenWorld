@@ -1,0 +1,52 @@
+{
+  "coverage_index": 52,
+  "stage_file": "fondo_planetario_anim.webp",
+  "stage_title": "Planetario IPN",
+  "lighting": "day",
+  "p1_id": "ROBOT",
+  "p1_name": "Robot Estudiantx",
+  "p2_id": "ALEXIS_SYNTAXIS",
+  "p2_name": "Alexis Syntaxis",
+  "action": "after-Y",
+  "captured_at": "2026-11-16T17:18:32Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "local_ui_changes": "landscape route and horizontal safe insets",
+  "capture_api": "XCUIScreen.main.screenshot",
+  "original_png": true,
+  "engine_hooks": false,
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "installed_build_evidence": "pr188-projectile-xcodebuild.log / pr188-projectile-install.log",
+  "file": "52-planetario-day.png",
+  "sha256": "1234f82a71c0ba12b7de78152cf7f899f11e2026e5c9d1c9dd0c13f034f6fe3d",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "bundle_version": "1.0",
+  "bundle_build": "1",
+  "validation_status": "visually_reviewed",
+  "observed_action_es": "Robot Estudiantx con brazo extendido y chispa de impacto ante el rostro de Alexis Syntaxis; Planetario IPN de día, HUD ROBOT/SYNTAXIS y P1 300.",
+  "observed_pair": {
+    "p1_id": "ROBOT",
+    "p1_name": "Robot Estudiantx",
+    "p2_id": "ALEXIS_SYNTAXIS",
+    "p2_name": "Alexis Syntaxis"
+  },
+  "observed_hud_p1_name": "ROBOT",
+  "observed_hud_p2_name": "SYNTAXIS",
+  "observed_p1_score": 300,
+  "two_hits_visible": false,
+  "two_hit_counter_text": null,
+  "map_selection_gold_border_verified": true,
+  "framing_review": "Full landscape scene reaches both edges; no native black side bands in selected original.",
+  "original_attachment_filename": "A8EA222D-D2CF-46B9-9B73-230F524A4885.png",
+  "map_selection_evidence": {
+    "original_filename": "05A86746-FFA4-4389-8BFA-EB7551AB4990.png",
+    "sha256": "ec8ba2c39865622c44d585560c82ed57410199f785c6a912b9842e19a2c57424",
+    "selected_gold_border_verified": true,
+    "matches_expected_stage": true
+  }
+}

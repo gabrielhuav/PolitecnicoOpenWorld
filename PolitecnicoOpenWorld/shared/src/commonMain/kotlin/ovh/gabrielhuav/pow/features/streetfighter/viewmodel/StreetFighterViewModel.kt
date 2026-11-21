@@ -49,6 +49,7 @@ import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterId
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFighterState
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireball
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireballState
+import ovh.gabrielhuav.pow.domain.models.streetfighter.SfFireballs
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHitSplash
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfHurtArea
 import ovh.gabrielhuav.pow.domain.models.streetfighter.SfInput
@@ -207,6 +208,13 @@ open class StreetFighterViewModel(
                     SfVoiceLine("special_charro_hurt_1"),
                     SfVoiceLine("special_charro_hurt_2"),
                     SfVoiceLine("special_charro_hurt_3")
+                ),
+                // Voz de victoria (feat/charro-negro-audios). Archivo: special_charro_negro_win.m4a
+                win = listOf(
+                    SfVoiceLine(
+                        "special_charro_negro_win",
+                        "¡Uyy... devolver el alma de Beatriz? Eso no se va a poder... Ya me la llevé"
+                    )
                 )
             ),
             // 🆕 (2026-07-19) Señor de la Tienda: 2 gritos de ataque + 2 de daño (hurt_2 es "puerquito") + 1 de victoria
@@ -1452,46 +1460,13 @@ open class StreetFighterViewModel(
     /** Reporte de problemas detectados en la sesión (assets rotos / atascos / estancamientos). */
     fun diagnosticsReport(): List<String> = assetIssues.toList()
 
-    private val fireballActiveDelays = listOf(5, 2, 5, 1)
-    internal val fireballCollidedDelays = listOf(13, 3, 7)
+    internal val fireballCollidedDelays = SfFireballs.collidedDelays
     internal val fireballBox = SfBox(-15f, -13f, 30f, 24f)
 
     private fun updateFireballs(sim: Sim, now: Long, dt: Float) {
-        // Tope global: en PESADILLA/IA-vs-IA se acumulaban decenas → lag + muro imbloqueable
-        if (sim.fireballs.size > MAX_FIREBALLS_TOTAL) {
-            val keep = sim.fireballs
-                .sortedByDescending { it.state == SfFireballState.ACTIVE }
-                .take(MAX_FIREBALLS_TOTAL)
-            sim.fireballs.clear()
-            sim.fireballs.addAll(keep)
-        }
-        if (sim.fireballs.isEmpty()) return
-        val iterator = sim.fireballs.listIterator()
-        while (iterator.hasNext()) {
-            var fb = iterator.next()
-            val delays = if (fb.state == SfFireballState.ACTIVE) fireballActiveDelays else fireballCollidedDelays
-
-            // Animación
-            if (now > fb.animationTimerMs) {
-                var frame = fb.animationFrame + 1
-                if (frame >= delays.size) {
-                    frame = 0
-                    if (fb.state == SfFireballState.COLLIDED) { iterator.remove(); continue }
-                }
-                fb = fb.copy(
-                    animationFrame = frame,
-                    animationTimerMs = now + (delays[frame] * SfConstants.FRAME_TIME_MS).toLong(),
-                )
-            }
-
-            // Movimiento + fuera de pantalla
-            fb = fb.copy(x = fb.x + fb.velocity * fb.direction.sign * dt)
-            if (fb.x - sim.camX >= SfConstants.SCENE_WIDTH + 56f || fb.x - sim.camX <= -56f) {
-                iterator.remove(); continue
-            }
-
-            // Colisión con el rival
-            if (fb.state == SfFireballState.ACTIVE) {
+        SfFireballs.advance(
+            sim.fireballs, now, dt, sim.camX, MAX_FIREBALLS_TOTAL,
+            hitArea = { fb ->
                 val defenderIdx = 1 - fb.ownerIndex
                 val defender = sim.fighter(defenderIdx)
                 val fbBox = fireballBox.toWorld(fb.x, fb.y, fb.direction)
@@ -1501,14 +1476,12 @@ open class StreetFighterViewModel(
                         fbBox.overlaps(SfBox.fromList(rows.getOrNull(i)).toWorld(defender.x, defender.y, defender.direction))
                     }?.value
                 }
-                if (hitArea != null && defender.state in SF_HURT_STATES) {
-                    fb = fb.copy(state = SfFireballState.COLLIDED, animationFrame = 0, velocity = fb.velocity * 0.33f,
-                        animationTimerMs = now + (fireballCollidedDelays[0] * SfConstants.FRAME_TIME_MS).toLong())
-                    applyAttackHit(sim, fb.ownerIndex, fb.strength, SfAttackType.PUNCH, hitArea, null, now)
-                }
-            }
-            iterator.set(fb)
-        }
+                if (defender.state in SF_HURT_STATES) hitArea else null
+            },
+            onHit = { fb, area ->
+                applyAttackHit(sim, fb.ownerIndex, fb.strength, SfAttackType.PUNCH, area, null, now)
+            },
+        )
     }
 
     // ------------------------------------------------------------------

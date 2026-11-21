@@ -21,6 +21,8 @@ poses dobladas, con objetivos explícitos en su receta y guardas del pipeline. L
 de HURT/THROWN/KO continúa tras interrumpir un salto y THROWN espera el piso para levantarse.
 No modificar `hurtScale` para compensar arte incorrecto.
 
+**QA de iPhone real / PR #188 (2026-11-15–16):** [Resultados, incidencias y galería](QA_IPHONE_PR188_2026-11-15.md). Incluye orientación, zona segura y cobertura del fondo del Canvas.
+
 ## Por dónde empezar
 
 **CI de peleadores (2026-11-04):** [Tutorial de recortes, QA y GitHub Actions](CI_CD_agregar_peleador.md).

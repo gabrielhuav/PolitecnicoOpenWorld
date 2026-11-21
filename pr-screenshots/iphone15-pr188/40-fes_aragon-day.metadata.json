@@ -1,0 +1,52 @@
+{
+  "coverage_index": 40,
+  "stage_file": "fondo_fes_aragon_anim.webp",
+  "stage_title": "FES Aragón",
+  "lighting": "day",
+  "p1_id": "REY_GRUPERO",
+  "p1_name": "Rey Grupero",
+  "p2_id": "PRANKEDY",
+  "p2_name": "Prankedy",
+  "action": "after-X",
+  "captured_at": "2026-11-16T17:15:51Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "local_ui_changes": "landscape route and horizontal safe insets",
+  "capture_api": "XCUIScreen.main.screenshot",
+  "original_png": true,
+  "engine_hooks": false,
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "installed_build_evidence": "pr188-projectile-xcodebuild.log / pr188-projectile-install.log",
+  "file": "40-fes_aragon-day.png",
+  "sha256": "6f016c2859835ca35bf564d18ce74a9aa05e5a439a9d04793d1c25cf784297a9",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "bundle_version": "1.0",
+  "bundle_build": "1",
+  "validation_status": "visually_reviewed",
+  "observed_action_es": "Rey Grupero y Prankedy separados, rostros reconocibles y contador 2 GOLPES legible ante FES Aragón de día; P1 400. La franja previa no aparece en este original.",
+  "observed_pair": {
+    "p1_id": "REY_GRUPERO",
+    "p1_name": "Rey Grupero",
+    "p2_id": "PRANKEDY",
+    "p2_name": "Prankedy"
+  },
+  "observed_hud_p1_name": "GRUPERO",
+  "observed_hud_p2_name": "PRANKEDY",
+  "observed_p1_score": 400,
+  "two_hits_visible": true,
+  "two_hit_counter_text": "2 GOLPES",
+  "map_selection_gold_border_verified": true,
+  "framing_review": "Full landscape scene, HUD and controls. ImageIO: 0 px opaque RGB0 full-height left/right borders and 0 px on row 35%; all eight action originals of this fixture also measured 0.",
+  "original_attachment_filename": "E1B22170-3A2F-428F-8CC1-8D5AF31664AE.png",
+  "map_selection_evidence": {
+    "original_filename": "9070A855-F119-4FD7-8DC0-2968A408DEAF.png",
+    "sha256": "d666d21777f4a94f17d83e9186d178d89a26a3f6c262703f8eea25ae22b0370f",
+    "selected_gold_border_verified": true,
+    "matches_expected_stage": true
+  }
+}
