@@ -183,7 +183,8 @@ Kotlin no admite eso fuera de la clase. **Se queda como miembro.** Está avisado
 | El tutorial de controles | `viewmodel/StreetFighterTutorial.kt` |
 | IA vs IA, gauntlet, escaparate, auditorías de assets | `viewmodel/StreetFighterGauntlet.kt` |
 | El reloj de juego, el tick, el estado observable | `viewmodel/StreetFighterViewModel.kt` |
-| **Lo que se DIBUJA en la pelea** (fondo, sprites, hitboxes, FPS) | `ui/SfSceneRenderer.kt` |
+| Avance, animación y limpieza de proyectiles | `:shared/domain/models/streetfighter/SfFireballs.kt`; el VM conserva colisiones/daño. No mantener iteradores a través de callbacks de impacto: el remate puede vaciar la lista. |
+| **Lo que se DIBUJA en la pelea** (fondo, sprites, hitboxes, FPS) | `ui/SfSceneRenderer.kt`; cobertura/paneo puros en `ui/SfBackgroundGeometry.kt`. |
 | Menú de modos, selección de peleador, dificultad, resultado | `ui/SfMenuOverlays.kt` |
 | Pantallas de conexión (online / BT / LAN) | `ui/SfOnlineOverlays.kt` |
 | La raíz de la pantalla y su orquestación | `ui/StreetFighterScreen.kt` |
@@ -284,15 +285,15 @@ Quedan estos por encima de 1.000 líneas (**re-medido con `wc -l` el 2026-09-23*
 
 | Módulo | Archivo | Líneas |
 |---|---|---:|
-| `:shared` | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` | 2422 |
-| `:shared` | `features/streetfighter/ui/StreetFighterScreen.kt` | 1801 |
+| `:shared` | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` | 2435 (2026-11-16) |
+| `:shared` | `features/streetfighter/ui/StreetFighterScreen.kt` | 2011 (2026-11-16) |
 | `:app` | `features/map_exterior/viewmodel/WorldMapViewModel.kt` | 1603 |
 | `:app` | `features/map_exterior/ui/NativeOsmMap.kt` | 1472 |
 | `:app` | `features/map_exterior/ui/WorldMapScreen.kt` | 1463 |
 | `:app` | `features/interiores/zombies/ui/ZombieGameScreen.kt` | 1350 |
 | `:app` | `AppNavGraph.kt` | 1173 |
 | `:app` | `features/interiores/zombies/viewmodel/ZombieInteriorViewModel.kt` | 1165 |
-| `:shared` | `features/streetfighter/ui/SfSceneRenderer.kt` | 1089 |
+| `:shared` | `features/streetfighter/ui/SfSceneRenderer.kt` | 1236 (2026-11-16) |
 
 ⚠️ **Las cifras anteriores (2026-07-30) estaban desfasadas y además no coincidían con las del
 doc 09 §0** — dos tablas del mismo repo dando números distintos para los mismos archivos. Ahora

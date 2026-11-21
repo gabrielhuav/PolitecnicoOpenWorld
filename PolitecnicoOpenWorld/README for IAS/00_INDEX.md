@@ -16,8 +16,20 @@
 
 ## Cómo usar / How to use
 
-**2026-11-04:** para agregar peleadores, consultar [`SF/CI_CD_agregar_peleador.md`](SF/CI_CD_agregar_peleador.md).
-La medición y el alcance de limpieza están en [`PROPUESTA_LIMPIEZA_2026-11-04.md`](PROPUESTA_LIMPIEZA_2026-11-04.md).
+**🍏 Prioridad (2026-11-21): lanzar Titulación por Combate en la App Store.** En iPhone solo existen
+TITULACIÓN POR COMBATE, COLECCIONABLES y AJUSTES; lo decide `PowModos.kt` (`MODOS_EN_OBRAS_VISIBLES =
+false` y `sfMultijugadorDisponible()`). El mundo abierto, el Modo Historia, los zombis y todo el
+multijugador siguen en el código, **exclusivos de Android** (ya publicado en Google Play). No se borra
+código para lanzar iOS. Instalar y firmar: `14_INSTALAR_EN_IPHONE_Y_SIMULADOR.md`; límites de tienda:
+`13_ASSETS_Y_TAMANO.md`; estado vivo: `_SESION_ACTUAL.md`.
+
+**Última QA (PR #188, 2026-11-15/16):** [iPhone 15 real](SF/QA_IPHONE_PR188_2026-11-15.md) y
+[Android](SF/QA_ANDROID_PR188_2026-11-15.md). El [informe de emuladores y plugins](SF/QA_ANDROID_IOS_2026-11-15.md)
+corresponde al checkout anterior `pr/184`; no confundir ambas evidencias. Galería pública: el README raíz
+muestra 9 capturas (las tres peleas elegidas por el dueño, cada una en sus tres luces) y 52 en
+desplegables; `pr-screenshots/iphone15-pr188/README.md` conserva las 61.
+
+**Para agregar peleadores:** [`SF/CI_CD_agregar_peleador.md`](SF/CI_CD_agregar_peleador.md).
 
 **ES (ORDEN DE LECTURA para una IA nueva — sobre todo si es poco potente):**
 1. `GUIA_mantenimiento_no_senior.md` ← EMPIEZA AQUÍ (las 7 reglas + chuleta + qué NO hacer).
@@ -31,14 +43,14 @@ La medición y el alcance de limpieza están en [`PROPUESTA_LIMPIEZA_2026-11-04.
    política de comentarios y los campos "⚠️ LO POSEE XManager").
 6. Si el asistente necesita un archivo concreto, búscalo en la tabla "Key files" (archivo 04/05)
    y pásale solo ese.
-7. **Tras cualquier cambio, actualiza estos docs (00–13)** y, si es user-facing, el README **público** de la raíz del repo (ver 09). Los **429 tests** (119 `:app` + 155 `:shared` Android + 155 `:shared` iOS) deben seguir en verde.
+7. **Tras cualquier cambio, actualiza estos docs (00–14)** y, si es user-facing, el README **público** de la raíz del repo (ver 09). Las **853 ejecuciones de tests** (153 `:app` + 350 `:shared` JVM + 350 `:shared` iOS) deben seguir en verde. Medido el 2026-11-21 en Windows: `:app` y `:shared` JVM. `:shared` iOS se midió en Mac el 2026-11-16 (348); faltan por correr allí los 2 tests nuevos de `PowModosTest`.
 
 **EN:**
 1. Upload/paste this whole folder (or just the relevant files) to the assistant.
 2. Give it the task and tell it to **follow MVVM and the conventions in file 09**.
 3. If it needs a specific source file, find it in the "Key files" table (file 04/05) and pass
    only that one.
-4. **After any change, update these docs (00–13)** and, if user-facing, the **public** root README (see 09).
+4. **After any change, update these docs (00–14)** and, if user-facing, the **public** root README (see 09).
 
 ---
 
@@ -86,10 +98,11 @@ La medición y el alcance de limpieza están en [`PROPUESTA_LIMPIEZA_2026-11-04.
 | 10 | `10_ARQUITECTURA_SEPARACION.md` | 🧭 **¿EN QUÉ ARCHIVO TOCO ESTO?** Mapa de la separación tras el refactor de la Fase 5: los 2 módulos, MVVM, el patrón PARCIAL, tabla de "quiero cambiar X → archivo Y" y los 6 errores que más caro salen. **Pensado para que hasta una IA pequeña pueda trabajar aquí.** |
 | 11 | `11_SEPARACION_IOS_ANDROID.md` | 🧭 **iOS y Android: dónde va cada cosa. EMPIEZA AQUÍ si vas a tocar código que corre en las dos.** Árbol de decisión (¿commonMain, `expect/actual` o Controller?), las 10 costuras que existen, los 4 controllers, dónde vive la navegación de cada plataforma, qué se queda en `:app` y por qué, gama baja, y **las 6 trampas que solo se ven abriendo el simulador** (§8bis). **Escrito para alguien que acaba de entrar al equipo.** |
 | — | `PLAYSTORE_formulario_seguridad_datos.md` | 🛡️ **Play Store: formulario de Seguridad de los datos + políticas.** Valores EXACTOS aprobados, errores que nos rechazaron y checklist antes de cada envío. **Léelo antes de tocar la ficha o subir versión.** |
-| — | `PLAN_MIGRACION_KMP.md` | 🍏 **Migración a Kotlin Multiplatform / iOS — el plan global.** Acoplamiento MEDIDO, estado de las libs KMP, decisión del mapa y qué NO se puede portar. **Estado (07-30): el modo pelea CORRE ENTERO en iOS, con menú, Ajustes y Coleccionables.** Queda pulir y decidir firma/App Store; el mundo abierto es trabajo futuro. |
+| — | `PLAN_MIGRACION_KMP.md` | 🍏 **Migración a Kotlin Multiplatform / iOS — el plan global.** Acoplamiento MEDIDO, estado de las libs KMP, decisión del mapa y qué NO se puede portar. **Estado (07-30): el modo pelea CORRE ENTERO en iOS, con menú, Ajustes y Coleccionables.** **Decisión 2026-11-21: iOS se publica solo con Titulación por Combate; el mundo abierto queda exclusivo de Android.** |
 | — | `SETUP_PC_NUEVA.md` | 🖥️ **Poner el repo a compilar en una PC Windows nueva.** Los 4 archivos que NO viajan por git (⚠️ `gradle-wrapper.jar` bloquea hasta `gradlew`), la prueba de humo y cómo se verifica iOS desde Windows. |
-| 12 | `12_PLAN_MUNDO_ABIERTO_iOS.md` | 🌎🍏 **Portar el MUNDO ABIERTO a iOS — plan medido.** Cuánto es (30 302 líneas), los 2 bloqueadores contados (osmdroid y `R.string`) y las 8 fases en orden, con **la cadena exacta que bloquea el `WorldMapViewModel`** y por qué se paró donde se paró. El tamaño y los límites de tienda están en el doc 13. **Léelo antes de tocar `map_exterior` o `interiores`.** |
+| 12 | `12_PLAN_MUNDO_ABIERTO_iOS.md` | ⏸️ **EN PAUSA (2026-11-21):** iOS se lanza solo con Titulación; no retomar sin decisión del dueño. 🌎🍏 **Portar el MUNDO ABIERTO a iOS — plan medido.** Cuánto es (30 302 líneas), los 2 bloqueadores contados (osmdroid y `R.string`) y las 8 fases en orden, con **la cadena exacta que bloquea el `WorldMapViewModel`** y por qué se paró donde se paró. El tamaño y los límites de tienda están en el doc 13. **Léelo antes de tocar `map_exterior` o `interiores`.** |
 | 13 | `13_ASSETS_Y_TAMANO.md` | 🗜️ **Qué se sube a cada tienda y cuánto puede pesar.** Los límites REALES verificados en la fuente (**Play: 500 MB de módulo base ← el que aprieta · App Store: 4 GB, los 200 MB son solo un aviso**), dónde está el peso del AAB medido, **qué formato de audio va en cada sitio y por qué** (Ogg solo-Android por el bucle; `.m4a` para lo compartido porque iOS no lee Ogg) y el plan de adelgazamiento con `tools/optimizar_assets_produccion.sh`. **Léelo antes de añadir cualquier asset.** |
+| 14 | `14_INSTALAR_EN_IPHONE_Y_SIMULADOR.md` | 📲 **Instalar POW en un iPhone y en el simulador, paso a paso.** Cada paso a mano (Android Studio / Xcode) y por terminal (lo que hace una IA). Firma con cuenta gratuita sin tocar el proyecto, "Desarrollador no confiable", el límite de 7 días, ⚠️ **Xcode 27 ya no trae `Simulator.app`**, y la tabla de errores (incluido "el combate no suena" = modo silencio). **MEDIDO 2026-11-15.** |
 | — | `../iosApp/README.md` | 🍏 **El proyecto Xcode.** Cómo compilarlo (⚠️ el framework de Kotlin NO se construye solo), qué assets entran en el bundle y qué ajustes de Xcode no se tocan. **Para añadir una pantalla a iOS se toca `PowAppIos.kt`, no este proyecto.** |
 
 ### 🌎 `MUNDO/` — mundo libre POW
@@ -120,25 +133,28 @@ reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `stree
 > no pagarlo en tokens en cada sesión. El diseño de SF está en `SF/DISENO_ARCADE_SF_POW.md`.
 
 **TITULACIÓN POR COMBATE — lo estable:**
-- Modos: **ARCADE** (default) / PRÁCTICA / **IA VS IA** / MULTIJUGADOR (Render / BT / LAN / P2P).
-- **Arcade:** peleador → Fácil/Medio/Difícil → escalera 15. Mapas = hogar del **rival** + luz.
+- Modos: **ARCADE** (default) / PRÁCTICA / COMBOS Y TUTORIAL / EXAMEN EXTRAORDINARIO / **IA VS IA** /
+  RÉCORDS / MULTIJUGADOR (Render / BT / LAN / P2P, **solo Android**).
+- **Arcade:** uno de los 3 estudiantes ESCOM → Fácil/Medio/Difícil → escalera de hasta 16 peleas
+  (`SfArcadeLadder`). Mapas = hogar del **rival** + luz.
   Tabla peleador→mapa: **`SF/SF_STAGES_MAPS_UNLOCK.md`**.
-- **Roster:** 18 dedicados. NO arcade: Lázaro / Granadero / Paramédico (alpha+shared).
+- **Roster:** 20 seleccionables (QA PR #188). NO arcade: Lázaro / Granadero / Paramédico (alpha+shared).
+- **Escenarios:** 18 desbloqueables × 3 luces + Planetario IPN y CET 1 (solo con Modo Desarrollador).
 - **Presidenta** ≤1/4 vida → metamorfosis. **Gama baja:** tick ~30 fps, atlas ≤2048, CARGANDO.
 
-### 📱 Qué corre en cada plataforma (MEDIDO 2026-07-30)
+### 📱 Qué corre en cada plataforma (actualizado 2026-11-21)
 
 | Modo | Android | iOS | Nota |
 |---|:---:|:---:|---|
 | Menú principal, Ajustes, Coleccionables | ✅ | ✅ | Misma pantalla de `commonMain`, distinto Controller |
-| 🥊 Titulación por Combate — arcade, práctica, IA vs IA | ✅ | ✅ | Verificado en simulador: pelea, audio, guardado, modo desarrollador |
-| 🥊 Multijugador (Render / BT / LAN / P2P) | ✅ | 🚧 | RFCOMM no existe en iOS; WebRTC y UDP multicast no se portaron |
-| 🌎 Mundo libre, interiores, zombis | ✅ | 🚧 | **En curso.** Ver `12_PLAN_MUNDO_ABIERTO_iOS.md` |
-| 📖 Modo Historia | ✅ | 🚧 | Va con el mundo abierto |
+| 🥊 Titulación por Combate — arcade, práctica, combos, extraordinario, IA vs IA, récords | ✅ | ✅ | QA en iPhone 15 real (PR #188) |
+| 🥊 Multijugador de Titulación (Render / BT / LAN / P2P) | ✅ | — | Exclusivo de Android: en iOS el botón no se pinta (`sfMultijugadorDisponible()`) |
+| 🌎 Mundo libre, interiores, zombis | ✅ | — | Exclusivo de Android (decisión 2026-11-21). Plan iOS en pausa: `12_PLAN_MUNDO_ABIERTO_iOS.md` |
+| 📖 Modo Historia | ✅ | — | Exclusivo de Android; vive sobre el mundo abierto |
 
-**🚧 = el botón SE PINTA en iOS pero avisa en vez de navegar.** Es a propósito, para poder comparar
-los dos menús mientras se porta el mundo. ⚠️ **Se apaga con `MODOS_EN_OBRAS_VISIBLES = false` antes
-de subir a la App Store** (Apple rechaza funciones anunciadas que no funcionan).
+**— = no se pinta en iOS.** Desde el 2026-11-21 `MODOS_EN_OBRAS_VISIBLES = false`: el menú de iOS ya no
+enseña botones EN OBRAS (Apple rechaza funciones anunciadas que no funcionan, Guideline 2.1) y
+`PowModosTest` falla si alguien lo sube encendido. Encenderlo solo en una build local de comparación.
 
 ⚠️ **Quien decide esta tabla es `PowModos.kt`**, no la UI, y hay TRES preguntas distintas:
 `disponible()` (¿se juega?), `enObras()` (¿se pinta sin jugarse?) y `sePinta()` (¿aparece?).
@@ -157,7 +173,7 @@ Añadir un modo a `modosDe(IOS)` **no lo porta**. Detalle en `11_SEPARACION_IOS_
 | **`SF/SF_STAGES_MAPS_UNLOCK.md`** | **16 mapas × 3 luces, peleador→hogar (tabla dueño), desbloqueos MP.** |
 | **`SF/QA_SF_STAGES_2026-07-18.md`** | **QA de fondos (dueño): encuadre `SfBgFraming` (5 mapas nuevos ✅ + salto), pendientes: sombra Isla Muñecas, video día FES Acatlán, subtítulos que se salen.** |
 | **`SF/AUDIO_INVENTARIO_SF.md`** | **Qué audio tiene cada peleador, globales vs por-peleador, qué borrar, y el fix de tamaño AAB (atlas lossless→lossy 221→82 MB). Script `tools/sf_audio_review.sh`.** |
-| **`MUNDO/PROMPT_panoramico_todos_los_mapas.md`** | **Trabajo FINAL diferido: aplicar el encuadre panorámico + salto a los 16 mapas, uno por uno. Prompt autónomo con todo lo necesario.** |
+| `MUNDO/PROMPT_panoramico_todos_los_mapas.md` | Encuadre panorámico + salto: ya aplicado; el prompt sirve para afinarlo mapa por mapa en dispositivo. |
 | `SF/AUDIT_SF_MULTIPLAYER.md` | Multijugador 1v1: protocolo, server `MultiplayerSF/`, BT/LAN. |
 | `SF/ASSETS_STREETFIGHTER_MIGRACION.md` | Pipeline assets pelea (JSON, pack, migración SF→POW). |
 | **`SF/SF_SPECIAL_VOICES_SFX.md`** | Voces/SFX v3: 21/21 español, cortes locales, Whisper, hashes, `MediaPlayer`; v1/v2 queda histórico. ✅ **2026-07-22: subtítulos de frases ACTIVOS** (`voiceSubtitlesEnabled=true`; frases curadas en `voice_phrases.json`, 64 `es` + `en` completo). |
@@ -166,9 +182,6 @@ Añadir un modo a `modosDe(IOS)` **no lo porta**. Detalle en `11_SEPARACION_IOS_
 | **`SF/PIPELINE_agregar_movimientos_y_personajes.md`** | **⭐ (2026-08-30) Receta reutilizable para agregar un movimiento nuevo (18 peleadores) o un peleador nuevo (19º): fases de diseño→motor→arte→pipeline→verificación, y quién hace qué (Claude/IA de imagen/dueño).** |
 | **`SF/PROMPT_hoja30_contraataque_derribo.md`** | **⭐ (2026-08-29/30) Prompt de la hoja 30 (Contraataque + Derribo con Poder), 18/18 completos: layout de 3 filas y el historial de las 4 rondas de corrección (espaciado, rival dibujado, agarre reinterpretado a distancia, Fila 3 corta por 1 cuadro).** |
 | `MUNDO/NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |
-| **`PROMPT_WINDOWS_verificar_android_y_release.md`** | **⭐ TRASPASO VIVO (07-31): verificar que Android sigue igual tras los 80 commits de KMP, y publicar.** Lo de más riesgo (datos guardados, los 3 gestores de IA), el checklist de release y el plan de adelgazar el AAB. *(raíz)* |
-| **`PROMPT_MAC_orientacion_y_puente_js.md`** | **⭐ TRASPASO VIVO (08-17) → MAC: probar en el simulador las dos costuras nuevas de iOS** (forzar horizontal + la vuelta del puente JS → Kotlin). Se escribieron desde Windows y **la mitad de Swift nunca se ha compilado**. Qué probar, en qué orden y qué significa cada fallo. *(raíz)* |
-| **`PROMPT_MAC_verificar_ios_titulacion.md`** | **⭐ TRASPASO VIVO (09-05) → MAC: verificar iOS con el modo renombrado a "Titulación por Combate"** (PR #141). Todos los botones del menú cambiaron a texto autoajustable y los 18 peleadores se re-empaquetaron. Ya verificado desde Windows que compila para `iosSimulatorArm64`; falta VER que se lee bien (pantalla chica + fuente grande) y medir la memoria con La Llorona. *(raíz)* |
 | `CHECKPOINT_SENIOR_refactor.md` | Receta del patrón manager/Hilt/detekt (referencia). *(raíz)* |
 | `MUNDO/CAMPAIGN/` | Guion Modo Historia (misiones 1–3 + side). |
 | `_ARCHIVO/` | **Histórico. NO son tareas.** Incluye los guiones de iOS ya ejecutados (`ARRANQUE_MAC_iOS.md`, `PLAN_SF_EN_iOS.md`, `PROMPT_MAC_navegacion_iOS.md`), `PENDIENTES_2026-07-20.md` y los prompts de traspaso a Gemini/GPT/Fable. |
@@ -225,14 +238,14 @@ Añadir un modo a `modosDe(IOS)` **no lo porta**. Detalle en `11_SEPARACION_IOS_
 
 ## Relación con los otros docs / Relationship to the other docs
 
-**ES:** La RAÍZ del repo tiene un `README.md` **público** (bilingüe, orientado a humanos) que es la
+**ES:** La RAÍZ del repo tiene un `README.md` **público** (en inglés, orientado a humanos) que es la
 visión general. Esta carpeta (`00`–`11`) es la versión **granular y por archivo** para alimentar a un
 asistente de IA: incluye firmas de funciones, campos de estado, pseudocódigo y *gotchas* que el README
 público no lista. *(Antes había aquí copias `README.md` (136 KB) y `plan.artifact.md` redundantes con
 `00`–`09`; se eliminaron el 2026-06-22 para no mantener triplicado.)* Si hay contradicción, **el código
 manda**; luego sincroniza estos docs y, si es user-facing, el README público de la raíz.
 
-**EN:** The repo ROOT has a **public** `README.md` (bilingual, human-oriented) = the overview. This folder
+**EN:** The repo ROOT has a **public** `README.md` (English, human-oriented) = the overview. This folder
 (`00`–`09`) is the **granular, per-file** version meant to be fed to an AI assistant: it includes function
 signatures, state fields, pseudocode and gotchas the public README doesn't. *(Redundant `README.md` (136 KB)
 and `plan.artifact.md` copies were removed from here on 2026-06-22.)* On contradiction, **the code wins**;

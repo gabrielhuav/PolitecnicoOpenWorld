@@ -1,0 +1,52 @@
+{
+  "coverage_index": 27,
+  "stage_file": "fondo_uam_azcapo_noche_2_anim.webp",
+  "stage_title": "UAM Azcapotzalco (Noche 2)",
+  "lighting": "apocalypse",
+  "p1_id": "LA_TZITZIMIME",
+  "p1_name": "La Tzitzimime",
+  "p2_id": "YOALLI_EHECATL",
+  "p2_name": "Yoalli Ehécatl",
+  "action": "jump-B",
+  "captured_at": "2026-11-16T17:14:45Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "local_ui_changes": "landscape route and horizontal safe insets",
+  "capture_api": "XCUIScreen.main.screenshot",
+  "original_png": true,
+  "engine_hooks": false,
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "installed_build_evidence": "pr188-projectile-xcodebuild.log / pr188-projectile-install.log",
+  "file": "27-uam_azcapo-apocalypse.png",
+  "sha256": "05c1b9aa1753aa44e6ee96da5d1fb0f4b32e2ff0923297f45351ba427bc8d79e",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "bundle_version": "1.0",
+  "bundle_build": "1",
+  "validation_status": "visually_reviewed",
+  "observed_action_es": "Tzitzimime elevada y Yoalli completo en el suelo, rostros reconocibles, luna roja y remolino de UAM Azcapotzalco apocalíptico; P1 500. La pose aérea no prueba impacto. La franja previa no aparece en este original.",
+  "observed_pair": {
+    "p1_id": "LA_TZITZIMIME",
+    "p1_name": "La Tzitzimime",
+    "p2_id": "YOALLI_EHECATL",
+    "p2_name": "Yoalli Ehécatl"
+  },
+  "observed_hud_p1_name": "TZITZIMIME",
+  "observed_hud_p2_name": "YOALLI",
+  "observed_p1_score": 500,
+  "two_hits_visible": false,
+  "two_hit_counter_text": null,
+  "map_selection_gold_border_verified": true,
+  "framing_review": "Full landscape scene, HUD and controls. ImageIO: 0 px opaque RGB0 full-height left/right borders and 0 px on row 35%; all eight action originals of this fixture also measured 0.",
+  "original_attachment_filename": "02D0DDDF-11D1-482D-ABBB-78811C663C90.png",
+  "map_selection_evidence": {
+    "original_filename": "389AAD93-33EA-46DC-986B-2D4ED65EBA4D.png",
+    "sha256": "78ed556a272ce857393785b2962e738e5a82494945aaaee78aa18bbb98eb31ef",
+    "selected_gold_border_verified": true,
+    "matches_expected_stage": true
+  }
+}

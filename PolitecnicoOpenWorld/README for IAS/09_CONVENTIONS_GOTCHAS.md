@@ -23,15 +23,15 @@ low-end performance) or doc drift.
 >
 > | Archivo | Líneas | Antes decía |
 > |---|---:|---:|
-> | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` | 2466 | 2422 |
-> | `features/streetfighter/ui/StreetFighterScreen.kt` | 1999 | 1801 |
+> | `features/streetfighter/viewmodel/StreetFighterViewModel.kt` | 2435 (re-medido 2026-11-16, avance de proyectiles extraído) | 2466 |
+> | `features/streetfighter/ui/StreetFighterScreen.kt` | 2011 (re-medido 2026-11-16, zona segura de controles) | 1999 |
 > | `features/map_exterior/viewmodel/WorldMapViewModel.kt` | 1612 | 1603 |
 > | `features/map_exterior/ui/WorldMapScreen.kt` | 1463 | 1463 |
 > | `features/map_exterior/ui/NativeOsmMap.kt` | 1472 | 1458 |
 > | `features/interiores/zombies/ui/ZombieGameScreen.kt` | 1350 | 1343 |
 > | `AppNavGraph.kt` | 1174 (re-medido 2026-11-05, integración de Multimedia en Coleccionables) | 1182 |
 > | `features/interiores/zombies/viewmodel/ZombieInteriorViewModel.kt` | 1165 | 1165 |
-> | `features/streetfighter/ui/SfSceneRenderer.kt` | 1230 | 1089 |
+> | `features/streetfighter/ui/SfSceneRenderer.kt` | 1236 (re-medido 2026-11-16, cobertura del Canvas) | 1230 |
 > | `domain/models/ai/NpcAiManager.kt` | 1048 | (no estaba en la tabla) |
 >
 > **🆕 (2026-09-23) `StreetFighterCpuAi.kt` se partió en cuatro.** Había llegado a **1094 líneas**
@@ -1386,15 +1386,15 @@ updated **in the same change** that touches the code. Treat it as part of the de
 | Si cambiaste… / If you changed… | Actualiza aquí / Update here |
 |---|---|
 | Archivo/feature nuevo o renombrado | `01` árbol/rutas, `04`/`05` tabla Key files, README árbol, plan §2/§4 |
-| Comportamiento de NPCs/routing/cachés/combate/zombis | doc del feature (`03`–`06`), README (EN **y** ES), plan §5 |
+| Comportamiento de NPCs/routing/cachés/combate/zombis | doc del feature (`03`–`06`), README público en inglés, plan §5 |
 | Una convención/regla/gotcha | `09`, plan §6 |
 | Algo que antes no funcionaba ya funciona | README "Current Status"→Works, plan §7 (quita de §8) |
-| Protocolo de red / tipos de mensaje | `08` tablas, README Multiplayer (EN+ES), plan §5 |
+| Protocolo de red / tipos de mensaje | `08` tablas, README Multiplayer en inglés, plan §5 |
 | Esquema Room (entidad/migración) | `02`, README Tech Stack, plan §6 (DB version) |
 | Nuevo build step / env var / puerto | `01`/`08`, README Deploying, plan §9 |
 
 ### Reglas / rules
-- **README.md es bilingüe (EN+ES):** todo cambio user-facing va en **ambas** secciones.
+- **README.md público en inglés:** por petición expresa del dueño (2026-11-16), la raíz se mantiene íntegramente en inglés; todo cambio user-facing se refleja allí. No recrear una sección española duplicada. Esta regla no cambia la paridad español/inglés de las strings de la app ni el idioma de los docs para IAs.
 - "Recent Changes / Cambios Recientes" = log corto: añade arriba, poda lo de >2–3 releases.
 - Si un dato vive en varios archivos, cámbialo en todos. **Una contradicción es un bug.**
 - Edita líneas existentes antes que añadir; estos docs deben quedar **mínimos-pero-completos**.
@@ -1556,6 +1556,17 @@ cada una.
 
 **La regla, corta:** si tocaste cómo se pinta, se carga o suena algo, **ábrelo en el emulador Y en
 el simulador**. Compilar no es verificar.
+
+### 🍏 Qué puede enseñar iOS (App Store) — regla del dueño, 2026-11-21
+
+- **iOS se publica solo con Titulación por Combate** (+ Coleccionables y Ajustes). El mundo abierto,
+  el Modo Historia, los zombis y todo el multijugador son **exclusivos de Android**; su código no se borra.
+- **`MODOS_EN_OBRAS_VISIBLES` se queda en `false` en el repo** (`PowModosTest` lo exige). Ningún botón
+  "en obras", "próximamente" o que no haga nada puede llegar al menú de iOS (Guideline 2.1).
+- **Todo botón compartido que dependa de algo que solo existe en `:app` se gatea con el catálogo de
+  `PowModos.kt`**, como `sfMultijugadorDisponible()` para el MULTIJUGADOR del modo pelea. Nada de
+  `if (esAndroid)` sueltos en la UI.
+- Antes de pintar algo nuevo en iOS, compruébalo en el simulador o en un iPhone: compilar no basta.
 
 ### Excluir de un cupo exige un tope propio (2026-11-16)
 Si un tipo de NPC se excluye de `maxActiveNpcs`/`maxTotalNpcs` (como los `CAMPUS_PED_*` o los estacionados), debe tener SU PROPIO tope y su recorte: sin él, la condición de spawn `... < maxTotalNpcs` pasa siempre y se acumulan sin límite (llegaron a ~200 y hundieron el WebView, 1 GB de RAM). Ver `domain/models/ai/CampusPedestrianCap.kt` y `MUNDO/04_MAP_EXTERIOR.md`.

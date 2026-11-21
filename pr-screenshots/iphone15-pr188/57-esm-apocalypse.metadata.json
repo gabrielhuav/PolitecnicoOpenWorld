@@ -1,0 +1,52 @@
+{
+  "coverage_index": 57,
+  "stage_file": "fondo_esm_noche_2_anim.webp",
+  "stage_title": "ESM IPN (Noche tenebrosa)",
+  "lighting": "apocalypse",
+  "p1_id": "LA_PLANCHADA",
+  "p1_name": "La Planchada",
+  "p2_id": "LA_LLORONA",
+  "p2_name": "La Llorona",
+  "action": "jump-B",
+  "captured_at": "2026-11-16T17:26:04Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "local_ui_changes": "landscape route and horizontal safe insets",
+  "capture_api": "XCUIScreen.main.screenshot",
+  "original_png": true,
+  "engine_hooks": false,
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "installed_build_evidence": "pr188-projectile-xcodebuild.log / pr188-projectile-install.log",
+  "file": "57-esm-apocalypse.png",
+  "sha256": "37cacfcdc1fa1b93ada84d4a37de9bab1977c380d15e3008b4b0ce10d65a54f5",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "bundle_version": "1.0",
+  "bundle_build": "1",
+  "validation_status": "visually_reviewed",
+  "observed_action_es": "La Planchada claramente en el aire con puño extendido sobre La Llorona, ambos rostros legibles; ESM de noche tenebrosa y P1 700.",
+  "observed_pair": {
+    "p1_id": "LA_PLANCHADA",
+    "p1_name": "La Planchada",
+    "p2_id": "LA_LLORONA",
+    "p2_name": "La Llorona"
+  },
+  "observed_hud_p1_name": "PLANCHADA",
+  "observed_hud_p2_name": "LLORONA",
+  "observed_p1_score": 700,
+  "two_hits_visible": false,
+  "two_hit_counter_text": null,
+  "map_selection_gold_border_verified": true,
+  "framing_review": "Full landscape scene reaches both edges; no native black side bands in selected original.",
+  "original_attachment_filename": "5C305A4C-6888-4A72-AA86-4F3D97C69819.png",
+  "map_selection_evidence": {
+    "original_filename": "17417BFA-7B41-4C8F-B41C-2A28705F7BB1.png",
+    "sha256": "e3000d2f7ce193cdefb3a233ebf59dddeaf89c28f87d338ff608f3abee07ea20",
+    "selected_gold_border_verified": true,
+    "matches_expected_stage": true
+  }
+}

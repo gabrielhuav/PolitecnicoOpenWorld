@@ -1,0 +1,52 @@
+{
+  "coverage_index": 58,
+  "stage_file": "fondo_cet1_anim.webp",
+  "stage_title": "CET 1",
+  "lighting": "day",
+  "p1_id": "ESCOMBOY",
+  "p1_name": "Estudiante",
+  "p2_id": "ROBOT",
+  "p2_name": "Robot Estudiantx",
+  "action": "after-B",
+  "captured_at": "2026-11-16T17:27:19Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "local_ui_changes": "landscape route and horizontal safe insets",
+  "capture_api": "XCUIScreen.main.screenshot",
+  "original_png": true,
+  "engine_hooks": false,
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "installed_build_evidence": "pr188-projectile-xcodebuild.log / pr188-projectile-install.log",
+  "file": "58-cet1-day.png",
+  "sha256": "8af338ff46ab002673783b44b5c9c43823f4cb20218523c21f196de2703ddc94",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "bundle_version": "1.0",
+  "bundle_build": "1",
+  "validation_status": "visually_reviewed",
+  "observed_action_es": "Estudiante en pose de golpe de brazo frente al Robot, contador 2 GOLPES visible, CET 1 de día y P1 700.",
+  "observed_pair": {
+    "p1_id": "ESCOMBOY",
+    "p1_name": "Estudiante",
+    "p2_id": "ROBOT",
+    "p2_name": "Robot Estudiantx"
+  },
+  "observed_hud_p1_name": "ESCOMBOY",
+  "observed_hud_p2_name": "ROBOT",
+  "observed_p1_score": 700,
+  "two_hits_visible": true,
+  "two_hit_counter_text": "2 GOLPES",
+  "map_selection_gold_border_verified": true,
+  "framing_review": "Full landscape scene reaches both edges; no native black side bands in selected original.",
+  "original_attachment_filename": "DB01BB8C-588D-475C-A5E2-1A2FF73F4ECC.png",
+  "map_selection_evidence": {
+    "original_filename": "6DCAB900-936D-49F7-8555-31AEDAEB1817.png",
+    "sha256": "800473de86dbd2a9a6c9fd1b6be7464c14837b6792ea8c26258db13891a264c2",
+    "selected_gold_border_verified": true,
+    "matches_expected_stage": true
+  }
+}

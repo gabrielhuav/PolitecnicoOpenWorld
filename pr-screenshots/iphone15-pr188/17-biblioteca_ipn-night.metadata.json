@@ -1,0 +1,52 @@
+{
+  "coverage_index": 17,
+  "stage_file": "fondo_biblioteca_ipn_noche_1_anim.webp",
+  "stage_title": "Biblioteca Nacional IPN (Noche)",
+  "lighting": "night",
+  "p1_id": "POLICIA_GRANADERO_MUJER",
+  "p1_name": "Policía Granadero CDMX (Mujer)",
+  "p2_id": "POLICIA_GRANADERO_HOMBRE",
+  "p2_name": "Policía Granadero CDMX (Hombre)",
+  "action": "quarter-circle-right-X",
+  "captured_at": "2026-11-16T17:12:32Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "local_ui_changes": "landscape route and horizontal safe insets",
+  "capture_api": "XCUIScreen.main.screenshot",
+  "original_png": true,
+  "engine_hooks": false,
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "installed_build_evidence": "pr188-projectile-xcodebuild.log / pr188-projectile-install.log",
+  "file": "17-biblioteca_ipn-night.png",
+  "sha256": "0eecab133d59481f1a37d42db5bb62b1f3b7c1cb386eb83c8a38eb510a94a500",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "bundle_version": "1.0",
+  "bundle_build": "1",
+  "validation_status": "visually_reviewed",
+  "observed_action_es": "Granadera con el brazo extendido sosteniendo un objeto tipo bastón y Granadero H cercano con escudo, identidades y HUD reconocibles sobre Biblioteca Nacional IPN nocturna; P1 0. No se atribuye un clip de audio al gesto ni al subtítulo.",
+  "observed_pair": {
+    "p1_id": "POLICIA_GRANADERO_MUJER",
+    "p1_name": "Policía Granadero CDMX (Mujer)",
+    "p2_id": "POLICIA_GRANADERO_HOMBRE",
+    "p2_name": "Policía Granadero CDMX (Hombre)"
+  },
+  "observed_hud_p1_name": "GRANADERA",
+  "observed_hud_p2_name": "GRANADERO H",
+  "observed_p1_score": 0,
+  "two_hits_visible": false,
+  "two_hit_counter_text": null,
+  "map_selection_gold_border_verified": true,
+  "framing_review": "Full landscape scene, HUD and controls. ImageIO: 0 px opaque RGB0 full-height left/right borders and 0 px on row 35%; all eight action originals of this fixture also measured 0.",
+  "original_attachment_filename": "E2A1566E-C4A6-4C82-ABF4-195E7A71FB4C.png",
+  "map_selection_evidence": {
+    "original_filename": "80179D2C-E6E3-4A01-AA81-95D757EB57C3.png",
+    "sha256": "523cc22f0613ab73d003364cbf686151339b152aa5b014d992f934a182b21f73",
+    "selected_gold_border_verified": true,
+    "matches_expected_stage": true
+  }
+}

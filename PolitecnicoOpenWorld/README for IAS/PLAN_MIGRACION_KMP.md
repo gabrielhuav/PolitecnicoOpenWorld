@@ -2,6 +2,11 @@
 
 **Fecha:** 2026-07-27 · **Autor:** Opus 5 · **Última revisión:** 2026-07-30
 
+> ## 🍏 DECISIÓN — 2026-11-21
+>
+> iOS se publica en la App Store **solo con Titulación por Combate** (+ Coleccionables y Ajustes).
+> El mundo abierto queda **exclusivo de Android**; su plan (`12_PLAN_MUNDO_ABIERTO_iOS.md`) está en pausa.
+
 > ## 📍 ESTADO REAL — 2026-07-30
 >
 > **El modo pelea corre ENTERO en iOS**, con menú principal, Ajustes, Coleccionables, cambio de

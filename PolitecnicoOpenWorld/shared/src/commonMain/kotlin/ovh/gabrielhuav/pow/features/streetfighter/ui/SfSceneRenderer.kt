@@ -63,6 +63,7 @@ import ovh.gabrielhuav.pow.platform.assets.PowAssets
 import ovh.gabrielhuav.pow.platform.imagen.PowImagen
 import ovh.gabrielhuav.pow.platform.imagen.decodificarReducido
 import ovh.gabrielhuav.pow.shared.recursos.*
+import kotlin.math.ceil
 
 // ────────────────────────────────────────────────────────────────────────────
 // 🎨 RENDER de la escena de pelea (Canvas): fondos, sprites, hitboxes y overlays
@@ -754,25 +755,10 @@ internal fun DrawScope.drawAnimatedBackground(
     val idx = ((timeMs / frameMs).toLong() % anim.frameCount).toInt().coerceIn(0, anim.frameCount - 1)
     val col = idx % anim.cols
     val row = idx / anim.cols
-    // 🆕 zoom por escenario: >1 amplía y ANCLA AL PISO (scaledH = SCENE_HEIGHT * zoom).
-    val s = (SfConstants.SCENE_HEIGHT / anim.frameH.toFloat()) * framing.zoom
-    val scaledW = anim.frameW * s
-    val scaledH = anim.frameH * s
-    val camSpan = SfConstants.STAGE_WIDTH - SfConstants.SCENE_WIDTH
-    val progress = ((ctx.camX - SfConstants.STAGE_PADDING) / camSpan).coerceIn(0f, 1f)
-    val offsetX = (scaledW - SfConstants.SCENE_WIDTH).coerceAtLeast(0f) * progress
-    // Base de la imagen al fondo de la escena (recorta cielo arriba); offsetY afina.
-    // 🆕 Salto: baja la imagen hasta 'headroom' (cielo recortado) → revela lo de arriba.
-    val headroom = (scaledH - SfConstants.SCENE_HEIGHT).coerceAtLeast(0f) * ctx.scale
-    val dstY = ctx.oy + (SfConstants.SCENE_HEIGHT - scaledH + framing.offsetY) * ctx.scale +
-        jumpFrac * headroom
-    drawImage(
-        image = anim.atlas,
-        srcOffset = IntOffset(col * anim.frameW, row * anim.frameH),
-        srcSize = IntSize(anim.frameW, anim.frameH),
-        dstOffset = IntOffset((ctx.ox - offsetX * ctx.scale).toInt(), dstY.toInt()),
-        dstSize = IntSize((scaledW * ctx.scale).toInt(), (scaledH * ctx.scale).toInt()),
-        filterQuality = FilterQuality.Low,
+    drawCoveredBackground(
+        ctx, anim.atlas,
+        IntOffset(col * anim.frameW, row * anim.frameH), IntSize(anim.frameW, anim.frameH),
+        framing, jumpFrac,
     )
 }
 
@@ -782,22 +768,42 @@ internal fun DrawScope.drawFullBackground(
     framing: SfBgFraming = SfBgFraming(),
     jumpFrac: Float = 0f,
 ) {
-    val s = (SfConstants.SCENE_HEIGHT / bg.height.toFloat()) * framing.zoom
-    val scaledW = bg.width * s
-    val scaledH = bg.height * s
+    drawCoveredBackground(ctx, bg, IntOffset.Zero, IntSize(bg.width, bg.height), framing, jumpFrac)
+}
+
+/** El fondo fijo y el animado comparten límites: ninguno debe descubrir el margen negro del Canvas. */
+private fun DrawScope.drawCoveredBackground(
+    ctx: SceneCtx,
+    image: ImageBitmap,
+    sourceOffset: IntOffset,
+    sourceSize: IntSize,
+    framing: SfBgFraming,
+    jumpFrac: Float,
+) {
+    val s = sfBackgroundScale(size.width, size.height, sourceSize.width, sourceSize.height, ctx.scale, framing.zoom)
+    // Redondear hacia fuera evita perder el último píxel por un tamaño fraccionario.
+    val dstWidth = ceil(sourceSize.width * s).toInt()
+    val dstHeight = ceil(sourceSize.height * s).toInt()
     val camSpan = SfConstants.STAGE_WIDTH - SfConstants.SCENE_WIDTH
     val progress = ((ctx.camX - SfConstants.STAGE_PADDING) / camSpan).coerceIn(0f, 1f)
-    val offsetX = (scaledW - SfConstants.SCENE_WIDTH).coerceAtLeast(0f) * progress
-    val headroom = (scaledH - SfConstants.SCENE_HEIGHT).coerceAtLeast(0f) * ctx.scale
-    val dstY = ctx.oy + (SfConstants.SCENE_HEIGHT - scaledH + framing.offsetY) * ctx.scale +
+    // El excedente se mide contra el Canvas, no contra los 382 px de la escena. La sacudida
+    // del remate se conserva donde hay imagen suficiente, limitada antes de descubrir un borde.
+    val shakeX = ctx.ox - (size.width - SfConstants.SCENE_WIDTH * ctx.scale) / 2f
+    val dstX = sfBackgroundOffset(size.width, dstWidth, -(dstWidth - size.width) * progress + shakeX)
+    // Se conserva el anclaje al piso y el parallax de salto; sólo se recorta el desplazamiento
+    // que dejaría huecos fuera de la escena virtual en pantallas de otra relación de aspecto.
+    val sceneHeight = SfConstants.SCENE_HEIGHT * ctx.scale
+    val headroom = (dstHeight - sceneHeight).coerceAtLeast(0f)
+    val desiredY = ctx.oy + sceneHeight - dstHeight + framing.offsetY * ctx.scale +
         jumpFrac * headroom
+    val dstY = sfBackgroundOffset(size.height, dstHeight, desiredY)
     drawImage(
-        image = bg,
-        srcOffset = IntOffset(0, 0),
-        srcSize = IntSize(bg.width, bg.height),
-        dstOffset = IntOffset((ctx.ox - offsetX * ctx.scale).toInt(), dstY.toInt()),
-        dstSize = IntSize((scaledW * ctx.scale).toInt(), (scaledH * ctx.scale).toInt()),
-        filterQuality = FilterQuality.Low, // foto: bilineal se ve mejor que None
+        image = image,
+        srcOffset = sourceOffset,
+        srcSize = sourceSize,
+        dstOffset = IntOffset(dstX, dstY),
+        dstSize = IntSize(dstWidth, dstHeight),
+        filterQuality = FilterQuality.Low,
     )
 }
 

@@ -1,89 +1,39 @@
 # Memoria compartida — estado vivo
 
-Actualizado: 2026-11-05 · rama `pr/158` · PR #158.
-El historial anterior completo está en `_ARCHIVO/SESION_previa_2026-11-04.md`.
+Actualizado: **2026-11-21 · PR #188 · prioridad: lanzar Titulación por Combate en la App Store**.
+Ventana de dos días, máximo 200 líneas. La sesión anterior (QA física del 2026-11-15/16) está en
+[`_ARCHIVO/SESION_previa_2026-11-16.md`](_ARCHIVO/SESION_previa_2026-11-16.md).
 
-## Alcance autorizado
+## Decisión del dueño (2026-11-21)
 
-El dueño pidió corregir Alexis Syntaxis, agregar CI/tutorial de peleadores, simplificar
-el repo e integrar la alternativa al bloqueo de calles al 25%. Autorizó commits y push
-en el mismo PR y continuar sin confirmaciones adicionales. No se ha autorizado merge.
+- **iPhone se publica en la App Store SOLO con Titulación por Combate** (+ Coleccionables y Ajustes).
+  Android ya está en Google Play y conserva TODO: mundo abierto, Modo Historia, zombis y multijugador.
+- **No se borra código**: lo exclusivo de Android solo deja de pintarse en iOS.
+- El README público presenta Titulación por Combate como la estrella del juego.
+- Nunca tocar las páginas de políticas de Play Store (`account-deletion.html`,
+  `PLAYSTORE_formulario_seguridad_datos.md`, la política en `gh-pages`).
 
-## Corrección posterior al reporte de tamaño y caída (2026-11-05)
+## Hecho en esta sesión (Windows, rama del PR #188)
 
-El reporte real demostró que el QA anterior no cubría bien AIR/THROWN/GET_UP/KO.
-Se calibran esas poses y el daño comprimido en la receta (cabeza/cuerpo, no solo altura).
-El renderer deja de inflar las poses dobladas a 100 px. No cambia hurtScale ni hitboxes.
-La gravedad común continúa en estados que interrumpen un salto; KO ya no fija vy=120
-cada tick, THROWN espera el suelo y el techo detiene velocidades ascendentes degeneradas.
-MapProvider centraliza URL/zoom, migra CARTO/Google sin credenciales a OSM y limita el
-selector a servicios sin clave; fallback Leaflet a OSM con atribución y sin reintento por frame.
-Verificado 2026-11-05: APK + 129 app/279 shared sin fallos; 12 Python + 3 JS,
-detekt, guard Native y los tres workflows verdes para `269e7a86`.
-QA real API 35: Alexis vs Paramédico, media, UNAM CU nocturno; daño, KO y ataques
-aéreos revisados. Mundo Libre carga OSM sin aviso de clave. Videos/capturas nuevos en
-`pr-screenshots/alexis-qa/emulator-nov5-*`; resumen `test-summary-nov5.json`.
-Ajustes originales del emulador restaurados tras QA; iOS no ejecutado en esta PC.
-La sección de Alexis siguiente documenta el primer arreglo del 4 de noviembre, anterior
-a esta corrección; sus cifras de 100 px y renderer sin cambios son históricas.
+- `PowModos.kt`: `MODOS_EN_OBRAS_VISIBLES = false` → iOS ya no pinta MUNDO LIBRE / MODO HISTORIA /
+  MULTIJUGADOR marcados EN OBRAS (Guideline 2.1).
+- `sfMultijugadorDisponible()` (nuevo, `PowModos.kt`) + `SfMenuOverlays.kt`: el botón MULTIJUGADOR del
+  menú del modo pelea solo se pinta en Android. En iOS quedaba muerto: `PowAppIos` no pasa
+  `onlinePlatformOverlays` y pulsarlo no abría nada.
+- `PowModosTest`: +2 tests (multijugador de Titulación solo en Android; interruptor apagado en el repo).
+- Tests en Windows: **153 `:app` + 350 `:shared` (`testAndroidHostTest`) PASS**. iOS NO se compiló aquí.
+- README: Titulación como estrella, tabla de plataformas, 9 capturas visibles (Llorona/Charro,
+  Policía/Presidenta y Tzitzimime/Yoalli en sus tres luces) + 52 en 18 desplegables, changelog podado,
+  arquitectura y servidores corregidos (`MultiplayerInteriores/`, `MultiplayerSF/`).
+- Docs: retirados 5 traspasos ya ejecutados; `12_PLAN_MUNDO_ABIERTO_iOS.md` marcado EN PAUSA; regla
+  nueva en `09` (§ "Qué puede enseñar iOS").
 
-## Alexis Syntaxis (primera corrección, 2026-11-04)
+## Siguiente (necesita Mac)
 
-- Fuente importada de PR #158 y JSON preservados en `newSFAssets/AlexisSyntaxis/`.
-- 14 poses regeneradas con imagegen: cuatro talk de cuerpo completo y diez cuadros
-  cuyos efectos/cables estaban cortados. Prompt exacto en `GENERACION.md`.
-- 258 cuadros / 58 animaciones; daño y stun normalizados a 100 px, pies y=224.
-- No se cambia renderer, `hurtScale`, hitboxes, tiempos ni layout. Solo `talk-*` cambia
-  su origen de busto [128,128] a pies [128,224]. Proyectiles conservan [128,128].
-- Receta reproducible: `tools/sf_fighters/alexis_syntaxis.json`.
-- Tutorial: `SF/CI_CD_agregar_peleador.md`. Workflow `SF Fighter Assets`.
-- QA geométrico sin errores, cuatro tests Python de regresión del gate en verde.
-- Video real en emulador y comparativa GIF de los 11 cuadros guardados en
-  `pr-screenshots/alexis-qa/`. La revisión visual cubre daño representativo;
-  no sustituye la matriz completa de dispositivos, accesibilidad e iOS.
-- PR etiquetado `manual-play-upload` y `qa-pending`; no subir a Play automáticamente.
-- R-5: personaje ficticio de parodia; renombrarlo no prueba ausencia de parecido con
-  personas reales. Se documenta la limitación; no se presenta como revisión jurídica.
-
-## Calles estáticas / bloqueo al 25%
-
-- Integrado el cambio de Claude del PR #182, commit fuente `e66cf334`, en este checkout.
-- Orden: caché Room → celda estática de `datos-calles` → Overpass con respaldos.
-- La rama `datos-calles` no existía. Se generaron y publicaron 117 celdas iniciales
-  (incluido ESCOM), desde BBBike MexicoCity 2026-11-01, con atribución OSM/ODbL.
-- Índice público: raw.githubusercontent.com/gabrielhuav/PolitecnicoOpenWorld/datos-calles/v1/indice.json.
-- Bootstrap limitado al centro/norte cubierto por el extracto; fuera de esa cobertura
-  se conserva Overpass. El workflow mensual usa el extracto completo de Geofabrik.
-- El generador ahora cubre segmentos que cruzan una celda sin nodos dentro: cuatro
-  tests de geometría/formato en verde. Acepta --fuente para procedencia correcta.
-- Corregida la aceptación de HTML/objetos sin elements como calles vacías. Era un
-  fallo reproducido del test existente de Overpass. El mismo filtro se usa al leer estáticas.
-- Timeout estático 8 s, conexión 5 s; conserva propagación de cancelación.
-- Workflow generador prueba en PR; solo publica desde el repo principal en dispatch/schedule.
-
-## Limpieza ejecutada
-
-- Retirado únicamente `detekt-cli.zip` de raíz (61,37 MiB); CLI extraída conservada.
-- Nuevo ignore de ese ZIP. Sesión antigua archivada íntegra, sin perder gotchas.
-- `PROPUESTA_LIMPIEZA_2026-11-04.md` detalla medición SHA-256 y qué se conservó.
-- No borrar GEN canónico ni las carpetas antiguas enteras: contienen variantes únicas.
-- Segunda limpieza autorizada: 432 copias idénticas retiradas (14,49 MiB), con manifiesto
-  `newSFAssets/gen_duplicates.json`. Se conservan las 1.836 variantes físicas restantes.
-  Packer/slicer/importador resuelven referencias; exportación física con `sf_gen_cache.py`.
-  Los 2.268 archivos lógicos antiguos conservan exactamente sus bytes. Atlas/JSON de
-  La Llorona y Prankedy iguales a los anteriores; reconstrucción de Alexis también exacta.
-- `PR_DESCRIPTION.md` ya estaba sin seguimiento al arrancar: no mezclar su texto viejo.
-
-## Verificación
-
-- Kotlin/Native test names: OK.
-- Build Android + tests: OK, 129 app + 273 shared, cero fallos; incluye el audit Arcade.
-- detekt completo con baseline: OK. Cuatro tests Python de sprites + cuatro de calles: OK.
-- Commit de código/assets verificado: `282b69083c5961fc852d80327ab6b44a602683b9`.
-  Sus tres workflows de GitHub terminaron en verde; las ejecuciones del fork se aprobaron.
-- Reconstrucción exacta de píxeles y JSON en local y CI. Los 11 hurt/stun miden 100 px
-  con alfa >16, sin modificar el renderer ni hurtScale.
-- Small_Phone_API_35: combate grabado sin cierre; evidencia corta MP4 y GIF de atlas.
-- Carga de mapa en frío: caché anterior conservada aparte; log real confirma
-  `Calles estáticas OK (975_-4958): 3427 ways`. La carga supera 25% y llega al mapa jugable.
-- Informe y límites de QA: `pr-screenshots/alexis-qa/README.md`.
+1. Enlazar ambos frameworks, compilar en Xcode y correr los tests iOS de `:shared` (deben ser 350).
+2. Verificar en el iPhone: el menú principal muestra solo TITULACIÓN POR COMBATE, COLECCIONABLES y
+   AJUSTES, y el menú del modo pelea ya no muestra MULTIJUGADOR.
+3. App Store: cuenta Apple Developer (99 USD/año; aún no existe, ver doc 14), ficha, capturas,
+   etiquetas de privacidad y URL de política de privacidad (revisar si la de Play cubre iOS).
+4. Decidir si el Modo Desarrollador de Ajustes (desbloquea todo y abre herramientas de QA) se esconde
+   en la build de la App Store.

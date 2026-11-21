@@ -1,207 +1,527 @@
 # Politécnico Open World (POW)
 
-> 🇬🇧 **English version below** · 🇪🇸 [Saltar a la versión en español](#-versión-en-español)
+<p align="center"><b>🥊 Titulación por Combate</b><br>
+A 1v1 arcade fighting game where Mexican legends, students and city icons settle the score on real campuses and landmarks.</p>
 
-> 📚 **Documentación técnica detallada / Detailed technical docs:** la documentación profunda por área
-> (arquitectura, capa de datos, modelos, mapa exterior, minijuego zombi, interiores/metro, servidores,
-> convenciones y *gotchas*) vive en la carpeta **[`PolitecnicoOpenWorld/README for IAS/`](PolitecnicoOpenWorld/README%20for%20IAS/)**
-> (archivos `00_INDEX` → `09`). Está pensada para pasársela a un asistente de IA en vez de subir todo el
-> código. Este README es la visión general; para firmas de funciones, estado, pseudocódigo y reglas del
-> proyecto, ve a esa carpeta. / Deep per-area docs (architecture, data, models, open-world map, zombie
-> minigame, interiors/metro, servers, conventions & gotchas) live in **`README for IAS/`** (`00_INDEX`–`09`).
+**Titulación por Combate** is the star of POW. Play and unlock **20 fighters** — La Llorona, El Charro Negro, La Tzitzimime, Yoalli Ehécatl, La Presidenta, ESCOM students, CDMX police and more — and fight across **18 stages** from IPN, UNAM, UAM and Mexico City, each in day, night and Night 2 versions.
 
----
+| Platform | Status | What you can play |
+|---|---|---|
+| 🍏 **iPhone** | Coming soon to the App Store | Titulación por Combate, plus Collectibles and Settings |
+| 🤖 **Android** | [Available on Google Play](https://play.google.com/store/apps/details?id=ovh.gabrielhuav.pow) | Titulación por Combate with online, Bluetooth and LAN versus, plus the Android-exclusive open world, story campaign and zombie minigame |
 
-**2026-11-05 · PR #158:** Alexis Syntaxis: corrected body scale during damage, aerial
-attacks, knockdowns and KO; interrupted jumps keep falling. Maps default to OpenStreetMap
-and fall back from unavailable web layers; credentialed services are excluded from the
-key-free selector. / Escala corregida en daño, ataques aéreos, derribos y KO; los saltos
-interrumpidos siguen cayendo. Mapas sin marcas de clave: OpenStreetMap por defecto,
-respaldo ante fallos y selector de servicios sin credenciales.
+POW is one **Kotlin Multiplatform** project: the fighting mode lives in the shared module and runs on both platforms, while the open world stays exclusive to Android.
 
-## 🇬🇧 English Version
+<!-- POW_IPHONE_GALLERY_START -->
+<!-- Keep all 61 original PNGs. The always-visible featured block shows the owner's three matchups in every lighting variant: La Llorona vs El Charro Negro (28/29/30), Policía CDMX vs La Presidenta (19/20/21) and La Tzitzimime vs Yoalli Ehécatl (25/26/27). -->
+<a id="pow-iphone-gallery-complete"></a>
+<a id="pow-iphone-gallery-featured"></a>
+## 📸 Real iPhone 15 screenshots
 
-**Politécnico Open World (POW)** is an Android 2D top-down exploration app built on top of real-world maps. The player navigates the actual streets of their surroundings (with initial focus on the ESCOM / Zacatenco area in Mexico City) using **OpenStreetMap** cartographic data, sharing the world with procedural NPCs (pedestrians and vehicles) and with other players connected to a real-time server. The ESCOM campus also hosts an embedded zombie survival minigame with interior buildings, melee/ranged combat and a power-up system — now backed by its own authoritative server.
+**Four-hit combos, impact flashes and dramatic stages — captured in real matches.**
 
-The project is built entirely with **Kotlin + Jetpack Compose**, follows a strict **MVVM** pattern organized by *features*, and delegates persistent-world logic to **two standalone Node.js servers**: one for the open world and a new dedicated one for the zombie minigame.
+<!-- Featured matchups: always visible -->
+<p align="center">
+  <img src="pr-screenshots/iphone15-pr188/29-islamunecas-night.png" alt="La Llorona vs El Charro Negro — Isla de las Muñecas · Night" width="960">
+</p>
+<p align="center"><b>La Llorona vs El Charro Negro — Isla de las Muñecas · Night</b></p>
+
+<p align="center">
+  <img src="pr-screenshots/iphone15-pr188/19-unam_biblioteca_cu-day.png" alt="Policía CDMX vs La Presidenta — Ciudad Universitaria UNAM · Day" width="49%">
+  <img src="pr-screenshots/iphone15-pr188/27-uam_azcapo-apocalypse.png" alt="La Tzitzimime vs Yoalli Ehécatl — UAM Azcapotzalco · Night 2" width="49%">
+</p>
+<p align="center"><b>Policía CDMX vs La Presidenta — Ciudad Universitaria UNAM · Day</b> · <b>La Tzitzimime vs Yoalli Ehécatl — UAM Azcapotzalco · Night 2</b></p>
+
+<p align="center">
+  <img src="pr-screenshots/iphone15-pr188/28-islamunecas-day.png" alt="La Llorona vs El Charro Negro — Isla de las Muñecas · Day" width="49%">
+  <img src="pr-screenshots/iphone15-pr188/30-islamunecas-apocalypse.png" alt="La Llorona vs El Charro Negro — Isla de las Muñecas · Night 2" width="49%">
+</p>
+<p align="center"><b>La Llorona vs El Charro Negro — Isla de las Muñecas</b> · Day · Night 2</p>
+
+<p align="center">
+  <img src="pr-screenshots/iphone15-pr188/20-unam_biblioteca_cu-night.png" alt="Policía CDMX vs La Presidenta — Ciudad Universitaria UNAM · Night" width="49%">
+  <img src="pr-screenshots/iphone15-pr188/21-unam_biblioteca_cu-apocalypse.png" alt="Policía CDMX vs La Presidenta — Ciudad Universitaria UNAM · Night 2" width="49%">
+</p>
+<p align="center"><b>Policía CDMX vs La Presidenta — Ciudad Universitaria UNAM</b> · Night · Night 2</p>
+
+<p align="center">
+  <img src="pr-screenshots/iphone15-pr188/25-uam_azcapo-day.png" alt="La Tzitzimime vs Yoalli Ehécatl — UAM Azcapotzalco · Day" width="49%">
+  <img src="pr-screenshots/iphone15-pr188/26-uam_azcapo-night.png" alt="La Tzitzimime vs Yoalli Ehécatl — UAM Azcapotzalco · Night" width="49%">
+</p>
+<p align="center"><b>La Tzitzimime vs Yoalli Ehécatl — UAM Azcapotzalco</b> · Day · Night</p>
+
+Explore **61 original screenshots**: 60 stage-and-lighting combinations, 19 fighters excluding Paramédico, and an extra four-hit Charro combo.
+The nine screenshots above show the three featured matchups in every lighting variant; open a group below to view the rest, up to three images at a time.
+
+Images inside the groups keep `loading="lazy"` and their natural aspect ratio. GitHub may still preload images while a group is closed.
+
+[Full gallery and capture provenance](pr-screenshots/iphone15-pr188/README.md) · [Physical iPhone QA report](PolitecnicoOpenWorld/README%20for%20IAS/SF/QA_IPHONE_PR188_2026-11-15.md)
+
+<details>
+<summary>📸 More action highlights — View 3 screenshots (10–12 of 61)</summary>
+
+**Robot Estudiantx vs Alexis Syntaxis — Planetario IPN · Night 2**
+
+<img src="pr-screenshots/iphone15-pr188/54-planetario-apocalypse.png" alt="Robot Estudiantx vs Alexis Syntaxis — Planetario IPN · Night 2" loading="lazy" width="960">
+
+Robot Estudiantx has a bright cyan orb or discharge in front of its arms while Alexis Syntaxis remains legible on the Night 2 Planetario IPN stage. P1 has 500 points.
+
+**Yoalli Ehécatl vs La Presidenta — Mictlán · Night**
+
+<img src="pr-screenshots/iphone15-pr188/32-mictlan-night.png" alt="Yoalli Ehécatl vs La Presidenta — Mictlán · Night" loading="lazy" width="960">
+
+Yoalli Ehécatl attacks while La Presidenta reacts with her hands beside her face. The 2 GOLPES counter is visible at Mictlán by night; P1 has 400 points.
+
+**Robot Estudiantx vs Alexis Syntaxis — Planetario IPN · Day**
+
+<img src="pr-screenshots/iphone15-pr188/52-planetario-day.png" alt="Robot Estudiantx vs Alexis Syntaxis — Planetario IPN · Day" loading="lazy" width="960">
+
+Robot Estudiantx extends an arm with an impact spark in front of Alexis Syntaxis’s face. Planetario IPN by day, the ROBOT/SYNTAXIS HUD and a P1 score of 300 are visible.
+
+</details>
+
+<details>
+<summary>📸 More action highlights — View 3 screenshots (13–15 of 61)</summary>
+
+**La Planchada vs La Llorona — ESM IPN · Night 2**
+
+<img src="pr-screenshots/iphone15-pr188/57-esm-apocalypse.png" alt="La Planchada vs La Llorona — ESM IPN · Night 2" loading="lazy" width="960">
+
+La Planchada is clearly airborne with an extended fist above La Llorona, with both faces legible on the Night 2 ESM stage. P1 has 700 points.
+
+**Estudiante vs Estudianta — ESCOM · Night 2**
+
+<img src="pr-screenshots/iphone15-pr188/03-escom-apocalypse.png" alt="Estudiante vs Estudianta — ESCOM · Night 2" loading="lazy" width="960">
+
+Estudiante crouches with a bright cyan effect in front of his hands while Estudianta remains fully visible. Fog covers the Night 2 ESCOM stage; P1 has 400 points and P2 has lost health.
+
+**La Tzitzimime vs Estudianta — Pirámide del Sol · Night**
+
+<img src="pr-screenshots/iphone15-pr188/44-piramidesol-night.png" alt="La Tzitzimime vs Estudianta — Pirámide del Sol · Night" loading="lazy" width="960">
+
+La Tzitzimime extends several arms toward Estudianta, with a visible 2 GOLPES counter and P1 score of 400 at Pirámide del Sol by night.
+
+</details>
+
+<details>
+<summary>📸 View 3 screenshots (16–18 of 61)</summary>
+
+**Estudiante vs Estudianta — ESCOM · Night**
+
+<img src="pr-screenshots/iphone15-pr188/02-escom-night.png" alt="Estudiante vs Estudianta — ESCOM · Night" loading="lazy" width="960">
+
+The fighters are separated and clearly visible, with the localized 2 GOLPES counter, a P1 score of 700 and a reduced P2 health bar.
+
+**El Señor de la Tienda vs Paparazzi 1 — Queso IPN · Night 2**
+
+<img src="pr-screenshots/iphone15-pr188/06-queso_ipn-apocalypse.png" alt="El Señor de la Tienda vs Paparazzi 1 — Queso IPN · Night 2" loading="lazy" width="960">
+
+El Señor de la Tienda holds a broom with its straw head visible, facing Paparazzi 1 on the Night 2 Queso IPN stage. The HUD identifies TIENDA and PAPZ 1; this frame does not show a connected hit.
+
+**Prankedy vs Rey Grupero — ESIME Azcapotzalco · Night 2**
+
+<img src="pr-screenshots/iphone15-pr188/09-esime_azc-apocalypse.png" alt="Prankedy vs Rey Grupero — ESIME Azcapotzalco · Night 2" loading="lazy" width="960">
+
+The 2 GOLPES counter is clearly visible as Rey Grupero raises his hands toward his face in front of Prankedy. Fog and crows appear on the Night 2 ESIME stage; P1 has 400 points and P2 has lost health.
+
+</details>
+
+<details>
+<summary>📸 View 3 screenshots (19–21 of 61)</summary>
+
+**Robot Estudiantx vs Alexis Syntaxis — CECyT 9 · Day**
+
+<img src="pr-screenshots/iphone15-pr188/10-cecyt_9-day.png" alt="Robot Estudiantx vs Alexis Syntaxis — CECyT 9 · Day" loading="lazy" width="960">
+
+A cyan beam extends from Robot Estudiantx’s visor toward Alexis Syntaxis, whose blue suit and glasses are visible at CECyT 9 by day. Both scores are 100; the frame does not establish that the beam connected.
+
+**Paparazzi 5 vs Policía CDMX (Hombre) — CECyT 2 · Night 2**
+
+<img src="pr-screenshots/iphone15-pr188/15-cecyt_2-apocalypse.png" alt="Paparazzi 5 vs Policía CDMX (Hombre) — CECyT 2 · Night 2" loading="lazy" width="960">
+
+The 2 GOLPES counter is clearly visible above Paparazzi 5 and the officer, with yellow stars above the officer. Both bodies are legible on the Night 2 CECyT 2 stage; P1 has 400 points and P2 has lost health.
+
+**Policía Granadero CDMX (Mujer) vs Policía Granadero CDMX (Hombre) — Biblioteca Nacional IPN · Day**
+
+<img src="pr-screenshots/iphone15-pr188/16-biblioteca_ipn-day.png" alt="Policía Granadero CDMX (Mujer) vs Policía Granadero CDMX (Hombre) — Biblioteca Nacional IPN · Day" loading="lazy" width="960">
+
+Granadera and Granadero H are separated, with recognizable helmets, visors and shields. A 2 GOLPES counter is visible at Biblioteca Nacional IPN by day; P1 has 700 points.
+
+</details>
+
+<details>
+<summary>📸 View 3 screenshots (22–24 of 61)</summary>
+
+**El Charro Negro vs La Planchada — FES Acatlán · Night**
+
+<img src="pr-screenshots/iphone15-pr188/23-fes_acatlan-night.png" alt="El Charro Negro vs La Planchada — FES Acatlán · Night" loading="lazy" width="960">
+
+El Charro Negro advances with one arm raised toward La Planchada. Their bodies remain separated and the 2 GOLPES counter is visible at FES Acatlán by night; P1 has 400 points.
+
+**Estudiante vs Estudianta — ESCOM · Day**
+
+<img src="pr-screenshots/iphone15-pr188/01-escom-day.png" alt="Estudiante vs Estudianta — ESCOM · Day" loading="lazy" width="960">
+
+Estudiante is airborne with an extended fist while Estudianta remains fully visible on the ground. Daytime ESCOM and the complete HUD are visible; this frame does not show an impact or health loss.
+
+**El Señor de la Tienda vs Paparazzi 1 — Queso IPN · Day**
+
+<img src="pr-screenshots/iphone15-pr188/04-queso_ipn-day.png" alt="El Señor de la Tienda vs Paparazzi 1 — Queso IPN · Day" loading="lazy" width="960">
+
+El Señor de la Tienda and Paparazzi 1 are separated, with recognizable faces and a visible 2 GOLPES counter at Queso IPN by day. P1 has 700 points.
+
+</details>
+
+<details>
+<summary>📸 View 3 screenshots (25–27 of 61)</summary>
+
+**El Señor de la Tienda vs Paparazzi 1 — Queso IPN · Night**
+
+<img src="pr-screenshots/iphone15-pr188/05-queso_ipn-night.png" alt="El Señor de la Tienda vs Paparazzi 1 — Queso IPN · Night" loading="lazy" width="960">
+
+El Señor de la Tienda attacks in front of Paparazzi 1, with both faces visible and a 2 GOLPES counter at Queso IPN by night. P1 has 400 points.
+
+**Prankedy vs Rey Grupero — ESIME Azcapotzalco · Day**
+
+<img src="pr-screenshots/iphone15-pr188/07-esime_azc-day.png" alt="Prankedy vs Rey Grupero — ESIME Azcapotzalco · Day" loading="lazy" width="960">
+
+Prankedy extends a fist toward Rey Grupero. Both fighters are fully visible against the ESIME Azcapotzalco wall by day; P1 has 400 points and P2 has lost health. No combo counter is visible.
+
+**Prankedy vs Rey Grupero — ESIME Azcapotzalco · Night**
+
+<img src="pr-screenshots/iphone15-pr188/08-esime_azc-night.png" alt="Prankedy vs Rey Grupero — ESIME Azcapotzalco · Night" loading="lazy" width="960">
+
+Prankedy is airborne with tucked legs and a fist forward while Rey Grupero remains on the ground. The moon, illuminated ESIME building and P1 score of 500 are visible; this frame does not establish an impact.
+
+</details>
+
+<details>
+<summary>📸 View 3 screenshots (28–30 of 61)</summary>
+
+**Robot Estudiantx vs Alexis Syntaxis — CECyT 9 · Night**
+
+<img src="pr-screenshots/iphone15-pr188/11-cecyt_9-night.png" alt="Robot Estudiantx vs Alexis Syntaxis — CECyT 9 · Night" loading="lazy" width="960">
+
+Robot Estudiantx is airborne with one arm extended while Alexis Syntaxis is fully visible on the ground at CECyT 9 by night. P1 has 200 points; the pose alone does not establish an aerial hit.
+
+**Robot Estudiantx vs Alexis Syntaxis — CECyT 9 · Night 2**
+
+<img src="pr-screenshots/iphone15-pr188/12-cecyt_9-apocalypse.png" alt="Robot Estudiantx vs Alexis Syntaxis — CECyT 9 · Night 2" loading="lazy" width="960">
+
+Robot Estudiantx hovers with an arm raised beside a leaning Alexis Syntaxis on the Night 2 CECyT 9 stage. A cyan thruster effect is visible below the robot; P1 has 900 points and P2 has lost health. No combo counter is visible.
+
+**Paparazzi 5 vs Policía CDMX (Hombre) — CECyT 2 · Day**
+
+<img src="pr-screenshots/iphone15-pr188/13-cecyt_2-day.png" alt="Paparazzi 5 vs Policía CDMX (Hombre) — CECyT 2 · Day" loading="lazy" width="960">
+
+Paparazzi 5 is airborne with an arm extended while Policía CDMX (Hombre) is fully visible on the ground at CECyT 2 by day. P1 has 300 points; the pose alone does not establish a connected hit.
+
+</details>
+
+<details>
+<summary>📸 View 3 screenshots (31–33 of 61)</summary>
+
+**Paparazzi 5 vs Policía CDMX (Hombre) — CECyT 2 · Night**
+
+<img src="pr-screenshots/iphone15-pr188/14-cecyt_2-night.png" alt="Paparazzi 5 vs Policía CDMX (Hombre) — CECyT 2 · Night" loading="lazy" width="960">
+
+Paparazzi 5 extends a fist, with a small yellow flash in front of the officer’s cap. CECyT 2 by night, the PAPZ 5/POLICIA H HUD and a P1 score of 700 are visible; P2 has lost health. No combo counter is visible.
+
+**Policía Granadero CDMX (Mujer) vs Policía Granadero CDMX (Hombre) — Biblioteca Nacional IPN · Night**
+
+<img src="pr-screenshots/iphone15-pr188/17-biblioteca_ipn-night.png" alt="Policía Granadero CDMX (Mujer) vs Policía Granadero CDMX (Hombre) — Biblioteca Nacional IPN · Night" loading="lazy" width="960">
+
+Granadera extends an arm holding a baton-like object near Granadero H and his shield. Their identities and HUD remain recognizable at Biblioteca Nacional IPN by night; P1 has 0 points. The gesture or subtitle does not identify an audio clip.
+
+**Policía Granadero CDMX (Mujer) vs Policía Granadero CDMX (Hombre) — Biblioteca Nacional IPN · Night 2**
+
+<img src="pr-screenshots/iphone15-pr188/18-biblioteca_ipn-apocalypse.png" alt="Policía Granadero CDMX (Mujer) vs Policía Granadero CDMX (Hombre) — Biblioteca Nacional IPN · Night 2" loading="lazy" width="960">
+
+Granadera and Granadero H are separated, with recognizable faces and visors and a visible 2 GOLPES counter on the Night 2 Biblioteca Nacional IPN stage. P1 has 400 points.
+
+</details>
+
+<details>
+<summary>📸 View 3 screenshots (34–36 of 61)</summary>
+
+**El Charro Negro vs La Planchada — FES Acatlán · Day**
+
+<img src="pr-screenshots/iphone15-pr188/22-fes_acatlan-day.png" alt="El Charro Negro vs La Planchada — FES Acatlán · Day" loading="lazy" width="960">
+
+El Charro Negro and La Planchada are fully visible and separated at FES Acatlán by day, with both faces legible. P1 has 400 points.
+
+**El Charro Negro vs La Planchada — FES Acatlán · Night 2**
+
+<img src="pr-screenshots/iphone15-pr188/24-fes_acatlan-apocalypse.png" alt="El Charro Negro vs La Planchada — FES Acatlán · Night 2" loading="lazy" width="960">
+
+El Charro Negro leans forward while La Planchada stands apart, with the 2 GOLPES counter visible on the Night 2 FES Acatlán stage. P1 has 400 points.
+
+**El Charro Negro vs El Charro Negro — Four-hit combo**
+
+<img src="pr-screenshots/iphone15-pr188/charro-4-golpes.png" alt="El Charro Negro vs El Charro Negro — Four-hit combo" loading="lazy" width="960">
+
+Both Charros are fully visible in combat with the localized 4 GOLPES counter. This extra AI-vs-AI screenshot is outside the 60-background matrix and does not establish the final match result by itself.
+
+</details>
+
+<details>
+<summary>📸 View 3 screenshots (37–39 of 61)</summary>
+
+**Yoalli Ehécatl vs La Presidenta — Mictlán · Day**
+
+<img src="pr-screenshots/iphone15-pr188/31-mictlan-day.png" alt="Yoalli Ehécatl vs La Presidenta — Mictlán · Day" loading="lazy" width="960">
+
+Yoalli Ehécatl leans forward while La Presidenta stands apart, with both faces recognizable against Mictlán’s orange landscape and candles. P1 has 100 points.
+
+**Yoalli Ehécatl vs La Presidenta — Mictlán · Night 2**
+
+<img src="pr-screenshots/iphone15-pr188/33-mictlan-apocalypse.png" alt="Yoalli Ehécatl vs La Presidenta — Mictlán · Night 2" loading="lazy" width="960">
+
+Yoalli Ehécatl is airborne on the right while La Presidenta stands on the left, both recognizable under the red moon on the Night 2 Mictlán stage. P1 has 700 points; their screen positions do not change their P1/P2 HUD identities.
+
+**El Charro Negro vs Rey Grupero — Campos de Agave Jalisco · Day**
+
+<img src="pr-screenshots/iphone15-pr188/34-campos_agave_jalisco-day.png" alt="El Charro Negro vs Rey Grupero — Campos de Agave Jalisco · Day" loading="lazy" width="960">
+
+El Charro Negro extends an arm with small green particles near his fist toward Rey Grupero, with both faces visible in the agave fields by day. P1 has 300 points; this frame does not establish a connected special attack.
+
+</details>
+
+<details>
+<summary>📸 View 3 screenshots (40–42 of 61)</summary>
+
+**El Charro Negro vs Rey Grupero — Campos de Agave Jalisco · Night**
+
+<img src="pr-screenshots/iphone15-pr188/35-campos_agave_jalisco-night.png" alt="El Charro Negro vs Rey Grupero — Campos de Agave Jalisco · Night" loading="lazy" width="960">
+
+El Charro Negro advances toward Rey Grupero with a visible 2 GOLPES counter, agave plants and an illuminated gazebo by night. P1 has 400 points.
+
+**El Charro Negro vs Rey Grupero — Campos de Agave Jalisco · Night 2**
+
+<img src="pr-screenshots/iphone15-pr188/36-campos_agave_jalisco-apocalypse.png" alt="El Charro Negro vs Rey Grupero — Campos de Agave Jalisco · Night 2" loading="lazy" width="960">
+
+El Charro Negro stands on the left and Rey Grupero guards on the right, with separated faces and the complete HUD visible on the Night 2 Campos de Agave Jalisco stage. P1 has 500 points.
+
+**Alexis Syntaxis vs Robot Estudiantx — Facultad de Medicina · Day**
+
+<img src="pr-screenshots/iphone15-pr188/37-facultad_medicina-day.png" alt="Alexis Syntaxis vs Robot Estudiantx — Facultad de Medicina · Day" loading="lazy" width="960">
+
+Alexis Syntaxis and Robot Estudiantx are separated, with a 2 GOLPES counter at Facultad de Medicina by day. The face and visor are legible; P1 has 400 points.
+
+</details>
+
+<details>
+<summary>📸 View 3 screenshots (43–45 of 61)</summary>
+
+**Alexis Syntaxis vs Robot Estudiantx — Facultad de Medicina · Night**
+
+<img src="pr-screenshots/iphone15-pr188/38-facultad_medicina-night.png" alt="Alexis Syntaxis vs Robot Estudiantx — Facultad de Medicina · Night" loading="lazy" width="960">
+
+Alexis Syntaxis extends a fist toward Robot Estudiantx, with the face and visor legible at Facultad de Medicina by night. P1 has 300 points.
+
+**Alexis Syntaxis vs Robot Estudiantx — Facultad de Medicina · Night 2**
+
+<img src="pr-screenshots/iphone15-pr188/39-facultad_medicina-apocalypse.png" alt="Alexis Syntaxis vs Robot Estudiantx — Facultad de Medicina · Night 2" loading="lazy" width="960">
+
+Alexis Syntaxis and Robot Estudiantx are separated, with a visible 2 GOLPES counter on the Night 2 Facultad de Medicina stage. P1 has 400 points.
+
+**Rey Grupero vs Prankedy — FES Aragón · Day**
+
+<img src="pr-screenshots/iphone15-pr188/40-fes_aragon-day.png" alt="Rey Grupero vs Prankedy — FES Aragón · Day" loading="lazy" width="960">
+
+Rey Grupero and Prankedy are separated, with recognizable faces and a visible 2 GOLPES counter at FES Aragón by day. P1 has 400 points.
+
+</details>
+
+<details>
+<summary>📸 View 3 screenshots (46–48 of 61)</summary>
+
+**Rey Grupero vs Prankedy — FES Aragón · Night**
+
+<img src="pr-screenshots/iphone15-pr188/41-fes_aragon-night.png" alt="Rey Grupero vs Prankedy — FES Aragón · Night" loading="lazy" width="960">
+
+Rey Grupero and Prankedy are separated, with the GRUPERO/PRANKEDY HUD, a visible 2 GOLPES counter and a P1 score of 400 at FES Aragón by night.
+
+**Rey Grupero vs Prankedy — FES Aragón · Night 2**
+
+<img src="pr-screenshots/iphone15-pr188/42-fes_aragon-apocalypse.png" alt="Rey Grupero vs Prankedy — FES Aragón · Night 2" loading="lazy" width="960">
+
+Rey Grupero holds a megaphone facing Prankedy, with both faces recognizable through the fog on the Night 2 FES Aragón stage. Both scores are 100.
+
+**La Tzitzimime vs Estudianta — Pirámide del Sol · Day**
+
+<img src="pr-screenshots/iphone15-pr188/43-piramidesol-day.png" alt="La Tzitzimime vs Estudianta — Pirámide del Sol · Day" loading="lazy" width="960">
+
+Estudianta stands on the left with one knee raised and La Tzitzimime on the right, both legible at Pirámide del Sol by day. The HUD identifies TZITZIMIME/ESCOMGIRL and P1 has 300 points; the left-hand fighter is not assumed to be P1.
+
+</details>
+
+<details>
+<summary>📸 View 3 screenshots (49–51 of 61)</summary>
+
+**La Tzitzimime vs Estudianta — Pirámide del Sol · Night 2**
+
+<img src="pr-screenshots/iphone15-pr188/45-piramidesol-apocalypse.png" alt="La Tzitzimime vs Estudianta — Pirámide del Sol · Night 2" loading="lazy" width="960">
+
+La Tzitzimime is suspended in the air with a red dress and several arms while Estudianta guards on the Night 2 Pirámide del Sol stage beneath a red moon. P1 has 200 points.
+
+**Policía CDMX vs Paparazzi 5 — UAM Cuajimalpa · Day**
+
+<img src="pr-screenshots/iphone15-pr188/46-uam_cuajimalpa-day.png" alt="Policía CDMX vs Paparazzi 5 — UAM Cuajimalpa · Day" loading="lazy" width="960">
+
+Policía CDMX extends an arm with a small, bright cyan effect in front of his hand toward Paparazzi 5. Animated pedestrians appear in the UAM Cuajimalpa daytime background; P1 has 500 points.
+
+**Policía CDMX vs Paparazzi 5 — UAM Cuajimalpa · Night**
+
+<img src="pr-screenshots/iphone15-pr188/47-uam_cuajimalpa-night.png" alt="Policía CDMX vs Paparazzi 5 — UAM Cuajimalpa · Night" loading="lazy" width="960">
+
+Policía CDMX and Paparazzi 5 are separated, with recognizable faces and HUD and a visible 2 GOLPES counter at UAM Cuajimalpa by night. P1 has 700 points.
+
+</details>
+
+<details>
+<summary>📸 View 3 screenshots (52–54 of 61)</summary>
+
+**Policía CDMX vs Paparazzi 5 — UAM Cuajimalpa · Night 2**
+
+<img src="pr-screenshots/iphone15-pr188/48-uam_cuajimalpa-apocalypse.png" alt="Policía CDMX vs Paparazzi 5 — UAM Cuajimalpa · Night 2" loading="lazy" width="960">
+
+Policía CDMX is airborne with a raised knee above Paparazzi 5. Purple effects belong to the Night 2 UAM Cuajimalpa background; P1 has 300 points.
+
+**La Presidenta vs Policía Granadero CDMX (Hombre) — Zócalo · Day**
+
+<img src="pr-screenshots/iphone15-pr188/49-zocalo-day.png" alt="La Presidenta vs Policía Granadero CDMX (Hombre) — Zócalo · Day" loading="lazy" width="960">
+
+La Presidenta raises a leg toward Granadero H and his shield, with a visible 2 GOLPES counter, P1 score of 900 and the cathedral at Zócalo by day.
+
+**La Presidenta vs Policía Granadero CDMX (Hombre) — Zócalo · Night**
+
+<img src="pr-screenshots/iphone15-pr188/50-zocalo-night.png" alt="La Presidenta vs Policía Granadero CDMX (Hombre) — Zócalo · Night" loading="lazy" width="960">
+
+La Presidenta extends an open hand toward Granadero H’s shield, with both faces legible in the illuminated Zócalo by night. P1 has 500 points and P2 has 100.
+
+</details>
+
+<details>
+<summary>📸 View 3 screenshots (55–57 of 61)</summary>
+
+**La Presidenta vs Policía Granadero CDMX (Hombre) — Zócalo · Night 2**
+
+<img src="pr-screenshots/iphone15-pr188/51-zocalo-apocalypse.png" alt="La Presidenta vs Policía Granadero CDMX (Hombre) — Zócalo · Night 2" loading="lazy" width="960">
+
+La Presidenta is suspended in the air facing Granadero H on the Night 2 Zócalo stage, with birds and a red moon. P1 has 300 points; the scene reaches both image edges.
+
+**Robot Estudiantx vs Alexis Syntaxis — Planetario IPN · Night**
+
+<img src="pr-screenshots/iphone15-pr188/53-planetario-night.png" alt="Robot Estudiantx vs Alexis Syntaxis — Planetario IPN · Night" loading="lazy" width="960">
+
+A short cyan beam extends from Robot Estudiantx’s visor toward Alexis Syntaxis, with the illuminated Planetario IPN nighttime background. P1 has 100 points.
+
+**La Planchada vs La Llorona — ESM IPN · Day**
+
+<img src="pr-screenshots/iphone15-pr188/55-esm-day.png" alt="La Planchada vs La Llorona — ESM IPN · Day" loading="lazy" width="960">
+
+La Planchada and La Llorona are recognizable at Escuela Superior de Medicina by day, with a visible 2 GOLPES counter and P1 score of 500.
+
+</details>
+
+<details>
+<summary>📸 View 3 screenshots (58–60 of 61)</summary>
+
+**La Planchada vs La Llorona — ESM IPN · Night**
+
+<img src="pr-screenshots/iphone15-pr188/56-esm-night.png" alt="La Planchada vs La Llorona — ESM IPN · Night" loading="lazy" width="960">
+
+La Planchada holds a visible green glow between her hands facing La Llorona, with the illuminated ESM nighttime background. P1 has 300 points.
+
+**Estudiante vs Robot Estudiantx — CET 1 · Day**
+
+<img src="pr-screenshots/iphone15-pr188/58-cet1-day.png" alt="Estudiante vs Robot Estudiantx — CET 1 · Day" loading="lazy" width="960">
+
+Estudiante strikes with an arm toward Robot Estudiantx, with a visible 2 GOLPES counter at CET 1 by day. P1 has 700 points.
+
+**Estudiante vs Robot Estudiantx — CET 1 · Night**
+
+<img src="pr-screenshots/iphone15-pr188/59-cet1-night.png" alt="Estudiante vs Robot Estudiantx — CET 1 · Night" loading="lazy" width="960">
+
+Estudiante is clearly airborne with bent knees facing Robot Estudiantx at CET 1 by night, beneath a starry sky. P1 has 600 points.
+
+</details>
+
+<details>
+<summary>📸 View 1 screenshot (61–61 of 61)</summary>
+
+**Estudiante vs Robot Estudiantx — CET 1 · Night 2**
+
+<img src="pr-screenshots/iphone15-pr188/60-cet1-apocalypse.png" alt="Estudiante vs Robot Estudiantx — CET 1 · Night 2" loading="lazy" width="960">
+
+Estudiante has one arm raised and the other forward facing Robot Estudiantx, with a visible 2 GOLPES counter on the Night 2 CET 1 stage. P1 has 400 points.
+
+</details>
+
+<!-- POW_IPHONE_GALLERY_END -->
+
+## 🥊 Titulación por Combate
+
+Titulación por Combate is a 2D 1v1 fighter with best-of-three rounds, an on-screen joystick and arcade buttons, and a deep moveset: chain combos, dashes, parries, throws, counters, taunts and super arts. Fighters speak recorded voice lines with optional subtitles, and the whole game is available in Spanish and English.
+
+### Modes
+
+| Mode | What it is | iPhone | Android |
+|---|---|:---:|:---:|
+| **Arcade** | Climb a ladder of up to 16 fights as one of the three ESCOM students, beat the bosses — La Tzitzimime, La Presidenta and Yoalli Ehécatl — and unlock fighters. Easy, Medium and Hard set the lighting (day, night, Night 2). | ✅ | ✅ |
+| **Practice** | Pick your fighter, rival, CPU difficulty and stage. | ✅ | ✅ |
+| **Combos & Tutorial** | Step-by-step lessons for every control and combo, then free practice. | ✅ | ✅ |
+| **Examen Extraordinario** | Practice the finishing moves ("Extraordinarios") with no time limit. | ✅ | ✅ |
+| **AI vs AI** | Watch two CPUs fight at Nightmare difficulty — made for recording. | ✅ | ✅ |
+| **Records** | Wins and losses for every fighter. | ✅ | ✅ |
+| **Multiplayer** | 1v1 versus online (room codes, public rooms, quick match), over Bluetooth or on your local network. | — | ✅ |
+
+### Fighters
+
+Estudiante · Estudianta · Robot Estudiantx · Alexis Syntaxis · Prankedy · El Señor de la Tienda · Paparazzi 1 · Paparazzi 5 · Rey Grupero · Policía CDMX · Policía CDMX (Hombre) · Granadera · Granadero · Paramédico Cruz Roja · El Charro Negro · La Llorona · La Planchada · La Tzitzimime · La Presidenta · Yoalli Ehécatl
+
+### Stages
+
+ESCOM · Queso IPN · ESIME Azcapotzalco · CECyT 9 · CECyT 2 · Biblioteca Nacional IPN · Ciudad Universitaria UNAM · FES Acatlán · UAM Azcapotzalco · Isla de las Muñecas · Mictlán · Campos de Agave Jalisco · Facultad de Medicina · FES Aragón · Pirámide del Sol · UAM Cuajimalpa · Zócalo · Escuela Superior de Medicina — each in day, night and Night 2 versions, unlocked by beating each rival in Arcade.
+
+Two extra stages, **Planetario IPN** and **CET 1**, are available with Developer Mode (Settings).
+
+### 🍏 iPhone and Android, one codebase
+
+The fighting engine, menus, assets and rules live in the shared Kotlin Multiplatform module (`PolitecnicoOpenWorld/shared`), so iPhone and Android run the same game. The iOS app is a thin SwiftUI host around a single Compose Multiplatform view controller (`PolitecnicoOpenWorld/iosApp`).
+
+Which modes each platform shows is decided in one place, `PowModos.kt`, and covered by unit tests that run on Android:
+
+- iPhone shows only **Titulación por Combate**, **Collectibles** and **Settings**. The open world, story campaign and multiplayer are not shown there; their code stays in the repository for Android.
+- The App Store switch `MODOS_EN_OBRAS_VISIBLES` is **off**, so iPhone never shows under-construction buttons.
+- The fighting mode's multiplayer is Android-only (`sfMultijugadorDisponible()`), because its online, Bluetooth and LAN transports live in the Android app.
+
+Install and sign the iPhone build step by step: [`14_INSTALAR_EN_IPHONE_Y_SIMULADOR.md`](PolitecnicoOpenWorld/README%20for%20IAS/14_INSTALAR_EN_IPHONE_Y_SIMULADOR.md). Xcode project notes: [`iosApp/README.md`](PolitecnicoOpenWorld/iosApp/README.md).
+
+> 📚 **Detailed technical documentation** for contributors and AI assistants lives in **[README for IAS](PolitecnicoOpenWorld/README%20for%20IAS/)** — start with `00_INDEX.md`. The fighting mode has its own index in `SF/00_SF_INDEX.md`.
 
 ### 🔄 Recent Changes
 
+- **Open world: north-up camera and solid collisions (2026-11-20)** — on Android the map now stays north-up while driving on web, Google and native OSM, and vehicle sprites rotate on their own. Characters collide as circles and cars as oriented rectangles, with a static sweep at high speed: buildings and fences (`BARRIER`) block, while the 48 `CARRIL_*` lanes are `NAV_GUIDE` and no longer create invisible walls. On foot you can no longer overlap car bodies (joystick and buttons alike), forced vehicle exits look for a walkable spot, traffic uses the same resolver against static shapes, and ESCOM's exterior collisions load again, so its roof polygon blocks walking, driving and traffic. The debug overlay draws physical shapes in red and guides in blue.
+- **iPhone App Store build: Titulación por Combate only (2026-11-21)** — the iPhone menu now shows only Titulación por Combate, Collectibles and Settings. Under-construction buttons are switched off, and the fighting mode's multiplayer button is hidden on iOS, where it had no function. Android is unchanged.
+- **iPhone combat orientation (2026-11-15)** — Titulación por Combate enters landscape automatically, including fighter and stage selection. Selector content respects the lateral safe area. [Real iPhone QA status](PolitecnicoOpenWorld/README%20for%20IAS/SF/QA_IPHONE_PR188_2026-11-15.md).
 - **Unified Collectibles gallery** — Multimedia is now part of Collectibles, keeping its burgundy and gold design with exactly two tabs: Fighters and Maps. Fighters contains the Titulación por Combate roster, including source animation frames for fighters with runtime sheets. Maps contains combat stages and their day/night/apocalypse variants, interiors and transit maps. A separate image viewer supports pinch zoom, bounded panning, zoom buttons and fit-to-window, using the original asset instead of its thumbnail. No image files are duplicated.
-
+- **El Charro Negro's wolf voice (2026-11-06)** — three new voice lines blend real wolf howls and growls into his speech. [Sources and licenses](newSFAssets/CharroNegro/audio_sources/README.md) · [how the voice was built](docs/audio/charro_voz_lobo.md).
+- **La Planchada and ESM (2026-11-06)** — adds a spectral IMSS nurse with original sprites in one standardized WebP combat atlas, derived free-roam animations, shared La Llorona audio, and the Escuela Superior de Medicina stage. Defeat her in Arcade on Medium or Hard to unlock the fighter.
 - **CET 1: day, night and ominous-night stages (2026-11-05)** — three animated backgrounds of the Walter Cross Buchanan campus join the Titulación por Combate stage selector. They remain extra stages outside the Arcade ladder and are playable with Developer Mode enabled. Each variant has a WebP atlas, animation metadata and a separate selector thumbnail.
 - **Alexis Syntaxis asset repair and fighter CI (2026-11-04)** — damage/stun sprites now follow the 100 px standing-height standard, with corrected feet anchors. Four talking poses and ten clipped action poses were regenerated. A reproducible asset workflow builds previews, checks geometry and compares committed assets with their sources. See the [fighter CI tutorial](PolitecnicoOpenWorld/README%20for%20IAS/SF/CI_CD_agregar_peleador.md).
 - **Static CDMX streets (2026-11-04)** — integrates the static-cell approach from PR #182 ahead of Overpass, and rejects malformed/HTML responses so gateway errors are retried through the fallback instead of accepted as empty streets.
 
-The latest integration work centers on the **multiplayer back end**, which now spans two servers, plus the previously bundled feature/performance PRs:
+Older entries live in the git history.
 
-- **La Planchada and ESM (2026-11-06)** — adds a spectral IMSS nurse with original sprites in one standardized WebP combat atlas, derived free-roam animations, shared La Llorona audio, and the Escuela Superior de Medicina stage. Defeat her in Arcade on Medium or Hard to unlock the fighter.
-- **TITULACIÓN POR COMBATE: the police fighters' special move gets its own sound (new, 2026-09-24)** — the **CDMX policewoman**, the **riot-squad Granadero** and the **Granadera** had no `power` voice line and no `special_<id>` clip, so their projectile fell back to the generic `hadouken`. They now share a short **siren + impact SFX** (`special_power_siren`, 1.5 s, original synthesized audio with no third-party samples) with a short `(Siren)` subtitle when voice subtitles are enabled, the same way Escomboy and Escomgirl share `special_power_electricity`. The CDMX policeman keeps his own clip. The arcade audit test now requires the new file for the three of them.
-- **TITULACIÓN POR COMBATE: in-fight pause button (HUD asset) and full pause menu (new, 2026-09-30)** — players can now pause any fight manually via a dedicated **Button Pause** graphical pixel-art asset (`ic_button_pause.png`) placed at the top-right corner of the HUD (`Alignment.TopEnd`), immediately to the left of the exit `✕` button. The pause overlay features four options: **Continue**, **Move List** (opens the fighter's complete combo and command sheet without leaving the fight), **Restart Fight** (instantly restarts the current round/match), and **Exit to Menu**. Fully localized in Spanish and English with system bar insets handled defensively across Android and iOS.
-- **HUELUM VS. GOYA: classic dizzy/stun, La Llorona crash shielded, smoother loading and smarter navigation (new, 2026-07-22b)** — taking too many hits without a break now **dazes your fighter**: a small orange bar fills as you get hit, and when it tops out the fighter freezes for ~2 seconds with **stars orbiting their head** (hitting a dazed rival wakes them up; works in every mode, multiplayer included). The **super meter now glows and pulses** when it's ready, and slowly drains if you stop landing hits (a full bar never drains). **La Presidenta's metamorphosis** now happens only in round 1, grants a **fresh full health bar** when she transforms, and she **stays** as Yoalli for the rest of the match. The **La Llorona crash path was shielded** (her fights load an extra placeholder atlas that could blow up the memory budget — it is now half-resolution and failure-proof) and all heavy fight assets now decode **under the LOADING screen** instead of freezing the game for a few seconds (transforming mid-fight no longer reloads anything). The policeman's intro line now **plays to the end**, leaving a mode now returns you to **that mode's own character select**, and the tutorial **highlights the exact button to press** (pulsing yellow ring), names the real controls (X/Y/B/A/P/G/T/S) and shows the button chips above the lesson text. *(Pending Rebuild + device test.)*
-- **HUELUM VS. GOYA: voice subtitles are now ON + two new tutorial lessons (new, 2026-07-22)** — the 64 curated voice subtitles are finally displayed during fights, in Spanish or English following the device language (the English track was completed: every line that was still in Spanish got translated; shouts and onomatopoeia stay as recorded). Long phrases are no longer crammed into one block: each segment of the phrase gets its own line in the arcade HUD font, synced with how the voice line was written, and long segments still word-wrap. The tutorial also gains two lessons: the **crouching chain** (low punch into low kick) and the **super meter** (the golden bar fills as you land hits and as you take them; the Super Art and the FATALITY spend it entirely). *(Pending Rebuild + device test.)*
-- **HUELUM VS. GOYA: step-by-step tutorial, recovered moves and low-end fixes (new, 2026-07-21)** — the tutorial now teaches **one move per lesson** (21 basics: walking, crouching, every punch and kick, blocking, dash, run, parry, throw, sweep, anti-air, overhead, air attacks, special and super) before moving on to combos. Each step is shown as a **chip in the colour of the actual button** you must press, ticked off as you get it right, and if you do the wrong move a red **"NOT THAT ONE"** card tells you exactly what you did versus what was asked. Three animations that were being sliced and thrown away are now in the game: **running** (hold forward out of a dash — you can jump and attack out of it), plus relaxed and talking idle poses. Each fighter's AI profile now **sharpens as you climb the ladder**, so zoners throw more powers and rushers press and combo harder the further you go. On the performance side, the new artwork had pushed fighter atlases to 73 MB of RAM each; they are now decoded at half resolution on low-end devices (~18 MB) without changing how large the sprites appear. *(Pending Rebuild + device test.)*
-- **HUELUM VS. GOYA: combo sheet and interactive tutorial (new, 2026-07-21)** — a new **COMBOS & TUTORIAL** entry sits alongside Practice and AI vs AI. It opens a sheet listing **every combat control** and the fighter's combo routes with their step-by-step recipes, and a **TRY IT** button drops you into a **guided tutorial**: the screen asks for one move at a time, checks that you actually performed it, ticks off each step and only then moves on, with repeat/skip and lesson progress. You practise against an **inert dummy** — no clock, and the dummy never dies — so nothing interrupts your execution. Combos live in a data-driven catalogue (10 universal routes plus a signature one per fighter) that the **CPU reads too**, so the AI now chains complete combo routes instead of isolated hits, scaled to the difficulty. *(Pending Rebuild + device test.)*
-- **Main menu: ALPHA/BETA badges no longer jump to their own line (fix, 2026-07-21)** — the status badges were pushed above each button with a negative vertical offset, so on devices with a large system font (reported on a Galaxy S24) they crept into the previous row and looked detached. They now only shift sideways into the margin that always exists, and no menu label can wrap onto a second line inside a fixed-height button.
-- **HUELUM VS. GOYA: the full 3rd Strike-style moveset (new, 2026-07-21)** — every fighter gained **21 new playable moves**: forward/back **dashes** (double-tap), high and low **blocking** with real guard poses, the signature **parry** (a 260 ms window that nullifies the hit outright and leaves the attacker exposed), a full set of **crouching attacks** including an anti-air and a **sweep** that knocks down, **air attacks**, a long-reaching **roundhouse**, an **overhead** that beats low guard, a **throw** that goes straight through blocking, a taunt, and a **Super Art** fuelled by a new meter that fills as you deal and take damage. The CPU uses the new arsenal too — sweeping to punish, throwing turtling opponents, and parrying on the harder difficulties. Fighters still missing artwork for a move play it with a clearly-marked **ALPHA placeholder** silhouette instead of losing the move. *(Pending Rebuild + device test.)*
-- **HUELUM VS. GOYA: 3rd Strike-style combos (new, 2026-07-20)** — normal attacks that **connect** can now be **chain-cancelled** into the next-stronger normal (light→medium→heavy, punch or kick) or **special-cancelled** into the character's special move (its cooldown still applies); whiffed attacks recover in full, like the arcade. A **combo counter** ("N HITS") appears on the attacker's side from 2 hits, and combo damage scales down 10% per chained hit (floor 50%) so chains aren't free kills. Offline modes only (online keeps remote HP authority). *(Pending Rebuild + device test.)*
-- **HUELUM VS. GOYA: shared combat-AI recovery (fix, 2026-07-18)** — the CPU no longer remains internally airborne after its sprite has touched the floor: landing now accepts the exact clamped floor coordinate, which was the root cause of fighters gluing together, facing away and eventually winning by timeout. The same AI engine is used by solo, Arcade, AI vs AI and both Autoplay audits; difficulty controls reaction/defence/aggression while lightweight fighter profiles favour pressure or powers. Body/leg hit zones are checked correctly, the last three normal attacks are remembered, specials and bonus powers have separate cooldowns, reactive blocking was expanded, and a short escape window prevents one power from trapping a fighter in endless hit-stun. Autoplay now treats prolonged inactivity and every timeout round as explicit failures and reports KO/timeout totals.
-- **POW 1.0.0.12: Play-size hotfix and release handoff (release, 2026-07-18)** — all **48 animated HUELUM VS. GOYA stages** now sample real motion across five seconds instead of a nearly static 1.25-second centre window. The complete 16-stage set keeps **day, night and dark-night** variants, with the POW logo baked into every frame; auxiliary stills live outside the Android Studio project. The final release AAB is **438.52 MiB** with a **459.16 MB compressed base module**, leaving **40.84 MB** below Play's 500 MB limit. Showcase now has separate **next animation**, **next fighter**, **1×/2×/4× speed** and **replay audio** controls, plus a 21-character audio-only showcase. La Llorona's fused double-body hurt frames were split and guarded by validation. CI uses current Node 24 actions, `tracks: alpha`, localized release notes and a downloadable signed-AAB artifact; PRs labelled `manual-play-upload` build the artifact without uploading it automatically.
-- **HUELUM VS. GOYA: production audio rebuild + complete AI campaign audit (release, 2026-07-18)** — all **21 character specials** were rebuilt from the already-downloaded local sources, in Spanish only, with cut lengths chosen per clip instead of a common duration. Spoken clips were transcribed and checked against their real wording; non-verbal horror/band effects no longer display invented subtitles. La Presidenta now has an 8.3 s verified Claudia clip, Lázaro has his own voice, and all three Granadero variants keep the complete 27.5 s band performance. Long specials use `MediaPlayer`, so they play through instead of being truncated by `SoundPool`. The local-only reproducible pipeline writes source/output hashes and a 21/21 technical + Spanish-content audit. Art fixes add distinct La Llorona hurt poses and the reverse Yoalli → Presidenta metamorphosis. Finally, the QA bot now executes all **9 complete arcade campaigns** (3 starters × BASIC/NORMAL/ADVANCED, 135 fights) at accelerated simulation speed, while tests audit 600 randomized campaign configurations. Version bumped to **1.0.0.12** for Play Store alpha.
-- **HUELUM VS. GOYA: police voice lines, subtitles and the Granadero's bugle (fix, 2026-07-18)** — the police fighters now say the right lines at the right moments — the male officer warns "you can't drink in public" at the start, calls you out on the attack and taunts on victory; the female officer has two attack lines and her own victory line — and the Granadero (male and female) win with a bugle "diana" call instead. The on-screen subtitles now wrap onto **up to three lines in a smaller font** so long phrases no longer run off the screen. *(Pending Rebuild + device test.)*
-- **HUELUM VS. GOYA: police, riot-squad and Paparazzi 1 now have voices (new, 2026-07-18)** — the CDMX police officer and the Granadero (both male and female) now speak: an intro line when the fight starts, a shout on their special, pained grunts when they take hits, and a victory line when they win. Male and female share one voice set each, reused across the normal officer and the riot-squad version. **Paparazzi 1** also gained voice lines — battle cries when he strikes and dazed grunts when he's hit. The whole thing runs on a reusable per-fighter voice-pack system, so adding voices to more fighters is just dropping in named audio files. *(Pending Rebuild + device test.)*
-- **HUELUM VS. GOYA: every stage is now panoramic + a double arrow for mirror picks (new, 2026-07-18)** — the panoramic floor-anchored framing (fighters on the ground, and jumping reveals more of the map above) now applies to **all 16 stages**, not just the five newest (per-map fine-tuning still to come). And on the character-select screen, if player 1 and player 2 both land on the **same fighter**, that card now shows **both arrows (P1 and P2)** and its highlight box blinks between blue and red so the mirror match is obvious. *(Pending Rebuild + device test.)*
-- **HUELUM VS. GOYA: AI-vs-AI fights now actually end with a winner (fix, 2026-07-18)** — two max-difficulty CPUs would endlessly dodge each other and never land the finishing blow. Now each AI-vs-AI match randomly handicaps one of the two fighters (a notch or two below the other), so the stronger one connects and wins — and the handicap re-rolls every match, so the winner varies. Arcade's hidden, escalating difficulty (harder as you climb, calibrated to the difficulty you chose, à la Street Fighter III: 3rd Strike) is unchanged. *(Pending Rebuild + device test.)*
-- **HUELUM VS. GOYA: jump reveals more of the stage + a colored rival box on the select screen (new, 2026-07-18)** — on the reframed stages, **jumping now pans the background up** so you see more of the map above you (using the panoramic zoom's headroom; the already-approved stages are unaffected). On the character-select screen, the P1/P2 arrows are now backed by a **translucent colored box and border** (blue for your fighter, red for the one you're highlighting as the rival) to make the matchup unmistakable. Note: online play still picks blind (you learn the rival's fighter once both have chosen), so the rival box applies to local Practice and AI-vs-AI; a multiplayer audit confirmed the new stages, jump camera and progression music all behave the same over Render, Bluetooth and LAN. *(Pending Rebuild + device test.)*
-- **HUELUM VS. GOYA: clearer character select, difficulty-based unlocks and dev-only test tools (new + fix, 2026-07-18)** — the character-select screen now shows a **blue "P1" arrow** over the fighter you already picked and a **red "P2" arrow** over the one you're highlighting for player 2, so rival picks are unmistakable. Arcade unlocks are now tied to the chosen difficulty: winning on **MEDIUM unlocks the fighter** (plus their map), **EASY unlocks only the map**, and hard/apocalyptic unlocks nothing yet (animations and special powers coming later). The "Choose difficulty" screen no longer spoils the stage lighting — you just pick a difficulty. And the automated **Autoplay/Showcase test tools** (everyone-vs-everyone, the 9 accelerated campaigns, the animation/sound showcase and the audio showcase) are now **Developer-Mode only**, hidden from regular players. *(Pending Rebuild + device test.)*
-- **HUELUM VS. GOYA: five stages regenerated + Prankedy's music now escalates with difficulty (new + fix, 2026-07-18)** — five stages (Faculty of Medicine, FES Aragón, Pyramid of the Sun, UAM Cuajimalpa and the Zócalo, all three day/night variants — 15 backgrounds) were rebuilt from fresh footage through the existing pipeline, with the **POW logo stamped over the Gemini watermark** and the panoramic floor-anchoring framing applied so fighters stand on the ground. Prankedy's battle theme also becomes a **progression soundtrack**: a lobby track plays in character select, and during fights the music **escalates with the level** (arcade ladder progress, CPU difficulty in practice, hardest for AI-vs-AI). *(Pending Rebuild + device check; the exact per-fight track rotation may be tuned further.)*
-- **HUELUM VS. GOYA: Facultad de Medicina stage reframed (fix, 2026-07-18)** — the Faculty of Medicine background (all three day/night variants) looked square and left the fighters floating in the sky; it's now zoomed and anchored to the ground so they stand on the floor, via a per-stage framing knob (`SfBgFraming`) that changes only how the background is drawn — no asset regeneration. *(Pending device check + more stage tweaks to come.)*
-- **HUELUM VS. GOYA: showcase at your own pace — skip button, home stages and proper audio (new + fix, 2026-07-18)** — the asset Showcase no longer drags: steps advance **automatically as soon as each animation finishes**, and a new **"Skip animation"** button jumps ahead instantly. Every fighter now performs **on their own home stage** (daytime; the AI-vs-AI autoplay bots rotate the apocalypse variants), so backgrounds get tested too. Forced showcase steps **play their proper sounds** (hurt impacts by strength, a KO thud, and the fighter's own voice on victory and metamorphosis), the **victory pose in real fights plays the fighter's voice**, and a lost jump step was fixed. The prototype audio mentioned in this older entry was replaced by the complete production rebuild above.
-- **HUELUM VS. GOYA: varied AI fights + full asset showcase with a static audit (new + fix, 2026-07-18)** — AI vs AI (and the CPU in general) no longer freezes, glues itself to the rival or spams the same attack: the offense watchdog now tracks the fighter's **real state** (dropped inputs no longer count as "attacking", and after ~2 s of passivity at close range a hit is forced), clinches resolve with **asymmetric roles** (one fighter strikes while the other breaks away) and every attack pick remembers the last one so punches/kicks and strengths actually vary. The **Showcase** bot now runs each fighter through **every** animation — including hurt reactions, KO, victory, turns and La Presidenta's metamorphosis (its timer and mirrored damage are disabled so the script always finishes) — and adds a **static audit** per fighter: missing/empty animations, broken frame references and missing `.ogg` voices/SFX (theme sounds included) all land in the on-screen report and the `.txt` file. *(Pending Rebuild + device test.)*
-- **HUELUM VS. GOYA: AI vs AI at NIGHTMARE for recording (new, 2026-07-18)** — a new **AI VS AI** entry in the fight-mode menu runs **CPU vs CPU** at maximum difficulty (PESADILLA + full intensity, same as the arcade final). Pick two fighters (full roster with Developer Mode), hide the touch controls, leave only an Exit button — ideal for screen recording. Solo/arcade/online behaviour is unchanged. *(Pending Rebuild + device test.)*
-- **HUELUM VS. GOYA stages fixed for low-end GPUs (fix + perf, 2026-07-18)** — combat background atlases are regenerated with a hard **≤2048 px** texture cap (many low-end GPUs rejected larger atlases, so stages looked blank), uniform 16:9 crop-to-fill frames, embedded ping-pong loops, and **~256 px thumbnails** so the stage picker no longer decodes dozens of full atlases. *(Pending Rebuild + low-end device check.)*
-- **Stage picker: animated preview only on the selected map (new, 2026-07-18)** — tapping a stage focuses it (gold border); only that card animates **one frame at a time** from the atlas (never the whole filmstrip), others stay static thumbs; confirm with **"Choose this stage"**. Logic lives in `SfStageSelectOverlay.kt`, separate from the fight draw loop.
-- **La Presidenta gains 11 playable powers and a Yoalli Ehécatl metamorphosis (art, 2026-07-17)** — the purple `P` button cycles six animated cosmic/tricolor/economic attacks, four elemental powers and a complete Presidenta → Yoalli transformation. All are real fight states available to the player and CPU and synchronized online; the final metamorphosis hits at HEAVY strength. Her fight sheet now contains 178 frames/41 animations while her body remains fixed at the common 100 px standard (world sprites remain 512²/360 px).
-- **Prankedy and the Shopkeeper rebuilt from chroma sheets for both modes (art, 2026-07-16)** — each now has 19 original sheets feeding one consistent design across HUELUM VS. GOYA and the open world: 82 packed frames/30 animations plus 512² world sets. Every dedicated fighter is forced to the same 100 px fight-body standard; chroma world art uses a shared 360 px body/feet baseline, while measured UI fractions keep actions visually equal. A generic KO continuity detector marks reversed ground frames (`flipX`), fixing both characters automatically and covering future fighters. *(Pending device visual test.)*
-- **HUELUM VS. GOYA: choose the CPU difficulty — from beginner-friendly to nearly unbeatable (new, 2026-07-16)** — solo fights gain a **difficulty step** (fighter → rival → **difficulty** → stage) with three levels. **BASIC** is made for learning: the CPU reacts slowly, walks around, only throws occasional light hits and never blocks, jumps or uses powers. **NORMAL** is the classic fight as before. **ADVANCED** is a reactive AI designed to be almost impossible: it thinks ~4× faster, **blocks your attacks**, punishes your recovery, anti-airs your jumps, hops over (or counters) your incoming fireballs and **throws lots of powers** at every range. Rematches keep your chosen difficulty; online is unaffected (your rival is human). *(Pending Rebuild + device test.)*
-- **HUELUM VS. GOYA multiplayer: smoother rivals, synced clock, fireball clashes and draining health bars (new + fix, 2026-07-16)** — four polish upgrades plus a critical server fix. **Server fix:** the online relay was returning the wrong message type for rival-state updates, so in online matches your rival would appear frozen (Bluetooth/LAN were unaffected — which is why local tests passed); one line fixed, ships with the first deploy. **Smoother rivals:** the opponent's position is now interpolated between network updates (and their projectiles keep flying between snapshots) instead of jumping 15 times a second. **Synced clock:** the host's 99-second round timer is now the authority — the guest's clock re-anchors if they drift apart. **Fireball clashes:** two crossing projectiles now cancel each other out in a burst, offline and online. **Draining health bars:** the HUD bars now drain smoothly toward the real HP instead of snapping, classic arcade style (and refill instantly on each new round). *(Pending Rebuild + 2-device online test.)*
-- **HUELUM VS. GOYA: best-of-3 rounds + host your own LAN server (new, 2026-07-16)** — fights now follow the **classic arcade format**: up to 3 rounds, first to take 2 wins the match. Rounds end by KO or when the 99-second timer runs out (more health wins; an **exact tie is settled by chance** — online both phones "roll" the same shared dice, no desyncs). Between rounds you get the winner banner, a fresh reset and a **"ROUND N / FIGHT"** intro in the arcade font, with golden round markers under each name. And a third multiplayer option joins Render and Bluetooth: **LOCAL SERVER** — one player hosts the room right on their phone (their IP shows on screen) and the rival joins by typing it, LAN-party style, on the same Wi-Fi or hotspot; no internet server involved, and **zero new permissions** (nothing changes for the Play Store forms). *(Requires redeploying the SF relay for online rounds; pending 2-phone test.)*
-- **Bluetooth versus: no more crashes, verified connections and a clear retry flow (fix, 2026-07-16)** — hosting a Bluetooth match crashed on Android 12+ with a permission error (even *cancelling* device discovery needs the scan permission — now handled defensively). The whole BT flow was also made foolproof: the guest's connection **retries up to 3 times** (the first attempt often dies behind the system pairing dialog), a **verification handshake** confirms data flows both ways before the room is considered real (half-open sockets no longer fake a match), the connecting screen tells you each step ("Connecting…" → "verifying the link…"), and if the connection fails you get a **blocking RETRY screen** — you'll never silently land back in the offline selector and end up fighting the CPU thinking it's your rival. Retry re-requests Bluetooth permissions if needed; Cancel is the only explicit way out. *(Pending 2-phone retest.)*
-- **HUELUM VS. GOYA: Ryu & Ken no longer ship to Play Store (new, 2026-07-15)** — the classic clone fighters' art now lives in the **debug build only**: installing from Android Studio over USB keeps Ryu and Ken fully playable (Developer Mode), while the **Play Store bundle ships without their assets** (copyright care) — the store version plays with the 12 POW fighters. Safety nets included: the release build never preloads or references the missing files, and if an online/Bluetooth rival on a debug build picks Ryu/Ken, the store version renders them as Prankedy instead of crashing. *(HUD/sounds/stage from the clone remain listed for future replacement.)*
-- **HUELUM VS. GOYA: the roster doubles to 14 AND the fighters now share the world's sprites (new, 2026-07-15)** — seven new fighters join: **Lázaro, the ESCOM student and studentess, the Robot, the CDMX police officer, the riot-squad Granadero (shield attacks!) and the Paramedic**, for a 14-fighter roster (12 without Developer Mode — Ryu and Ken stay dev-only), playable offline, online and over Bluetooth. Under the hood, 8 of the 14 fighters no longer ship their own sprite sheets: their fight poses are **built at runtime from the very same sprites the open world uses** — one set of assets feeds both game modes. Prankedy, the Shopkeeper, Paparazzi 1 and Rey Grupero now use dedicated chroma sheets. Shared fighters remain ALPHA (approximate poses). *(Pending device test.)*
-- **HUELUM VS. GOYA is now open to everyone + a sturdier Bluetooth link (new, 2026-07-15)** — the fight mode's main-menu button is **no longer Developer Mode-only**: everyone can play. Developer Mode now unlocks only **Ryu and Ken** (the original clone fighters) in the character select — without it, the roster is the five POW fighters (your CPU rival defaults to a POW fighter too). The Bluetooth link also got tougher: a 10-second keepalive plus fast dead-link detection means a rival going out of range is declared the loser in seconds instead of hanging the fight, the host stays discoverable for 5 minutes (was 2), and after an abandoned match the host cleanly accepts a brand-new challenger. *(Pending Rebuild + 2-phone test.)*
-- **HUELUM VS. GOYA: approval lobby + Bluetooth versus with no internet (new, 2026-07-15)** — two multiplayer upgrades. **AoE2-style lobby:** tapping a room in the public waiting list now sends a **join request** — the host sees an ACCEPT/REJECT dialog and decides who gets in (joining with a shared code stays instant, the code is the invitation; rejected players return to the waiting list with a notice). **Bluetooth versus:** a new "BLUETOOTH (no internet)" section in the multiplayer menu lets two phones fight **without any server or connection** — one hosts (discoverable) and the other finds them (paired + nearby devices); same rules, stage pick, rematches and abandon-win as online, over an RFCOMM link that lives and dies with the game screen. Bluetooth permissions are requested only when you tap the section (Android 12+), and scanning is declared as never-for-location. *(Pending Rebuild + 2-phone test.)*
-- **HUELUM VS. GOYA online: a browsable room list + theme polish (new, 2026-07-15)** — the public waiting list now shows the **active rooms as tappable cards** (rooms waiting for a rival let you join them directly, no code needed) and refreshes the summary every 5 seconds; leaving the queue/room now tells the server before disconnecting, and the remaining stock-looking widgets (code field, cancel buttons, exit dialog) were restyled to the mode's wine/gold theme. The POW-style button is now a shared component other modes can reuse. *(Pending Rebuild + 2-device test.)*
-- **The fight mode is now "HUELUM VS. GOYA" (new, 2026-07-11)** — renamed after the IPN/UNAM chants; plus **public rooms** (waiting list with auto-matchmaking), an active-matches summary, POW-styled buttons across the mode, and in solo play you now **pick your rival too** (fighter → rival → stage).
-- **Fight mode: 1v1 ONLINE multiplayer (new, 2026-07-11)** — a third free-tier server (`MultiplayerSF/`, pure relay on Render) brings room-code matches: create a room, share the 4-letter code, both pick fighters, the host picks the stage, a server-synced 3-2-1 and fight — each phone simulates its own fighter, damage is applied by the receiver (who also decides blocking), rematches need both players, and quitting mid-fight gives the win to your rival. Includes free-tier wake-up handling (the app pings the sleeping server for up to a minute before connecting). *(Deploy steps in the audit doc; pending Rebuild + 2-device test.)*
-- **Fight mode goes POW: Prankedy's music + random IPN/UNAM backgrounds (new, 2026-07-10)** — the SF clone's theme is gone: fights now play **"Persecución"**, the track Prankedy uses in his videos, and after picking your fighter you now **choose the stage** (with thumbnails and a 🎲 random card) from six full-screen scenes — **ESCOM, the IPN "Queso", ESIME Azcapotzalco, CECyT 9, CECyT 2 and UNAM's Central Library** — drawn with camera parallax (the classic dock stage remains only as a themable fallback).
-- **Fight mode: blocking + the arcade HUD font for every fighter (new, 2026-07-10)** — walking backwards now **blocks** like in classic fighting games: chip damage (1/4, min 1), half knockback, no hit-stun — and chip KOs are possible. The HUD's built-in pixel alphabet is now a reusable font: name tags, P1/P2 scores and the **"<FIGHTER> WINS"** banner are rendered with it for all 7 fighters (no more fixed winner image). Plus width fixes so Rey Grupero no longer looks skinny in idle.
-- **BUSTED in Mission 1 + ghosts that rise to heaven (new, 2026-07-10)** — getting caught by the police during Mission 1's escort/entry now shows a blue **"BUSTED"** (you're arrested, GTA-style) instead of "WASTED"; the mission-failed/retry flow is unchanged. And the ghost deaths got their full animation: a killed NPC first fades out in place, then turns into a translucent **👻 that floats up to the sky** while vanishing (OSM native: per-frame icon+rise; web: CSS opacity+translateY transition).
-- **Online occlusion parity (fix, 2026-07-10)** — the interiors server now treats `'^'` occluder cells as solid, just like the client always did: server-authoritative zombies (and civilians, spawns, pathfinding and the `PLAYER_CORRECT` position check) can no longer walk through furniture/objects painted with the designer's blue OBJECT brush. One shared `isSolidCell` helper feeds both collision checks. *(Requires redeploying the interiors server.)*
+---
 
-- **STREET FIGHTER: the classic 1v1 minigame, faithfully ported (new, dev-only, 2026-07-09)** — Ryu (you) vs Ken (CPU) ported 1:1 from the sibling `StreetFighter-main/` JS clone, with the **original sprite sheets, Ken's harbor stage (parallax, animated flag and bobbing boat), the arcade HUD (health bars, 99 timer, KO icon, name tags, P1/P2 scores), shadows, hit splashes and all the original sounds** (attack/hit/land/hadouken + Ken's theme looping). All 30 fighter states with per-frame push/hurt/hit boxes and frame-delay animations were auto-converted from Ryu.js/Ken.js into JSON (`assets/STREETFIGHTER/`). Controls: POW's joystick (walk, ↑ jump, ↓ crouch — and ↓↘→ + punch throws a **hadouken**) plus the same Xbox diamond used everywhere in POW (X/Y/B = light/medium/heavy punch, A = kick whose strength follows the joystick). The engine is fully decoupled from the SF assets (theme layer + per-character JSON) — and the swap has begun: a **character-select screen** now opens the mode with a 7-fighter roster — Ryu, Ken and five original POW fighters marked **ALPHA** (approximate poses, art in progress): **Prankedy** (his special throws the signature gas-tank prank bursting into confetti), **El Señor de la Tienda, Paparazzi 1, Paparazzi 5 and Rey Grupero**, all auto-generated from their in-game NPC sprite sets. Launched from a main-menu button ~~visible only with Developer Mode~~ *(since 2026-07-15 the mode is public for everyone; Developer Mode now only unlocks Ryu & Ken in the roster)*. *(Pending a Rebuild Project + device test.)*
+## 🤖 Android exclusive: open world, story campaign and zombie minigame
 
-- **Mission 2 phase 1 moves INSIDE the lobby + a livelier ESCOM + smarter dev TP (new, 2026-07-08)** — three fixes from playtesting. **Hide-from-the-police, indoors:** Mission 2's first phase no longer plays at the campus entrance — right after taking refuge in the ESCOM, **four police officers walk into the lobby** and sweep the room looking for you; keep your distance for **35 seconds** (HUD countdown) until they give up and leave. Getting eyeballed up close for ~2.5 s = recognized = mission failed (retry restarts the phase). **A livelier ESCOM:** the lobby now holds **13 ambient students** (two pairs already chatting when you walk in), conversations follow **coherent scripts** (midterms, thesis advisors, cafeteria tacos, the ENCB rumor…) instead of random one-liners, and the **outdoor campus** gains ~10 wandering students who form chatting circles of three — so the school feels alive on both sides of the door. **Dev TP fixed:** "TP to objective" now **tracks the mission first** and teleports you to its *current* phase objective (before, it dropped you at a cold spot with no actors or 🎯); from interiors the button is disabled with a hint, since the TP moves you on the world map. *(Pending a Rebuild Project + device test.)*
-- **A living open world: dynamic street events, side quests, money and a day/night cycle (new)** — four features aimed straight at making free roam more engaging. **Dynamic events:** every ~40–80 s an ambient scene spawns near you, anchored to the closest street — two pedestrians stop to chat (💬 bubbles), a police officer chases a suspect on foot, or a **mini-outbreak**: someone turns right on the street, attacks, two officers run in, subdue them and haul them away (more likely at night and once Mission 3 is done — the infection is escalating). **Side quests:** the mission log gains its first two SIDE QUEST entries — *Medical supplies* (pick up a first-aid kit and drive it to a waiting paramedic; unlocked after Mission 2) and *Containment in Zacatenco* (five real, attackable zombies loose near campus — take them all down; unlocked after Mission 3). **Money:** collectibles now pay $25 and every mission pays a reward on first completion ($150–$500, replays never pay twice); your cash shows as a 💵 chip and persists in the campaign save. **Day/night:** a full cycle every 24 real minutes (1 min = 1 in-game hour) with a renderer-agnostic night veil that darkens the world at dusk, plus a 🕐 clock chip. **Ghost deaths:** killed NPCs now fade out as a translucent little ghost instead of blinking away (OSM native per-frame fade, web CSS fade; Google native already dimmed them). *(Pending a Rebuild Project + device test.)*
-- **Mission log everywhere + REPLAY completed missions (new)** — the **Missions** entry now also appears in the **interiors** Options menu (one shared dialog serves the world map and every interior), so you can pick or drop a mission without leaving the building — if you track an outdoor mission from inside, its 🎯 marker is waiting when you step out. Completed missions (✔) gained a **REPLAY** button: replaying **never touches your saved progress** — missions stay marked completed, the firearm and the unlocked inventory slots are kept, and abandoning the replay ("stop tracking") simply restores everything as it was. Also, **"Choose character" on the world map is now Developer Mode-only** (the interiors selector is unchanged), and with **Developer Mode** on, the mission log lets you select 🔒 locked missions directly and adds a per-mission **"TP to objective"** button that teleports you ~40 m from its target.
-- **Witcher-style MISSION LOG + Mission 3 "Return to the ENCB" (new)** — the old "continue the story or free-roam?" dialog is gone: you're **always in free roam** and pick which mission to track from **Options → Missions** (locked/available/active/completed states, persisted in the save JSON; tracking sets the 🎯 marker and guide line, and you can stop tracking anytime — progress is kept). **Mission 3** is in: the ENCB is a quarantine zone — sneak past the **riot-police cordon** (get spotted too long = mission failed), fight the first **indoor zombies** in the ENCB room chain and recover the 🧪 **lab evidence**. Reward: your **first firearm** (unlocks RANGED mode in campaign interiors). Also: Prankedy's backpack now **unlocks all 4 inventory slots**, and the **parked cars in the ESCOM lobby** finally match the outdoor parking lot (the interior now resolves the same directional car frame as the world map instead of flat-rotating frame 0).
-- **One controller for everything: Xbox-style buttons while driving too (new)** — the driving action diamond no longer switches to PlayStation symbols (△ ○ ✕ □); it's now the **same Xbox A/B/X/Y diamond** used on foot (same letters, colors, sizes and positions). While driving: **Y = exit** (hold 3 s → teleport menu), **A = gas**, **B = brake**, **X = handbrake**. One control language across the whole game.
-- **University life indoors: student chats + anti-stuck NPCs (new)** — the ambient students/teachers inside the ESCOM now pair up to **meet, chat face-to-face with alternating speech bubbles** (translatable phrases, EN/ES), sometimes **walk away together**, and part ways with a "See you around". NPCs that get **stuck against walls now change direction** after ~1.6 s without moving (and the detector re-arms, so repeated stucks keep getting fixed). The Mission-2 stink can is now visible as a 🥫 on the floor (+💨 while the classroom empties) until a dedicated sprite exists.
-- **Story Mode: MISSION 2 — "The rumor" (new)** — the campaign now continues after entering the ESCOM. Five phases on the ESCOM campus: (1) **hide from the police** searching for you and Prankedy at the entrance (staying too close = they recognize you = mission failed, with a retry checkpoint); (2) listen to the **whole zombie rumor** from two students (strange things at the ENCB / all over Zacatenco); (3) witness the **first public outbreak** — an NPC turns, attacks people, the police subdue him while the radio requests **all available personnel at the ENCB**, and they take him away; (4) **talk to Prankedy**, who confesses he was competing against **REY GRUPERO** for the title of true "Prank King" (the challenge: pull off a prank that same day) and that he hid his **backpack in a classroom**; (5) empty the in-session classroom with the **STINK CAN** and recover the backpack. Progress persists in the campaign save JSON (`mission2Phase`). Internally the old final-chase code was renamed `mission2*` → `mission1Chase*`; the new mission lives in `mission2/Mission2.kt` + `WorldMapMission2.kt`.
-- **REY Grupero is now playable** — his chroma sprites are sliced into `SPRITES/NPC/ReyGrupero/` (`Idle=6`, `Walk=6`, `Run=8`, `Special=5`, `Talk=4`) and registered as `PlayerSkin.REY_GRUPERO`. He appears in the new-campaign character picker and the in-game character selector.
-- **Depth layering indoors — you can now walk *behind* objects** — the interior collision matrix gained a third cell type, **"cover object"**, on top of *wall* and *free*. Where the old matrix only decided whether you could pass, it now also decides **draw order**: your character is drawn **behind** a tall object (columns, shelves, furniture, trees) when you stand north of it and **in front** when you step below it, so you no longer float on top of everything. Cover cells still block movement like a wall. You paint them in **Developer Mode → Designer** with the new **OBJECT** brush (blue), and they're saved in the same `collision_matrices.json`. Works in both interior engines (the room/zombie engine and the simple ESCOM interiors). *(Note: online zombies don't yet respect cover cells; the local player and offline rooms do.)*
-- **Button feedback (visual + vibration + sound)** — every on-screen control now reacts when you press it: the button **dips and lightens** (the joystick thumb brightens while you drag), gives a short **haptic tap**, and plays a system **click**. The click volume follows your **Effects** slider (Settings → Audio) and the vibration follows your device's haptic setting, so you can tune or silence it without a new toggle. No extra permission is required.
-- **More of the game is now translatable (English/Spanish)** — the campaign objective titles/descriptions and the metro/metrobús in-station messages (ticket reloaded, no balance, wait for the next train/bus, etc.) used to be hardcoded in Spanish; they are now proper string resources, so they appear in English when the app language is English. No change for players using Spanish.
-- **Fix: returning from Settings (or the menu) no longer reloads the map** — the world's "ready" gate was local UI state that reset every time the map screen was recreated, so coming back from Settings replayed the loading screen even though the map, streets and NPCs were still in memory (the map ViewModel is Activity-scoped and the game loop never stops). The gate is now seeded from the persisted state, so returning is instant; teleporting or leaving a metro station still shows the loader, as it should.
+These modes ship only in the Android app. Their code stays in this repository; the iPhone build simply doesn't show them.
 
-- **Refactor: unified transit interiors (Metro ⇄ Metrobús)** — the metro and metrobús station interiors used to be near-identical twin ViewModels + states (≈1300 duplicated lines), so any transit logic change had to be made twice. They're now a single config-driven `TransitInteriorViewModel` + `TransitInteriorState`, parameterized by a `TransitSystemConfig` catalog (`TransitSystems.METRO` / `.METROBUS`) that holds everything that differs (assets, colors, strings, turnstile offset, animation axis, repository). Behavior is unchanged. Adding future systems (Suburbano, Mexibús…) is now mostly a new config entry. (Internal only; no player-facing change.)
-- **Refactor: internal code-quality program (managers, Hilt DI, detekt gate)** — an internal-only pass with **no player-facing change** (gameplay is identical). The large world-map ViewModel was decomposed into **6 focused managers** (Designer, Collectibles, Combat, Wanted, TransitTeleport, Campaign-log), each owning its own state and unit-tested; the UI still sees one `WorldMapState` (composed via a `combine` facade). Dependency injection moved from hand-written factories to **Hilt** (KSP). A golden-master **test suite** was added for the routing/save/catalog logic, and **detekt** static analysis is now a blocking CI check (via a baseline). Purely maintainability/quality; behavior unchanged.
-- **Fix: getting stuck after teleporting to a metro station** — metro stations come from Overpass and can sit on top of a building far from any road, so the snap-to-road guard (which avoids teleporting you to a random far street) left you frozen behind an "invisible wall." Now, if you're genuinely stranded off the road network, moving drags you toward the nearest street until you snap onto it. Normal on-road play is unaffected.
-- **Story Mode key puzzle reworked + no comic skip** — In the ENCB chain you still **find a key in Lab 1**, but you now **carry it to Lab 2 and test it from your inventory** (hold Y → **Test**) right before the door that triggers the second comic. A wrong key no longer auto-clears: you **long-press the key in the inventory to discard it** and head back to Lab 1 for another; the Lab 2 exit door stays **locked until the correct key is tested**. You can discard a wrong key anytime, but the **correct** key can only be discarded **after** you've used it to open the door (not before). The inventory closes with an **✕ in the top-right corner**. Each inventory key is stored with its **mission id** (`mission1`) — saved with the game — so the key art can be reused in future missions. Player skins now render the **same size in interiors** (the female skin no longer looks bigger than the male/robot). Comics: the **"Skip" button is gone** — tap to advance frames; only the last panel shows **START**.
-- **Edge-to-edge enabled (Android 15+ / Play Console)** — `MainActivity` now calls `enableEdgeToEdge()` so the app draws behind the system bars **consistently on every Android version** (not just where targetSdk 35+ forces it), clearing the Play Console "edge-to-edge may not display for all users" recommendation. Compose screens already inset their content with `systemBarsPadding()`.
-- **Metro stations: bigger, visible interaction zone + teleport** — Metro/Metrobús stations come from Overpass and sometimes land on top of a building you can't reach by street, so with snap-to-road you could never step on the "M" logo to enter. The interaction zone is now **60 m** (4× the 15 m used for collectibles/doors) and is **drawn on the map** as a translucent orange circle around each logo (web/Leaflet + native OSM), so you can enter from any nearby street even if the logo itself is unreachable. The **Teleport Points menu** (Developer Mode) now lists every metro station with a search box, since walking there is awkward.
-- **Interiors mode expandable per campus (ESCOM, FES, UAM…)** — entering interiors is generalized so any campus can have a lobby + buildings (`ZombieRoomCatalog.campusRooms(...)`; ESCOM keeps its bespoke ring, new campuses are one `addAll`). The ViewModel is campus-agnostic (`lobbyForBuilding` + `pendingLobbyTarget`). **FES Aragón**: the **"Entrada FES Aragón"** door → `interiores_zombies?startRoom=fes_interior` → FES lobby (safe zone) **with a door to its building `fes_edificio`** ("Edificio Principal", temporarily reusing ESCOM's interior, zombies online). Both servers support the transition (`MultiplayerInteriores/server.js` gets the FES rooms; open-world `Multiplayer/server.js` unchanged — the Activity-scoped VM + back stack preserve your connection and coordinates). The FES door sits next to the FES teleport point.
-- **Story Mode (campaign) + main-menu rename** — the main menu's first button is now **"FREE ROAM"** (the open world, formerly "Start Game") and the second is **"STORY MODE"** (formerly the disabled "Load Game"), which opens a new campaign screen (`story_mode`). It shows the **prologue** (Politécnico outbreak: at the ENCB, Prankedy accidentally creates a corrosive, latex-piercing substance) and a **school picker** — only **ESCOM** is playable for now; **FES Aragón** and **UAM** appear but are disabled (in development). **"START"** goes through a **"Ready to Start"** intro (`story_intro`, narrative placeholder); pressing START there **saves the campaign** (`CampaignRepository`) and enters the world via `setStorySpawn(...)`. **"LOAD GAME"** is enabled once a save exists and resumes at the saved school. School data in `domain/models/SchoolCatalog.kt`.
-- **Fix: invisible pedestrians that could still hit you** — after teleporting (or under memory pressure) a pedestrian's sprite could fail to load and the NPC rendered as a fully transparent marker — so you'd get punched by an "invisible man" (e.g. the driver you just carjacked). Now no NPC is ever invisible: native OSM falls back to a 🧍 emoji and retries the real sprite (instead of caching a transparent placeholder), and the web renderer shows a 🧍/🚗 placeholder until the sprite is ready and then swaps it in. (Google native already showed a default pin.)
-- **Prankedy un-sticks, ESCOM zombie hand removed, interior-paths debug** — (1) **Prankedy no longer gets stuck on the roads** (it was snapping to a road node and freezing, so it "stopped doing anything"): it now steps directly when road-snapping doesn't make progress, and relocates next to you if it stays stuck (without healing). (2) **The "Mano del Apocalipsis" (zombie hand) in ESCOM was removed** — global zombie mode is now toggled only from Options → "Activar/Desactivar Apocalipsis". (3) **"Debug Interiores" now shows ESCOM's walkable paths AND no-walk zones**: it draws the landmark nav-graph (green = on-foot paths, orange = car paths) plus the collision areas from `exterior_collisions.json` (translucent **red polygons** = where you can't walk, e.g. the ESCOM building; **red lines** = walls), on top of the building dots/bbox, on native OSM and web.
-- **Prankedy stays close + stolen patrols keep their skin** — (1) **Prankedy now always stays near you**: it no longer chases police cops (which dragged it away when the police arrived) and has a ~33 m leash — if it ends up too far it returns to your side instead of wandering off. (2) **A stolen patrol you abandon now stays a patrol**: the dropped car keeps the police look (new `Npc.isPoliceSkin` flag; it stays a `CAR` so traffic AI keeps driving it instead of despawning it, and all 3 renderers draw it as a patrol). You can re-board it and keep driving with the police skin.
-- **Metro station icons on the map (all 3 renderers)** — every station in `res/raw/metro.json` now shows the **CDMX Metro "M" icon** (`assets/metroCDMX/icon.webp`) at its location. Native OSM already did; now the **web (Leaflet)** renderer draws it via a new `updateMetro` function (sent once per change + heartbeat) and **Google Maps (Native)** draws a per-station marker. Fixed on-screen size (~24 dp), matching the existing native metro markers.
-- **Traffic AI, NPC density/fog & boarding patrols** — (1) **Car NPCs now overtake you** instead of circling: while dodging the player a car chased a local carrot and never advanced its road node, so when the dodge ended the base node was *behind* it and the car U-turned back toward you (orbit/loop, "rarely overtake"); it now advances the node as soon as it passes it (`avoidingPlayer` + dot-product in `moveNpc`). (2) **Fewer NPCs**: base non-zombie caps lowered 26/55 → **18/38** (still scaled by `popFactor`). (3) **No more NPCs outside the fog**: the NPC cull margin was +15 m over the 70 m fog (civilians drew up to 85 m); `NPC_CULL_MARGIN_M` is now **0**, so sprites are culled exactly at the fog edge. **Police and Prankedy stay always visible** (patrols show a 🚓 waypoint outside the fog; Prankedy has its own render). (4) **You can now board patrol cars** (POLICE_CAR): boarding steals the patrol, sets the wanted level to **5★**, and you drive it with the **police skin** (`isDrivingPoliceCar` → `PlayerCharacter` renders the patrol asset across all 3 renderers).
-- **Driving rotation black-corners fixed + walking FPS (web)** — the dynamic map-container resize used `vmax`/`calc` units, which are unreliable on old Android 7–9 WebViews, so the container didn't enlarge while driving and the rotated map showed **black corners**; it is now sized in **pixels** (the screen diagonal). Also, the **fog of war stopped re-rasterizing every frame**: `drawFog` repainted a full-screen radial gradient on every map `move`, but while following the player the gradient is identical — it's now cached and only repainted when it actually changes (walking-FPS win).
-- **Web map container shrunk from ~9× to 1× screen on foot (big FPS win while moving)** — the Leaflet `#map-wrapper` was a fixed `300vw × 300vh` (~9× the screen area) **at all times**, so the WebView rendered and re-composited ~9× the tiles — the real reason FPS cratered while walking/driving (re-compositing that huge layer on every move). It is now **screen-sized (`100vw × 100vh`) on foot** and only grew to a centered, **pixel-diagonal-sized** square **while driving** (when the map rotated). *Update 2026-11-10: the camera is now fixed north-up (the map no longer rotates), so the wrapper is always `100vw × 100vh` and `setMapOversize` was removed.* Roughly **~8× fewer tiles** than the old fixed size.
-- **Web follow-camera no longer tanks FPS while moving** — the web map followed the player with `setView` every frame (a full Leaflet `_resetView` that repositions every tile + marker); it now uses `panBy` (a cheap CSS-transform pan) for same-zoom follow, falling back to `setView` only on zoom change or teleport. The tile layer also keeps more surrounding tiles loaded and loads them *while moving* (`keepBuffer: 3`, `updateWhenIdle: false`), so panning shows fewer gray tiles. (Per-pixel car tinting on spawn is still a known cost — future work is asset-based car variants.)
-- **Web police parity + teleport-menu cleanup** — in the web renderer, **cops now render as the 👮 emoji** (they were falling back to a generic green SVG), and **approaching patrols show their 🚓 waypoint + dashed route line** from the player while outside the fog (a new Leaflet `updatePolice` function), matching native OSM. **Menu**: the redundant **"Ir a…" submenu was removed** ("Ir a ESCOM" already lives in *Teletransportarse…*), and **"Ir a tu Ubicación (GPS)"** is now the **first entry of the Teleport Points list**.
-- **Default provider → OpenStreetMap (Web); Google/web render tuned (low-end)** — the app now starts on **OSM Web** instead of native OSMDroid, sidestepping the native over-zoom (z19→z22 tile up-scaling) that tanked FPS on weak devices; the provider isn't persisted, so this is purely the new default (still switchable in Settings). **Google Maps (Native)** now `move()`s the follow-camera instead of `animate()`-ing it on every ~30 Hz location update (no more camera-animation thrash). **OSM Web**: landmark layers are re-serialized/re-sent to the WebView **only when they change** (plus a periodic heartbeat), instead of `gson.toJson` + `evaluateJavascript` every frame.
-- **Render perf + web patrol fix (low-end follow-up)** — **Native OSM**: trimmed the per-frame osmdroid overlay work — static landmark `GroundOverlay`s no longer re-`setPosition`/`setImage` every frame (only when their transform signature changes; animated doors still refresh), the ~160 metro-station markers are **viewport-culled** (off-screen ones disabled so osmdroid skips drawing them), and the **fog of war** no longer fills a rect ~10× the screen area every frame while on foot (the screen-diagonal oversize is kept only while driving, when the map rotates). **Web**: police **patrols now render their real sprite** instead of a placeholder SVG — `POLICE_CAR` was falling through to the generic drawable branch; it is now generated via `PoliceSpriteManager`, cached as a base64 image and sent like a car. *(Note: at very high over-zoom on ≤2 GB devices the tile up-scaling + sprite/fog fill rate is still the dominant cost — see the zoom/quality tradeoff.)*
-- **Low-end optimization pass (≤2 GB RAM / Android 7–9, behavior-preserving)** — pure internal GC/memory wins, **no gameplay change** (same NPC counts, effects, zoom and numbers): the native marker drawable cache (`nativeDrawableCache`) is now an **access-order LRU** instead of an unbounded map — its keys embed health/zoom/frame, so long sessions used to grow it until an **OOM** on low-RAM devices. The **door-glow effect reuses one bitmap/canvas/paints per source** instead of allocating a fresh `Bitmap` every frame, and the **police bullet / 🔫 / 📞 marker icons are cached by size** instead of rebuilt each frame during chases — both eliminate per-frame bitmap garbage. `NpcAiManager` now **caches the nav-graph-filtered landmark list once** (`cachedNavLandmarks`, computed in `setLandmarks`) instead of re-filtering it per NPC per tick. Finally, `MainActivity.onTrimMemory` **frees the sprite caches** (Character/Vehicle/Police/Zombie) under memory pressure (`clearCaches()` added to the three managers that lacked it).
-- **Wanted level / Police (GTA-style)** — punching civilians raises a **0–5 star wanted level** (HUD). **Patrol cars** (`PoliceManager` + `PoliceSpriteManager`, no-repaint `POLICE_TOPDOWN` asset) spawn far (more per star) and chase you **on the roads** (each step snaps to the network); outside the fog they show a **🚓 waypoint + route line**, inside the fog the real asset. Patrols drop **2–3 cops** (👮 emoji) that punch and **shoot at 2★+**. In a car the cops chase by patrol and can **pull you out** if you stop (no damage while driving); on death the police **retreat** instead of vanishing. The wanted player **owns/simulates** the police and broadcasts `POLICE_BATCH_UPDATE` / `POLICE_DESTROY` (relayed by `server.js`, not stored in the roster). Aggressive NPCs were toned down (lower `aggressiveRatio`, slower chase, relentless needs 6 hits) and **can't melee you through a car**.
-- **NPC combat — retaliation, relentless mode, HUD & death** — NPCs only react when provoked: hit one and **aggressive** NPCs hit back (a guaranteed counter ~450 ms after your punch, plus a chase), while **cowards flee** and aggressive ones are **fear-immune**. The aggressive share is **configurable** (`NpcAiManager.aggressiveRatio`, default half). Land **3+ consecutive hits** on an NPC and it becomes **relentless** — it won't stop hitting you until you (or it) dies. Added a **persistent HUD health bar** (zombie-style), a **red damage-flash** on every hit, the WASTED screen now **freezes movement + ghost-fades** the player, and **respawn happens inside the already-downloaded zone** (~80 m from death, snapped to road) instead of teleporting to ESCOM — saving resources. Multiplayer: NPC `health`/`isDying`/`aggroUntil` are replicated (`server.js` relays them).
-- **GTA-lite NPC AI — multiplayer + polish** — the AI now **replicates to multiplayer**: NPC `health`/`isDying` are sent in `NPC_BATCH_UPDATE` so every client sees health bars and run-over/hit deaths (`Multiplayer/server.js` relays them and clamps health, v3.1). Added a **"💥" collision/impact effect** so getting hit or running someone over is noticeable, made **two-way traffic lanes more visible** (larger right-side offset), and fixed the **player vehicle/avatar sizing** to match NPCs exactly (both now use the same zoom source). Contact damage from aggressive NPCs is tuned to be reliable.
-- **GTA-lite NPC AI (low-end optimized, host-only)** — NPCs now have a **personality trait** (`PASSIVE`/`COWARD`/`AGGRESSIVE`, weighted at spawn). You can **run over pedestrians** while driving (speed-scaled damage; witnesses panic). **Carjacking an occupied car** makes the ousted driver react by trait: cowards flee, aggressive ones **chase and punch you**. **Aggressive NPCs hit back** for a few seconds when you melee them and they survive. **Two-way traffic** is enabled (randomized spawn direction + existing right-side lane offset). All checks are cull-radius-bound with early-outs and the AI fields aren't serialized. *(Car-vs-car collisions are intentionally left as future work.)*
-- **Map UX & rendering parity pass** — (1) **player-anchored fog of war**: the fog now follows the player's real position during scroll/zoom instead of staying screen-centered — native uses an osmdroid overlay (rect oversized to the screen diagonal so it stays correct under driving rotation), web uses a `#fog` div redrawn on each Leaflet `move`/`zoom`; the Compose fog is kept only for Google native. (2) **Native over-zoom to z22** scaled from z19 via a `MapTileApproximater`, with loading screens prefetching **z19 + z17** tiles and OSM defaulting to **max zoom**. (3) **Web pinch-zoom no longer drags the player** (only user pinch enters exploration). (4) **Unified real-meter sizing** for NPCs and the player across renderers (pedestrians ≈ 1.3 m, vehicles ≈ 4.0 m), **larger NPC health bars**. (5) **Landscape-safe Options menu** (height-capped + scrollable; right-side control slides aside while open). (6) **"Centrar en jugador"** evolves into a sub-menu with **"Hacer zoom en el jugador"** when zoomed; with the map off-center the left movement controls recenter (no zoom). (7) **Ousted driver** spawns next to the jacked car (~2 m). (8) **Main-menu version** bound to `BuildConfig.VERSION_NAME` with an auto-shrinking title that never wraps.
-- **Teleport now gates on map download** — teleporting (Go to ESCOM / Go to your GPS location) no longer drops you instantly: it re-arms the load gate (`isMapReady=false`) and downloads the new area's tiles for the active provider before unlocking free movement (native OSM stores real tiles to Room for offline; web warms the CDN so the WebView+cache fill in; Google native shows a brief gate). Runs in parallel with the street reload — `worldReady = streets ready && map ready`.
-- **Map controls cleanup** — removed osmdroid's duplicate native zoom buttons (zoom now lives only in the nested *Mapa* menu); **"Center on player" is always available**; **"Go to…" nested submenu** with *Go to ESCOM* and *Go to your GPS location* (teleports the avatar to the device's real GPS position — e.g. back home — not to the avatar's current spot). `OptionsMenu` now supports arbitrarily nested groups.
-- **Native OSM map fixed + unified offline cache** — the native osmdroid map now reads/writes the **same Room tile cache** as the Web providers (`RoomTileModuleProvider`, bucket `osm`), downloading with a browser User-Agent. osmdroid's built-in downloader (UA = package name) was being throttled by the public OSM server, which is why the native map *failed to load new zones* while Web worked. A `TilePrefetchManager` now proactively downloads the current ~2 km zone (zooms 16-18) to the local DB so it plays **fully offline** after visiting (non-blocking, warns if incomplete). **Fog of war is now always rendered** (previously hidden while panning).
-- **Dedicated zombie-minigame server** (`MultiplayerZombie/`) — zombies are now **authoritative on the server** (Phase 1). Their AI uses a **shared Dijkstra flow-field** (one distance-to-player map per target cell, reused by every zombie chasing that player and cached ~250 ms), **line-of-sight** straight-line pursuit when no walls block the path, and **separation steering** so the horde never stacks on a single pixel; a **wander fallback** keeps disconnected zombies from freezing. The `ZOMBIE_STATE` wire format is unchanged (all AI lives in non-serialized internal fields).
-- **Open-world server hardened to v2** (`Multiplayer/`) — **Area of Interest (AOI)** relay so `NPC_SPAWN/UPDATE/BATCH` only reach clients near the emitting Host (global messages like `PLAYER_UPDATE`, `PLAYER_DAMAGE`, `NPC_DESTROY`, `DISCONNECT` and sync stay global), **throttled Host election** (re-evaluated at most every 200 ms per client), **per-socket rate limiting** (sliding 1 s window, anti-flood), **input sanitization** (finite coordinates, bounded damage, max message size) and **ghost-player GC** (not only on socket close).
-- **Atomic tile-cache writes** — tile persistence counts, evicts (LRU) and inserts inside a single Room `@Transaction`, preventing corruption if the process dies mid-write.
-- **Zombie minigame balance** — shorter zombie contact-attack range and gradual **health regeneration in the lobby** (safe zone) up to 100 HP.
-- **Damage feedback FX** — screen shake on hit, a red damage vignette/flash whose intensity **scales with lost HP**, a low-HP pulse, **zombie knockback** (melee + projectiles, collision-aware) and **player recoil** on firing with per-axis position correction.
-- **Staged control settings** — control changes (type/scale/swap) are held in a temporary state and only affect gameplay after pressing **SAVE**.
-- **Map rotation fixes** — dark OSMDroid background and an oversized, centered Leaflet wrapper so no "gaps" appear when the map rotates in driving mode.
-- **Performance** — per-*way* bounding-box pre-filter in the NPC spawner and `Pair`-based routing keys (no per-step string allocations).
-
-### ⚙️ Architecture
-
-The repository contains three complementary projects:
-
-```text
-.
-├── PolitecnicoOpenWorld/   # Android client (Kotlin + Compose)
-├── Multiplayer/            # Open-world game server (Node.js + WebSocket, v2, dockerized)
-└── MultiplayerZombie/      # Zombie-minigame server (authoritative zombies, dockerized)
-```
-
-#### MVVM at a glance
-
-Every feature in the client follows the same three-layer split:
-
-- **Model** (`domain/models/`): immutable data classes (`Npc`, `MapWay`, `Landmark`, `ZombieEntity`, `CharacterVisualConfig`...) and pure-logic helpers like `NpcAiManager`. No Android dependencies, no UI.
-- **ViewModel** (`features/<name>/viewmodel/`): holds a single `MutableStateFlow<State>` exposed as a read-only `StateFlow`, drives game loops with coroutines and orchestrates repositories. Examples: `WorldMapViewModel`, `ZombieGameViewModel`, `InteriorViewModel`, `SettingsViewModel`, `CollectiblesViewModel`, `MainMenuViewModel`.
-- **View** (`features/<name>/ui/`): pure Compose screens that observe state via `collectAsState()` and only emit user intents back to the ViewModel. Screens never access repositories or DAOs directly.
-
-All cross-cutting concerns (Room, network, preferences) live in `data/` and are injected into ViewModels through `ViewModelProvider.Factory` instances co-located with each ViewModel. Top-level ViewModels (`WorldMapViewModel`, `SettingsViewModel`, `CollectiblesViewModel`) are scoped to the Activity so they survive navigation; interior and zombie ViewModels are scoped to their `NavBackStackEntry` so they reset when the player leaves.
-
-#### Android client — feature-based organization
-
-```text
-app/src/main/java/ovh/gabrielhuav/pow/
-│
-├── data/                                    # ─── Data layer ───
-│   ├── cache/
-│   │   ├── RoadNetworkCache.kt              # LRU of OSM road zones (~2km cells, 7-day TTL)
-│   │   └── TileCache.kt                     # LRU of map tiles (per provider, 8K max, atomic writes)
-│   ├── local/room/
-│   │   ├── PowDatabase.kt                   # @Database v8, 6 entities, MIGRATION_7_8
-│   │   ├── dao/
-│   │   │   ├── RoadNetworkDao.kt            # Atomic insertZoneWithData() transaction
-│   │   │   ├── MapTileDao.kt                # Tile cache CRUD + atomic putTileAtomic() (count/evict/insert)
-│   │   │   ├── LandmarkDao.kt               # User-editable buildings (designer mode)
-│   │   │   └── CollectibleDao.kt            # 6 lore collectibles with Flow observation
-│   │   └── entity/...                       # RoadEntities, TileEntities, LandmarkEntity, CollectibleEntity
-│   ├── network/
-│   │   └── WebSocketManager.kt              # OkHttp WS (no timeouts, 25s ping) — shared by both servers
-│   └── repository/
-│       ├── OverpassRepository.kt            # Overpass API (2km radius, 45s timeout)
-│       ├── SettingsRepository.kt            # SharedPreferences for controls
-│       ├── CollectibleRepository.kt         # Seeds 6 default items, exposes Flow
-│       └── CollisionMatrixRepository.kt     # Zombie collision matrices JSON (designer mode)
-│
-├── domain/                                  # ─── Model layer (pure Kotlin) ───
-│   └── models/
-│       ├── CharacterVisualConfig.kt         # Hair/shirt/pants config for assembled NPCs
-│       ├── EscomBuildings.kt                # InteriorBuilding enum (6 ESCOM buildings)
-│       ├── Landmark.kt / LandmarkAssetCatalog.kt
-│       ├── MapNode.kt / MapWay.kt           # OSM primitives
-│       ├── Npc.kt / NpcType.kt              # NPC + CarModel enum (6 models)
-│       ├── ai/NpcAiManager.kt              # 40-NPC population, bbox-prefiltered spawn, adoption
-│       └── zombie/
-│           ├── ZombieModels.kt              # ZombieEntity, SkillEffect, Projectile, ZombieRoom, ZoneDoor
-│           └── ZombieRoomCatalog.kt         # Lobby + 7 building rooms with door layout
-│
-├── features/                                # ─── Feature modules (View + ViewModel) ───
-│   ├── main_menu/                           # menu + multiplayer dialog + warm-up
-│   ├── map_exterior/                        # core open world (WorldMapScreen/ViewModel/State)
-│   ├── interior/                            # 6 ESCOM building interiors
-│   ├── zombie_minigame/                     # embedded survival minigame (offline + online)
-│   ├── shinecto/                            # ShineCTO easter-egg interior
-│   └── settings/                            # Map / Controls / Gameplay / Interface tabs
-│
-├── ui/theme/                                # Material 3 theme
-└── MainActivity.kt                          # Single-Activity with Compose NavHost
-```
-
-The client follows a **Single-Activity** architecture with Compose-based navigation (`NavHost`). Destinations include `main_menu`, `world_map`, `settings`, `collectibles`, the six interior routes, the `zombie_minigame` route and the `shinecto_interior` route.
+On Android, **Politécnico Open World (POW)** provides 2D top-down exploration built on real-world maps. The player navigates the actual streets of their surroundings (with initial focus on the ESCOM / Zacatenco area in Mexico City) using **OpenStreetMap** cartographic data, sharing the world with procedural NPCs (pedestrians and vehicles) and with other players connected to a real-time server. The ESCOM campus also hosts an embedded zombie survival minigame with interior buildings, melee/ranged combat and a power-up system — now backed by its own authoritative server.
 
 ### 🗺️ Map System
 
@@ -218,7 +538,7 @@ POW supports **eight map providers** that can be hot-swapped from the Settings s
 | Esri Satellite | WebView + Leaflet | Real aerial view |
 | OpenTopoMap | WebView + Leaflet | Terrain and contour lines |
 
-Web modes render through **Leaflet** inside a `WebView` and are intercepted by a `CachingWebViewClient` that caches each tile in Room (`MapTileEntity`) using the normalized URL as key (stripping load-balancing subdomains and volatile parameters before hashing with SHA-256). This allows offline play in any previously visited area. The Leaflet `#map-wrapper` is intentionally oversized (`300vw × 300vh`, centered) so its inscribed circle covers the screen diagonal at any rotation angle — no "gaps"/artifacts appear when the map rotates in driving mode.
+Web modes render through **Leaflet** inside a `WebView` and are intercepted by a `CachingWebViewClient` that caches each tile in Room (`MapTileEntity`) using the normalized URL as key (stripping load-balancing subdomains and volatile parameters before hashing with SHA-256). This allows offline play in any previously visited area. Since 2026-11-10 the camera stays **north-up** on web, Google and native OSM (the map no longer rotates while driving; vehicle sprites rotate on their own), so the Leaflet `#map-wrapper` is always screen-sized (`100vw × 100vh`) and `setMapOversize` was removed — roughly **~8× fewer tiles** than the old fixed `300vw × 300vh` wrapper.
 
 #### Tile & road-network caching
 
@@ -232,6 +552,8 @@ The player cannot step off the road network: every movement is validated against
 The map is populated with editable buildings: a JSON asset catalog (`buildings_catalog.json`), persisted placements in `LandmarkEntity` (position, rotation 0-360°, scale 0.05-3.0×), and a **Designer Mode** panel with fine movement, rotation/scale sliders and JSON export/import. `assets/default_landmarks.json` seeds the ESCOM layout on first launch.
 
 ### 🎁 Collectibles System
+
+The Fighters/Maps gallery is available on iPhone and Android; the lore items described further below are found in the Android open world.
 
 The `collectibles` destination hosts the Fighters/Maps gallery. Its catalog and UI live under `shared/src/commonMain/kotlin/ovh/gabrielhuav/pow/features/main_menu/` (`gallery/`, `ui/CollectiblesGallery.kt` and `ui/GalleryZoomViewer.kt`); there is no separate Multimedia menu or route. Browsing does not unlock playable fighters or modify collected objects. The previous Objects tab, general world-character gallery and Designs tab are not displayed. Images load off the UI thread with bounded thumbnails and a screen-scoped cache; the viewer keeps one higher-resolution image outside that cache. Only resources packaged with each platform are discoverable.
 
@@ -266,9 +588,52 @@ A circular **ring of rooms**: a lobby with doors to each ESCOM building. Inside 
 - **Collision Designer Mode:** an in-game editor paints the per-room collision matrix on top of the room art, persists it to `collision_matrices.json`, and can export/import the same JSON the server reads.
 - **Dynamic lighting** in dark interiors; **WASTED/Victory** screens.
 
-### 🌐 Real-Time Multiplayer
+### 🎮 Open-world controls and UI
 
-POW now ships **two independent Node.js + Express + ws servers**, both dockerized and hosted on Render, sharing the same `WebSocketManager` on the client.
+- **Two movement styles:** D-Pad or virtual joystick (360°), switchable from Settings.
+- **Adaptive scaling** (60%–140%, capped at 100% in portrait), **left-handed swap**, gamepad-style A/B/X/Y buttons.
+- **Staged control settings:** changes to control type, scale and swap are held in a temporary state and only affect gameplay after pressing **SAVE** (then committed, persisted and pushed to the map). Leaving Settings discards unsaved changes.
+- **Optional controls tutorial:** offered once the first time you enter the open world and the first time you enter an interior (you can decline); paginated overlay explaining every button (open world includes driving/teleport, interiors include combat mode/inventory). Replayable anytime from **Settings → Controls → Reference & tutorial**.
+- **Optional diagnostic HUD:** cache widget and FPS widget. Preferences persist via `SettingsRepository` (SharedPreferences).
+
+---
+
+## ⚙️ Architecture
+
+The repository holds one Kotlin Multiplatform game and three small Node.js servers:
+
+```text
+.
+├── PolitecnicoOpenWorld/      # Gradle project (Kotlin Multiplatform)
+│   ├── shared/                # :shared — Titulación por Combate, menus, settings, collectibles, data (Android + iOS)
+│   ├── app/                   # :app — Android app: open world, campaign, interiors, zombie minigame, online play
+│   ├── iosApp/                # Xcode project: SwiftUI host for the shared Compose UI
+│   ├── tools/                 # asset pipelines, fighter recipes and audits
+│   └── README for IAS/        # detailed technical docs (start with 00_INDEX.md)
+├── Multiplayer/               # open-world server (Node.js + ws, Docker)
+├── MultiplayerInteriores/     # zombie-minigame server (authoritative zombies, Docker)
+├── MultiplayerSF/             # Titulación por Combate 1v1 relay (Android online versus, Docker)
+├── newSFAssets/               # source art and audio for fighters (not packaged as-is)
+└── pr-screenshots/            # QA screenshots referenced by docs and pull requests
+```
+
+Shared code is written once in `shared/src/commonMain`; `androidMain` and `iosMain` hold only platform glue such as assets, audio, storage and orientation. The file-by-file map lives in [`01_ARCHITECTURE.md`](PolitecnicoOpenWorld/README%20for%20IAS/01_ARCHITECTURE.md), [`10_ARQUITECTURA_SEPARACION.md`](PolitecnicoOpenWorld/README%20for%20IAS/10_ARQUITECTURA_SEPARACION.md) and [`11_SEPARACION_IOS_ANDROID.md`](PolitecnicoOpenWorld/README%20for%20IAS/11_SEPARACION_IOS_ANDROID.md).
+
+### MVVM at a glance
+
+Every feature in the client follows the same three-layer split:
+
+- **Model** (`domain/models/`): immutable data classes (`Npc`, `MapWay`, `Landmark`, `ZombieEntity`, `CharacterVisualConfig`...) and pure-logic helpers like `NpcAiManager`. No Android dependencies, no UI.
+- **ViewModel** (`features/<name>/viewmodel/`): holds a single `MutableStateFlow<State>` exposed as a read-only `StateFlow`, drives game loops with coroutines and orchestrates repositories. Examples: `WorldMapViewModel`, `ZombieGameViewModel`, `InteriorViewModel`, `SettingsViewModel`, `CollectiblesViewModel`, `MainMenuViewModel`.
+- **View** (`features/<name>/ui/`): pure Compose screens that observe state via `collectAsState()` and only emit user intents back to the ViewModel. Screens never access repositories or DAOs directly.
+
+All cross-cutting concerns (Room, network, preferences) live in `data/` and are injected into ViewModels — with Hilt on Android and by hand in the iOS entry point (`PowAppIos.kt`). Top-level ViewModels (`WorldMapViewModel`, `SettingsViewModel`, `CollectiblesViewModel`) are scoped to the Activity so they survive navigation; interior and zombie ViewModels are scoped to their `NavBackStackEntry` so they reset when the player leaves.
+
+The Android client follows a **Single-Activity** architecture with Compose-based navigation (`NavHost`). Destinations include `main_menu`, `world_map`, `settings`, `collectibles`, the six interior routes, the `zombie_minigame` route and the `shinecto_interior` route.
+
+### 🌐 Real-Time Multiplayer servers
+
+POW uses **three independent Node.js + Express + ws servers**, all dockerized and hosted on Render. Online play is Android-only.
 
 #### Open-world server — `Multiplayer/server.js` (v2)
 
@@ -281,7 +646,7 @@ Distributes authority via the **Zone Host** pattern: each client is Host within 
 - **Ghost-player GC:** stale players are reaped periodically (not only on socket close), alongside heartbeats, orphan-NPC GC and periodic master sync. Colors are serialized as ARGB Int.
 - **Police relay (v3.2):** `POLICE_BATCH_UPDATE` (AOI) and `POLICE_DESTROY` (global) are relayed but **not** stored in the persistent NPC roster — the police are transient and per-player (owned by the wanted client), so each client purges them by staleness.
 
-#### Zombie-minigame server — `MultiplayerZombie/server.js` (Phase 1)
+#### Zombie-minigame server — `MultiplayerInteriores/server.js` (Phase 1)
 
 Runs the **zombie simulation authoritatively** per room and broadcasts `ZOMBIE_STATE`. Its AI v2:
 
@@ -292,31 +657,29 @@ Runs the **zombie simulation authoritatively** per room and broadcasts `ZOMBIE_S
 
 Coordinates on the wire are fractional `[0,1]` (the client converts to pixels). Collision matrices come from `collision_matrices.json` (the same format the Designer Mode exports), with neutral border-only defaults that must stay identical (rows/cols) to the client's matrices until replaced.
 
+#### Titulación por Combate relay — `MultiplayerSF/server.js`
+
+A pure relay for 1v1 online fights on Android. Each client simulates its own fighter and sends its state (~10 Hz), and damage is applied by the client that receives it. The server only syncs character and stage selection, the 3-2-1 countdown, the end of the fight, rematches and wins by disconnection. Bluetooth and LAN versus use the same message protocol without the server.
+
 #### Render free-tier warm-up
 
 `ServerWarmupManager` polls `<server>/status` over HTTPS the moment the user taps **MULTIJUGADOR** — before the name dialog — blocking with a cancellable spinner until the server replies `200 OK` (with a retry on timeout). Successful pings are cached for 60 s.
-
-### 🎮 Controls and UI
-
-- **Two movement styles:** D-Pad or virtual joystick (360°), switchable from Settings.
-- **Adaptive scaling** (60%–140%, capped at 100% in portrait), **left-handed swap**, gamepad-style A/B/X/Y buttons.
-- **Staged control settings:** changes to control type, scale and swap are held in a temporary state and only affect gameplay after pressing **SAVE** (then committed, persisted and pushed to the map). Leaving Settings discards unsaved changes.
-- **Optional controls tutorial:** offered once the first time you enter the open world and the first time you enter an interior (you can decline); paginated overlay explaining every button (open world includes driving/teleport, interiors include combat mode/inventory). Replayable anytime from **Settings → Controls → Reference & tutorial**.
-- **Optional diagnostic HUD:** cache widget and FPS widget. Preferences persist via `SettingsRepository` (SharedPreferences).
 
 ### 🚀 Tech Stack
 
 | Layer | Technology |
 |---|---|
-| UI | Jetpack Compose, Material 3, Navigation Compose |
-| Native map | osmdroid + Google Maps Compose |
-| Web map | WebView + Leaflet 1.9.4 |
-| Persistence | Room (v8, MIGRATION_7_8 + `fallbackToDestructiveMigration`) |
-| Network | OkHttp (WebSocket), HttpURLConnection (Overpass + tiles) |
-| Geolocation | Google Play Services — Fused Location Provider |
+| Shared code | Kotlin Multiplatform (Kotlin 2.3), Compose Multiplatform 1.11 |
+| UI | Compose Multiplatform + Jetpack Compose, Material 3, Navigation Compose (Android) |
+| iOS host | SwiftUI wrapping one `ComposeUIViewController` |
+| Native map (Android) | osmdroid + Google Maps Compose |
+| Web map (Android) | WebView + Leaflet 1.9.4 |
+| Persistence | Room 2.8 (Android and iOS) |
+| Network (Android) | OkHttp (WebSocket), HttpURLConnection (Overpass + tiles) |
+| Geolocation (Android) | Google Play Services — Fused Location Provider |
 | Concurrency | Coroutines + Flow / SharedFlow / StateFlow |
-| Serialization | Gson |
-| Servers | Node.js 18, Express, ws, Docker (open world + zombie minigame) |
+| Serialization | kotlinx.serialization, Gson |
+| Servers | Node.js 18, Express, ws, Docker (open world, zombie minigame, fighting relay) |
 | Hosting | [Render](https://render.com/) (auto-deploy from Dockerfile) |
 
 ### 🐳 Deploying the multiplayer servers
@@ -327,302 +690,31 @@ cd Multiplayer
 docker compose up -d
 
 # Zombie-minigame server (host port 8081 → container 8080)
-cd MultiplayerZombie
+cd MultiplayerInteriores
+docker compose up -d
+
+# Titulación por Combate relay (host port 8082 → container 8080)
+cd MultiplayerSF
 docker compose up -d
 ```
 
-Production runs two Render Web Services, each auto-built from its own `Dockerfile`. Both listen on container port **8080** (`GET /status`, `WS /`). The open-world URL is injected at compile time via `BuildConfig.MULTIPLAYER_SERVER_URL`; the zombie-minigame URL via `BuildConfig.ZOMBIE_SERVER_URL`.
+Production runs three Render Web Services, each auto-built from its own `Dockerfile`. All listen on container port **8080** (`GET /status`, `WS /`). The Android app receives their URLs at compile time through `BuildConfig.MULTIPLAYER_SERVER_URL`, `BuildConfig.INTERIORS_SERVER_URL` and `BuildConfig.SF_SERVER_URL`.
 
-### 📍 Current Status
+## 📍 Current Status
 
-**Works today:** OSM/Google/Web navigation with snap-to-road, persistent street and tile caching (atomic writes), native over-zoom to z22 (scaled from z19, with z19/z17 loading-screen prefetch and max-zoom default), player-anchored fog of war on native + web (driving-rotation safe), real-meter NPC/player sizing unified across renderers, landscape-safe scrollable Options menu, procedural NPCs (bbox-prefiltered spawn) with personality traits, run-over-while-driving, **oriented-rectangle vehicle collisions and safe vehicle exits**, aggressive retaliation/carjack reactions and two-way traffic, melee combat vs NPCs and remote players, zone-delegated open-world multiplayer (v2: AOI + host throttle + rate-limit + sanitization), vehicle driving, staged configurable controls, 8 map providers, editable landmarks with JSON import/export, 6 lore collectibles, waypoint routing, 6 ESCOM interiors, a full zombie survival minigame (lobby + 7 buildings, dual combat, 6 power-ups, dynamic lighting, damage-feedback FX, lobby regen, WASTED/Victory screens) with a **dedicated authoritative zombie server** (flow-field + LOS + separation AI), collision Designer Mode, and a ShineCTO easter-egg interior. A behavior-preserving **low-end (≤2 GB / Android 7–9) GC & memory pass** keeps long sessions stable on weak devices: an LRU-bounded native drawable cache, a reused door-glow bitmap, size-cached police bullet/🔫/📞 icons, once-filtered nav landmarks, and sprite caches freed on `onTrimMemory`.
+**Titulación por Combate — works today on Android and iPhone:** Arcade, Practice, Combos & Tutorial, Examen Extraordinario, AI vs AI and Records, with 20 fighters and 18 stages (plus 2 extra stages) in three lighting variants, verified on a real iPhone 15 (iOS 26.7.1) in November 2026. Online, Bluetooth and LAN versus run on Android. **Next:** submit the iPhone build to the App Store.
 
-**Not yet implemented:** A*-based pathfinding for the open-world router (still a greedy graph walk; note the zombie server already uses a Dijkstra flow-field), local Bluetooth multiplayer, content-rich interior collision matrices, floating damage numbers / hit particles, and lobby door coordinate re-tuning.
+**Android open world — works today:** OSM/Google/Web navigation with snap-to-road, persistent street and tile caching (atomic writes), native over-zoom to z22 (scaled from z19, with z19/z17 loading-screen prefetch and max-zoom default), player-anchored fog of war on native + web (driving-rotation safe), real-meter NPC/player sizing unified across renderers, landscape-safe scrollable Options menu, procedural NPCs (bbox-prefiltered spawn) with personality traits, run-over-while-driving, **oriented-rectangle vehicle collisions and safe vehicle exits**, aggressive retaliation/carjack reactions and two-way traffic, melee combat vs NPCs and remote players, zone-delegated open-world multiplayer (v2: AOI + host throttle + rate-limit + sanitization), vehicle driving, staged configurable controls, 8 map providers, editable landmarks with JSON import/export, 6 lore collectibles, waypoint routing, 6 ESCOM interiors, a full zombie survival minigame (lobby + 7 buildings, dual combat, 6 power-ups, dynamic lighting, damage-feedback FX, lobby regen, WASTED/Victory screens) with a **dedicated authoritative zombie server** (flow-field + LOS + separation AI), collision Designer Mode, and a ShineCTO easter-egg interior. A behavior-preserving **low-end (≤2 GB / Android 7–9) GC & memory pass** keeps long sessions stable on weak devices: an LRU-bounded native drawable cache, a reused door-glow bitmap, size-cached police bullet/🔫/📞 icons, once-filtered nav landmarks, and sprite caches freed on `onTrimMemory`.
 
-### 🔁 Keeping This Documentation Current
+**Not yet implemented:** A*-based pathfinding for the open-world router (still a greedy graph walk; note the zombie server already uses a Dijkstra flow-field), open-world Bluetooth multiplayer (the fighting mode already has Bluetooth versus), content-rich interior collision matrices, floating damage numbers / hit particles, and lobby door coordinate re-tuning. On iPhone, the open world, story campaign and multiplayer are intentionally not offered; they remain Android-exclusive.
 
-`README.md` and `plan.artifact.md` are the **single source of truth** we hand to any assistant (human or AI) *instead of* the whole codebase — so we never have to re-explain the project. They are only trustworthy if they are updated **in the same change** that touches the code, never afterwards.
+## 🔁 Keeping This Documentation Current
 
-The detailed checklist lives in **`plan.artifact.md` §11**. In short, on every change that alters behavior:
+This README is the public overview, kept in **English**. The detailed source of truth for contributors and AI assistants is **[README for IAS](PolitecnicoOpenWorld/README%20for%20IAS/)**; its mandatory update protocol is in `09_CONVENTIONS_GOTCHAS.md` §13. On every change that alters behavior:
 
-- Update **both** files (`README.md` is bilingual — reflect user-facing changes in the English **and** Spanish sections so they don't drift).
-- Add the change to the top of **Recent Changes**; prune entries older than ~2–3 releases.
-- Move finished items from **Not yet implemented** into **Works today** (and the mirror lists in `plan.artifact.md` §7/§8).
-- A fact that lives in both files must be changed in both — a contradiction between them is a bug.
+- Update the matching README for IAS docs and, when players notice the change, this README.
+- Add the change to the top of **Recent Changes** and prune entries older than ~2–3 releases.
+- Move finished items from **Not yet implemented** into **Works today**.
+- A fact that lives in several files must change in all of them — a contradiction between them is a bug.
 
-**Definition of done:** code compiles/validates *and* both files describe the new reality. If the docs aren't updated, the task isn't finished.
-
----
----
-
-## 🇪🇸 Versión en Español
-
-**Politécnico Open World (POW)** es una aplicación Android de exploración 2D con vista *top-down* construida sobre mapas del mundo real. El jugador se desplaza por las calles reales de su ubicación (con foco inicial en la zona ESCOM / Zacatenco) usando datos de **OpenStreetMap**, comparte el mundo con NPCs procedurales (peatones y vehículos) y con otros jugadores conectados a un servidor en tiempo real. El campus de ESCOM alberga además un minijuego embebido de supervivencia contra zombis con interiores, combate cuerpo a cuerpo / a distancia y un sistema de power-ups — ahora respaldado por su propio servidor autoritativo.
-
-El proyecto está construido íntegramente en **Kotlin + Jetpack Compose**, sigue un patrón **MVVM** estricto organizado por *features* y delega la lógica de mundo persistente a **dos servidores Node.js independientes**: uno para el open world y uno nuevo, dedicado, para el minijuego de zombis.
-
-### 🔄 Cambios Recientes
-
-- **Galería integrada en Coleccionables** — Multimedia ahora forma parte de Coleccionables, conservando el diseño guinda y dorado con exactamente dos pestañas: Peleadores y Mapas. Peleadores contiene el roster de Titulación por Combate, incluidos los fotogramas fuente de los personajes cuyo atlas se arma en ejecución. Mapas incluye escenarios de combate y variantes de día/noche/apocalipsis, interiores y mapas de transporte. El visor independiente permite ampliar con dos dedos o botones, arrastrar con límites y ajustar la imagen a la ventana, cargando el recurso original en lugar de su miniatura. No se duplican archivos de imagen.
-
-- **Alexis Syntaxis: sprites corregidos y CI de peleadores (2026-11-04)** — los cuadros de daño/aturdimiento cumplen la altura erguida de 100 px y se corrigen los anclajes de pies. Se regeneraron cuatro poses de hablar y diez poses de acción cortadas. Un workflow reproducible genera previews, valida geometría y compara los assets versionados con sus fuentes. Ver [tutorial de CI](PolitecnicoOpenWorld/README%20for%20IAS/SF/CI_CD_agregar_peleador.md).
-- **Calles estáticas de CDMX (2026-11-04)** — integra el enfoque de celdas estáticas del PR #182 antes de Overpass y rechaza respuestas HTML o malformadas para que los errores del servidor activen el respaldo en vez de aceptarse como calles vacías.
-
-El último trabajo de integración se centra en el **back end multijugador**, que ahora abarca dos servidores, además de los PRs de funcionalidad/rendimiento previos:
-
-- **La Planchada y ESM (2026-11-06)** — agrega una enfermera espectral del IMSS con arte original en un solo atlas WebP de combate normalizado, animaciones derivadas para mundo libre, los audios de La Llorona y el escenario Escuela Superior de Medicina. Se desbloquea al vencerla en Arcade en Medio o Difícil.
-- **TITULACIÓN POR COMBATE: el especial de los policías ya tiene sonido propio (new, 2026-09-24)** — la **policía CDMX (mujer)**, el **Granadero** y la **Granadera** no tenían voz de `power` ni clip `special_<id>`, así que su proyectil caía al `hadouken` genérico. Ahora comparten un **SFX corto de sirena + impacto** (`special_power_siren`, 1.5 s, audio sintetizado original sin samples de terceros) con un subtítulo corto `(Sirena)` cuando los subtítulos de voz están activados, igual que Escomboy y Escomgirl comparten `special_power_electricity`. El policía CDMX hombre conserva el suyo. El test de auditoría del arcade ahora exige el archivo nuevo para los tres.
-- **TITULACIÓN POR COMBATE: botón de pausa en combate (con asset gráfico) y menú de pausa completo (nuevo, 2026-09-30)** — ahora se puede pausar cualquier pelea manualmente con el botón gráfico pixel-art **Button Pause** (`ic_button_pause.png`) ubicado en la esquina superior derecha del HUD (`Alignment.TopEnd`), justo a la izquierda del botón `✕` de salida. El menú de pausa ofrece cuatro opciones: **Continuar**, **Lista de movimientos** (abre la hoja de combos y comandos del personaje en combate sin salir de la pelea), **Reiniciar combate** (reinicia la ronda/combate de inmediato) y **Salir al menú**. Cuenta con soporte bilingüe (español e inglés) y gestión segura de barras de sistema (`systemBarsPadding`) para Android e iOS.
-- **HUELUM VS. GOYA: mareo/stun clásico, crash de La Llorona blindado, carga más fluida y navegación más lista (new, 2026-07-22b)** — recibir demasiados golpes sin respiro ahora **marea a tu peleador**: una barrita naranja se llena al recibir daño y, al toparse, el peleador se congela ~2 segundos con **estrellitas orbitando su cabeza** (golpear al mareado lo despierta; funciona en todos los modos, multijugador incluido). El **medidor de súper brilla y pulsa** al estar listo, y se drena lento si dejas de conectar golpes (la barra llena nunca se drena). La **metamorfosis de La Presidenta** ahora ocurre solo en el round 1, otorga **vida completa** al transformarse, y **se queda** como Yoalli el resto de la pelea. El **camino del crash de La Llorona quedó blindado** (sus peleas cargan un atlas extra de relleno que podía reventar la memoria — ahora va a media resolución y a prueba de fallos) y todos los assets pesados de la pelea se decodifican **bajo la pantalla de CARGANDO** en vez de congelar el juego unos segundos (transformarse a media pelea ya no recarga nada). La intro del policía ahora **se reproduce completa**, salir de un modo te regresa al **selector de ese mismo modo**, y el tutorial **resalta el botón exacto a presionar** (aro amarillo pulsante), nombra los controles reales (X/Y/B/A/P/G/T/S) y muestra los chips de botones arriba del texto de la lección. *(Pendiente Rebuild + prueba en dispositivo.)*
-- **HUELUM VS. GOYA: subtítulos de voz ENCENDIDOS + dos lecciones nuevas del tutorial (new, 2026-07-22)** — los 64 subtítulos de voz curados por fin se muestran durante las peleas, en español o inglés según el idioma del dispositivo (se completó el track en inglés: se tradujo cada línea que seguía en español; los gritos y onomatopeyas se quedan tal como se grabaron). Las frases largas ya no salen amontonadas: cada tramo de la frase tiene su propia línea con la fuente arcade del HUD, sincronizada con cómo se escribió la línea de voz, y los tramos largos se siguen envolviendo. El tutorial además gana dos lecciones: la **cadena agachada** (puño bajo y patada baja) y el **medidor de súper** (la barra dorada sube al conectar golpes y al recibirlos; la Super Art y el FATALITY lo consumen entero). *(Pendiente Rebuild + prueba en dispositivo.)*
-- **HUELUM VS. GOYA: tutorial paso a paso, poses recuperadas y arreglos de gama baja (new, 2026-07-21)** — el tutorial ahora enseña **un movimiento por lección** (21 básicos: caminar, agacharse, cada puño y patada, bloqueo, dash, correr, parry, agarre, barrida, antiaéreo, overhead, aéreos, especial y súper) antes de pasar a los combos. Cada paso se muestra como un **chip del color del botón real** que hay que pulsar, se marca al acertar, y si haces otro movimiento sale un cartel rojo **"ESO NO ERA"** que te dice exactamente qué hiciste frente a lo que tocaba. Tres animaciones que se recortaban y se tiraban ya están en el juego: **correr** (sostén adelante al salir del dash — puedes saltar y atacar desde la carrera) y las poses de descanso y de hablar. Además, el perfil de IA de cada peleador **se acentúa conforme subes la escalera**, así que los de distancia lanzan más poderes y los de presión encadenan más combos cuanto más avanzas. En rendimiento, el arte nuevo había llevado los atlas de peleador a 73 MB de RAM cada uno; ahora se decodifican a media resolución en gama baja (~18 MB) sin cambiar el tamaño con el que se ven los sprites. *(Pendiente Rebuild + prueba en dispositivo.)*
-- **HUELUM VS. GOYA: hoja de combos y tutorial interactivo (new, 2026-07-21)** — una entrada nueva **COMBOS Y TUTORIAL** se suma a Práctica e IA vs IA. Abre una hoja con **todos los controles de combate** y las rutas de combo del peleador con su receta paso a paso, y el botón **PROBAR** te mete a un **tutorial guiado**: la pantalla te pide un movimiento a la vez, comprueba que de verdad lo ejecutaste, va marcando cada paso y solo entonces avanza, con repetir/saltar y progreso de lecciones. Se practica contra un **muñeco inerte** — sin reloj y sin que el muñeco muera — para que nada interrumpa la ejecución. Los combos viven en un catálogo data-driven (10 rutas universales más una de firma por peleador) que **también lee la CPU**, así que ahora la IA encadena rutas completas en vez de golpes sueltos, ajustadas a la dificultad. *(Pendiente Rebuild + prueba en dispositivo.)*
-- **Menú principal: las etiquetas ALPHA/BETA ya no se van a otro renglón (fix, 2026-07-21)** — las etiquetas de estado salían por encima de cada botón con un desplazamiento vertical negativo, así que en dispositivos con la fuente del sistema en grande (reportado en un Galaxy S24) se metían en la fila anterior y parecían descolgadas. Ahora solo se desplazan lateralmente hacia el margen que siempre existe, y ningún rótulo del menú puede partirse en dos líneas dentro de un botón de alto fijo.
-- **HUELUM VS. GOYA: el moveset completo estilo 3rd Strike (new, 2026-07-21)** — cada peleador gana **21 movimientos jugables nuevos**: **dash** adelante y atrás (doble toque), **bloqueo** alto y bajo con poses de guardia reales, el **parry** característico (una ventana de 260 ms que anula el golpe por completo y deja vendido al atacante), un juego bajo completo con antiaéreo y **barrida** que derriba, **ataques aéreos**, una **patada larga** de gran alcance, un **overhead** que rompe la guardia baja, un **agarre** que atraviesa el bloqueo, una burla y un **Super Art** alimentado por un medidor nuevo que se llena al pegar y al recibir. La CPU también usa el arsenal: barre para castigar, agarra a quien se cubre y hace parry en las dificultades altas. A los peleadores que aún no tienen el arte de algún movimiento no se les quita: lo ejecutan con una silueta **placeholder ALPHA** claramente marcada. *(Pendiente Rebuild + prueba en dispositivo.)*
-- **HUELUM VS. GOYA: combos estilo 3rd Strike (new, 2026-07-20)** — los golpes normales que **conectan** ahora se pueden **cancelar en cadena** al siguiente golpe más fuerte (ligero→medio→fuerte, puño o patada) o **cancelar en el especial** del personaje (respetando su enfriamiento); los golpes fallados se recuperan completos, como en el arcade. Aparece un **contador de combo** ("N GOLPES") del lado del atacante desde 2 golpes, y el daño del combo escala −10% por golpe encadenado (piso 50%) para que las cadenas no maten gratis. Solo modos offline (en línea el HP del rival sigue siendo autoridad remota). *(Pendiente Rebuild + prueba en dispositivo.)*
-- **HUELUM VS. GOYA: recuperación de la IA de combate compartida (fix, 2026-07-18)** — la CPU ya no conserva internamente un estado aéreo después de que el sprite toca el piso: el aterrizaje ahora acepta la coordenada exacta a la que limita el escenario, causa raíz de que los peleadores se quedaran pegados, miraran al lado incorrecto y terminaran ganando por tiempo. El mismo motor de IA alimenta solitario, Arcade, IA vs IA y las dos auditorías Autoplay; la dificultad cambia reacción/defensa/agresividad y perfiles ligeros por personaje priorizan presión o poderes. Se revisan correctamente las zonas de cuerpo/piernas, se recuerdan los últimos tres golpes normales, especiales y poderes tienen enfriamientos separados, se amplió la defensa reactiva y una ventana breve de escape evita que un poder encierre al rival en daño infinito. Autoplay ahora considera fallo tanto la pasividad prolongada como cada ronda por tiempo y reporta totales de KO/timeout.
-- **POW 1.0.0.12: hotfix de peso y entrega del release (release, 2026-07-18)** — los **48 escenarios animados de HUELUM VS. GOYA** ahora muestrean movimiento real a lo largo de cinco segundos, no una ventana central casi estática de 1.25 s. Los 16 mapas conservan versiones de **día, noche y noche tenebrosa**, con el logo POW aplicado en cada fotograma; los auxiliares fijos viven fuera del proyecto de Android Studio. El AAB release final pesa **438.52 MiB** y su módulo base comprimido **459.16 MB**, con **40.84 MB** de margen bajo el límite de 500 MB. Showcase separa **siguiente animación**, **siguiente personaje**, velocidad **1×/2×/4×** y **repetir audio**, y añade un recorrido exclusivo por los 21 audios. Se separaron los fotogramas de daño que mostraban dos Lloronas y el validador evita la regresión. CI usa Actions actuales con Node 24, `tracks: alpha`, notas localizadas y un artefacto AAB firmado descargable; la etiqueta `manual-play-upload` genera el artefacto sin publicarlo automáticamente.
-- **HUELUM VS. GOYA: audio reconstruido para producción + auditoría completa de campañas IA (release, 2026-07-18)** — se regeneraron los especiales de los **21 peleadores** desde las fuentes locales ya descargadas, solo en español y con una duración elegida para cada clip, no una duración uniforme. Las voces se transcribieron y contrastaron con lo que realmente dicen; los efectos de horror/banda sin diálogo ya no muestran subtítulos inventados. La Presidenta usa un clip verificado de Claudia de 8.3 s, Lázaro ya tiene voz propia y las tres variantes Granadero conservan completa la banda de 27.5 s. Los especiales largos usan `MediaPlayer`, por lo que ya no se cortan por la limitación de `SoundPool`. El pipeline reproducible y sin re-scrape registra hashes y una auditoría técnica/de contenido español 21/21. En arte se corrigieron las poses de daño repetidas de La Llorona y se añadió la metamorfosis inversa Yoalli → Presidenta. Finalmente, el bot de QA ejecuta las **9 campañas arcade completas** (3 protagonistas × BÁSICA/NORMAL/AVANZADA, 135 peleas) con simulación acelerada, y las pruebas revisan 600 configuraciones aleatorias. Versión **1.0.0.12** para Play Store alpha.
-- **HUELUM VS. GOYA: frases de los policías, subtítulos y la diana del Granadero (fix, 2026-07-18)** — los policías ahora dicen las frases correctas en el momento correcto — el hombre avisa que "está prohibido beber en la vía pública" al empezar, te encara al atacar y presume al ganar; la mujer tiene dos frases de ataque y su propia frase de victoria — y el Granadero (hombre y mujer) gana con un toque de "diana" (corneta) en su lugar. Los subtítulos ahora se parten en **hasta tres líneas con una fuente más chica** para que las frases largas ya no se salgan de pantalla. *(Pendiente Rebuild + prueba en dispositivo.)*
-- **HUELUM VS. GOYA: policías, granaderos y Paparazzi 1 ahora tienen voces (nuevo, 2026-07-18)** — el policía CDMX y el Granadero (hombre y mujer) ahora hablan: una frase de presentación al empezar la pelea, un grito en su special, quejidos al recibir golpes y una frase de victoria al ganar. Hombre y mujer comparten un set de voz cada uno, reutilizado entre el policía normal y la versión de granadero. **Paparazzi 1** también ganó voces — gritos de batalla al golpear y quejidos aturdidos al recibir. Todo corre sobre un sistema reutilizable de packs de voz por peleadór, así que darle voz a más personajes es solo agregar archivos de audio con el nombre correcto. *(Pendiente Rebuild + prueba en dispositivo.)*
-- **HUELUM VS. GOYA: todos los escenarios ahora son panorámicos + flecha doble en espejo (nuevo, 2026-07-18)** — el reencuadre panorámico anclado al piso (peleadores en el suelo, y al saltar se ve más del mapa hacia arriba) ahora aplica a **los 16 escenarios**, no solo a los cinco más nuevos (falta el afinado por mapa). Y en la pantalla de selección, si el jugador 1 y el jugador 2 eligen al **mismo peleador**, esa tarjeta muestra **ambas flechas (P1 y P2)** y su recuadro parpadea entre azul y rojo para que el duelo en espejo se note. *(Pendiente Rebuild + prueba en dispositivo.)*
-- **HUELUM VS. GOYA: las peleas IA vs IA ahora sí terminan con un ganador (fix, 2026-07-18)** — dos CPU a máxima dificultad se esquivaban sin fin y nunca daban el golpe final. Ahora cada pelea IA vs IA le baja la dificultad al azar a uno de los dos (uno o dos escalones por debajo del otro), así el más fuerte conecta y gana — y el desnivel se re-sortea en cada pelea, por lo que el ganador varía. La dificultad oculta y creciente del arcade (más difícil conforme avanzas, calibrada a la dificultad que elegiste, al estilo Street Fighter III: 3rd Strike) no cambia. *(Pendiente Rebuild + prueba en dispositivo.)*
-- **HUELUM VS. GOYA: el salto muestra más del escenario + recuadro de color del rival en la selección (nuevo, 2026-07-18)** — en los escenarios reencuadrados, **al saltar el fondo se desplaza hacia arriba** y ves más del mapa por encima de ti (aprovechando el margen del zoom panorámico; los escenarios ya aprobados no cambian). En la pantalla de selección, las flechas P1/P2 ahora llevan un **recuadro y borde translúcido de color** (azul para tu peleador, rojo para el que resaltas como rival) para que el emparejamiento sea inconfundible. Nota: el modo en línea sigue eligiendo a ciegas (conoces al rival cuando ambos ya eligieron), así que el recuadro de rival aplica a Práctica e IA vs IA locales; un audit de multijugador confirmó que los escenarios nuevos, la cámara de salto y la música por progresión se comportan igual por Render, Bluetooth y LAN. *(Pendiente Rebuild + prueba en dispositivo.)*
-- **HUELUM VS. GOYA: selección de personaje más clara, desbloqueos por dificultad y herramientas de prueba solo para desarrollador (nuevo + fix, 2026-07-18)** — la pantalla de selección ahora muestra una **flecha azul "P1"** sobre el peleador que ya elegiste y una **flecha roja "P2"** sobre el que estás resaltando para el jugador 2, así la elección del rival es inconfundible. Los desbloqueos del arcade ahora dependen de la dificultad elegida: ganar en **MEDIO desbloquea al personaje** (más su mapa), **FÁCIL desbloquea solo el mapa**, y difícil/apocalíptico aún no desbloquea nada (animaciones y poderes especiales vendrán después). La pantalla de "Elige dificultad" ya no adelanta el tipo de escenario — solo eliges dificultad. Y las **herramientas automáticas de prueba (Autojuego/Showcase)** (todos vs todos, las 9 campañas aceleradas, el showcase de animaciones/sonidos y el de audios) ahora son **exclusivas del Modo Desarrollador**, ocultas para el jugador normal. *(Pendiente Rebuild + prueba en dispositivo.)*
-- **HUELUM VS. GOYA: cinco escenarios regenerados + la música de Prankedy ahora escala con la dificultad (nuevo + fix, 2026-07-18)** — cinco escenarios (Facultad de Medicina, FES Aragón, Pirámide del Sol, UAM Cuajimalpa y el Zócalo, en sus tres variantes día/noche — 15 fondos) se rehicieron desde material nuevo con el pipeline existente, con el **logo POW encima de la marca de agua de Gemini** y el reencuadre panorámico anclado al piso para que los peleadores queden sobre el suelo. El tema de Prankedy además se vuelve una **banda sonora por progresión**: una pista de lobby suena en el selector, y durante las peleas la música **escala con el nivel** (avance de la escalera arcade, dificultad de la CPU en práctica, la más dura en IA vs IA). *(Pendiente Rebuild + prueba en dispositivo; la rotación exacta de pistas por combate puede afinarse.)*
-- **HUELUM VS. GOYA: mapa de Facultad de Medicina reencuadrado (fix, 2026-07-18)** — el fondo de la Facultad de Medicina (sus tres variantes día/noche) se veía cuadrado y dejaba a los peleadores flotando en el cielo; ahora se hace zoom anclado al piso para que queden sobre el suelo, mediante un ajuste de encuadre por escenario (`SfBgFraming`) que solo cambia cómo se dibuja el fondo — sin regenerar el asset. *(Pendiente revisión en dispositivo + más ajustes de mapas por venir.)*
-- **HUELUM VS. GOYA: showcase a tu ritmo — botón de salto, mapas hogar y audio correcto (nuevo + fix, 2026-07-18)** — el Showcase de assets ya no se arrastra: los pasos avanzan **automáticamente en cuanto termina cada animación**, y un nuevo botón **"Saltar animación"** brinca al siguiente al instante. Cada peleador se presenta **en su propio mapa hogar**; los pasos forzados **reproducen sus sonidos** (impactos por fuerza, KO y voz en victoria/metamorfosis), la **pose de victoria en peleas reales suena con la voz del peleador** y se arregló el salto perdido. El audio prototipo mencionado en esta entrada antigua fue reemplazado por la reconstrucción completa de producción descrita arriba.
-- **HUELUM VS. GOYA: peleas de IA variadas + showcase completo de assets con auditoría estática (nuevo + fix, 2026-07-18)** — IA vs IA (y la CPU en general) ya no se congela, ni se queda pegada al rival, ni repite el mismo ataque: el watchdog ofensivo ahora vigila el **estado real** del peleador (los inputs descartados ya no cuentan como "atacar", y tras ~2 s de pasividad en corto se fuerza el golpe), el clinch se resuelve con **roles asimétricos** (uno golpea mientras el otro se separa) y cada golpe recuerda el anterior para variar de verdad puños/patadas y fuerzas. El bot de **Showcase** ahora recorre **todas** las animaciones de cada peleador — incluidos los daños, KO, victoria, giros y la metamorfosis de La Presidenta (su timer y el daño espejado se desactivan para que el guion siempre termine) — y suma una **auditoría estática** por peleador: animaciones faltantes/vacías, frames rotos y voces/SFX `.ogg` ausentes (sonidos del tema incluidos) caen al reporte en pantalla y al `.txt`. *(Pendiente Rebuild + prueba en dispositivo.)*
-- **HUELUM VS. GOYA: IA vs IA a PESADILLA para grabar (nuevo, 2026-07-18)** — nueva entrada **IA VS IA** en el menú del modo pelea: **CPU vs CPU** a máxima dificultad (PESADILLA + intensidad total, como la final del arcade). Eliges dos peleadores (roster completo con Modo Desarrollador), se ocultan los controles táctiles y solo queda el botón Salir — ideal para grabar en video. Arcade / práctica / online no cambian de comportamiento. *(Pendiente Rebuild + prueba en dispositivo.)*
-- **HUELUM VS. GOYA: fondos de pelea corregidos para gama baja (fix + perf, 2026-07-18)** — los atlases de escenario se regeneran con **tope duro ≤2048 px** (muchas GPU de gama baja rechazaban atlases mayores y el mapa salía en negro), frames 16:9 uniformes (crop-to-fill), loop ping-pong embebido y **miniaturas ~256 px** para que el selector de mapa no decodifique decenas de atlases completos. *(Pendiente Rebuild + prueba en gama baja.)*
-- **Selector de mapa: preview animado solo en el seleccionado (nuevo, 2026-07-18)** — tocar un mapa lo enfoca (borde dorado); **solo esa tarjeta anima un frame a la vez** del atlas (nunca el filmstrip entero), el resto queda en miniatura estática; se confirma con **"Elegir este mapa"**. Lógica en `SfStageSelectOverlay.kt`, separada del draw loop de pelea.
-- **La Presidenta gana 11 poderes jugables y metamorfosis a Yoalli Ehécatl (arte, 2026-07-17)** — el botón morado `P` recorre seis ataques animados cósmicos/tricolor/económicos, cuatro poderes elementales y una transformación completa Presidenta → Yoalli. Todos son estados reales utilizables por jugador/CPU y sincronizados en línea; la metamorfosis final golpea con fuerza HEAVY. Su hoja de pelea queda en 178 cuadros/41 animaciones manteniendo el cuerpo común de 100 px (mundo sigue 512²/360 px).
-- **Prankedy y el Señor de la Tienda regenerados desde hojas croma para ambos modos (arte, 2026-07-16)** — cada uno tiene 19 hojas originales que alimentan un diseño consistente en HUELUM VS. GOYA y el mundo abierto: 82 cuadros/30 animaciones más sets mundiales 512². Todos los peleadores dedicados se fuerzan al mismo cuerpo de 100 px en pelea; el arte croma del mundo usa cuerpo base común de 360 px y la UI conserva igualdad entre acciones con fracciones medidas. Un detector genérico de continuidad KO marca los cuadros tendidos invertidos (`flipX`), corrigiendo automáticamente a ambos y a personajes futuros. *(Pendiente prueba visual en dispositivo.)*
-- **HUELUM VS. GOYA: elige la dificultad de la CPU — desde para principiantes hasta casi imposible (nuevo, 2026-07-16)** — las peleas en solitario ganan un **paso de dificultad** (peleador → rival → **dificultad** → mapa) con tres niveles. **BÁSICA** está hecha para aprender: la CPU reacciona lento, camina, solo tira golpes ligeros de vez en cuando y jamás bloquea, salta ni usa poderes. **NORMAL** es la pelea clásica de siempre. **AVANZADA** es una IA reactiva diseñada para ser casi imposible: piensa ~4× más rápido, **bloquea tus ataques**, castiga tu recuperación, te recibe con anti-aéreos, brinca (o contesta) tus proyectiles y **lanza muchos poderes** a toda distancia. La revancha conserva la dificultad elegida; el modo online no cambia (tu rival es humano). *(Pendiente Rebuild + prueba en dispositivo.)*
-- **Multijugador de HUELUM VS. GOYA: rivales más fluidos, reloj sincronizado, choque de proyectiles y barras que drenan (nuevo + fix, 2026-07-16)** — cuatro mejoras de pulido más un fix crítico del servidor. **Fix del servidor:** el relay online devolvía el tipo de mensaje equivocado en las actualizaciones del rival, así que en las peleas online tu rival se vería congelado (Bluetooth/LAN no lo sufrían — por eso las pruebas locales pasaban); una línea corregida, sale con el primer deploy. **Rivales más fluidos:** la posición del oponente ahora se interpola entre actualizaciones de red (y sus proyectiles siguen volando entre snapshots) en vez de saltar 15 veces por segundo. **Reloj sincronizado:** el timer de 99 segundos de la ronda del anfitrión ahora es la autoridad — el reloj del invitado se re-ancla si se desfasan. **Choque de proyectiles:** dos proyectiles cruzados ahora se cancelan en un estallido, offline y online. **Barras que drenan:** las barras de vida del HUD ahora bajan suavemente hacia el HP real en vez de saltar de golpe, al clásico estilo arcade (y se rellenan al instante en cada ronda nueva). *(Pendiente Rebuild + prueba online en 2 dispositivos.)*
-- **HUELUM VS. GOYA: rondas al mejor de 3 + hostea tu propio servidor LAN (nuevo, 2026-07-16)** — las peleas ya siguen el **formato arcade clásico**: hasta 3 rondas, gana el combate quien tome 2. Las rondas terminan por KO o al agotarse los 99 segundos (gana quien tenga más vida; el **empate exacto se decide al azar** — en línea ambos teléfonos "tiran el mismo dado" compartido, sin desincronizarse). Entre rondas: letrero del ganador, reinicio fresco e intro **"RONDA N / PELEA"** con la fuente arcade, más marcadores dorados de rondas bajo cada nombre. Y una tercera opción de multijugador se suma a Render y Bluetooth: **SERVIDOR LOCAL** — un jugador hostea la sala en su propio teléfono (su IP aparece en pantalla) y el rival se une tecleándola, estilo LAN party, en la misma red Wi-Fi u hotspot; sin servidor de internet de por medio y con **cero permisos nuevos** (nada cambia en los formularios de Play Store). *(Requiere redesplegar el relay de SF para las rondas en línea; pendiente prueba en 2 teléfonos.)*
-- **Versus por Bluetooth: sin crashes, conexiones verificadas y reintento claro (fix, 2026-07-16)** — hospedar una pelea Bluetooth crasheaba en Android 12+ con un error de permisos (hasta *cancelar* el descubrimiento de dispositivos pide el permiso de escaneo — ahora se maneja defensivamente). Además todo el flujo BT se hizo a prueba de dudas: la conexión del invitado **reintenta hasta 3 veces** (el primer intento suele morir detrás del diálogo de emparejamiento del sistema), un **handshake de verificación** confirma que los datos fluyen en ambos sentidos antes de dar la sala por buena (los sockets a medias ya no simulan partida), la pantalla de conexión te dice cada paso ("Conectando…" → "verificando la conexión…"), y si la conexión falla aparece una **pantalla bloqueante de REINTENTAR** — nunca caerás en silencio al selector offline para acabar peleando contra la CPU creyendo que era tu rival. Reintentar vuelve a pedir los permisos de Bluetooth si hace falta; Cancelar es la única salida explícita. *(Pendiente re-prueba en 2 teléfonos.)*
-- **HUELUM VS. GOYA: Ryu y Ken ya no viajan a Play Store (nuevo, 2026-07-15)** — el arte de los peleadores del clon clásico ahora vive **solo en el build debug**: instalando desde Android Studio por USB, Ryu y Ken siguen completamente jugables (Modo Desarrollador), mientras que el **bundle de Play Store va sin sus assets** (cuidado de copyright) — la versión de la tienda juega con los 12 peleadores de POW. Con redes de seguridad: el build release nunca precarga ni referencia los archivos ausentes, y si un rival online/Bluetooth con build debug elige a Ryu/Ken, la versión de tienda lo pinta como Prankedy en vez de crashear. *(El HUD/sonidos/escenario del clon quedan listados para reemplazo futuro.)*
-- **HUELUM VS. GOYA: el roster se duplica a 14 Y los peleadores comparten los sprites del mundo (nuevo, 2026-07-15)** — se suman siete peleadores: **Lázaro, el estudiante y la estudianta de ESCOM, el Robot, el policía CDMX, el Granadero antimotines (¡ataques con escudo!) y el Paramédico**, para un roster de 14 (12 sin Modo Desarrollador — Ryu y Ken quedan solo para dev), jugables offline, en línea y por Bluetooth. Por debajo, 8 de los 14 peleadores ya no llevan hojas propias: sus poses de pelea se **arman en tiempo real desde los mismos sprites que usa el mundo abierto**. Prankedy, el Señor de la Tienda, Paparazzi 1 y Rey Grupero ya usan hojas croma dedicadas. Los compartidos siguen ALPHA (poses aproximadas). *(Pendiente prueba en dispositivo.)*
-- **HUELUM VS. GOYA se abre a todos + enlace Bluetooth más firme (nuevo, 2026-07-15)** — el botón del modo pelea en el menú principal **ya no es exclusivo del Modo Desarrollador**: cualquiera puede jugar. El Modo Desarrollador ahora solo desbloquea a **Ryu y Ken** (los peleadores del clon original) en el selector — sin él, el roster son los cinco peleadores de POW (y el rival de la CPU por defecto también es de POW). El enlace Bluetooth también se endureció: un keepalive de 10 segundos y detección rápida de enlace muerto hacen que un rival fuera de alcance pierda por abandono en segundos en vez de colgar la pelea, el anfitrión queda visible 5 minutos (antes 2) y, tras una pelea abandonada, el anfitrión acepta limpiamente a un retador nuevo. *(Pendiente Rebuild + prueba en 2 teléfonos.)*
-- **HUELUM VS. GOYA: lobby con aprobación + versus por Bluetooth sin internet (nuevo, 2026-07-15)** — dos mejoras del multijugador. **Lobby estilo AoE2:** tocar una sala de la lista de espera pública ahora envía una **solicitud de unión** — el anfitrión ve un diálogo ACEPTAR/RECHAZAR y decide quién entra (unirse con código compartido sigue siendo directo: el código es la invitación; los rechazados vuelven a la lista de espera con un aviso). **Versus por Bluetooth:** la nueva sección "BLUETOOTH (sin internet)" del menú multijugador deja pelear a dos teléfonos **sin servidor ni conexión** — uno hospeda (visible) y el otro lo busca (dispositivos emparejados + cercanos); mismas reglas, elección de escenario, revanchas y victoria por abandono que en línea, sobre un enlace RFCOMM que vive y muere con la pantalla del juego. Los permisos de Bluetooth se piden solo al tocar la sección (Android 12+), y el escaneo se declara como nunca-para-ubicación. *(Pendiente Rebuild + prueba en 2 teléfonos.)*
-- **HUELUM VS. GOYA online: lista de salas navegable + pulido del tema (nuevo, 2026-07-15)** — la lista de espera pública ahora muestra las **salas activas como tarjetas tocables** (las salas que esperan rival te dejan unirte directo, sin código) y refresca el resumen cada 5 segundos; salir de la cola/sala ahora le avisa al servidor antes de desconectar, y los widgets que seguían con estilo de fábrica (campo de código, botones de cancelar, diálogo de salida) se alinearon al tema vino/dorado del modo. El botón estilo POW ahora es un componente compartido que otros modos pueden reusar. *(Pendiente Rebuild + prueba en 2 dispositivos.)*
-- **El modo pelea ahora es "HUELUM VS. GOYA" (nuevo, 2026-07-11)** — renombrado por los gritos del IPN/UNAM; además **salas públicas** (lista de espera con emparejamiento automático), resumen de partidas activas, botones con el estilo POW en todo el modo, y en solitario ahora también **eliges a tu rival** (peleador → rival → mapa).
-- **Modo pelea: MULTIJUGADOR 1v1 en línea (nuevo, 2026-07-11)** — un tercer servidor gratuito (`MultiplayerSF/`, relay puro en Render) trae peleas por código de sala: creas una sala, compartes el código de 4 letras, ambos eligen peleador, el anfitrión elige el mapa, 3-2-1 sincronizado por el servidor y a pelear — cada teléfono simula a su propio peleador, el daño lo aplica quien lo recibe (y decide el bloqueo), la revancha la tienen que pedir los dos, y abandonar a media pelea le da la victoria al rival. Incluye manejo del despertar del free tier (la app hace ping al servidor dormido hasta un minuto antes de conectar). *(Pasos de deploy en el doc de audit; pendiente Rebuild + prueba en 2 dispositivos.)*
-- **El modo pelea se hace POW: música de Prankedy + fondos IPN/UNAM aleatorios (nuevo, 2026-07-10)** — se acabó el tema del clon de SF: las peleas ahora suenan con **"Persecución"**, la pista que Prankedy usa en sus videos, y tras elegir a tu peleador ahora **eliges el escenario** (con miniaturas y una tarjeta 🎲 de azar) entre seis escenas a pantalla completa — **ESCOM, el "Queso" del IPN, ESIME Azcapotzalco, CECyT 9, CECyT 2 y la Biblioteca Central de la UNAM** — dibujadas con parallax de cámara (el muelle clásico queda solo como fallback del tema).
-- **Modo pelea: bloqueo + la fuente arcade del HUD para todos los peleadores (nuevo, 2026-07-10)** — caminar hacia atrás ahora **bloquea** como en los juegos de pelea clásicos: daño chip (1/4, mín 1), medio retroceso, sin aturdimiento — y el KO por chip es posible. El alfabeto pixel que ya venía en el HUD ahora es una fuente reutilizable: los tags de nombre, los marcadores P1/P2 y el letrero **"<PELEADOR> WINS"** se dibujan con ella para los 7 peleadores (adiós a la imagen fija de ganador). Además, corrección de anchura para que el Rey Grupero ya no se vea flaco en idle.
-- **BUSTED en la Misión 1 + fantasmitas que suben al cielo (nuevo, 2026-07-10)** — si la policía te atrapa durante la escolta/ingreso de la Misión 1, ahora sale un **"BUSTED"** azul (te arrestan, estilo GTA) en vez de "WASTED"; el flujo de misión fallida/reintentar no cambia. Y las muertes fantasma ganaron su animación completa: el NPC eliminado primero se desvanece en su lugar y luego se convierte en un **👻 translúcido que flota hacia el cielo** mientras desaparece (OSM nativo: icono+ascenso por frame; web: transición CSS de opacidad+translateY).
-- **Paridad de oclusión online (fix, 2026-07-10)** — el servidor de interiores ahora trata las celdas `'^'` (objetos que tapan) como sólidas, igual que siempre hizo el cliente: los zombis autoritativos del servidor (y los civiles, spawns, pathfinding y la validación de posición `PLAYER_CORRECT`) ya no atraviesan los muebles/objetos pintados con el pincel azul OBJETO del diseñador. Un solo helper compartido `isSolidCell` alimenta ambos checks de colisión. *(Requiere redesplegar el servidor de interiores.)*
-
-- **STREET FIGHTER: el minijuego 1v1 clásico, portado fielmente (nuevo, solo dev, 2026-07-09)** — Ryu (tú) vs Ken (CPU) portado 1:1 del clon JS hermano `StreetFighter-main/`, con los **sprite sheets originales, el muelle de Ken (parallax, bandera animada y barco meciéndose), el HUD arcade (barras de vida, timer de 99, icono KO, nombres, marcadores P1/P2), sombras, splashes de impacto y todos los sonidos originales** (golpes/impactos/aterrizaje/hadouken + el tema de Ken en loop). Los 30 estados del peleador con cajas push/hurt/hit POR FRAME y animaciones por frame-delay se convirtieron automáticamente de Ryu.js/Ken.js a JSON (`assets/STREETFIGHTER/`). Controles: el joystick de POW (caminar, ↑ saltar, ↓ agacharse — y ↓↘→ + puño lanza el **hadouken**) más el mismo diamante Xbox de todo POW (X/Y/B = puño ligero/medio/fuerte, A = patada cuya fuerza sigue al joystick). El motor quedó totalmente desacoplado de los assets de SF (capa de tema + JSON por personaje) — y el reemplazo ya empezó: el modo ahora abre con una **pantalla de selección de personaje** con un roster de 7 — Ryu, Ken y cinco peleadores originales de POW marcados **ALPHA** (poses aproximadas, arte en progreso): **Prankedy** (su especial lanza su clásica broma del tanque de gas estallando en confeti), **El Señor de la Tienda, Paparazzi 1, Paparazzi 5 y Rey Grupero**, todos autogenerados desde sus sets de sprites NPC del propio juego. Se abre desde un botón del menú principal ~~visible solo con Modo Desarrollador~~ *(desde el 2026-07-15 el modo es público para todos; el Modo Desarrollador ahora solo desbloquea a Ryu y Ken en el roster)*. *(Pendiente Rebuild Project + prueba en dispositivo.)*
-
-- **La fase 1 de la Misión 2 se muda AL INTERIOR del lobby + una ESCOM más viva + TP de dev arreglado (nuevo, 2026-07-08)** — tres arreglos salidos del playtesting. **Esconderse de la policía, en interiores:** la primera fase de la Misión 2 ya no se juega en la entrada del campus — justo después de refugiarte en la ESCOM, **cuatro policías entran al lobby** y barren la sala buscándote; mantén tu distancia durante **35 segundos** (countdown en el HUD) hasta que se rindan y se vayan. Si te ven de cerca ~2.5 s = te reconocen = misión fallida (el reintento re-arma la fase). **Una ESCOM más viva:** el lobby ahora tiene **13 estudiantes ambientales** (dos parejas ya platicando cuando entras), las pláticas siguen **guiones coherentes** (parciales, asesores de TT, tacos de la cafetería, el rumor de la ENCB…) en vez de frases sueltas al azar, y el **campus exterior** gana ~10 estudiantes paseando que forman corrillos de tres — la escuela se siente viva a ambos lados de la puerta. **TP de dev arreglado:** "TP al objetivo" ahora **sigue la misión primero** y te teletransporta al objetivo de su fase *actual* (antes te dejaba en un punto frío sin actores ni 🎯); desde interiores el botón queda deshabilitado con una pista, porque el TP te mueve en el mapa del mundo. *(Pendiente Rebuild Project + prueba en dispositivo.)*
-- **Un mundo abierto vivo: eventos dinámicos en la calle, misiones secundarias, dinero y ciclo día/noche (nuevo)** — cuatro mejoras dirigidas a hacer más atractivo el mundo libre. **Eventos dinámicos:** cada ~40–80 s aparece una escena ambiental cerca de ti, anclada a la calle más cercana — dos peatones se detienen a platicar (burbujas 💬), un policía persigue a un sospechoso a pie, o un **mini-brote**: alguien se convierte en plena calle, ataca, llegan dos policías corriendo, lo someten y se lo llevan (más probable de noche y con la Misión 3 completada — la infección escala). **Misiones secundarias:** el registro de misiones estrena sus dos primeras entradas SECUNDARIA — *Suministros médicos* (recoge un botiquín y llévalo en coche al paramédico que espera; se desbloquea tras la Misión 2) y *Contención en Zacatenco* (cinco zombis reales y golpeables sueltos cerca del campus — elimínalos a todos; se desbloquea tras la Misión 3). **Dinero:** los coleccionables ahora pagan $25 y cada misión paga recompensa al completarla por primera vez ($150–$500; rejugar nunca paga doble); tu efectivo se ve en un chip 💵 y se persiste en el guardado de campaña. **Día/noche:** un ciclo completo cada 24 minutos reales (1 min = 1 hora de juego) con un velo nocturno independiente del renderer que oscurece el mundo al anochecer, más un chip de reloj 🕐. **Muertes fantasma:** los NPCs eliminados ahora se desvanecen como un fantasmita translúcido en vez de desaparecer de golpe (fade por frame en OSM nativo, fade CSS en web; Google nativo ya los atenuaba). *(Pendiente Rebuild Project + prueba en dispositivo.)*
-- **Registro de misiones en todas partes + REJUGAR misiones completadas (nuevo)** — el ítem **Misiones** ahora también aparece en el menú de Opciones de los **interiores** (un solo diálogo compartido sirve al mapa del mundo y a cada interior), así que puedes seguir o soltar una misión sin salir del edificio — si sigues una misión de exterior desde dentro, su marcador 🎯 te espera al salir. Las misiones completadas (✔) ganaron un botón **REJUGAR**: rejugar **nunca toca tu progreso guardado** — las misiones siguen marcadas como completadas, el arma de fuego y los slots de inventario desbloqueados se conservan, y abandonar el replay ("dejar de seguir") simplemente restaura todo como estaba. Además, **"Elegir personaje" del mapa del mundo ahora es solo de Modo Desarrollador** (el selector de interiores no cambia), y con el **Modo Desarrollador** activo el registro permite seleccionar misiones 🔒 bloqueadas directamente y añade un botón **"TP al objetivo"** por misión que te teletransporta a ~40 m de su destino.
-- **REGISTRO DE MISIONES estilo Witcher + Misión 3 "Regreso a la ENCB" (nuevo)** — el viejo diálogo "¿continuar la historia o mundo libre?" desapareció: **siempre estás en mundo libre** y eliges qué misión seguir desde **Opciones → Misiones** (estados bloqueada/disponible/activa/completada, persistidos en el JSON de guardado; seguir una misión pone el marcador 🎯 y la línea guía, y puedes dejar de seguirla cuando quieras — el progreso se conserva). Llegó la **Misión 3**: la ENCB es zona de cuarentena — cruza a escondidas el **cordón de granaderos** (si te ven demasiado tiempo = misión fallida), pelea contra los primeros **zombis en interiores** en la cadena de salas de la ENCB y recupera la 🧪 **evidencia del laboratorio**. Recompensa: tu **primera arma de fuego** (desbloquea el modo A DISTANCIA en interiores de campaña). Además: la mochila de Prankedy ahora **desbloquea los 4 slots del inventario**, y los **coches estacionados del lobby de ESCOM** por fin coinciden con el estacionamiento del mapa exterior (el interior ahora resuelve el mismo frame direccional del coche que el mundo, en vez de rotar en plano el frame 0).
-- **Un solo control para todo: botones estilo Xbox también al conducir (nuevo)** — el diamante de acciones de conducción ya no cambia a símbolos PlayStation (△ ○ ✕ □); ahora es el **mismo diamante Xbox A/B/X/Y** del modo a pie (mismas letras, colores, tamaños y posiciones). Al conducir: **Y = salir** (mantener 3 s → menú de teletransporte), **A = gas**, **B = freno**, **X = freno de mano**. Un solo lenguaje de control en todo el juego.
-- **Vida universitaria en interiores: pláticas de estudiantes + NPCs anti-atasco (nuevo)** — los estudiantes/docentes ambientales dentro de la ESCOM ahora **quedan de verse, platican frente a frente con burbujas de diálogo alternadas** (frases traducibles, ES/EN), a veces **se van caminando juntos**, y se despiden con un "Ahí nos vemos". Los NPCs que quedaban **atorados contra las paredes ahora cambian de dirección** tras ~1.6 s sin moverse (y el detector se re-arma, así que atascos repetidos se siguen corrigiendo). La lata apestosa de la Misión 2 ahora se ve como un 🥫 en el piso (+💨 mientras el salón se vacía) hasta que exista un sprite dedicado.
-- **Modo Historia: MISIÓN 2 — "El rumor" (nueva)** — la campaña ahora continúa tras entrar a la ESCOM. Cinco fases sobre el campus de la ESCOM: (1) **escóndete de la policía** que los busca a ti y a Prankedy en la entrada (quedarte muy cerca = te reconocen = misión fallida, con checkpoint de reintento); (2) escucha **el rumor zombie COMPLETO** de dos estudiantes (cosas raras en la ENCB / todo Zacatenco); (3) presencia el **primer brote público** — un NPC se convierte, ataca gente, la policía lo somete mientras la radio solicita **a todo el personal disponible en la ENCB**, y se lo llevan; (4) **platica con Prankedy**, que confiesa que competía contra el **REY GRUPERO** por el título del auténtico "Rey de las Bromas" (el reto: hacer una broma ese mismo día) y que escondió su **mochila en un salón**; (5) vacía el salón en clases con la **LATA APESTOSA** y recupera la mochila. El progreso se persiste en el JSON de guardado de campaña (`mission2Phase`). Internamente el código viejo de la persecución final se renombró `mission2*` → `mission1Chase*`; la misión nueva vive en `mission2/Mission2.kt` + `WorldMapMission2.kt`.
-- **REY Grupero ya es jugable** — sus hojas croma se recortaron en `SPRITES/NPC/ReyGrupero/` (`Idle=6`, `Walk=6`, `Run=8`, `Special=5`, `Talk=4`) y se registraron como `PlayerSkin.REY_GRUPERO`. Aparece en el selector de personaje de nueva campaña y en el selector dentro del juego.
-- **Capas de profundidad en interiores — ahora pasas *por detrás* de los objetos** — la matriz de colisión de los interiores ganó un tercer tipo de celda, **"objeto que tapa"**, además de *pared* y *libre*. Donde antes la matriz solo decidía si podías pasar, ahora también decide el **orden de dibujo**: tu personaje se dibuja **detrás** de un objeto alto (columnas, estantes, muebles, árboles) cuando estás al norte de él y **delante** cuando bajas por debajo, así ya no apareces encima de todo. Las celdas de objeto siguen bloqueando el paso como una pared. Se pintan en **Modo Desarrollador → Diseñador** con el nuevo pincel **OBJETO** (azul) y se guardan en el mismo `collision_matrices.json`. Funciona en los dos motores de interior (el motor de salas/zombis y los interiores simples de ESCOM). *(Nota: los zombis online aún no respetan las celdas de objeto; el jugador local y las salas offline sí.)*
-- **Retroalimentación de botones (visual + vibración + sonido)** — cada control en pantalla ahora reacciona al pulsarlo: el botón **se hunde y se aclara** (el pulgar del joystick se aclara al arrastrar), da una **vibración corta** y suena un **click** del sistema. El volumen del click sigue tu deslizador de **Efectos** (Ajustes → Audio) y la vibración sigue el ajuste háptico de tu dispositivo, así que puedes ajustarlo o silenciarlo sin un interruptor nuevo. No requiere permisos adicionales.
-- **Más texto del juego es ahora traducible (inglés/español)** — los títulos/descripciones de los objetivos de campaña y los mensajes dentro de las estaciones de metro/metrobús (tarjeta recargada, sin saldo, esperar el siguiente tren/autobús, etc.) estaban escritos en español a fuego; ahora son recursos de string, así que aparecen en inglés cuando el idioma de la app es inglés. Sin cambios para quienes juegan en español.
-- **Arreglo: volver de Ajustes (o del menú) ya no recarga el mapa** — el gate de "mundo listo" era estado local de la pantalla y se reiniciaba cada vez que se recreaba el composable, así que regresar de Ajustes re-mostraba la pantalla de carga aunque el mapa, las calles y los NPCs seguían en memoria (el ViewModel del mapa es Activity-scoped y el game loop nunca se detiene). Ahora el gate se siembra desde el estado persistido, así que el regreso es instantáneo; teletransportarte o salir de una estación de metro sí muestra la carga, como debe ser.
-
-- **Refactor: interiores de transporte unificados (Metro ⇄ Metrobús)** — los interiores de las estaciones de metro y metrobús eran ViewModels + estados casi gemelos (≈1300 líneas duplicadas), así que cualquier cambio de lógica de transporte había que hacerlo dos veces. Ahora son un único `TransitInteriorViewModel` + `TransitInteriorState` dirigidos por un catálogo `TransitSystemConfig` (`TransitSystems.METRO` / `.METROBUS`) que concentra todo lo que difiere (assets, colores, textos, offset del torniquete, eje de animación, repositorio). El comportamiento no cambia. Añadir sistemas futuros (Suburbano, Mexibús…) es ya casi solo una nueva entrada de config. (Interno; sin cambios visibles para el jugador.)
-- **Refactor: programa interno de calidad de código (managers, DI con Hilt, gate detekt)** — una pasada solo interna, **sin cambios para el jugador** (la jugabilidad es idéntica). El enorme ViewModel del mapa se descompuso en **6 managers enfocados** (Designer, Collectibles, Combat, Wanted, TransitTeleport, registro de Campaña), cada uno dueño de su estado y con tests unitarios; la UI sigue viendo un solo `WorldMapState` (compuesto por una fachada `combine`). La inyección de dependencias pasó de factories a mano a **Hilt** (KSP). Se añadió una **suite de tests golden-master** para la lógica de routing/guardado/catálogos, y el análisis estático **detekt** es ahora un check de CI bloqueante (vía baseline). Puramente mantenibilidad/calidad; comportamiento intacto.
-- **Fix: quedarse atorado al teletransportarte a una estación de metro** — las estaciones salen de Overpass y pueden caer sobre un edificio lejos de toda calle, así que el guard de snap-to-road (que evita teletransportarte a una calle lejana al azar) te dejaba congelado tras una "pared invisible". Ahora, si quedas realmente atrapado fuera de la red vial, al moverte te arrastra hacia la calle más cercana hasta engancharte. El juego normal sobre la calle no se ve afectado.
-- **Puzzle de llave del Modo Historia rediseñado + cómic sin "Saltar"** — En la cadena ENCB sigues **buscando una llave en el Laboratorio 1**, pero ahora la **llevas al Laboratorio 2 y la pruebas desde el inventario** (mantén Y → **Probar**) justo antes de la puerta que dispara el segundo cómic. Una llave incorrecta ya no se descarta sola: **mantienes pulsada la llave en el inventario para desecharla** y vuelves al Lab 1 por otra; la puerta de salida del Lab 2 queda **cerrada hasta probar la llave correcta**. Una llave incorrecta se puede desechar en cualquier momento, pero la **correcta** solo se puede desechar **después** de usarla para abrir la puerta (antes no). El inventario se cierra con una **✕ en la esquina superior derecha**. Cada llave del inventario se guarda con su **identificador de misión** (`mission1`) —persistido en la partida— para reutilizar sus assets en misiones futuras. Las skins del jugador ahora se ven del **mismo tamaño en interiores** (la skin femenina ya no se ve más grande que hombre/robot). Cómics: se **quitó el botón "Saltar"** — toca para avanzar de viñeta; solo el último panel muestra **INICIAR**.
-- **Edge-to-edge activado (Android 15+ / Play Console)** — `MainActivity` ahora llama a `enableEdgeToEdge()`, así la app dibuja detrás de las barras del sistema **de forma consistente en todas las versiones de Android** (no solo donde targetSdk 35+ lo fuerza), resolviendo el aviso de Play Console "la pantalla de borde a borde puede no mostrarse para todos los usuarios". Las pantallas Compose ya separan su contenido con `systemBarsPadding()`.
-- **Estaciones de Metro: zona de interacción más grande y visible + teletransporte** — Las estaciones de Metro/Metrobús salen de Overpass y a veces caen sobre un edificio inaccesible por calle, así que con el snap-to-road nunca podías pisar el logo "M" para entrar. La zona de interacción ahora es de **60 m** (4× los 15 m de coleccionables/puertas) y se **dibuja en el mapa** como un círculo naranja translúcido alrededor de cada logo (web/Leaflet + OSM nativo), para que puedas entrar desde cualquier calle cercana aunque el logo sea inaccesible. El **menú de Puntos de Teletransporte** (Modo Desarrollador) ahora lista cada estación de metro con un buscador, ya que llegar a pie es complicado.
-- **Modo Interiores expandible por campus (ESCOM, FES, UAM…)** — entrar a interiores se generalizó para que cualquier campus tenga lobby + edificios (`ZombieRoomCatalog.campusRooms(...)`; ESCOM mantiene su anillo bespoke, los nuevos son un `addAll`). El ViewModel es campus-agnóstico (`lobbyForBuilding` + `pendingLobbyTarget`). **FES Aragón**: la puerta **"Entrada FES Aragón"** → `interiores_zombies?startRoom=fes_interior` → lobby FES (zona segura) **con una puerta a su edificio `fes_edificio`** ("Edificio Principal", reusa TEMPORALMENTE el interior de ESCOM, con zombis online). Ambos servidores soportan la transición (`MultiplayerInteriores/server.js` recibe las salas FES; el del mundo abierto `Multiplayer/server.js` no cambia — el VM Activity-scoped + back stack preservan conexión y coordenadas). La puerta FES queda junto al teletransporte de FES.
-- **Modo Historia (campaña) + renombre del menú** — el primer botón del menú ahora es **"MUNDO LIBRE"** (el open world, antes "Iniciar Juego") y el segundo es **"MODO HISTORIA"** (antes el deshabilitado "Cargar Partida"), que abre una nueva pantalla de campaña (`story_mode`). Muestra el **prólogo** (brote del Politécnico: en la ENCB, Prankedy crea por accidente una sustancia corrosiva capaz de penetrar el látex) y un **selector de escuela** — solo **ESCOM** es jugable por ahora; **FES Aragón** y **UAM** aparecen pero deshabilitadas (en desarrollo). **"COMENZAR"** pasa por una intro **"Listo para Iniciar"** (`story_intro`, placeholder narrativo); al **INICIAR** ahí se **guarda la partida** (`CampaignRepository`) y se entra al mundo vía `setStorySpawn(...)`. **"CARGAR PARTIDA"** se habilita cuando hay guardado y reanuda en la escuela guardada. Escuelas en `domain/models/SchoolCatalog.kt`.
-- **Fix: peatones invisibles que aún podían golpearte** — tras un teletransporte (o bajo presión de memoria) el sprite de un peatón podía no cargar y el NPC se dibujaba como un marcador totalmente transparente — así te golpeaba un "hombre invisible" (p. ej. el conductor al que le acabas de robar el coche). Ahora ningún NPC queda invisible: OSM nativo cae a un emoji 🧍 y reintenta el sprite real (en vez de cachear un placeholder transparente), y el renderer web muestra un 🧍/🚗 hasta que el sprite está listo y entonces lo cambia. (Google nativo ya mostraba un pin por defecto.)
-- **Prankedy se destraba, se quita la mano zombie de ESCOM y debug de caminos** — (1) **Prankedy ya no se traba en las calles** (se pegaba a un nodo y se quedaba quieto, "ya no te hacía nada"): ahora avanza directo cuando el snap a la calle no progresa, y si sigue atascado se reubica a tu lado (sin curarse). (2) **Se eliminó la "Mano del Apocalipsis" (mano zombie) de ESCOM** — el modo zombi global se activa solo desde Opciones → "Activar/Desactivar Apocalipsis". (3) **"Debug Interiores" ahora muestra los caminos transitables Y las zonas no caminables de ESCOM**: dibuja el nav-graph de los landmarks (verde = caminos a pie, naranja = caminos de autos) más las colisiones de `exterior_collisions.json` (**polígonos y barreras rojos** = físicos; **líneas azules** = `NAV_GUIDE`, visibles pero no físicas), sobre los puntos/bbox, en OSM nativo y web.
-- **Colisiones exteriores de ESCOM cargan y bloquean el techo visible (fix)** — la configuración de muros y polígonos vuelve a deserializarse al iniciar el mundo libre; antes, una excepción silenciosa la anulaba y se podía atravesar el edificio central de ESCOM. El polígono de su techo ahora bloquea el mismo recorrido a pie, en vehículo y para el tráfico.
-- **Prankedy se queda cerca + las patrullas robadas conservan su skin** — (1) **Prankedy ahora siempre está cerca de ti**: ya no persigue a los policías (lo que lo alejaba al llegar la policía) y tiene una correa de ~33 m — si queda muy lejos, regresa a tu lado en vez de alejarse. (2) **Una patrulla robada que abandonas sigue siendo patrulla**: el coche que dejas conserva el aspecto de patrulla (nuevo flag `Npc.isPoliceSkin`; se queda como `CAR` para que la IA de tráfico lo siga conduciendo en vez de despawnearlo, y los 3 renderers lo dibujan como patrulla). Puedes volver a subirte y seguir conduciéndola con el skin de policía.
-- **Iconos de estación de Metro en el mapa (los 3 renderers)** — cada estación de `res/raw/metro.json` ahora muestra el **icono "M" del Metro CDMX** (`assets/metroCDMX/icon.webp`) en su ubicación. El OSM nativo ya lo hacía; ahora el renderer **web (Leaflet)** lo dibuja con una nueva función `updateMetro` (se envía una vez por cambio + heartbeat) y **Google Maps (Nativo)** dibuja un marcador por estación. Tamaño fijo en pantalla (~24 dp), igual que los marcadores de metro nativos.
-- **IA de tráfico, densidad/niebla de NPCs y subirse a patrullas** — (1) **Los autos NPC ahora te rebasan** en vez de orbitar: al esquivar al jugador el coche perseguía un *carrot* local y nunca avanzaba su nodo de la calle, así que al terminar el esquive el nodo base quedaba *detrás* y el coche daba media vuelta hacia ti (bucle/órbita, "rara vez me rebasan"); ahora avanza el nodo en cuanto lo rebasa (`avoidingPlayer` + producto punto en `moveNpc`). (2) **Menos NPCs**: topes base no-zombi bajados 26/55 → **18/38** (siguen escalando por `popFactor`). (3) **Ya no se ven NPCs fuera de la niebla**: el margen de culling era +15 m sobre los 70 m de niebla (los civiles se dibujaban hasta 85 m); `NPC_CULL_MARGIN_M` ahora es **0**, así los sprites se recortan justo en el borde de la niebla. **La policía y Prankedy siguen siempre visibles** (las patrullas muestran waypoint 🚓 fuera de la niebla; Prankedy tiene su propio render). (4) **Ya te puedes subir a las patrullas** (POLICE_CAR): al subir robas la patrulla, el nivel de búsqueda sube a **5★** y la conduces con el **skin de policía** (`isDrivingPoliceCar` → `PlayerCharacter` dibuja el asset de patrulla en los 3 renderers).
-- **Arreglo de bordes negros al rotar conduciendo + FPS caminando (web)** — el redimensionado dinámico del contenedor usaba unidades `vmax`/`calc`, poco fiables en WebViews viejas de Android 7–9, así que el contenedor no se agrandaba al conducir y el mapa rotado mostraba **esquinas negras**; ahora se dimensiona en **píxeles** (la diagonal de la pantalla). Además, la **neblina dejó de re-rasterizarse en cada frame**: `drawFog` repintaba un degradado radial a pantalla completa en cada `move` del mapa, pero siguiendo al jugador el degradado es idéntico — ahora se cachea y solo se repinta cuando cambia de verdad (salto de FPS al caminar).
-- **El contenedor del mapa web pasó de ~9× a 1× la pantalla a pie (gran salto de FPS al moverse)** — el `#map-wrapper` de Leaflet era un fijo `300vw × 300vh` (~9× el área de pantalla) **siempre**, así que el WebView renderizaba y re-componía ~9× las teselas — la verdadera razón de que los FPS se desplomaran al caminar/conducir (recomponer esa capa enorme en cada movimiento). Ahora es del **tamaño de la pantalla (`100vw × 100vh`) a pie** y solo crecía a un cuadrado centrado del **tamaño de la diagonal (en px)** **al conducir** (cuando el mapa rotaba). *Actualización 2026-11-10: la cámara ahora es fija norte-arriba (el mapa ya no rota), así que el contenedor es siempre `100vw × 100vh` y se eliminó `setMapOversize`.* Aproximadamente **~8× menos teselas** que el tamaño fijo anterior.
-- **La cámara de seguimiento web ya no hunde los FPS al moverte** — el mapa web seguía al jugador con `setView` cada frame (un `_resetView` completo de Leaflet que reposiciona todas las teselas y marcadores); ahora usa `panBy` (un *pan* por transform, barato) para el seguimiento al mismo zoom, y solo recurre a `setView` al cambiar el zoom o al teletransportarse. La capa de teselas además mantiene más teselas alrededor y las carga *mientras te mueves* (`keepBuffer: 3`, `updateWhenIdle: false`), así el paneo muestra menos teselas grises. (El tintado de coches por píxel al aparecer sigue siendo un costo conocido — trabajo futuro: variantes de coche por asset.)
-- **Paridad de policía en web + limpieza del menú de teletransporte** — en el renderizador web, los **policías a pie ahora se dibujan como emoji 👮** (antes caían a un SVG verde genérico) y las **patrullas que se acercan muestran su waypoint 🚓 + línea de ruta punteada** desde el jugador cuando están fuera de la neblina (nueva función Leaflet `updatePolice`), igual que en OSM nativo. **Menú**: se **quitó el submenú redundante "Ir a…"** ("Ir a ESCOM" ya está en *Teletransportarse…*) y **"Ir a tu Ubicación (GPS)"** es ahora la **primera opción de la lista de Puntos de Teletransporte**.
-- **Proveedor por defecto → OpenStreetMap (Web); render Google/web afinado (gama baja)** — la app arranca en **OSM Web** en vez del OSMDroid nativo, evitando el over-zoom nativo (reescalado de teselas z19→z22) que hundía los FPS en equipos débiles; el proveedor no se persiste, así que esto es solo el nuevo default (cambiable en Ajustes). **Google Maps (Nativo)** ahora hace `move()` de la cámara de seguimiento en vez de `animate()` en cada actualización de posición (~30 Hz), eliminando el "thrash" de animación de cámara. **OSM Web**: las capas de landmarks se re-serializan/re-envían al WebView **solo cuando cambian** (más un heartbeat periódico), en vez de `gson.toJson` + `evaluateJavascript` en cada frame.
-- **Rendimiento de render + arreglo de patrullas en web (seguimiento gama baja)** — **OSM nativo**: se recortó el trabajo por frame del overlay de osmdroid — los `GroundOverlay` de landmarks ESTÁTICOS ya no re-aplican `setPosition`/`setImage` cada frame (solo cuando cambia su firma de transformación; las puertas animadas siguen refrescando), las ~160 estaciones de metro se **cullean por viewport** (las de fuera se deshabilitan y osmdroid no las dibuja), y la **niebla de guerra** ya no rellena un rect de ~10× el área de pantalla cada frame a pie (el sobredimensionado a la diagonal solo se usa al conducir, cuando el mapa rota). **Web**: las **patrullas ahora muestran su asset real** en vez de un SVG genérico — `POLICE_CAR` caía a la rama del drawable genérico; ahora se genera con `PoliceSpriteManager`, se cachea como imagen base64 y se envía como coche. *(Nota: con over-zoom muy alto en equipos de ≤2 GB, el re-escalado de teselas + el fill rate de sprites/niebla sigue siendo el costo dominante — ver el compromiso zoom/calidad.)*
-- **Pase de optimización para gama baja (≤2 GB RAM / Android 7–9, sin cambiar el comportamiento)** — solo mejoras internas de GC/memoria, **sin tocar la jugabilidad** (mismos NPCs, efectos, zoom y números): la caché de drawables del render nativo (`nativeDrawableCache`) ahora es un **LRU por orden de acceso** en vez de un mapa ilimitado — sus claves incluyen salud/zoom/frame, así que en sesiones largas crecía hasta provocar un **OOM** en equipos de poca RAM. El **efecto de brillo de las puertas reutiliza un único bitmap/canvas/paints por fuente** en vez de asignar un `Bitmap` nuevo cada frame, y los **iconos de bala / 🔫 / 📞 de la policía se cachean por tamaño** en lugar de recrearse cada frame durante las persecuciones — ambos eliminan basura de bitmaps por frame. `NpcAiManager` ahora **cachea una sola vez la lista de landmarks con navGraph** (`cachedNavLandmarks`, calculada en `setLandmarks`) en vez de refiltrarla por cada NPC y tick. Por último, `MainActivity.onTrimMemory` **libera las cachés de sprites** (Character/Vehicle/Police/Zombie) bajo presión de memoria (se añadió `clearCaches()` a los tres managers que no lo tenían).
-- **Nivel de búsqueda / Policía (estilo GTA)** — golpear civiles sube un **nivel de búsqueda de 0–5 estrellas** (HUD). Aparecen **patrullas** (`PoliceManager` + `PoliceSpriteManager`, asset `POLICE_TOPDOWN` sin repintar) **lejos** (más por estrella) que te persiguen **por las calles** (cada paso se ajusta a la red); fuera de la neblina muestran un **waypoint 🚓 + línea de ruta**, dentro de la neblina el asset real. Las patrullas sueltan **2–3 policías** (emoji 👮) que golpean y **disparan a 2★+**. En auto, los policías te siguen en patrulla y pueden **bajarte del vehículo** si te detienes (sin daño mientras conduces); al morir, la policía **se retira** en vez de desaparecer. El jugador buscado **posee/simula** su policía y difunde `POLICE_BATCH_UPDATE` / `POLICE_DESTROY` (reenviados por `server.js`, sin guardarse en el roster). Se bajó la agresividad de los NPCs (menor `aggressiveRatio`, persecución más lenta, implacable a los 6 golpes) y ya **no te golpean a través del auto**.
-- **Combate de NPCs — contraataque, modo implacable, HUD y muerte** — los NPCs solo reaccionan si los provocas: al golpear a uno, los **agresivos** te devuelven el golpe (un contraataque garantizado ~450 ms tras tu puñetazo, además de perseguirte), mientras que los **cobardes huyen** y los agresivos son **inmunes al miedo**. La proporción de agresivos es **configurable** (`NpcAiManager.aggressiveRatio`, por defecto la mitad). Si le das **3 o más golpes seguidos** a un NPC, se vuelve **implacable**: no deja de pegarte hasta que mueras (o muera él). Se añadió una **barra de vida fija en el HUD** (estilo zombis), un **destello rojo** en cada golpe, la pantalla WASTED ahora **congela el movimiento y deja al jugador como fantasma**, y el **respawn ocurre dentro de la zona ya descargada** (~80 m del lugar de muerte, pegado a la calle) en vez de teletransportar a ESCOM — para ahorrar recursos. Multijugador: se replican `health`/`isDying`/`aggroUntil` de los NPCs (`server.js` los reenvía).
-- **IA de NPCs estilo GTA — multijugador + pulido** — la IA ahora **se replica en multijugador**: `health`/`isDying` de los NPCs viajan en `NPC_BATCH_UPDATE` para que todos los clientes vean barras de vida y muertes por atropello/golpes (`Multiplayer/server.js` los reenvía y satura la vida, v3.1). Se agregó un **efecto de colisión "💥"** para que se note cuando te pegan o atropellas, se hicieron **más visibles los carriles de doble sentido** (mayor desplazamiento a la derecha), y se **corrigió el tamaño del vehículo/avatar del jugador** para que coincida con los NPCs (ambos usan la misma fuente de zoom). El daño por contacto de NPCs agresivos quedó afinado para ser fiable.
-- **Sistema exterior de colisiones jugable** — un contrato compartido usa círculos para personajes y rectángulos orientados para coches, con barrido estático a alta velocidad. Edificios y bardas (`BARRIER`) bloquean; los 48 `CARRIL_*` son `NAV_GUIDE` y ya no crean paredes invisibles. A pie no puedes solaparte con carrocerías, el joystick y los botones siguen la misma regla, y el tráfico usa el mismo resolvedor contra estáticos. El overlay de depuración muestra rojo para físico y azul para guías; Logcat de debug registra motivo y destino bloqueado.
-- **Mejoras de UX del mapa y paridad de renderizado** — (1) **niebla de guerra anclada al jugador**: la niebla ahora sigue la posición real del jugador al desplazar/hacer zoom en lugar de quedarse fija al centro de la pantalla — el nativo usa un overlay de osmdroid (rect sobredimensionado a la diagonal para que se vea bien con la rotación al conducir), el web usa un div `#fog` redibujado en cada `move`/`zoom` de Leaflet; la niebla Compose queda solo para Google nativo. (2) **Over-zoom nativo a z22** escalado desde z19 con un `MapTileApproximater`, y las pantallas de carga precargan teselas **z19 + z17**, con OSM en **zoom máximo por defecto**. (3) **El pinch-zoom web ya no arrastra al jugador** (solo el pinch del usuario entra en exploración). (4) **Tamaños unificados en metros reales** para NPCs y jugador en todos los renderizadores (peatones ≈ 1.3 m, vehículos ≈ 4.0 m) y **barras de vida de NPC más grandes**. (5) **Menú de Opciones apto para horizontal** (altura acotada + scroll; el control de la derecha se desplaza mientras está abierto). (6) **"Centrar en jugador"** evoluciona a un submenú con **"Hacer zoom en el jugador"** al hacer zoom; con el mapa descentrado los controles de movimiento de la izquierda recentran (sin zoom). (7) **El conductor desalojado** aparece junto al coche robado (~2 m). (8) **La versión del menú principal** se liga a `BuildConfig.VERSION_NAME` con un título que se autoajusta y nunca se parte de línea.
-- **El teletransporte ahora espera la descarga del mapa** — teletransportarse (Ir a ESCOM / Ir a tu Ubicación GPS) ya no te suelta al instante: re-activa la compuerta de carga (`isMapReady=false`) y descarga las teselas de la nueva zona del proveedor activo antes de dejarte mover (OSM nativo guarda teselas reales en Room para offline; web calienta el CDN para que el WebView+caché se llenen; Google nativo muestra una compuerta breve). Corre en paralelo a la recarga de calles — `worldReady = calles listas && mapa listo`.
-- **Limpieza de controles del mapa** — se quitaron los botones de zoom nativos duplicados de osmdroid (el zoom vive solo en el menú anidado *Mapa*); **"Centrar en jugador" siempre disponible**; **submenú anidado "Ir a…"** con *Ir a ESCOM* e *Ir a tu Ubicación (GPS)* (teletransporta el avatar a la posición GPS real del dispositivo —p. ej. de vuelta a casa— no a donde está el avatar). `OptionsMenu` ya soporta grupos anidados a cualquier nivel.
-- **Mapa OSM nativo arreglado + caché offline unificada** — el mapa nativo (osmdroid) ahora lee/escribe la **misma caché Room** que las versiones Web (`RoomTileModuleProvider`, bucket `osm`), descargando con User-Agent de navegador. El descargador interno de osmdroid (UA = nombre de paquete) era estrangulado por el servidor público de OSM; por eso el nativo *no cargaba zonas nuevas* y la Web sí. Un `TilePrefetchManager` pre-descarga la zona actual (~2 km, zooms 16-18) a la BD local para jugar **100% offline** tras visitar (no bloqueante, avisa si queda incompleta). **El fog of war ahora se dibuja siempre** (antes se ocultaba al mover el mapa).
-- **Servidor dedicado del minijuego zombi** (`MultiplayerZombie/`) — los zombis ahora son **autoritativos en el servidor** (Fase 1). Su IA usa un **campo de flujo de Dijkstra compartido** (un mapa de distancia-al-jugador por celda objetivo, reutilizado por todos los zombis que persiguen a ese jugador y cacheado ~250 ms), **línea de vista** (persecución en línea recta cuando no hay paredes de por medio) y **separación** (los zombis se empujan suavemente para no apilarse); un **fallback de deambular** evita que los zombis desconectados se congelen. El formato `ZOMBIE_STATE` en el cable no cambia (toda la IA vive en campos internos no serializados).
-- **Servidor del open world endurecido a v2** (`Multiplayer/`) — reenvío por **Área de Interés (AOI)** para que `NPC_SPAWN/UPDATE/BATCH` solo lleguen a clientes cercanos al Host emisor (los mensajes globales como `PLAYER_UPDATE`, `PLAYER_DAMAGE`, `NPC_DESTROY`, `DISCONNECT` y sync siguen siendo globales), **elección de Host con throttle** (se reevalúa como mucho cada 200 ms por cliente), **rate-limit por socket** (ventana deslizante de 1 s, anti-flood), **saneamiento de entrada** (coordenadas finitas, daño acotado, tamaño máximo de mensaje) y **GC de jugadores fantasma** (no solo al cerrar el socket).
-- **Escritura atómica de la caché de tiles** — la persistencia cuenta, hace evict (LRU) e inserta dentro de una sola transacción de Room (`@Transaction`), evitando corrupción si el proceso muere a media escritura.
-- **Balance del minijuego zombi** — menor rango de ataque por contacto y **regeneración gradual de vida en el lobby** (zona segura) hasta 100 HP.
-- **Efectos de daño** — *screen shake* al recibir golpes, viñeta/flash rojo cuya intensidad **escala con la vida perdida**, pulso de vida baja, **knockback a los zombis** (melee + proyectiles, consciente de colisiones) y **recoil del jugador** al disparar con corrección de posición por eje.
-- **Controles en estado temporal** — los cambios de control (tipo/escala/swap) se quedan en estado temporal y solo afectan al juego al presionar **GUARDAR**.
-- **Arreglo de rotación del mapa** — fondo oscuro en OSMDroid y wrapper de Leaflet sobredimensionado y centrado para que no se vean "huecos" al rotar en modo conducción.
-- **Rendimiento** — pre-filtro por *bounding box* de cada *way* en el spawner de NPCs y claves de routing basadas en `Pair` (sin allocs de string por paso).
-
-### ⚙️ Arquitectura
-
-El repositorio contiene tres proyectos complementarios:
-
-```text
-.
-├── PolitecnicoOpenWorld/   # Cliente Android (Kotlin + Compose)
-├── Multiplayer/            # Servidor del open world (Node.js + WebSocket, v2, dockerizado)
-└── MultiplayerZombie/      # Servidor del minijuego zombi (zombis autoritativos, dockerizado)
-```
-
-#### MVVM de un vistazo
-
-Cada *feature* del cliente se divide en tres capas:
-
-- **Model** (`domain/models/`): data classes inmutables y helpers de lógica pura (`NpcAiManager`). Sin dependencias de Android ni UI.
-- **ViewModel** (`features/<nombre>/viewmodel/`): un único `MutableStateFlow<State>` expuesto como `StateFlow` de solo lectura; ejecuta los bucles de juego con coroutines y orquesta repositorios.
-- **View** (`features/<nombre>/ui/`): pantallas Compose puras que observan con `collectAsState()` y solo emiten intenciones al ViewModel. Nunca acceden a repositorios ni DAOs.
-
-Las preocupaciones transversales (Room, red, preferencias) viven en `data/` y se inyectan vía `ViewModelProvider.Factory`. Los ViewModels de nivel superior están scopeados a la Activity; los de interior y zombi a su `NavBackStackEntry`.
-
-### 🗺️ Sistema de Mapas
-
-POW soporta **ocho proveedores de mapas** intercambiables en caliente desde Ajustes (OSMDroid nativo con fondo oscuro para evitar huecos al rotar, Google nativo, y seis modos Web con Leaflet: OSM, Google, CartoDB Oscuro/Claro, Esri Street, Esri Satélite, OpenTopoMap).
-
-Los modos Web se renderizan con **Leaflet** dentro de un `WebView` interceptado por un `CachingWebViewClient` que cachea cada tile en Room usando la URL normalizada como clave (hash SHA-256). El `#map-wrapper` de Leaflet está intencionalmente sobredimensionado (`300vw × 300vh`, centrado) para que su círculo inscrito cubra la diagonal de la pantalla en cualquier ángulo de rotación, evitando "huecos".
-
-#### Caché de tiles y de red de calles
-
-- **Tiles:** LRU por proveedor (~8k máx). La escritura es **atómica**: una sola transacción de Room cuenta los tiles del proveedor, hace evict del más viejo (LRU) si excede el máximo, e inserta el nuevo tile, evitando estados corruptos si el proceso muere a media escritura.
-- **Red de calles (Overpass):** celdas de ~2 km, **TTL de 7 días**, **LRU de 20 celdas**, inserción atómica de zona+ways+nodos (`@Transaction`) y cooldown de re-fetch de 5 minutos.
-
-El jugador no puede salirse de las vías: cada movimiento se valida contra un **índice espacial en grid** (`Seg` + `HashMap<celda, segmentos>`) que ejecuta *snap-to-road* en O(candidatos cercanos).
-
-### 🏛️ Landmarks y Modo Diseñador
-
-Edificios editables con catálogo JSON (`buildings_catalog.json`), colocaciones persistidas (posición, rotación 0-360°, escala 0.05-3.0×) y un **Modo Diseñador** con movimiento fino, sliders de rotación/escala e import/export JSON. `assets/default_landmarks.json` siembra el campus de ESCOM al primer arranque.
-
-### 🎁 Sistema de Coleccionables
-
-La ruta `collectibles` contiene la galería Peleadores/Mapas. Su catálogo y UI viven en `shared/src/commonMain/kotlin/ovh/gabrielhuav/pow/features/main_menu/` (`gallery/`, `ui/CollectiblesGallery.kt` y `ui/GalleryZoomViewer.kt`); ya no hay menú ni ruta independiente de Multimedia. Consultar la galería no desbloquea peleadores jugables ni modifica los objetos recogidos. No se muestran la pestaña anterior de Objetos, el catálogo general de personajes del mundo abierto ni la pestaña Diseños. Las imágenes cargan fuera del hilo de UI, con miniaturas acotadas y una caché de pantalla; el visor mantiene una sola imagen de mayor resolución fuera de esa caché. Solo se descubren recursos empaquetados en cada plataforma.
-
-Seis coleccionables de lore sembrados en Room. El game loop spawnea uno no recogido cada ~1 s en 300–600 m del jugador, ajustado a las calles. A menos de 15 m aparece el prompt; al pulsar X se recoge y se muestra un diálogo temático. El inventario lee de un `Flow<List<CollectibleEntity>>`. Una **Mano Zombi** especial solo aparece dentro del bounding box de ESCOM y dispara la cinemática hacia el minijuego.
-
-### 🚶 NPCs y Vehículos
-
-`NpcAiManager` mantiene hasta **40 NPCs**: peatones (ensamblados en tiempo real con tintado por píxel) y vehículos (6 modelos, 48 frames de rotación). Incluye spawn por proximidad, despawn por distancia, navegación nodo-a-nodo y **adopción** de NPCs heredados del servidor. El spawner ahora precomputa un **bounding box por way** y usa un pre-filtro O(1) por bbox antes del costoso check por nodo, reduciendo CPU. **B** dispara un ataque especial (~17 m, 15 de daño); **X** cerca de un vehículo lo aborda para conducir en 360°.
-
-> Nota: esta IA de NPCs del open world corre en el **cliente** (en el Host de zona) — el servidor del open world solo arbitra el rol de Host y reenvía mensajes. El minijuego de zombis, en cambio, ahora corre su IA de zombis **en el servidor** (ver abajo).
-
-### 🚓 Nivel de Búsqueda / Policía (estilo GTA)
-
-Golpear civiles sube un **nivel de búsqueda** (0–5 estrellas, en el HUD). Mientras estés buscado, aparecen **patrullas** (`PoliceManager` + `PoliceSpriteManager`, con el asset `VEHICLES/POLICE_TOPDOWN` sin repintar) **lejos** de ti — más patrullas por estrella — y te persiguen **respetando las calles** (cada paso se ajusta a la red de carreteras). Fuera de la neblina se marcan con un waypoint 🚓 y una línea de ruta; dentro de la neblina se ve el asset real de la patrulla. Al llegar, la patrulla suelta **2–3 policías** (emoji 👮, no hay asset de persona) que te persiguen y golpean, y **disparan a 2★+**. Si te subes a un auto, los policías te siguen en patrulla y pueden **bajarte del vehículo** si te detienes (sin daño mientras conduces); al morir, la policía **se retira** en lugar de desaparecer de golpe. El jugador buscado **simula y posee** su propia policía y difunde `POLICE_BATCH_UPDATE` / `POLICE_DESTROY`; los demás clientes solo la renderizan.
-
-### 🧭 Navegación y Waypoints
-
-El jugador coloca un marcador de destino; el ViewModel ejecuta una búsqueda greedy sobre el grafo de calles (`calculateRouteOnNetwork`) y dibuja una polilínea azul punteada. El routing usa claves `Pair<Double, Double>` para nodos visitados/únicos (sin allocs de string por paso). El marcador se auto-elimina a 20 m.
-
-### 🧟 Minijuego de Zombis
-
-Anillo circular de cuartos: un lobby con puertas a cada edificio de ESCOM, con puertas EXIT entre vecinos y una central de regreso al lobby.
-
-- **Cámara** (`CameraTransform`): consciente del zoom, se ajusta a límites, usa `max(viewW/worldW, viewH/worldH)`.
-- **Online vs offline:** el `ZombieGameViewModel` ejecuta un único game loop que se ramifica en `tickOffline` (simulación local completa) o `tickOnline`. **En multijugador, zombis e items son autoritativos del servidor dedicado** (`MultiplayerZombie/`): el cliente renderiza los snapshots `ZOMBIE_STATE`, envía peticiones `ZOMBIE_DAMAGE` / `ITEM_PICKUP` y solo conserva lo local (su HP, proyectiles, cooldown de daño por contacto). En offline, el cliente simula los zombis localmente con pathfinding por matriz y sliding por eje.
-- **El rango de ataque por contacto se redujo** para un melee más justo.
-- **Regeneración en el lobby:** estando en el lobby por debajo de 100 HP, el jugador se cura gradualmente por tick hasta 100.
-- **Combate dual:** mantener **Y** (500 ms) alterna MELEE/RANGED; **B** ataca.
-- **Efectos de daño:** *screen shake* al recibir golpes, **viñeta/flash rojo que escala con la vida perdida**, **pulso de vida baja**, **knockback a los zombis** en golpes/proyectiles (consciente de colisiones) y **recoil del jugador** al disparar con corrección de posición por eje para no atravesar paredes.
-- **Drops de SkillEffect:** seis efectos (45%) dibujados como iconos de Canvas puros.
-- **Los NPCs ambientales reaccionan al combate (paridad con el mundo abierto):** a los estudiantes/docentes de interiores ya se les puede pegar o disparar — reciben daño, huyen con miedo (también los cercanos) y colapsan a 0 HP. Los NPCs de misión (rumor de la M2 / policías de búsqueda) son inmunes para no romper la historia.
-- **Modo Diseñador de colisión:** un editor in-game pinta la matriz de colisión de cada sala sobre el dibujo del cuarto, la persiste en `collision_matrices.json` y permite exportar/importar el mismo JSON que lee el servidor.
-- **Iluminación dinámica** en interiores oscuros; pantallas **WASTED/Victoria**.
-
-### 🌐 Multijugador en Tiempo Real
-
-POW ahora incluye **dos servidores Node.js + Express + ws independientes**, ambos dockerizados y hospedados en Render, compartiendo el mismo `WebSocketManager` en el cliente.
-
-#### Servidor del open world — `Multiplayer/server.js` (v2)
-
-Reparte autoridad con el patrón **Host de Zona**: cada cliente es Host en ~400 m, el de menor `sessionId` cede en solapamientos, y solo el Host ejecuta la IA de NPCs y publica `NPC_BATCH_UPDATE`; los NPCs huérfanos se adoptan, no se destruyen. El endurecimiento v2 añade:
-
-- **Área de Interés (AOI):** `NPC_SPAWN/UPDATE/BATCH` se reenvían solo a clientes cercanos al Host emisor (~2 km), recortando drásticamente ancho de banda y serialización con jugadores dispersos. Los mensajes que deben llegar siempre (`PLAYER_UPDATE`, `PLAYER_DAMAGE`, `NPC_DESTROY`, `DISCONNECT`, sync) se mantienen globales para no dejar entidades fantasma.
-- **Elección de Host con throttle:** el rol de Host se reevalúa como mucho cada 200 ms por cliente, no en cada `PLAYER_UPDATE`.
-- **Rate-limit por socket:** se descartan mensajes si un cliente inunda (ventana deslizante de 1 s), más un tamaño máximo de mensaje aceptado.
-- **Saneamiento de entrada:** coordenadas finitas, daño finito y acotado, reenvío saneado.
-- **GC de jugadores fantasma:** los jugadores obsoletos se limpian periódicamente (no solo al cerrar el socket), junto con heartbeats, GC de NPCs huérfanos y master sync periódico. Los colores se serializan como Int ARGB.
-- **Relay de policía (v3.2):** `POLICE_BATCH_UPDATE` (con AOI) y `POLICE_DESTROY` (global) se reenvían pero **no** se guardan en el roster persistente de NPCs — la policía es transitoria y por-jugador (la posee el cliente buscado), así que cada cliente la purga por "staleness".
-
-#### Servidor del minijuego zombi — `MultiplayerZombie/server.js` (Fase 1)
-
-Ejecuta la **simulación de zombis de forma autoritativa** por sala y difunde `ZOMBIE_STATE`. Su IA v2:
-
-- **Campo de flujo compartido (mapa de Dijkstra):** en vez de un A* por zombi, el servidor calcula **un** campo de distancia-al-jugador sobre toda la matriz (por celda objetivo) y todos los zombis que persiguen a ese jugador siguen el gradiente cuesta abajo. Coste O(número de jugadores) campos por sala, cacheados ~250 ms.
-- **Línea de vista (LOS):** si un zombi ve al jugador sin paredes de por medio, va en línea recta (más fluido, sin tocar el campo); el campo solo se usa cuando hay un obstáculo.
-- **Separación (steering):** los zombis se empujan suavemente para una horda más natural.
-- **Fallback de deambular:** los zombis en una zona desconectada (sin distancia finita en el campo y sin LOS) deambulan en vez de congelarse.
-
-Las coordenadas en el cable son fraccionarias `[0,1]` (el cliente convierte a píxeles). Las matrices de colisión vienen de `collision_matrices.json` (el mismo formato que exporta el Modo Diseñador), con valores neutros (solo borde) que deben mantenerse idénticos (filas/columnas) a las del cliente mientras no se sustituyan.
-
-#### Warm-up del plan gratuito de Render
-
-`ServerWarmupManager` hace polling a `<server>/status` por HTTPS apenas el usuario toca **MULTIJUGADOR** — antes del diálogo de nombre — bloqueando con un spinner cancelable hasta que el server responde `200 OK` (con reintento por timeout). Los pings exitosos se cachean 60 s.
-
-### 🎮 Controles e Interfaz
-
-- **Dos estilos de movimiento:** D-Pad o joystick virtual (360°), configurables.
-- **Escala adaptativa** (60%–140%, tope 100% en retrato), **modo zurdo**, botones A/B/X/Y.
-- **Controles en estado temporal:** los cambios de tipo, escala y swap se quedan en estado temporal y solo afectan al juego al presionar **GUARDAR** (entonces se sincronizan, persisten y notifican al mapa). Salir de Ajustes descarta los cambios no guardados.
-- **Tutorial de controles optativo:** se ofrece una vez al entrar por primera vez al mundo abierto y a un interior (se puede rechazar); overlay paginado que explica cada botón (el del mundo abierto incluye conducción/teletransporte; el de interiores, modo de golpe/inventario). Re-visible cuando quieras en **Ajustes → Controles → Referencia y tutorial**.
-- **HUD de diagnóstico opcional:** widget de caché y de FPS. Las preferencias persisten vía `SettingsRepository` (SharedPreferences).
-
-### 🚀 Stack Tecnológico
-
-| Capa | Tecnología |
-|---|---|
-| UI | Jetpack Compose, Material 3, Navigation Compose |
-| Mapa nativo | osmdroid + Google Maps Compose |
-| Mapa web | WebView + Leaflet 1.9.4 |
-| Persistencia | Room (v8, MIGRATION_7_8 + `fallbackToDestructiveMigration`) |
-| Red | OkHttp (WebSocket), HttpURLConnection (Overpass + tiles) |
-| Geolocalización | Google Play Services — Fused Location Provider |
-| Concurrencia | Coroutines + Flow / SharedFlow / StateFlow |
-| Serialización | Gson |
-| Servidores | Node.js 18, Express, ws, Docker (open world + minijuego zombi) |
-| Hosting | [Render](https://render.com/) (auto-deploy desde Dockerfile) |
-
-### 🐳 Desplegar los servidores multijugador
-
-```bash
-# Servidor del open world (puerto 8080)
-cd Multiplayer
-docker compose up -d
-
-# Servidor del minijuego zombi (puerto host 8081 → contenedor 8080)
-cd MultiplayerZombie
-docker compose up -d
-```
-
-En producción son dos Web Services de Render, cada uno reconstruido desde su propio `Dockerfile`. Ambos escuchan en el puerto **8080** del contenedor (`GET /status`, `WS /`). La URL del open world se inyecta en compilación vía `BuildConfig.MULTIPLAYER_SERVER_URL`; la del minijuego zombi vía `BuildConfig.ZOMBIE_SERVER_URL`.
-
-### 📍 Estado actual
-
-**Funciona hoy:** navegación OSM/Google/Web con snap-to-road, caché persistente de calles y tiles (escritura atómica), over-zoom nativo a z22 (escalado desde z19, con precarga z19/z17 en la pantalla de carga y zoom máximo por defecto), niebla de guerra anclada al jugador en nativo + web (segura ante la rotación al conducir), tamaños en metros reales de NPC/jugador unificados entre renderizadores, menú de Opciones apto para horizontal con scroll, NPCs procedurales (spawn pre-filtrado por bbox) con personalidades, atropello al conducir, contraataque agresivo/reacciones al robo de coche y tráfico en doble sentido, combate cuerpo a cuerpo contra NPCs y jugadores remotos, multijugador del open world con autoridad por zona (v2: AOI + throttle de host + rate-limit + saneamiento), conducción de vehículos, controles configurables en estado temporal, 8 proveedores de mapas, landmarks editables con import/export JSON, 6 coleccionables, routing por waypoints, 6 interiores de ESCOM, un minijuego completo de supervivencia contra zombis (lobby + 7 edificios, combate dual, 6 power-ups, iluminación dinámica, efectos de daño, regen en lobby, pantallas WASTED/Victoria) con un **servidor de zombis dedicado y autoritativo** (IA de campo de flujo + LOS + separación), Modo Diseñador de colisión y un interior easter-egg ShineCTO. Un **pase de GC y memoria para gama baja (≤2 GB / Android 7–9)** sin cambiar el comportamiento mantiene estables las sesiones largas en equipos modestos: caché de drawables nativa acotada por LRU, bitmap de brillo de puerta reutilizado, iconos de bala/🔫/📞 de la policía cacheados por tamaño, landmarks de navegación filtrados una sola vez y cachés de sprites liberadas en `onTrimMemory`.
-
-**No implementado aún:** pathfinding con A* para el router del open world (sigue siendo greedy; nótese que el servidor de zombis ya usa un campo de flujo de Dijkstra), multijugador local por Bluetooth, matrices de colisión ricas para interiores, números de daño flotantes / partículas de impacto y reajuste de coordenadas de puertas del lobby.
-
-
-### 🔁 Mantener Esta Documentación al Día
-
-`README.md` y `plan.artifact.md` son la **única fuente de verdad** que le pasamos a cualquier asistente (humano o IA) *en lugar de* todo el código — así nunca tenemos que volver a explicar el proyecto. Solo son confiables si se actualizan **en el mismo cambio** que toca el código, nunca después.
-
-El checklist detallado está en **`plan.artifact.md` §11**. En resumen, en cada cambio que altere el comportamiento:
-
-- Actualiza **ambos** archivos (`README.md` es bilingüe — refleja los cambios visibles para el usuario en las secciones en inglés **y** en español para que no se desincronicen).
-- Agrega el cambio al inicio de **Cambios Recientes**; poda entradas de más de ~2–3 versiones.
-- Mueve lo terminado de **No implementado aún** a **Funciona hoy** (y las listas espejo en `plan.artifact.md` §7/§8).
-- Un dato que viva en ambos archivos debe cambiarse en ambos — una contradicción entre ellos es un bug.
-
-**Definición de terminado:** el código compila/valida *y* ambos archivos describen la nueva realidad. Si la documentación no se actualizó, la tarea no está terminada.
+**Definition of done:** the code compiles and its tests pass, *and* the docs describe the new reality. If the docs aren't updated, the task isn't finished.

@@ -1,0 +1,52 @@
+{
+  "coverage_index": 5,
+  "stage_file": "fondo_queso_ipn_noche_1_anim.webp",
+  "stage_title": "Queso IPN (Noche)",
+  "lighting": "night",
+  "p1_id": "SENOR_TIENDA",
+  "p1_name": "El Señor de la Tienda",
+  "p2_id": "PAPARAZZI_1",
+  "p2_name": "Paparazzi 1",
+  "action": "chain-X-Y-B-attempt",
+  "captured_at": "2026-11-16T17:08:55Z",
+  "source_commit": "bfd2148f044892317430ca328b2e6c5b28a15fab",
+  "local_ui_changes": "landscape route and horizontal safe insets",
+  "capture_api": "XCUIScreen.main.screenshot",
+  "original_png": true,
+  "engine_hooks": false,
+  "background_canvas_fix_applied": true,
+  "projectile_iteration_fix_applied": true,
+  "installed_build_evidence": "pr188-projectile-xcodebuild.log / pr188-projectile-install.log",
+  "file": "05-queso_ipn-night.png",
+  "sha256": "251e3e6127848bb2ee1f0fd31d7e92ce21a88ec330bfa0f41cfed7ba11f7957f",
+  "png_ihdr_dimensions": [
+    1178,
+    2556
+  ],
+  "device_model": "iPhone 15",
+  "device_os": "26.7.1",
+  "bundle_version": "1.0",
+  "bundle_build": "1",
+  "validation_status": "visually_reviewed",
+  "observed_action_es": "Señor de la Tienda en animación de ataque ante Paparazzi 1, ambos rostros claros, contador 2 GOLPES ante Queso IPN nocturno; P1 400. La pareja corregida coincide con el runner.",
+  "observed_pair": {
+    "p1_id": "SENOR_TIENDA",
+    "p1_name": "El Señor de la Tienda",
+    "p2_id": "PAPARAZZI_1",
+    "p2_name": "Paparazzi 1"
+  },
+  "observed_hud_p1_name": "TIENDA",
+  "observed_hud_p2_name": "PAPZ 1",
+  "observed_p1_score": 400,
+  "two_hits_visible": true,
+  "two_hit_counter_text": "2 GOLPES",
+  "map_selection_gold_border_verified": true,
+  "framing_review": "Full landscape scene, HUD and controls. ImageIO: 0 px opaque RGB0 full-height left/right borders and 0 px on row 35%; all eight action originals of this fixture also measured 0.",
+  "original_attachment_filename": "E971CAE1-18BE-4F68-B17B-37157E76D746.png",
+  "map_selection_evidence": {
+    "original_filename": "F2697E95-8998-456D-8197-85CF4E74EAE6.png",
+    "sha256": "8b4c565f27325d82fb5b64f1414533fc2f80178220bed4482cd51a30cd12b098",
+    "selected_gold_border_verified": true,
+    "matches_expected_stage": true
+  }
+}

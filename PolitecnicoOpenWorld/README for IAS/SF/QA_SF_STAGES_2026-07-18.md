@@ -7,16 +7,24 @@
 
 ## Cómo se dibujan los fondos (para saber qué se puede tocar por CÓDIGO)
 
-`StreetFighterScreen.kt` → `drawAnimatedBackground` / `drawFullBackground`: el fondo se escala
-para que su ALTO entre en la escena (`SCENE_HEIGHT`=224) y el ancho sobrante panea con la
-cámara (parallax). Los peleadores pisan en `STAGE_FLOOR` (218). Si el "piso" de la imagen no
-queda cerca de 218, parecen flotar.
+`StreetFighterScreen.kt` delega en `SfSceneRenderer.kt`: `drawAnimatedBackground` y
+`drawFullBackground` comparten `drawCoveredBackground`. Desde la corrección de iPhone del
+2026-11-16, el fondo cubre el **Canvas real**, usando como mínimo el zoom de cada escenario;
+el paneo recorre sólo `anchoFondo − anchoCanvas`. Antes se medía contra 382 unidades y en el
+iPhone dejaba hasta 273 px negros en los extremos. `SfBackgroundGeometry.kt` contiene los
+cálculos puros, cubiertos por cinco pruebas en JVM e iOS; actores, cámara física y HUD
+conservan la transformación virtual de 382×224.
 
-**🆕 Encuadre por escenario (2026-07-18):** `SfBgFraming(zoom, offsetY)` + tabla
-`SF_BG_FRAMING` (match por SUBSTRING del archivo → cubre las 3 luces). `zoom`>1 amplía el
-fondo ANCLÁNDOLO AL PISO (recorta cielo arriba); `offsetY` (unidades de escena, + baja la
-imagen) afina. **NO regenera el asset**, solo cambia el dibujo. Es el primer recurso para
-"se ven cuadrados / flotando" sin volver a generar el atlas.
+`SfBgFraming(zoom, offsetY)` + `SF_BG_FRAMING` hacen match por substring del archivo y cubren
+las tres luces. El zoom conserva el anclaje al piso; `offsetY` se expresa en unidades de escena.
+El salto revela el cielo recortado. Los desplazamientos se limitan a la imagen disponible para
+no descubrir negro, también con shake del remate. No se regeneran los assets. Los peleadores
+pisan `STAGE_FLOOR`=218: afinar el piso artístico sigue siendo una revisión por mapa.
+
+La validación física y las capturas del PR #188 se registran en
+[QA_IPHONE_PR188_2026-11-15.md](QA_IPHONE_PR188_2026-11-15.md). Biblioteca tiene en su miniatura
+rotulación «#FESARAGON / IPN DE CORAZÓN»; ese contenido pertenece al asset de Biblioteca, no prueba
+que el selector haya elegido FES Aragón. No se modificó el arte durante esta QA.
 
 ## Mapas YA APROBADOS (NO tocar) — día/noche_1/noche_2
 

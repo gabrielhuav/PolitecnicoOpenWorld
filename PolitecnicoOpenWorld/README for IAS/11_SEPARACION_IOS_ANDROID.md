@@ -207,7 +207,9 @@ Metrobús como excepción vertical. Desde el 2026-08-17 iOS hace lo mismo en el 
 |---|---|---|
 | **DECLARAR** qué orientaciones valen | `iosApp/POW/POWApp.swift` (`PowAppDelegate`) | Responde `application(_:supportedInterfaceOrientationsFor:)` leyendo `OrientacionPow.esHorizontal` |
 | **PEDIR** el giro ya | `platform/orientacion/OrientacionIos.kt` | `requestGeometryUpdate` + `setNeedsUpdateOfSupportedInterfaceOrientations()` |
-| **Usarlo** desde una pantalla | `ForzarHorizontal()` en `MapaMundoIos` | `DisposableEffect`: fija al entrar, libera al salir |
+| **Usarlo** desde una pantalla | `ForzarHorizontal()` en `MapaMundoIos` y en la ruta `Pantalla.PELEA` de `PowAppIos` | `DisposableEffect`: fija al entrar, libera al salir |
+
+**2026-11-15 · iPhone 15 real:** la ruta de pelea llama al efecto antes de mostrar sus selectores, de modo que todo el flujo entra en horizontal. Al abandonar la ruta, `DisposableEffect` libera la restricción. Los selectores de personaje/mapa reservan los insets laterales seguros para que la muesca no tape tarjetas; el fondo permanece a pantalla completa. [Alcance de QA](SF/QA_IPHONE_PR188_2026-11-15.md).
 
 ⚠️ **Con una sola mitad no funciona:** sin el delegado la pantalla gira y el usuario puede volver a
 girarla; sin la parte de Kotlin no gira hasta que el usuario mueva el teléfono.
@@ -341,8 +343,8 @@ que no significan lo mismo:
 
 ```kotlin
 PowModo.MUNDO_LIBRE.disponible()   // ¿se puede JUGAR aquí?      → en iOS: false
-PowModo.MUNDO_LIBRE.enObras()      // ¿se pinta pero no se juega? → en iOS: true
-PowModo.MUNDO_LIBRE.sePinta()      // ¿aparece el botón?          → en iOS: true
+PowModo.MUNDO_LIBRE.enObras()      // ¿se pinta pero no se juega? → en iOS: false (interruptor apagado)
+PowModo.MUNDO_LIBRE.sePinta()      // ¿aparece el botón?          → en iOS: false
 ```
 
 | Pregunta | Úsala para | ⚠️ NO la uses para |
@@ -353,10 +355,11 @@ PowModo.MUNDO_LIBRE.sePinta()      // ¿aparece el botón?          → en iOS: 
 > ### 🚧 El interruptor de la App Store
 >
 > ```kotlin
-> const val MODOS_EN_OBRAS_VISIBLES = true   // PowModos.kt
+> const val MODOS_EN_OBRAS_VISIBLES = false   // PowModos.kt — APAGADO desde 2026-11-21
 > ```
 >
-> **Ponlo en `false` antes de firmar para iOS.** Apple rechaza funciones anunciadas que no
+> **Está en `false` desde el 2026-11-21 (lanzamiento en la App Store)** y `PowModosTest` falla si
+> se sube encendido. Apple rechaza funciones anunciadas que no
 > funcionan (Guideline 2.1), y un botón que abre un cartel de "en obras" es exactamente eso.
 > Es lo ÚNICO que hay que tocar: los tres botones desaparecen y el menú queda como estaba.
 > En Android no cambia nada — allí los tres modos están de verdad.
@@ -365,8 +368,12 @@ PowModo.MUNDO_LIBRE.sePinta()      // ¿aparece el botón?          → en iOS: 
 se pone rojo a propósito cuando alguien cambia esa lista: es para obligar a confirmar que el modo
 **funciona en el simulador** antes de mostrarlo.
 
+⚠️ **El multijugador de Titulación tampoco se pinta en iOS** (`sfMultijugadorDisponible()` en
+`PowModos.kt`): sus menús y transportes viven en `:app`, y en iOS el botón quedaba muerto.
+
 📘 El plan completo del mundo abierto —fases, bloqueadores medidos y el problema de los assets—
-está en **[`12_PLAN_MUNDO_ABIERTO_iOS.md`](12_PLAN_MUNDO_ABIERTO_iOS.md)**.
+está en **[`12_PLAN_MUNDO_ABIERTO_iOS.md`](12_PLAN_MUNDO_ABIERTO_iOS.md)** (⏸️ en pausa desde el
+2026-11-21: iOS se lanza solo con Titulación por Combate).
 
 ### Qué se queda en `:app` y por qué — SF completo
 
