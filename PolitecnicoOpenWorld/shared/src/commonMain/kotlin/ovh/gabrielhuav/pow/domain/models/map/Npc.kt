@@ -29,15 +29,15 @@ enum class CarModel(
     val prefix: String,
     val frameCount: Int = 48,
     val tintable: Boolean = true,
-    /** Cuerpo sólido, calibrado un poco dentro del contorno pintado del sprite. */
+    /** Cuerpo sólido, calibrado un poco dentro del contorno pintado del sprite (caja de [CAR_BOX_METERS], ver WorldScale.kt). */
     val collisionDimensions: VehicleDimensions,
 ) {
-    SEDAN("WHITE_SEDAN", "White_SEDAN_CLEAN_All_", collisionDimensions = VehicleDimensions(3.6, 1.6)),
-    SPORT("WHITE_SPORT", "White_SPORT_CLEAN_All_", collisionDimensions = VehicleDimensions(3.7, 1.6)),
-    SUPERCAR("WHITE_SUPERCAR", "White_SUPERCAR_CLEAN_All_", collisionDimensions = VehicleDimensions(3.9, 1.7)),
-    SUV("WHITE_SUV", "White_SUV_CLEAN_All_", collisionDimensions = VehicleDimensions(4.1, 1.75)),
-    VAN("WHITE_VAN", "White_VAN_CLEAN_All_", collisionDimensions = VehicleDimensions(4.2, 1.8)),
-    WAGON("WHITE_WAGON", "White_WAGON_CLEAN_All_", collisionDimensions = VehicleDimensions(3.9, 1.7))
+    SEDAN("WHITE_SEDAN", "White_SEDAN_CLEAN_All_", collisionDimensions = VehicleDimensions(4.5, 2.0)),
+    SPORT("WHITE_SPORT", "White_SPORT_CLEAN_All_", collisionDimensions = VehicleDimensions(4.6, 2.0)),
+    SUPERCAR("WHITE_SUPERCAR", "White_SUPERCAR_CLEAN_All_", collisionDimensions = VehicleDimensions(4.9, 2.1)),
+    SUV("WHITE_SUV", "White_SUV_CLEAN_All_", collisionDimensions = VehicleDimensions(5.1, 2.2)),
+    VAN("WHITE_VAN", "White_VAN_CLEAN_All_", collisionDimensions = VehicleDimensions(5.3, 2.25)),
+    WAGON("WHITE_WAGON", "White_WAGON_CLEAN_All_", collisionDimensions = VehicleDimensions(4.9, 2.1))
     // Ejemplos para sumar a futuro (descomenta cuando subas el asset):
     // , PICKUP("WHITE_PICKUP", "White_PICKUP_CLEAN_All_")          // tintable, 48 frames
     // , TAXI("TAXI_CDMX", "taxi_", frameCount = 36, tintable = false) // pre-coloreado, 36 frames

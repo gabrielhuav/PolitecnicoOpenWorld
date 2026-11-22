@@ -21,11 +21,12 @@ TITULACIÓN POR COMBATE, COLECCIONABLES y AJUSTES; lo decide `PowModos.kt` (`MOD
 false` y `sfMultijugadorDisponible()`). El mundo abierto, el Modo Historia, los zombis y todo el
 multijugador siguen en el código, **exclusivos de Android** (ya publicado en Google Play). No se borra
 código para lanzar iOS. Instalar y firmar: `14_INSTALAR_EN_IPHONE_Y_SIMULADOR.md`; límites de tienda:
-`13_ASSETS_Y_TAMANO.md`; estado vivo: `_SESION_ACTUAL.md`.
+`13_ASSETS_Y_TAMANO.md`; estado vivo: `_SESION_ACTUAL.md`. **Prueba final y subida (Mac):**
+[`PROMPT_MAC_appstore_final.md`](PROMPT_MAC_appstore_final.md); el ícono, el manifiesto de privacidad
+y la clave de cifrado ya están en `iosApp/` (PR #189), sin compilar todavía.
 
 **Última QA (PR #188, 2026-11-15/16):** [iPhone 15 real](SF/QA_IPHONE_PR188_2026-11-15.md) y
-[Android](SF/QA_ANDROID_PR188_2026-11-15.md). El [informe de emuladores y plugins](SF/QA_ANDROID_IOS_2026-11-15.md)
-corresponde al checkout anterior `pr/184`; no confundir ambas evidencias. Galería pública: el README raíz
+[Android](SF/QA_ANDROID_PR188_2026-11-15.md). Galería pública: el README raíz
 muestra 9 capturas (las tres peleas elegidas por el dueño, cada una en sus tres luces) y 52 en
 desplegables; `pr-screenshots/iphone15-pr188/README.md` conserva las 61.
 
@@ -103,6 +104,7 @@ desplegables; `pr-screenshots/iphone15-pr188/README.md` conserva las 61.
 | 12 | `12_PLAN_MUNDO_ABIERTO_iOS.md` | ⏸️ **EN PAUSA (2026-11-21):** iOS se lanza solo con Titulación; no retomar sin decisión del dueño. 🌎🍏 **Portar el MUNDO ABIERTO a iOS — plan medido.** Cuánto es (30 302 líneas), los 2 bloqueadores contados (osmdroid y `R.string`) y las 8 fases en orden, con **la cadena exacta que bloquea el `WorldMapViewModel`** y por qué se paró donde se paró. El tamaño y los límites de tienda están en el doc 13. **Léelo antes de tocar `map_exterior` o `interiores`.** |
 | 13 | `13_ASSETS_Y_TAMANO.md` | 🗜️ **Qué se sube a cada tienda y cuánto puede pesar.** Los límites REALES verificados en la fuente (**Play: 500 MB de módulo base ← el que aprieta · App Store: 4 GB, los 200 MB son solo un aviso**), dónde está el peso del AAB medido, **qué formato de audio va en cada sitio y por qué** (Ogg solo-Android por el bucle; `.m4a` para lo compartido porque iOS no lee Ogg) y el plan de adelgazamiento con `tools/optimizar_assets_produccion.sh`. **Léelo antes de añadir cualquier asset.** |
 | 14 | `14_INSTALAR_EN_IPHONE_Y_SIMULADOR.md` | 📲 **Instalar POW en un iPhone y en el simulador, paso a paso.** Cada paso a mano (Android Studio / Xcode) y por terminal (lo que hace una IA). Firma con cuenta gratuita sin tocar el proyecto, "Desarrollador no confiable", el límite de 7 días, ⚠️ **Xcode 27 ya no trae `Simulator.app`**, y la tabla de errores (incluido "el combate no suena" = modo silencio). **MEDIDO 2026-11-15.** |
+| — | `PROMPT_MAC_appstore_final.md` | 🍏 **Traspaso a la Mac (2026-11-21): prueba final de iOS y subida a la App Store.** Tests de `:shared` en iOS, recorrido en simulador e iPhone, comprobación del bundle (ícono, manifiesto de privacidad, cifrado), decisiones del dueño (Modo Desarrollador, iPad, La Presidenta) y pasos de App Store Connect. Al terminar se borra y queda `RESULTADO_MAC_appstore_final.md`. |
 | — | `../iosApp/README.md` | 🍏 **El proyecto Xcode.** Cómo compilarlo (⚠️ el framework de Kotlin NO se construye solo), qué assets entran en el bundle y qué ajustes de Xcode no se tocan. **Para añadir una pantalla a iOS se toca `PowAppIos.kt`, no este proyecto.** |
 
 ### 🌎 `MUNDO/` — mundo libre POW
@@ -127,9 +129,8 @@ reglas que más caro han salido). En el CÓDIGO el modo se sigue llamando `stree
 > **El estado VIVO vive en [`_SESION_ACTUAL.md`](_SESION_ACTUAL.md).** Empieza SIEMPRE ahí.
 >
 > El changelog acumulado (2026-07-20 → 07-22c: moveset 3rd Strike, fatality, combos, tutorial,
-> subtítulos, STUN, crash de La Llorona, gama baja, WebP, motor Fase 1/2a/2b…) se archivó en
-> [`_ARCHIVO/HISTORIAL_changelog_00_INDEX.md`](_ARCHIVO/HISTORIAL_changelog_00_INDEX.md) para
-> no pagarlo en tokens en cada sesión. El diseño de SF está en `SF/DISENO_ARCADE_SF_POW.md`.
+> subtítulos, STUN, crash de La Llorona, gama baja, WebP, motor Fase 1/2a/2b…) vive en el historial
+> de git (se retiró del repo el 2026-11-21) para no pagarlo en tokens en cada sesión. El diseño de SF está en `SF/DISENO_ARCADE_SF_POW.md`.
 
 **TITULACIÓN POR COMBATE — lo estable:**
 - Modos: **ARCADE** (default) / PRÁCTICA / COMBOS Y TUTORIAL / EXAMEN EXTRAORDINARIO / **IA VS IA** /
@@ -170,9 +171,7 @@ Añadir un modo a `modosDe(IOS)` **no lo porta**. Detalle en `11_SEPARACION_IOS_
 | `GUIA_mantenimiento_no_senior.md` | **EMPEZAR AQUÍ si eres IA/dev nuevo:** 7 reglas, chuleta, qué NO hacer. *(sí está en la raíz)* |
 | `SF/DISENO_ARCADE_SF_POW.md` | Diseño + avance del ARCADE POW (escalera, desbloqueos, IA por fases). |
 | **`SF/SF_STAGES_MAPS_UNLOCK.md`** | **16 mapas × 3 luces, peleador→hogar (tabla dueño), desbloqueos MP.** |
-| **`SF/QA_SF_STAGES_2026-07-18.md`** | **QA de fondos (dueño): encuadre `SfBgFraming` (5 mapas nuevos ✅ + salto), pendientes: sombra Isla Muñecas, video día FES Acatlán, subtítulos que se salen.** |
 | **`SF/AUDIO_INVENTARIO_SF.md`** | **Qué audio tiene cada peleador, globales vs por-peleador, qué borrar, y el fix de tamaño AAB (atlas lossless→lossy 221→82 MB). Script `tools/sf_audio_review.sh`.** |
-| `MUNDO/PROMPT_panoramico_todos_los_mapas.md` | Encuadre panorámico + salto: ya aplicado; el prompt sirve para afinarlo mapa por mapa en dispositivo. |
 | `SF/AUDIT_SF_MULTIPLAYER.md` | Multijugador 1v1: protocolo, server `MultiplayerSF/`, BT/LAN. |
 | `SF/ASSETS_STREETFIGHTER_MIGRACION.md` | Pipeline assets pelea (JSON, pack, migración SF→POW). |
 | **`SF/SF_SPECIAL_VOICES_SFX.md`** | Voces/SFX v3: 21/21 español, cortes locales, Whisper, hashes, `MediaPlayer`; v1/v2 queda histórico. ✅ **2026-07-22: subtítulos de frases ACTIVOS** (`voiceSubtitlesEnabled=true`; frases curadas en `voice_phrases.json`, 64 `es` + `en` completo). |
@@ -183,7 +182,7 @@ Añadir un modo a `modosDe(IOS)` **no lo porta**. Detalle en `11_SEPARACION_IOS_
 | `MUNDO/NPC_SPRITES_PIPELINE.md` | Recorte estándar de NPCs del mundo. |
 | `CHECKPOINT_SENIOR_refactor.md` | Receta del patrón manager/Hilt/detekt (referencia). *(raíz)* |
 | `MUNDO/CAMPAIGN/` | Guion Modo Historia (misiones 1–3 + side). |
-| `_ARCHIVO/` | **Histórico. NO son tareas.** Incluye los guiones de iOS ya ejecutados (`ARRANQUE_MAC_iOS.md`, `PLAN_SF_EN_iOS.md`, `PROMPT_MAC_navegacion_iOS.md`), `PENDIENTES_2026-07-20.md` y los prompts de traspaso a Gemini/GPT/Fable. |
+| `_ARCHIVO/` | **Histórico. NO son tareas.** Solo quedan los planes y traspasos que el código o los docs citan por nombre (`PLAN_DI_hilt.md`, `PLAN_SF_EN_iOS.md`, etc.). La purga del 2026-11-21 retiró 30 docs ejecutados o sin referencias; siguen en el historial de git. |
 
 ---
 

@@ -19,7 +19,9 @@ const val ZOOM_GAMEPLAY_WEB = 19.0  // Nivel máx. de TILES reales que se pre-de
 // ─── Zoom de juego por estado (todos los proveedores) ────────────────────────
 const val ZOOM_ON_FOOT      = 22.0  // a pie (default)
 const val ZOOM_DRIVING      = 21.0  // conduciendo
-const val ZOOM_DRIVING_FAST = 20.0  // conduciendo MUY rápido (≥85% de MAX_SPEED, histéresis al 65%)
+
+/** Zoom objetivo automático: depende SOLO de si conduces (la velocidad no mueve la cámara). */
+fun autoZoomTarget(isDriving: Boolean): Double = if (isDriving) ZOOM_DRIVING else ZOOM_ON_FOOT
 
 // ─── Zona de interacción de estaciones de transporte (metro/metrobús) ─────────
 // 60 m (4× los 15 m base de coleccionables/puertas). Las estaciones de metro.json
@@ -185,6 +187,9 @@ data class WorldMapState(
     // Colisiones del exterior (polígonos = zonas NO caminables, p. ej. el edificio ESCOM;
     // walls = bardas). Se exponen para dibujarlas en el overlay de Debug Interiores.
     val exteriorCollisions: ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig? = null,
+    // Prototipo de mapa cenital estilizado (solo build debug por ahora): huellas de OSM del campus.
+    val showCampusFootprints: Boolean = false,
+    val campusFootprints: List<ovh.gabrielhuav.pow.domain.models.map.CampusFootprint> = emptyList(),
 
     // CREADOR DE RUTAS: solo las "migas de pan" VISUALES (las dibuja NativeOsmMap). El estado de la
     // sesión de diseño (modo parking, id de carril, nodos capturados) vive en DesignerViewModel; el

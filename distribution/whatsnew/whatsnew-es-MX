@@ -1,6 +1,5 @@
 POW 1.0.0.28
 
-• Titulación por Combate: la CPU se quedaba paralizada al llenarse su barra de poder y la pelea se ganaba sola. Ya lanza su súper y sigue peleando.
-• La barra de estado y los botones de navegación ahora se leen bien con el tema claro del sistema, y dejaron de encimarse con el texto del menú.
-• La descarga pesa menos y la app usa menos memoria: los iconos se cargan al tamaño en que se ven.
-• Mejoras de estabilidad y rendimiento en equipos de gama baja.
+• Titulación por Combate: nuevas voces de El Charro Negro (con aullidos de lobo) y de La Tzitzimime, y peleas más estables cuando un proyectil da el golpe final.
+• Mundo libre: la cámara se queda con el norte arriba al manejar, los edificios del campus bloquean el paso a pie y en coche, y al bajarte del coche quedas fuera aunque haya obstáculos.
+• Mejoras de estabilidad y rendimiento.

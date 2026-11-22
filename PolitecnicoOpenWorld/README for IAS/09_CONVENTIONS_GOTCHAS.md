@@ -142,8 +142,8 @@ composables top-level); las extensiones del VM usadas se importan en el archivo 
 
 **🆕 Progreso (2026-06-20, 5ª pasada):** `WorldMapViewModel.kt` ~2584→**~2503** extrayendo dos parciales
 nuevos (extensiones, sin gemelo): `WorldMapCameraUi.kt` (zoom automático/manual, pinch `onMapZoomChanged`,
-`centerOnPlayer`/`zoomToPlayer`, pan, y toggles de widgets; campos `autoZoomMode`/`targetZoomLevel`
-pasados a `internal`) y `WorldMapSettings.kt` (densidad/LOD de NPCs + skin). Call-sites externos importan
+`centerOnPlayer`/`zoomToPlayer`, pan, y toggles de widgets; campos `lastAutoZoomTarget`/`targetZoomLevel`
+pasados a `internal`; `autoZoomMode` ya no existe) y `WorldMapSettings.kt` (densidad/LOD de NPCs + skin). Call-sites externos importan
 las extensiones (MainActivity, WorldMapScreen, NativeOsmMap, MapJsBridge). **Tope práctico de extracción
 fácil alcanzado:** lo que queda grande en el VM (startGameLoop ~440, handleMultiplayerMessage,
 addRemoteEntity, updateVisibleRoads, updateDestinationRoute, triggerWastedSequence) son **pares con
@@ -290,9 +290,9 @@ comprometido. / Control edits stay in `temp*`, commit only on SAVE.
 
 ## 4. Fog de guerra anclado al jugador / Player-anchored fog (por renderer)
 
-- **OSM nativo:** `FogOverlay` proyectado al jugador cada frame; rect = pantalla a pie, diagonal solo al
-  conducir (rotación). No rellenar ~10× el área cada frame.
-- **Web:** div `#fog` dentro de `#map-wrapper` (rota con el mapa); `drawFog` **cachea el gradiente** y no
+- **OSM nativo:** `FogOverlay` proyectado al jugador cada frame; rect = pantalla siempre (la cámara es
+  norte-arriba y el mapa ya no rota, así que no hace falta sobredimensionar). No rellenar ~10× el área cada frame.
+- **Web:** div `#fog` dentro de `#map-wrapper` (que ya no rota); `drawFog` **cachea el gradiente** y no
   re-rasteriza si no cambia.
 - **Compose `Canvas` fog:** **solo** para Google nativo.
 
@@ -329,6 +329,8 @@ px-por-metro), `PlayerCharacter` (jugador a pie/conduciendo). El sprite nativo u
 > constantes `*BodyFraction` de `PlayerSkin`). **Lo correcto a futuro:** re-exportar TODOS los frames de
 > TODAS las skins con un **lienzo común** y el personaje ocupando la **misma fracción**; entonces las
 > `*BodyFraction` se vuelven todas iguales y el sistema se simplifica. (Si tocas el arte, vuelve a medir.)
+
+- **🆕 Cámara fija norte-arriba (2026-11-10):** el mapa no gira ni se adelanta; no reintroducir `mapOrientation`/`bearing`/`setMapRotation` ni desplazamientos de cámara por velocidad (mareaban). El coche rota con `vehicleSpriteHeading`. ⚠️ `PlayerCharacter` reaplica su `modifier` a la caja exterior Y a la imagen del coche: un `offset` pasado por `modifier` se aplica DOS veces.
 
 ## 6. Rendimiento gama baja (≤2 GB / Android 7–9) — NO regresar / low-end perf — do NOT regress
 
@@ -388,11 +390,12 @@ px-por-metro), `PlayerCharacter` (jugador a pie/conduciendo). El sprite nativo u
 
 ## 7. Mapa web `#map-wrapper` / web map wrapper
 
-**Dinámico:** `100vw×100vh` a pie; al conducir crece a un cuadrado del tamaño de la **diagonal en
-PÍXELES** (NO `vmax`/`calc` — daban **esquinas negras** en WebViews viejas). Cambia vía
-`setMapOversize(driving)` (llama `map.invalidateSize`), invocado cada frame (JS no-opea repetidos vía
-`_driving`). **No** dejarlo permanentemente sobredimensionado: a `300vw×300vh` renderizaba ~9× los tiles
-(el costo dominante de FPS al moverse). Follow-camera con `map.panBy` (no `setView`).
+**Fijo:** `100vw×100vh` SIEMPRE (≈45 tiles). La cámara es **norte-arriba** (estilo GTA Chinatown Wars):
+el mapa no gira, solo gira el sprite del coche (`vehicleSpriteHeading`). Por eso ya no existen
+`setMapOversize`, `setMapRotation` ni `applyVehicleViewport`; sobredimensionar el wrapper solo hacía falta al
+rotar el mapa (con la diagonal en PÍXELES para evitar **esquinas negras** en WebViews viejas). **No** volver a
+agrandarlo: a `300vw×300vh` renderizaba ~9× los tiles (el costo dominante de FPS al moverse).
+Follow-camera con `map.panBy` (no `setView`).
 
 ## 8. Render web NPC types / web renderer NPC types
 
@@ -772,11 +775,12 @@ matrices por defecto son **border-only** hasta reemplazarse.
   Implementado en **OSM nativo** (`NativeOsmMap`: `Polygon`/`Polyline` cacheados, rebuild solo si cambian
   landmarks o colisiones) y **web** (`updateInteriorPaths` recibe `{paths, blocks, walls}`; el VM convierte
   `localX/localY → global` con `toGlobalGeoPoint`). Google nativo = pendiente (como el resto del overlay).
-- **Zoom automático por estado + SUAVIZADO:** `updateAutoZoom()` (miembro del VM, llamado cada tick del game
-  loop miembro) cambia `targetZoomLevel` SOLO en transiciones: a pie `ZOOM_ON_FOOT=22`, conduciendo
-  `ZOOM_DRIVING=21`, ≥85% MAX_SPEED `ZOOM_DRIVING_FAST=20` (vuelve a 21 bajo el 65%). El pinch del
-  usuario se respeta entre transiciones. **NO cambies `zoomLevel` directamente en transiciones;**
-  el game loop interpola `zoomLevel` hacia `targetZoomLevel` (~1 nivel por tick) para evitar el
+- **Zoom automático por estado + SUAVIZADO:** `updateAutoZoom()` (extensión del VM, llamada cada tick del game
+  loop) cambia `targetZoomLevel` SOLO cuando cambia `autoZoomTarget(isDriving)` (`WorldMapState.kt`): a pie
+  `ZOOM_ON_FOOT=22`, conduciendo `ZOOM_DRIVING=21`. Ya NO depende de la velocidad (no hay zoom 20 a alta
+  velocidad: la cámara es fija). El pinch del usuario se respeta entre transiciones (el VM guarda
+  `lastAutoZoomTarget`). **NO cambies `zoomLevel` directamente en transiciones;**
+  el game loop interpola `zoomLevel` hacia `targetZoomLevel` (10 % de la distancia restante por tick) para evitar el
   "shock" visual brusco al robar/salir de un auto. **GOTCHA:** cualquier acción que fije `zoomLevel`
   a mano (`zoomIn/zoomOut/onMapZoomChanged/zoomToPlayer`) DEBE fijar TAMBIÉN `targetZoomLevel`, o el
   `updateAutoZoom()` del siguiente tick arrastra el zoom de vuelta y "rebota" (era el bug de "Hacer
@@ -1563,3 +1567,19 @@ el simulador**. Compilar no es verificar.
   `PowModos.kt`**, como `sfMultijugadorDisponible()` para el MULTIJUGADOR del modo pelea. Nada de
   `if (esAndroid)` sueltos en la UI.
 - Antes de pintar algo nuevo en iOS, compruébalo en el simulador o en un iPhone: compilar no basta.
+- **El bundle de la App Store necesita tres cosas que Android no** (2026-11-21, PR #189): ícono de
+  1024×1024 **sin transparencia** (`iosApp/POW/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png`),
+  manifiesto de privacidad (`iosApp/POW/PrivacyInfo.xcprivacy`) e `ITSAppUsesNonExemptEncryption` en el
+  `Info.plist`. Todo uso nuevo en iOS de una API de "razón requerida" (UserDefaults, fechas de archivos,
+  tiempo desde el arranque, espacio en disco) se declara en el manifiesto con su razón, o App Store Connect
+  rechaza la subida (ITMS-91053). La carpeta `POW/` está sincronizada con el proyecto: lo que se pone ahí
+  entra solo al target y al bundle, sin tocar el `.pbxproj` (por eso el `Info.plist` vive fuera).
+
+### Excluir de un cupo exige un tope propio (2026-11-16)
+Si un tipo de NPC se excluye de `maxActiveNpcs`/`maxTotalNpcs` (como los `CAMPUS_PED_*` o los estacionados), debe tener SU PROPIO tope y su recorte: sin él, la condición de spawn `... < maxTotalNpcs` pasa siempre y se acumulan sin límite (llegaron a ~200 y hundieron el WebView, 1 GB de RAM). Ver `domain/models/ai/CampusPedestrianCap.kt` y `MUNDO/04_MAP_EXTERIOR.md`.
+
+### Todo actor que se mueve en línea recta debe pasar por la colisión estática (2026-11-16)
+Un NPC que "va directo" al objetivo (perseguir, huir, esquivar, escoltar, guion de misión o evento) atraviesa los edificios de OSM si su posición no pasa por `resolveNpcPath`/`resolveCirclePath` (ver `NpcStaticCollision.kt`, `collided`). Los datos de rutas dibujadas a mano (navGraph) también pueden cruzar edificios: filtrar vías y puntos de aparición con `walkableLocalWays`/`localNodeFree`. Y nunca poner `speed = 0.0` como respuesta a un bloqueo: el NPC queda congelado para siempre.
+
+### Las coordenadas de la imagen del campus NO se convierten con `toGlobalGeoPoint` tal cual (2026-11-16)
+La imagen se dibuja con la rotación contraria a `Landmark.toGlobalGeoPoint`; las vías del navGraph están en el sistema de `toGlobalGeoPoint`. Para pasar píxeles de la imagen a lat/lon usa `-rotationAngle` (ver `tools/escom_art_footprints/art_to_footprints.py` y `MUNDO/04_MAP_EXTERIOR.md`). Valida siempre superponiendo el resultado sobre el mapa y comparando con el navGraph (debe quedar fuera de los techos).

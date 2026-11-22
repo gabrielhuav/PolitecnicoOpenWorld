@@ -6,7 +6,10 @@ import kotlinx.serialization.Serializable
 data class ExteriorCollisionsConfig(
     val polygons: List<CollisionPolygon> = emptyList(),
     val walls: List<CollisionWall> = emptyList()
-)
+) {
+    /** Descarte previo por caja envolvente (no se serializa: propiedad delegada; ver [BarrierIndex]). */
+    internal val barrierIndex: BarrierIndex by lazy(LazyThreadSafetyMode.PUBLICATION) { BarrierIndex.build(this) }
+}
 
 /** Define si una forma del diseñador participa en física o solo guía la navegación. */
 @Serializable

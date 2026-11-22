@@ -2,6 +2,7 @@ package ovh.gabrielhuav.pow.features.map_exterior.viewmodel
 
 import kotlinx.serialization.encodeToString
 import ovh.gabrielhuav.pow.data.json.PowJson
+import ovh.gabrielhuav.pow.domain.models.map.cargarColisionesConHuellas
 import ovh.gabrielhuav.pow.data.json.jsonOf
 
 import android.content.Context
@@ -33,6 +34,7 @@ import ovh.gabrielhuav.pow.domain.models.ai.NpcAiManager
 import ovh.gabrielhuav.pow.domain.models.map.ActiveCollectible
 import ovh.gabrielhuav.pow.domain.models.map.CarModel
 import ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig
+import ovh.gabrielhuav.pow.domain.models.map.slideAlongCorridor
 import ovh.gabrielhuav.pow.domain.models.map.MapWay
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
@@ -213,6 +215,15 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     // ETAPA 4 (Hilt): lo que ANTES hacía el Factory manual tras construir el VM. Va en un init
     // DESPUÉS de declarar npcAiManager (orden de inicialización de Kotlin). GAMA DEL TELÉFONO:
     // escala la población de NPCs; se combina con urbanFactor (densidad urbana) y el ajuste del usuario.
+    /**
+     * Aviso de "te van a bajar del coche", ya resuelto por el `init` de abajo.
+     *
+     * ⚠️ Debe declararse ANTES de ese `init`: Kotlin ejecuta inicializadores e `init` en orden de
+     * declaración, y si la carga termina sin suspender, un `= ""` posterior borraba el texto (el aviso
+     * salía como un rectángulo rojo vacío, DEV-05). `WorldMapScreen` tampoco pinta el aviso en blanco.
+     */
+    internal var textoCarjack: String = ""
+
     init {
         npcAiManager.deviceTierFactor = entorno.factorDeGama()
         npcAiManager.userPopulationFactor = settingsRepository.getNpcDensity()
@@ -222,15 +233,6 @@ class WorldMapViewModel @javax.inject.Inject constructor(
         // publican una vez (horda, Prankedy, teletransporte) sí se resuelven en el momento.
         viewModelScope.launch { textoCarjack = getString(Res.string.wm_carjack_warning) }
     }
-
-    /**
-     * Aviso de "te van a bajar del coche", ya resuelto.
-     *
-     * Vacío hasta que termina la carga inicial. No es un problema real: para que haga falta, el
-     * jugador tiene que estar dentro de un coche y casi parado con la policía encima, y eso no
-     * puede pasar en el primer frame de la partida.
-     */
-    internal var textoCarjack: String = ""
 
     // ─── Red de calles expuesta a la UI ──────────────────────────────────────
     // La WorldMapScreen consume este Flow para pintar las Polylines de los
@@ -760,7 +762,7 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                             var dodgeOffsetX = 0.0
                             var dodgeOffsetY = 0.0
 
-                            for ((id, npc) in remoteEntities.entries.toList()) {
+                            for (npc in remoteEntities.values) { // sin copia: este bucle solo lee (sin allocations por tick)
                                 if (npc.type == NpcType.CAR || npc.type == ovh.gabrielhuav.pow.domain.models.map.NpcType.POLICE_CAR) {
                                     val vLat = npc.location.latitude - tempLoc.latitude
                                     val vLon = npc.location.longitude - tempLoc.longitude
@@ -826,6 +828,15 @@ class WorldMapViewModel @javax.inject.Inject constructor(
 
                                 val finalLoc = if (distToRoad <= maxRoadRadius) {
                                     tempLoc
+                                } else if (distance(location, nearestRoadPoint) <= maxRoadRadius * ROAD_SLIDE_ENTRY_FACTOR) {
+                                    // Venías por la calle y rozas el borde del corredor: DESLIZA a lo largo de ella
+                                    // (pared que desliza) en vez de frenar ×0.6 y quedarte clavado con el gas puesto.
+                                    val slid = slideAlongCorridor(nearestRoadPoint, tempLoc, maxRoadRadius)
+                                    val stepLen = distance(location, tempLoc)
+                                    val keptRatio = if (stepLen > 0.0) distance(location, slid) / stepLen else 1.0
+                                    // Solo pierde velocidad de frente contra el borde; en ángulo rasante casi no pierde.
+                                    currentSpeed *= ROAD_SLIDE_BASE_KEEP + (1.0 - ROAD_SLIDE_BASE_KEEP) * keptRatio.coerceIn(0.0, 1.0)
+                                    slid
                                 } else if (absSpeed < MAX_SPEED * 0.15) {
                                     // Apenas arrancando: en lugar de frenar en seco (que impedía
                                     // mover el coche si abordabas en una calle sin marca "car"),
@@ -851,10 +862,12 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                 }
 
                                 // La aduana se aplica DESPUÉS del ajuste de carretera: ese ajuste no
-                                // puede empujar la carrocería a través de una barda o edificio.
-                                val staticResolution = resolveVehicleStaticMovement(
-                                    config = exteriorCollisions,
+                                // puede empujar la carrocería a través de una barda o edificio. Si el coche
+                                // ya estaba encimado y la calle queda detrás del edificio, reintenta con el
+                                // paso del rumbo para poder salir (ver resolveVehicleDrivingStep).
+                                val staticResolution = exteriorCollisions.resolveVehicleDrivingStep(
                                     from = location,
+                                    headingTarget = tempLoc,
                                     roadAdjustedTarget = finalLoc,
                                     headingDegrees = currentRotation,
                                     dimensions = vehicleModel.collisionDimensions,
@@ -880,8 +893,17 @@ class WorldMapViewModel @javax.inject.Inject constructor(
                                 if (isAutoDodging) lastDodgeTime = System.currentTimeMillis()
                                 // Cancelar inmunidad si el jugador gira voluntariamente (para permitir chocar intencionalmente)
                                 if (isSteeringSharply) lastDodgeTime = 0L
-                                val trafficImpact = runOverNpcs(location, finalLoc, currentSpeed)
-                                val resolvedLocation = trafficImpact?.playerCenter ?: finalLoc
+                                // Destino real del paso: el de la calle o, al salir de un solape, el del rumbo.
+                                val moveTarget = staticResolution.position
+                                val trafficImpact = runOverNpcs(location, moveTarget, currentSpeed)
+                                // La salida por vector mínimo puede empujar contra una barda: si es así, no avanzar.
+                                val pushedLocation = trafficImpact?.playerCenter ?: moveTarget
+                                val resolvedLocation = if (
+                                    trafficImpact != null && pushedLocation != location &&
+                                    !resolveVehicleStaticMovement(
+                                        exteriorCollisions, location, pushedLocation, currentRotation, vehicleModel.collisionDimensions,
+                                    ).reachedTarget
+                                ) location else pushedLocation
                                 if (trafficImpact != null) currentSpeed *= trafficImpact.playerSpeedMultiplier
                                 _uiState.update {
                                     it.copy(
@@ -1157,8 +1179,7 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     internal fun loadExteriorCollisions() { // llamado desde WorldMapDesigner.kt
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val jsonString = PowAssets.texto("CONFIG/exterior_collisions.json")
-                exteriorCollisions = PowJson.decodeFromString<ExteriorCollisionsConfig>(jsonString)
+                exteriorCollisions = cargarColisionesConHuellas()
 
                 npcAiManager.setExteriorCollisions(exteriorCollisions)
                 // Exponer al estado para el overlay de Debug Interiores (zonas no caminables).
@@ -1228,6 +1249,9 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     // "jalar" al jugador hacia una calle. Más lejos = la red no cubre esta zona
     // todavía; el movimiento se ignora en vez de teletransportar.
     internal val MAX_SNAP_DISTANCE_DEG = 0.0003
+    /** Si el punto previo estaba a ≤ este múltiplo del radio de la calle, el coche DESLIZA por el borde (si no, se reincorpora). */
+    internal val ROAD_SLIDE_ENTRY_FACTOR = 1.25
+    internal val ROAD_SLIDE_BASE_KEEP = 0.85
     internal var indexedRef: List<MapWay>?    = null
     internal var segs: List<Seg>              = emptyList()
     internal var grid: Map<Long, List<Seg>>   = emptyMap()
@@ -1337,14 +1361,12 @@ class WorldMapViewModel @javax.inject.Inject constructor(
     internal var currentInteriorLab1KeyFound: Boolean = false
 
     // REFACTOR: toggles de widgets + zoom/cámara movidos a WorldMapCameraUi.kt (extensiones del VM,
-    // mismo paquete). Los campos de interpolación (autoZoomMode/targetZoomLevel) siguen aquí (internal).
+    // mismo paquete). Los campos de interpolación (lastAutoZoomTarget/targetZoomLevel) siguen aquí (internal).
 
-    // ─── ZOOM AUTOMÁTICO POR ESTADO (a pie / conduciendo / conduciendo rápido) ───
-    // A pie 22; al subir a un vehículo 21; a MUY alta velocidad (≥85% de MAX_SPEED)
-    // baja a 20, y vuelve a 21 por debajo del 65% (histéresis anti-parpadeo). Solo
-    // actúa en TRANSICIONES de modo, así el pinch manual del usuario se respeta
-    // hasta el siguiente cambio de estado.
-    internal var autoZoomMode = 0 // 0 = a pie, 1 = conduciendo, 2 = conduciendo rápido
+    // ─── ZOOM AUTOMÁTICO (autoZoomTarget) ───
+    // A pie 22; manejando 21, sin depender de la velocidad. Solo se reasigna targetZoomLevel
+    // cuando CAMBIA el objetivo automático, así el pinch manual se respeta hasta el siguiente cambio.
+    internal var lastAutoZoomTarget = ZOOM_ON_FOOT // último objetivo AUTOMÁTICO de la cámara (autoZoomTarget)
     internal var targetZoomLevel = ZOOM_ON_FOOT // Zoom objetivo para interpolación suave (usado por WorldMapCameraUi.kt)
 
     // updateAutoZoom / zoomIn / zoomOut / onMapZoomChanged / centerOnPlayer / zoomToPlayer /

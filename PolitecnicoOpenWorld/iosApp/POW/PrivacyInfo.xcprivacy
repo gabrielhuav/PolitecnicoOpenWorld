@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Manifiesto de privacidad de la app (App Store, 2026-11-21). Sin él, App Store Connect rechaza la subida
+  si la app usa APIs de "razón requerida" sin declararlas (aviso ITMS-91053).
+
+  - NSUserDefaults (UserDefaults): ajustes, récords, idioma y Modo Desarrollador se guardan ahí y solo los
+    lee la propia app → razón CA92.1.
+  - Sin rastreo ni datos recolectados: la build de iOS solo ofrece Titulación por Combate, sin cuentas ni
+    multijugador.
+
+  ⚠️ Si Apple avisa de otra categoría al subir (correo ITMS-91053, o el reporte de privacidad del Organizer
+  de Xcode), agrégala aquí con su razón y vuelve a subir. La carpeta POW/ está sincronizada con el
+  proyecto: este archivo entra solo al bundle (comprobar que exista en POW.app/PrivacyInfo.xcprivacy).
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

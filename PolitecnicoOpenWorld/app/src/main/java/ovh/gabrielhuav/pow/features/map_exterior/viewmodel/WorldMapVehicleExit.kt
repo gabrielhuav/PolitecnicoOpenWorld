@@ -8,6 +8,8 @@ import ovh.gabrielhuav.pow.domain.models.map.CarModel
 import ovh.gabrielhuav.pow.domain.models.map.Npc
 import ovh.gabrielhuav.pow.domain.models.map.NpcType
 import ovh.gabrielhuav.pow.domain.models.map.VehicleFootprint
+import ovh.gabrielhuav.pow.domain.models.map.isInsideBarrier
+import ovh.gabrielhuav.pow.domain.models.map.vehicleSpriteHeading
 import ovh.gabrielhuav.pow.shared.recursos.Res
 import ovh.gabrielhuav.pow.shared.recursos.wm_vehicle_exit_blocked
 import java.util.UUID
@@ -24,8 +26,18 @@ internal fun WorldMapViewModel.exitVehicle(forced: Boolean): Boolean {
     } else {
         vehicleExitCandidates(vehicleCenter, state.vehicleRotation, vehicleModel.collisionDimensions)
     }
-    val exitPoint = selectVehicleExit(candidates) { candidate ->
-        isVehicleExitWalkable(candidate, vehicleCenter, vehicle)
+    val exitPoint = if (forced) {
+        // El carjack no puede fallar: si todo está bloqueado, baja en el mejor punto disponible.
+        selectForcedVehicleExit(
+            candidates,
+            isWalkable = { isVehicleExitWalkable(it, vehicleCenter, vehicle) },
+            isClearOfVehicle = { !vehicle.contains(it) },
+            isInsideBarrier = { exteriorCollisions?.isInsideBarrier(it) == true },
+        )
+    } else {
+        selectVehicleExit(candidates) { candidate ->
+            isVehicleExitWalkable(candidate, vehicleCenter, vehicle)
+        }
     }
     if (exitPoint == null) {
         logVehicleCollision("exit-blocked")
@@ -39,7 +51,7 @@ internal fun WorldMapViewModel.exitVehicle(forced: Boolean): Boolean {
         id = UUID.randomUUID().toString(),
         type = NpcType.CAR,
         location = vehicleCenter,
-        rotationAngle = (state.vehicleRotation + 270f) % 360f,
+        rotationAngle = vehicleSpriteHeading(state.vehicleRotation),
         speed = 0.0,
         isMoving = false,
         carModel = vehicleModel,
@@ -83,8 +95,15 @@ private fun WorldMapViewModel.isVehicleExitWalkable(
     }
 }
 
+// Solo debug: una línea cada 500 ms por motivo; con el coche pegado a un edificio el ciclo del juego llamaba 16-20 veces por segundo.
+private val lastVehicleCollisionLogMs = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
 internal fun WorldMapViewModel.logVehicleCollision(reason: String) {
     if (!BuildConfig.DEBUG) return
+    val kind = reason.substringBefore(' ')
+    val now = System.currentTimeMillis()
+    if (now - (lastVehicleCollisionLogMs[kind] ?: 0L) < 500L) return
+    lastVehicleCollisionLogMs[kind] = now
     val state = _uiState.value
     Log.d("VehicleCollision", "reason=$reason loc=${state.currentLocation} rotation=${state.vehicleRotation}")
 }

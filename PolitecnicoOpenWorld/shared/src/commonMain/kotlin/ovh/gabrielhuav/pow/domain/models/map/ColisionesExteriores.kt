@@ -1,6 +1,7 @@
 package ovh.gabrielhuav.pow.domain.models.map
 
 import ovh.gabrielhuav.pow.data.json.PowJson
+import ovh.gabrielhuav.pow.domain.models.geo.GeoPoint
 import ovh.gabrielhuav.pow.platform.assets.PowAssets
 
 /**
@@ -52,3 +53,16 @@ fun ExteriorCollisionsConfig.chocaAlMoverse(
     }
     return false
 }
+
+/**
+ * Posición a la que llega un actor a pie al intentar ir de [desde] a [hasta]: el destino si el camino está libre, o el
+ * último punto seguro antes de un edificio o barda. Usa [resolveCirclePath], el MISMO resolvedor de Android, así que
+ * un actor que ya está DENTRO de un edificio (spawn, salida de un interior) camina libre hasta salir, y uno que
+ * viene de fuera no puede entrar. Sustituye a [chocaAlMoverse], que solo miraba el destino y dejaba atrapado a quien
+ * quedaba dentro (la usaba el mapa de iOS).
+ */
+fun ExteriorCollisionsConfig.avanzarConColision(
+    desde: GeoPoint,
+    hasta: GeoPoint,
+    radioMetros: Double = PLAYER_FOOT_COLLIDER_METERS,
+): GeoPoint = resolveCirclePath(desde, hasta, CircleCollider(radioMetros)).position

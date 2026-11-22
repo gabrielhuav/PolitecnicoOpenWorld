@@ -93,7 +93,7 @@ los flags del metadata lo distinguen. No presentar toda la galería como una sol
   Humo anterior tras insets sí probó práctica/daño 200 P1/pausa/resume/restart; no atribuirlo al binario final.
   App Android force-stop para no mezclar sonido. [Informe Android](../SF/QA_ANDROID_PR188_2026-11-15.md).
 - Simulador iPhone 17/iOS 27.0 final: build/install/launch y menú PASS; no repetir como combate final probado.
-  Humo previo Android+iOS y plugins corresponde a `pr/184`: [informe anterior](../SF/QA_ANDROID_IOS_2026-11-15.md).
+  Humo previo Android+iOS y plugins corresponde a `pr/184`: informe anterior, retirado el 2026-11-21 (en el historial de git).
 - Mac:92 audios decodifican, 91 rutas activas, 19 atlas/JSON y 337/337 recursos del bundle iguales por ruta/case/SHA.
   No sustituye escucha física. SelectorDevMode 20/60 vs progresión 18/54: extras Planetario/CET 1.
 - Biblioteca contiene FESARAGON en su propio asset; borde dorado/miniatura de Biblioteca comprobados.

@@ -1,12 +1,15 @@
 package ovh.gabrielhuav.pow.features.map_exterior.ui
 
+import ovh.gabrielhuav.pow.domain.models.map.CAR_BOX_METERS
+import ovh.gabrielhuav.pow.domain.models.map.PERSON_BOX_METERS
+
 /**
  * 🍏 HTML del mapa Leaflet — **COMPARTIDO Android + iOS** (Fase 1.5 de `PLAN_MIGRACION_KMP.md`).
  *
  * Este fichero vivía en `:app` y se movió a `:shared` con `git mv` **conservando el paquete**: por
  * eso `WorldMapScreenWeb.kt` lo sigue llamando sin tocar ni una línea de imports.
  *
- * Es Kotlin PURO: 929 líneas y **cero imports**. Ahí está la apuesta del plan — el mapa del juego
+ * Es Kotlin PURO: solo importa las constantes de escala de `WorldScale.kt` (`CAR_BOX_METERS`, `PERSON_BOX_METERS`). Ahí está la apuesta del plan — el mapa del juego
  * no se reescribe para iOS, se reutiliza tal cual dentro de un `WKWebView`, igual que en Android va
  * dentro de un `WebView`.
  *
@@ -33,13 +36,9 @@ fun buildHtml(
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { margin: 0; padding: 0; background: #0D0D11; overflow: hidden; }
-        /* OPT FPS (gama baja): el mapa Leaflet ocupa el tamaño del wrapper. Antes era
-           300vw×300vh (≈9× el área de pantalla) SIEMPRE, así que el WebView renderizaba y
-           RE-COMPONÍA ~9× las teselas — el costo dominante al moverse/conducir en web. Ahora a
-           pie es del tamaño EXACTO de la pantalla (100vw×100vh) y solo al CONDUCIR se agranda a
-           un cuadrado 150vmax (cuyo círculo inscrito cubre la diagonal en cualquier rotación),
-           vía setMapOversize(). transform-origin centrado para que rotate() gire sobre el centro. */
-        #map-wrapper { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; transform-origin: center center; }
+        /* Cámara fija norte-arriba (estilo GTA Chinatown Wars): el wrapper SIEMPRE mide 100vw×100vh
+           (≈45 teselas). Ya no gira ni se sobredimensiona: eso solo hacía falta al rotar el mapa. */
+        #map-wrapper { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; }
         #map { width: 100%; height: 100%; background: transparent; }
         .leaflet-marker-icon { background: none !important; border: none !important; }
         .leaflet-div-icon { background: transparent !important; border: none !important; }
@@ -267,55 +266,6 @@ fun buildHtml(
             map.setZoom(z, { animate: false });
         }
 
-        // OPT FPS (gama baja): a pie el wrapper es del tamaño de la pantalla (≈45 teselas en vez
-        // de ~350). Solo al CONDUCIR se agranda a un cuadrado del tamaño de la DIAGONAL de la
-        // pantalla (en px), centrado, cuyo círculo inscrito cubre las esquinas en cualquier
-        // rotación. _driving evita trabajo redundante en llamadas repetidas. La invalidación se
-        // deja al coordinador atómico para que ocurra antes del recenter.
-        function setMapOversize(driving) {
-            var w = document.getElementById('map-wrapper'); if (!w) return;
-            if (w._driving === driving) return false; w._driving = driving;
-            if (driving) {
-                // Cuadrado del tamaño de la DIAGONAL de la pantalla, en PÍXELES (no vmax/calc, que
-                // no son fiables en WebViews viejas de Android 7-9 → de ahí los bordes negros al
-                // rotar). Centrado: su círculo inscrito (lado/2 = diagonal/2) cubre las esquinas
-                // de la pantalla en CUALQUIER ángulo de rotación, sin huecos.
-                var vw = window.innerWidth, vh = window.innerHeight;
-                var d = Math.ceil(Math.sqrt(vw * vw + vh * vh)) + 8;
-                w.style.width = d + 'px'; w.style.height = d + 'px';
-                w.style.top = Math.round((vh - d) / 2) + 'px';
-                w.style.left = Math.round((vw - d) / 2) + 'px';
-            } else {
-                w.style.width = '100vw'; w.style.height = '100vh';
-                w.style.top = '0'; w.style.left = '0';
-            }
-            return true;
-        }
-        /*
-         * Transición ATÓMICA peatón↔vehículo. Cambiar el tamaño del wrapper después de
-         * centrar Leaflet dejaba un frame con dos referencias visuales: el mapa rotado y el
-         * vehículo Compose ya centrado. El orden es parte del contrato: resize → invalidate →
-         * recenter → rotar. El caller la ejecuta antes de actualizar sprites/niebla.
-         */
-        function applyVehicleViewport(driving, lat, lng, zoom, rotation, recenter) {
-            var changed = setMapOversize(driving);
-            if (changed && typeof map !== 'undefined' && map) {
-                map.invalidateSize(false);
-            }
-            if (recenter && lat !== null && lng !== null && typeof map !== 'undefined' && map) {
-                map.setView([lat, lng], zoom, { animate: false });
-            }
-            setMapRotation(rotation);
-            return changed;
-        }
-        function vehicleViewportDebug() {
-            var wrapper = document.getElementById('map-wrapper');
-            var rect = wrapper ? wrapper.getBoundingClientRect() : null;
-            var center = (typeof map !== 'undefined' && map) ? map.getCenter() : null;
-            return JSON.stringify({ rect: rect ? [rect.left, rect.top, rect.width, rect.height] : null,
-                center: center ? [center.lat, center.lng] : null, rotation: wrapper ? wrapper.style.transform : null });
-        }
-        function setMapRotation(deg) { var wrapper = document.getElementById('map-wrapper'); if (wrapper) wrapper.style.transform = 'rotate(' + deg + 'deg)'; }
         // Cambia el proveedor de teselas. maxNative = zoom máximo REAL del proveedor
         // (CARTO sirve hasta z20 → más nitidez; OSM solo z19). Si cambia, hay que
         // recrear la capa (Leaflet no permite cambiar maxNativeZoom en caliente).
@@ -561,19 +511,19 @@ fun buildHtml(
             for (var id in npcMarkers) if (!ids.has(id)) { map.removeLayer(npcMarkers[id]); delete npcMarkers[id]; }
             if (!isZoomedIn) return;
             data.forEach(function(npc) {
-                // TAMAÑO BASADO EN METROS REALES (paridad EXACTA con OSM Nativo):
-                // peatón ≈ 0.9 m, coche ≈ 2.5 m, manteniendo la proporción del sprite.
+                // TAMAÑO BASADO EN METROS REALES (paridad EXACTA con OSM Nativo, ver WorldScale.kt):
+                // cuerpo de persona 1.7 m, coche ≈ 4.2 m visibles, manteniendo la proporción del sprite.
                 // Antes el web usaba una fórmula por zoom y por eso los NPCs salían de
                 // tamaño distinto al nativo.
                 var ppm = (256 * Math.pow(2, currentZoom)) / (40075016 * Math.cos((npc.lat || 19.5) * Math.PI / 180));
                 var finalW, finalH;
                 if (npc.type === 'CAR') {
-                    var carPx = Math.max(16, 4.0 * ppm);
+                    var carPx = Math.max(16, ${CAR_BOX_METERS} * ppm);
                     var ratio = (npc.width && npc.height) ? (npc.width / npc.height) : 1;
                     if (ratio > 1) { finalW = Math.round(carPx); finalH = Math.round(carPx / ratio); }
                     else { finalH = Math.round(carPx); finalW = Math.round(carPx * ratio); }
                 } else if (npc.type === 'MODULAR') {
-                    var pedPx = Math.round(Math.max(12, 1.3 * ppm));
+                    var pedPx = Math.round(Math.max(12, ${PERSON_BOX_METERS} * ppm));
                     finalW = pedPx; finalH = pedPx;
                 } else { finalW = 24; finalH = 24; }
                 var nameTagHtml = '';
@@ -758,7 +708,7 @@ fun buildHtml(
             if (!npc || npc.lat === null || npc.lat === undefined) { if (prankedyMarker) { map.removeLayer(prankedyMarker); prankedyMarker = null; } return; }
             var currentZoom = map.getZoom();
             var ppm = (256 * Math.pow(2, currentZoom)) / (40075016 * Math.cos((npc.lat || 19.5) * Math.PI / 180));
-            var px = Math.round(Math.max(12, 1.3 * ppm));
+            var px = Math.round(Math.max(12, ${PERSON_BOX_METERS} * ppm));
             var cachedImg = (window.imgCache && npc.imageKey) ? window.imgCache[npc.imageKey] : '';
             var flip = (npc.flip !== undefined) ? npc.flip : 1;
             var dlg = npc.dialogue ? escapeHtml(npc.dialogue) : '';

@@ -4,12 +4,12 @@ import kotlinx.coroutines.flow.update
 
 /**
  * Parcial de CÁMARA/ZOOM y toggles de WIDGETS de [WorldMapViewModel] (extraído para reducir el
- * tamaño del VM; mismo paquete `viewmodel`). Zoom automático por estado (a pie/conduciendo/rápido),
+ * tamaño del VM; mismo paquete `viewmodel`). Zoom automático por estado (a pie/conduciendo),
  * zoom manual, canal de pinch, centrado/pan de cámara y los toggles de widgets de la UI.
  *
- * Son EXTENSIONES del VM: solo tocan miembros `internal`/`public` (`_uiState`, `MAX_SPEED`,
- * y los campos de interpolación `autoZoomMode`/`targetZoomLevel`, que viven en el VM como `internal`)
- * + las consts top-level de `WorldMapState.kt` (`ZOOM_ON_FOOT`/`ZOOM_DRIVING`/`ZOOM_DRIVING_FAST`).
+ * Son EXTENSIONES del VM: solo tocan miembros `internal`/`public` (`_uiState`,
+ * y los campos de interpolación `lastAutoZoomTarget`/`targetZoomLevel`, que viven en el VM como `internal`)
+ * + las consts top-level de `WorldMapState.kt` (`ZOOM_ON_FOOT`/`ZOOM_DRIVING`/`autoZoomTarget`).
  * Sin gemelo miembro. Call-sites FUERA del paquete (MainActivity, WorldMapScreen, NativeOsmMap,
  * MapJsBridge) importan estas extensiones explícitamente. MVVM intacto.
  */
@@ -26,19 +26,12 @@ fun WorldMapViewModel.updateShowFpsWidget(show: Boolean) = _uiState.update { it.
 
 internal fun WorldMapViewModel.updateAutoZoom() {
     val st = _uiState.value
-    val absSpeed = kotlin.math.abs(st.vehicleSpeed)
-    val newMode = when {
-        !st.isDriving -> 0
-        autoZoomMode == 2 -> if (absSpeed < MAX_SPEED * 0.65) 1 else 2
-        else -> if (absSpeed >= MAX_SPEED * 0.85) 2 else 1
-    }
-    if (newMode != autoZoomMode) {
-        autoZoomMode = newMode
-        targetZoomLevel = when (newMode) {
-            0 -> ZOOM_ON_FOOT
-            1 -> ZOOM_DRIVING
-            else -> ZOOM_DRIVING_FAST
-        }
+    // Cámara fija norte-arriba: el zoom solo cambia al subir/bajar de un vehículo (no con la velocidad).
+    // Solo se reasigna targetZoomLevel cuando CAMBIA el objetivo automático, así el pinch manual se respeta.
+    val autoTarget = autoZoomTarget(st.isDriving)
+    if (autoTarget != lastAutoZoomTarget) {
+        lastAutoZoomTarget = autoTarget
+        targetZoomLevel = autoTarget
     }
     // Interpolar zoomLevel hacia targetZoomLevel para transición suave
     val currentZoom = st.zoomLevel

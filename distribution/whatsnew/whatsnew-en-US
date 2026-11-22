@@ -1,6 +1,5 @@
 POW 1.0.0.28
 
-• Titulación por Combate: the CPU froze once its power bar filled and the fight won itself. It now throws its super and keeps fighting.
-• The status bar and navigation buttons are now legible with a light system theme, and no longer overlap the menu text.
-• Smaller download and lower memory use: icons are loaded at the size they are shown.
-• Stability and performance improvements on low-end devices.
+• Titulación por Combate: new voices for El Charro Negro (with wolf howls) and La Tzitzimime, and steadier fights when a projectile lands the final hit.
+• Free Roam: the camera stays north-up while driving, campus buildings block you on foot and by car, and getting out of a car leaves you outside it even next to obstacles.
+• Stability and performance improvements.

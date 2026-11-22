@@ -72,12 +72,11 @@ internal fun GoogleMapLayer(
                         val targetLat = uiState.currentLocation?.latitude ?: escom.latitude
                         val targetLng = uiState.currentLocation?.longitude ?: escom.longitude
                         val targetZoom = uiState.zoomLevel.toFloat()
-                        val targetBearing = if (uiState.isDriving) uiState.vehicleRotation else 0f
 
                         val newPosition = CameraPosition.builder()
                             .target(LatLng(targetLat, targetLng))
                             .zoom(targetZoom)
-                            .bearing(targetBearing)
+                            .bearing(0f) // cámara fija norte-arriba
                             .tilt(0f)
                             .build()
 

@@ -64,6 +64,9 @@ class MainActivity : ComponentActivity() {
     // Autenticación Google + Firebase. Gestiona login, token (para el handshake WS) y borrado de cuenta.
     private val authManager by lazy { ovh.gabrielhuav.pow.data.auth.AuthManager(this) }
 
+    // Solo build debug: escenarios por adb (ver DebugScenarioReceiver). Null en release.
+    private var unregisterDebugScenarios: (() -> Unit)? = null
+
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     // Persistencia de la partida del MODO HISTORIA (campaña). Es el punto de DI:
@@ -144,6 +147,7 @@ class MainActivity : ComponentActivity() {
             window.isNavigationBarContrastEnforced = false
         }
         configureOsmdroid()
+        unregisterDebugScenarios = DebugScenarioReceiver.register(this, worldMapViewModel)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         checkPermissionsAndFetchLocation()
         // Si ya había sesión de Google/Firebase (app reabierta), repuebla AuthSession + refresca token.
@@ -168,12 +172,25 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onDestroy() {
+        unregisterDebugScenarios?.invoke()
+        super.onDestroy()
+    }
+
     private fun configureOsmdroid() {
+        val osmDir = File(filesDir, "osmdroid")
+        val osmDirReady = osmDir.mkdirs() || osmDir.exists()
         Configuration.getInstance().apply {
+            // Las rutas se fijan ANTES de load(): sin ellas osmdroid sondea el almacenamiento externo
+            // (crea y borra un archivo por volumen) en el hilo principal, ~6 s por arranque en un Motorola.
+            if (osmDirReady) {
+                osmdroidBasePath  = osmDir
+                osmdroidTileCache = File(osmDir, "tiles")
+            }
             load(this@MainActivity, PreferenceManager.getDefaultSharedPreferences(this@MainActivity))
             userAgentValue = packageName
-            val osmDir = File(filesDir, "osmdroid")
-            if (osmDir.mkdirs() || osmDir.exists()) {
+            // load() puede reescribir las rutas desde las preferencias: se reafirman.
+            if (osmDirReady) {
                 osmdroidBasePath  = osmDir
                 osmdroidTileCache = File(osmDir, "tiles")
             }

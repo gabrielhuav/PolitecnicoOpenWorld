@@ -176,7 +176,8 @@ class NpcAiManager {
     @Volatile var userPopulationFactor: Float = 1.0f
     private val popFactor get() = deviceTierFactor * urbanFactor * userPopulationFactor
 
-    internal var exteriorCollisions: ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig? = null
+    // @Volatile: se asigna desde el hilo de carga y se lee desde el de la IA (antes un NPC podía no verlo).
+    @Volatile internal var exteriorCollisions: ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig? = null
 
     fun setExteriorCollisions(config: ovh.gabrielhuav.pow.domain.models.map.ExteriorCollisionsConfig?) {
         this.exteriorCollisions = config
@@ -187,6 +188,8 @@ class NpcAiManager {
     // ciudad + ajuste del usuario), así que NO se hardcodea la densidad final.
     private val maxActiveNpcs get() = ((if (globalZombieMode) 45 else 10) * popFactor).toInt().coerceIn(4, 120)
     private val maxTotalNpcs  get() = ((if (globalZombieMode) 90 else 22) * popFactor).toInt().coerceIn(8, 240)
+    // Peatones del campus: tope PROPIO (están excluidos de los cupos de arriba; sin él se acumulaban sin límite).
+    private val maxCampusPeds get() = campusPedestrianCap(popFactor)
 
     // Cadencia de aparición más lenta (antes 500 ms): los NPCs entran de a pocos, no en masa.
     private val SPAWN_SCAN_MS = 900L
@@ -474,6 +477,14 @@ class NpcAiManager {
                 farthest.forEach { pendingDespawns.add(it.id) }
             }
 
+            // Recorta los peatones del campus que pasen su tope (más lejanos primero).
+            val campusExcess = campusPedestriansToCull(serverNpcs, maxCampusPeds, playerLocation)
+            if (campusExcess.isNotEmpty()) {
+                serverNpcs.removeAll(campusExcess)
+                campusExcess.forEach { pendingDespawns.add(it.id) }
+            }
+            fun campusPedAlive() = serverNpcs.count { it.id.startsWith(CAMPUS_PED_PREFIX) }
+
             val activeLandmarks = cachedNavLandmarks.get()
 
             // DIAGNÓSTICO (POW_DBG, cada ~2 s): cuántos landmarks con navGraph ve la IA y a qué distancia
@@ -536,13 +547,13 @@ class NpcAiManager {
                     val navGraph = landmark.navGraph
                     if (firstPopulate && navGraph != null && !globalZombieMode) {
                         // Genera 3 Vendedores fijos en algunas palapas (isStopPoint) distribuidos aleatoriamente
-                        val vendorNodes = navGraph.ways.flatMap { it.nodes.filter { node -> node.isStopPoint } }.shuffled().take(3)
+                        val vendorNodes = navGraph.ways.flatMap { it.nodes.filter { node -> node.isStopPoint && localNodeFree(landmark, node) } }.shuffled().take(3)
                         vendorNodes.forEach { vNode ->
                             serverNpcs.add(spawnCampusVendor(landmark, vNode))
                         }
 
                         // Genera Gatos del Campus en nodos aleatorios del paso peatonal
-                        val pedestrianNodes = navGraph.ways.filter { it.id >= 200 }.flatMap { it.nodes }
+                        val pedestrianNodes = walkableLocalWays(landmark, navGraph.ways.filter { it.id >= 200 }).flatMap { it.nodes }
                         if (pedestrianNodes.isNotEmpty()) {
                             val catNodes = pedestrianNodes.shuffled().take(4) // 4 gatitos
                             catNodes.forEach { cNode ->
@@ -551,11 +562,11 @@ class NpcAiManager {
                             }
                         }
 
-                        val pedestrianWays = navGraph.ways.filter { it.id >= 200 }
+                        val pedestrianWays = walkableLocalWays(landmark, navGraph.ways.filter { it.id >= 200 })
                         if (pedestrianWays.isNotEmpty()) {
                             val numStudents = Random.nextInt(30, 50)
                             for (i in 0 until numStudents) {
-                                if (nonParkedAlive() < maxTotalNpcs) {
+                                if (campusPedAlive() < maxCampusPeds) {
                                     val pWay = pedestrianWays.random()
                                     val pNode = pWay.nodes.random()
                                     serverNpcs.add(spawnCampusPedestrian(landmark, pWay, pNode))
@@ -618,13 +629,13 @@ class NpcAiManager {
 
                         if (activeLandmarks.isNotEmpty() && !globalZombieMode && Random.nextFloat() < 0.50f) {
                             val targetLandmark = activeLandmarks.random()
-                            val pedestrianWays = targetLandmark.navGraph?.ways?.filter { it.id >= 200 } ?: emptyList()
+                            val pedestrianWays = walkableLocalWays(targetLandmark, targetLandmark.navGraph?.ways?.filter { it.id >= 200 } ?: emptyList())
                             if (pedestrianWays.isNotEmpty()) {
                                 val pWay = pedestrianWays.random()
                                 val pNode = pWay.nodes.random()
                                 val groupSize = Random.nextInt(1, 4)
                                 for (g in 0 until groupSize) {
-                                    if (nonParkedAlive() < maxTotalNpcs) {
+                                    if (campusPedAlive() < maxCampusPeds) {
                                         serverNpcs.add(spawnCampusPedestrian(targetLandmark, pWay, pNode))
                                     }
                                 }
@@ -784,19 +795,19 @@ class NpcAiManager {
                 } else {
                     if (npc.dodgeUntil > now) {
                         val ds = personSpeed * 10.0
-                        npc.copy(
+                        collided(npc, npc.copy(
                             location = GeoPoint(npc.location.latitude + npc.dodgeDirLat * ds, npc.location.longitude + npc.dodgeDirLon * ds),
                             isMoving = true,
                             facingRight = npc.dodgeDirLon >= 0
-                        )
+                        ))
                     } else if ((globalZombieMode || npc.id.startsWith(SIDE_ZOMBIE_PREFIX)) && npc.type == NpcType.ZOMBIE) {
-                        val moved = moveZombieNpc(npc, currentNetwork, now, pLat0, pLon0)
+                        val moved = moveZombieNpc(npc, currentNetwork, now, pLat0, pLon0)?.let { collided(npc, it) }
                         if (moved == null) {
                             pendingDespawns.add(npc.id)
                         }
                         moved
                     } else if (globalZombieMode && npc.type == NpcType.POLICE_COP) {
-                        movePoliceHunter(npc, currentNetwork, now, pLat0, pLon0)
+                        movePoliceHunter(npc, currentNetwork, now, pLat0, pLon0)?.let { collided(npc, it) }
                     } else if (npc.type == NpcType.CAT) {
                         // Esta rama ya no debería alcanzarse (el CAT se maneja arriba),
                         // pero la dejamos como seguro por si acaso.
