@@ -38,6 +38,8 @@ Ventana de dos días, máximo 200 líneas. La sesión anterior (QA física del 2
   bajar del coche, choques. Encontrado y corregido: un coche encimado en un edificio con la calle detrás
   quedaba clavado (`resolveVehicleDrivingStep`) y el punto del escenario DEV-08 estaba dentro del techo.
 - Notas de Play de la 1.0.0.28 reescritas (las de antes eran de septiembre).
+- Purga de docs: 30 archivos ejecutados o sin referencias fuera de `README for IAS` (prompts de traspaso,
+  checkpoints, historiales, QA viejas, maquetas HTML); 0 enlaces rotos en 62 docs. Siguen en git.
 - App Store: ícono 1024, `PrivacyInfo.xcprivacy` e `ITSAppUsesNonExemptEncryption` en `iosApp/`, y
   traspaso [`PROMPT_MAC_appstore_final.md`](PROMPT_MAC_appstore_final.md).
 

@@ -45,7 +45,6 @@ reproducible para atlas modificados. Alexis / PR #158 incluye fuentes de reparac
 |---|---|
 | `DISENO_ARCADE_SF_POW.md` | **El doc central.** Roster, escalera del arcade, moveset 3rd Strike, combos, tutorial, fatality, y el registro de cambios por fecha. |
 | `SF_STAGES_MAPS_UNLOCK.md` | Escenarios y cómo se desbloquean. |
-| `QA_SF_STAGES_2026-07-18.md` | QA de escenarios. |
 | `AUDIT_SF_MULTIPLAYER.md` | Auditoría del 1v1 en red (WS y BT/LAN). Barrera "ambos listos" + endurecimiento LAN (2026-07-25). |
 | `DISENO_MATCHMAKING_P2P.md` | 🆕 Diseño (2026-07-25): Render→matchmaking + host real. Recomienda Cloudflare Workers/DO; descarta el túnel en el teléfono (Play). |
 
@@ -64,7 +63,6 @@ reproducible para atlas modificados. Alexis / PR #158 incluye fuentes de reparac
 | `AUDIO_INVENTARIO_SF.md` | Inventario de audio del modo. |
 | `SF_SPECIAL_VOICES_SFX.md` | Voces de special y SFX. |
 | `AUDIT_VOCES_SUBTITULOS.md` | **Generado**, no editar a mano: audit por clip (duración, LUFS, draft, subtítulo). |
-| `PROMPT_traspaso_audio_subtitulos.md` | Traspaso listo para pegar a otra IA con el trabajo de audio pendiente. |
 
 ### Traspasos
 
